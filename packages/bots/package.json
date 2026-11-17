@@ -1,0 +1,19 @@
+{
+  "name": "@clovervale/bots",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Clovervale headless bots.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node24 --outfile=dist/bots.cjs",
+    "dev": "node src/main.ts"
+  },
+  "dependencies": {
+    "@clovervale/shared": "*"
+  },
+  "devDependencies": {
+    "@clovervale/server": "*"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "Clovervale",
+  "entryPointStrategy": "packages",
+  "entryPoints": ["packages/*"],
+  "packageOptions": {
+    "entryPointStrategy": "expand",
+    "entryPoints": ["src"],
+    "disableSources": true
+  },
+  "plugin": ["./scripts/typedoc-module-summary.ts"],
+  "out": "docs/api",
+  "treatWarningsAsErrors": true
+}

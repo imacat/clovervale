@@ -1,0 +1,45 @@
+{
+  "name": "clovervale",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Clovervale (四葉谷): a small learning MMORPG for studying network state synchronisation.",
+  "license": "Apache-2.0",
+  "author": "imacat <imacat@mail.imacat.idv.tw>",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit && npm run typecheck --workspaces",
+    "build": "npm run typecheck && npm run build --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "npm run build && node scripts/test-browser.ts",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "docs": "typedoc",
+    "release": "npm run build && node scripts/release.ts",
+    "clean": "node scripts/clean.ts",
+    "dev:server": "npm run dev --workspace @clovervale/server",
+    "dev:client": "npm run dev --workspace @clovervale/client",
+    "dev:bots": "npm run dev --workspace @clovervale/bots"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.15.0",
+    "eslint-plugin-jsdoc": "^65.4.9",
+    "typedoc": "^0.28.20",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "esbuild": false
+  }
+}
