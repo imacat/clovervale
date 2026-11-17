@@ -23,44 +23,354 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { PROTOCOL_VERSION, decodeServerMessage } from '@clovervale/shared';
+import {
+  PROTOCOL_VERSION,
+  SLASH_DURATION,
+  SNAPSHOT_RATE,
+  WALK_SPEED,
+  createInteractMessage,
+  createMoveMessage,
+  decodeServerMessage,
+  encodeClientMessage,
+} from '@clovervale/shared';
+import type {
+  ClientMessage,
+  PlayerState,
+  ServerMessage,
+  WelcomeMessage,
+} from '@clovervale/shared';
 
 import { startServer } from '../src/server.ts';
 import type { RunningServer } from '../src/server.ts';
 
+/** How long the server may take to send an awaited message, in ms. */
+const MESSAGE_TIMEOUT = 3000;
+
+/** A snapshot, and when it was received. */
+interface TimedSnapshot {
+  /** The players in the snapshot. */
+  readonly players: readonly PlayerState[];
+  /** When the snapshot was received, in milliseconds. */
+  readonly time: number;
+}
+
+/** A peer of the server, for a test to act as. */
+class Peer {
+  /** Whether the server has closed the connection. */
+  isClosed = false;
+  readonly #socket: WebSocket;
+  readonly #messages: [ServerMessage, number][] = [];
+  #wake: () => void = () => undefined;
+
+  /**
+   * Connects to a server.
+   *
+   * @param {number} port - The TCP port the server is listening on.
+   */
+  constructor(port: number) {
+    this.#socket = new WebSocket(`ws://localhost:${String(port)}`);
+    this.#socket.addEventListener('message', (event: MessageEvent) => {
+      const message: ServerMessage = decodeServerMessage(String(event.data));
+      this.#messages.push([message, performance.now()]);
+      this.#wake();
+    });
+    this.#socket.addEventListener('close', () => {
+      this.isClosed = true;
+      this.#wake();
+    });
+  }
+
+  /**
+   * Waits for the next message from the server.
+   *
+   * @returns {Promise<[ServerMessage, number]>} The message, and when it was
+   *   received, in milliseconds.
+   * @throws {Error} If the server sends none in time.
+   */
+  async #receive(): Promise<[ServerMessage, number]> {
+    const deadline: number = performance.now() + MESSAGE_TIMEOUT;
+    for (;;) {
+      const message: [ServerMessage, number] | undefined =
+        this.#messages.shift();
+      if (message !== undefined) {
+        return message;
+      }
+      const left: number = deadline - performance.now();
+      if (left <= 0 || this.isClosed) {
+        throw new Error('The server sent nothing.');
+      }
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, left);
+        this.#wake = (): void => {
+          clearTimeout(timer);
+          resolve();
+        };
+      });
+    }
+  }
+
+  /**
+   * Waits to be welcomed, as the first thing the server says.
+   *
+   * @returns {Promise<WelcomeMessage>} The welcome message.
+   * @throws {Error} If the server says something else first.
+   */
+  async receiveWelcome(): Promise<WelcomeMessage> {
+    const [message] = await this.#receive();
+    if (message.type !== 'welcome') {
+      throw new Error(`The server started with a ${message.type} message.`);
+    }
+    return message;
+  }
+
+  /**
+   * Waits for the next snapshot.
+   *
+   * @returns {Promise<TimedSnapshot>} The snapshot.
+   */
+  async receiveSnapshot(): Promise<TimedSnapshot> {
+    for (;;) {
+      const [message, time] = await this.#receive();
+      if (message.type === 'snapshot') {
+        return { players: message.players, time };
+      }
+    }
+  }
+
+  /**
+   * Waits for a snapshot that shows what a test is waiting for.
+   *
+   * @param {(players: readonly PlayerState[]) => boolean} isAwaited - Tells
+   *   whether a snapshot shows it.
+   * @returns {Promise<TimedSnapshot>} The first such snapshot.
+   */
+  async receiveSnapshotWhere(
+    isAwaited: (players: readonly PlayerState[]) => boolean,
+  ): Promise<TimedSnapshot> {
+    for (;;) {
+      const snapshot: TimedSnapshot = await this.receiveSnapshot();
+      if (isAwaited(snapshot.players)) {
+        return snapshot;
+      }
+    }
+  }
+
+  /**
+   * Sends the server a message.
+   *
+   * @param {ClientMessage | string} message - The message, or the text to
+   *   send as it is.
+   */
+  send(message: ClientMessage | string): void {
+    this.#socket.send(
+      typeof message === 'string' ? message : encodeClientMessage(message),
+    );
+  }
+
+  /**
+   * Waits for the server to close the connection.
+   *
+   * @returns {Promise<void>} A promise settled once it is closed.
+   * @throws {Error} If the server keeps it open.
+   */
+  async waitUntilClosed(): Promise<void> {
+    const deadline: number = performance.now() + MESSAGE_TIMEOUT;
+    while (!this.isClosed) {
+      if (performance.now() > deadline) {
+        throw new Error('The server kept the connection open.');
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  /** Disconnects from the server. */
+  leave(): void {
+    this.#socket.close();
+  }
+}
+
 /**
- * Connects to a server and waits for the first message it sends.
+ * Finds a player in a snapshot.
  *
- * @param {number} port - The TCP port the server is listening on.
- * @returns {Promise<string>} The first message from the server.
+ * @param {TimedSnapshot} snapshot - The snapshot.
+ * @param {number} id - The identifier of the player.
+ * @returns {PlayerState} The player.
+ * @throws {Error} If the player is not in the snapshot.
  */
-function receiveFirstMessage(port: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const socket = new WebSocket(`ws://localhost:${String(port)}`);
-    socket.addEventListener('message', (event) => {
-      resolve(String(event.data));
-      socket.close();
-    });
-    socket.addEventListener('error', () => {
-      reject(new Error('The connection failed.'));
-    });
-  });
+function findPlayer(snapshot: TimedSnapshot, id: number): PlayerState {
+  const player: PlayerState | undefined = snapshot.players.find(
+    (candidate: PlayerState) => candidate.id === id,
+  );
+  if (player === undefined) {
+    throw new Error(`Player ${String(id)} is not in the snapshot.`);
+  }
+  return player;
+}
+
+/**
+ * Lists the identifiers of the players in a snapshot.
+ *
+ * @param {TimedSnapshot} snapshot - The snapshot.
+ * @returns {number[]} The identifiers, in the order of the snapshot.
+ */
+function listIds(snapshot: TimedSnapshot): number[] {
+  return snapshot.players.map((player: PlayerState) => player.id);
 }
 
 describe('the game server', () => {
   let server: RunningServer | undefined;
+  const peers: Peer[] = [];
+
+  /**
+   * Connects a peer to the server, which is started if it is not running.
+   *
+   * @returns {Promise<[Peer, number]>} The peer, welcomed, and the
+   *   identifier of its player.
+   */
+  async function connectPeer(): Promise<[Peer, number]> {
+    server ??= await startServer(0);
+    const peer = new Peer(server.port);
+    peers.push(peer);
+    return [peer, (await peer.receiveWelcome()).playerId];
+  }
+
+  /**
+   * Tells whether a snapshot shows two players.
+   *
+   * @param {readonly PlayerState[]} players - The players in the snapshot.
+   * @returns {boolean} Whether there are two of them.
+   */
+  function isPair(players: readonly PlayerState[]): boolean {
+    return players.length === 2;
+  }
 
   afterEach(async () => {
+    for (const peer of peers.splice(0)) {
+      peer.leave();
+    }
     await server?.stop();
     server = undefined;
   });
 
-  it('welcomes a peer with its protocol version', async () => {
+  it('welcomes a peer with its protocol version and its player', async () => {
     server = await startServer(0);
-    const data = await receiveFirstMessage(server.port);
-    expect(decodeServerMessage(data)).toEqual({
-      type: 'welcome',
-      protocolVersion: PROTOCOL_VERSION,
-    });
+    const peer = new Peer(server.port);
+    peers.push(peer);
+    const welcome: WelcomeMessage = await peer.receiveWelcome();
+    expect(welcome.protocolVersion).toBe(PROTOCOL_VERSION);
+    expect(listIds(await peer.receiveSnapshot())).toEqual([welcome.playerId]);
+  });
+
+  it('gives every peer a player of its own', async () => {
+    const [watcher, firstId] = await connectPeer();
+    const [, secondId] = await connectPeer();
+    const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(isPair);
+    expect(listIds(snapshot)).toEqual([firstId, secondId]);
+    const first: PlayerState = findPlayer(snapshot, firstId);
+    const second: PlayerState = findPlayer(snapshot, secondId);
+    expect(first.appearance).not.toBe(second.appearance);
+    expect(Math.hypot(first.x - second.x, first.z - second.z))
+      .toBeGreaterThan(1);
+  });
+
+  it('sends every peer the same snapshots', async () => {
+    const [mover, moverId] = await connectPeer();
+    const [watcher] = await connectPeer();
+    mover.send(createMoveMessage({ x: 1, z: 0 }));
+    const isWalking = (players: readonly PlayerState[]): boolean =>
+      isPair(players) &&
+      players.some(
+        (player: PlayerState) =>
+          player.id === moverId && player.action === 'Walk',
+      );
+    const seen: TimedSnapshot = await watcher.receiveSnapshotWhere(isWalking);
+    const own: TimedSnapshot = await mover.receiveSnapshotWhere(isWalking);
+    expect(seen.players).toEqual(own.players);
+    expect(findPlayer(seen, moverId).yaw).toBeCloseTo(90);
+  });
+
+  it('sends snapshots at the snapshot rate', async () => {
+    const [peer] = await connectPeer();
+    const first: TimedSnapshot = await peer.receiveSnapshot();
+    let last: TimedSnapshot = first;
+    for (let count = 0; count < SNAPSHOT_RATE; count++) {
+      last = await peer.receiveSnapshot();
+    }
+    const seconds: number = (last.time - first.time) / 1000;
+    expect(seconds).toBeGreaterThan(0.8);
+    expect(seconds).toBeLessThan(1.3);
+  });
+
+  it('walks a player the way its peer asks, at walking speed', async () => {
+    const [peer, id] = await connectPeer();
+    const still: TimedSnapshot = await peer.receiveSnapshot();
+    expect(findPlayer(still, id).action).toBe('Idle');
+    peer.send(createMoveMessage({ x: 0, z: 1 }));
+    const start: TimedSnapshot = await peer.receiveSnapshotWhere(
+      ([player]: readonly PlayerState[]) => player?.action === 'Walk',
+    );
+    let end: TimedSnapshot = start;
+    for (let count = 0; count < SNAPSHOT_RATE; count++) {
+      end = await peer.receiveSnapshot();
+    }
+    const from: PlayerState = findPlayer(start, id);
+    const to: PlayerState = findPlayer(end, id);
+    // The simulation steps at a fixed rate, so a second of snapshots is a
+    // second of walking, whenever they happen to arrive.
+    expect(to.z - from.z).toBeCloseTo(WALK_SPEED);
+    expect(to.x).toBeCloseTo(from.x);
+    expect(to.yaw).toBeCloseTo(0);
+
+    peer.send(createMoveMessage({ x: 0, z: 0 }));
+    const stopped: TimedSnapshot = await peer.receiveSnapshotWhere(
+      ([player]: readonly PlayerState[]) => player?.action === 'Idle',
+    );
+    const after: TimedSnapshot = await peer.receiveSnapshot();
+    expect(findPlayer(after, id)).toEqual(findPlayer(stopped, id));
+  });
+
+  it('makes a player slash for a while when its peer interacts', async () => {
+    const [actor, id] = await connectPeer();
+    const [watcher] = await connectPeer();
+    actor.send(createInteractMessage());
+    const isSlashing = (players: readonly PlayerState[]): boolean =>
+      players.some(
+        (player: PlayerState) => player.id === id && player.action === 'Slash',
+      );
+    const slashing: TimedSnapshot =
+      await watcher.receiveSnapshotWhere(isSlashing);
+    const over: TimedSnapshot = await watcher.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) => !isSlashing(players),
+    );
+    const seconds: number = (over.time - slashing.time) / 1000;
+    expect(seconds).toBeGreaterThan(SLASH_DURATION - 0.3);
+    expect(seconds).toBeLessThan(SLASH_DURATION + 0.3);
+    const before: PlayerState = findPlayer(slashing, id);
+    const after: PlayerState = findPlayer(over, id);
+    expect(after.action).toBe('Idle');
+    expect(after.actionCount).toBeGreaterThan(before.actionCount);
+  });
+
+  it('takes the player of a peer that leaves out of the world', async () => {
+    const [leaver] = await connectPeer();
+    const [watcher, watcherId] = await connectPeer();
+    await watcher.receiveSnapshotWhere(isPair);
+    leaver.leave();
+    const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) => !isPair(players),
+    );
+    expect(listIds(snapshot)).toEqual([watcherId]);
+  });
+
+  it('disconnects a peer that sends a malformed message', async () => {
+    const [offender] = await connectPeer();
+    const [watcher, watcherId] = await connectPeer();
+    await watcher.receiveSnapshotWhere(isPair);
+    offender.send('{"type":"move","direction":"north"}');
+    await offender.waitUntilClosed();
+    const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) => !isPair(players),
+    );
+    expect(listIds(snapshot)).toEqual([watcherId]);
   });
 });

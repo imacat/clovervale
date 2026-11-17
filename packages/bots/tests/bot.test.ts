@@ -33,7 +33,7 @@ describe('runBot', () => {
     const server = await startServer(0);
     try {
       const url = `ws://localhost:${String(server.port)}`;
-      await expect(runBot(url)).resolves.toEqual({
+      await expect(runBot(url)).resolves.toMatchObject({
         type: 'welcome',
         protocolVersion: PROTOCOL_VERSION,
       });

@@ -21,13 +21,41 @@
  * @module shared/index The public interface of the shared package.
  */
 
-export { MAX_SPEED, movePosition } from './movement.ts';
+export { ACTION_STATES, SLASH_DURATION } from './actions.ts';
+export type { ActionState } from './actions.ts';
+export {
+  SIMULATION_RATE,
+  WALK_SPEED,
+  findYaw,
+  movePosition,
+} from './movement.ts';
 export type { GroundVector } from './movement.ts';
 export {
+  APPEARANCE_COUNT,
   DEFAULT_SERVER_PORT,
   PROTOCOL_VERSION,
+  SNAPSHOT_RATE,
+  createInteractMessage,
+  createMoveMessage,
+  createSnapshotMessage,
   createWelcomeMessage,
+  decodeClientMessage,
   decodeServerMessage,
+  encodeClientMessage,
   encodeServerMessage,
 } from './protocol.ts';
-export type { ServerMessage, WelcomeMessage } from './protocol.ts';
+export type {
+  ClientMessage,
+  InteractMessage,
+  MoveMessage,
+  PlayerState,
+  ServerMessage,
+  SnapshotMessage,
+  WelcomeMessage,
+} from './protocol.ts';
+export {
+  PLAZA_CENTRE,
+  SPAWN_SPACING,
+  SPAWN_YAW,
+  findSpawnPoint,
+} from './village.ts';

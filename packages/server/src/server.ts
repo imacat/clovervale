@@ -21,9 +21,20 @@
  * @module server/server The WebSocket game server.
  */
 
-import { WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
+import type { RawData } from 'ws';
 
-import { createWelcomeMessage, encodeServerMessage } from '@clovervale/shared';
+import {
+  SIMULATION_RATE,
+  SNAPSHOT_RATE,
+  createSnapshotMessage,
+  createWelcomeMessage,
+  decodeClientMessage,
+  encodeServerMessage,
+} from '@clovervale/shared';
+import type { ClientMessage, PlayerState } from '@clovervale/shared';
+
+import { World } from './world.ts';
 
 /** A running game server. */
 export interface RunningServer {
@@ -37,8 +48,23 @@ export interface RunningServer {
   stop(): Promise<void>;
 }
 
+/** How long one step of the simulation lasts, in milliseconds. */
+const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
+
+/** The number of simulation steps from one snapshot to the next. */
+const STEPS_PER_SNAPSHOT: number = SIMULATION_RATE / SNAPSHOT_RATE;
+
+/** The WebSocket status code for a peer that breaks the protocol. */
+const POLICY_VIOLATION = 1008;
+
 /**
- * Starts a game server that welcomes every peer that connects.
+ * Starts a game server.
+ *
+ * Every peer that connects gets a player of its own, which it is welcomed
+ * with and steers with its messages, and which leaves the world when the
+ * peer disconnects.  A peer that sends anything but well-formed client
+ * messages is disconnected.  All peers are sent snapshots of all the
+ * players, again and again, as the simulation of the world goes on.
  *
  * @param {number} port - The TCP port to listen on, or 0 for any free port.
  * @returns {Promise<RunningServer>} The running server.
@@ -46,8 +72,27 @@ export interface RunningServer {
 export function startServer(port: number): Promise<RunningServer> {
   return new Promise((resolve, reject) => {
     const sockets = new WebSocketServer({ port });
-    sockets.on('connection', (socket) => {
-      socket.send(encodeServerMessage(createWelcomeMessage()));
+    const world = new World();
+    sockets.on('connection', (socket: WebSocket) => {
+      const player: PlayerState = world.addPlayer();
+      socket.on('message', (data: RawData) => {
+        let message: ClientMessage;
+        try {
+          message = decodeClientMessage(readText(data));
+        } catch {
+          socket.close(POLICY_VIOLATION, 'The message is malformed.');
+          return;
+        }
+        if (message.type === 'move') {
+          world.steerPlayer(player.id, message.direction);
+        } else {
+          world.interactPlayer(player.id);
+        }
+      });
+      socket.on('close', () => {
+        world.removePlayer(player.id);
+      });
+      socket.send(encodeServerMessage(createWelcomeMessage(player.id)));
     });
     sockets.once('error', reject);
     sockets.once('listening', () => {
@@ -56,14 +101,72 @@ export function startServer(port: number): Promise<RunningServer> {
         reject(new Error('The server is not listening on a TCP port.'));
         return;
       }
+      const stopSimulation: () => void = runSimulation(world, sockets);
       resolve({
         port: address.port,
-        stop: () => stopServer(sockets),
+        stop: () => {
+          stopSimulation();
+          return stopServer(sockets);
+        },
       });
     });
   });
 }
 
+/**
+ * Reads the text of a message received from a peer.
+ *
+ * @param {RawData} data - The message as received.
+ * @returns {string} The text of the message.
+ */
+function readText(data: RawData): string {
+  if (Array.isArray(data)) {
+    return Buffer.concat(data).toString('utf8');
+  }
+  return new TextDecoder().decode(data);
+}
+
+/**
+ * Keeps the simulation of a world going at its fixed rate, and sends every
+ * peer a snapshot of the players at the snapshot rate.
+ *
+ * @param {World} world - The world to simulate.
+ * @param {WebSocketServer} sockets - The WebSocket server the peers are
+ *   connected to.
+ * @returns {() => void} Stops the simulation and the snapshots.
+ */
+function runSimulation(world: World, sockets: WebSocketServer): () => void {
+  const startTime: number = performance.now();
+  let stepCount = 0;
+  let timer: NodeJS.Timeout;
+  const catchUp = (): void => {
+    const dueCount: number = Math.floor(
+      (performance.now() - startTime) / STEP_MILLISECONDS,
+    );
+    let isSnapshotDue = false;
+    while (stepCount < dueCount) {
+      world.step();
+      stepCount++;
+      isSnapshotDue ||= stepCount % STEPS_PER_SNAPSHOT === 0;
+    }
+    if (isSnapshotDue) {
+      const snapshot: string = encodeServerMessage(
+        createSnapshotMessage(world.listPlayers()),
+      );
+      for (const socket of sockets.clients) {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(snapshot);
+        }
+      }
+    }
+    const nextTime: number = startTime + (stepCount + 1) * STEP_MILLISECONDS;
+    timer = setTimeout(catchUp, Math.max(nextTime - performance.now(), 0));
+  };
+  timer = setTimeout(catchUp, STEP_MILLISECONDS);
+  return () => {
+    clearTimeout(timer);
+  };
+}
 /**
  * Stops a WebSocket server and disconnects every peer.
  *

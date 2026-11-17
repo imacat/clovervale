@@ -23,6 +23,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { findSpawnPoint } from '@clovervale/shared';
+
 import {
   CHARACTER_FILES,
   REQUIRED_MODEL_FILES,
@@ -68,28 +70,17 @@ function findOnly(placements: readonly Placement[], file: string): Placement {
 }
 
 describe('layoutVillage', () => {
-  it('stands every required model in one place', () => {
+  it('stands every required model but the characters in one place', () => {
     const placements: Placement[] = layoutVillage(REQUIRED_MODEL_FILES);
     expect(placements.map((placement: Placement) => placement.file)).toEqual(
-      REQUIRED_MODEL_FILES,
+      REQUIRED_MODEL_FILES.filter(
+        (file: string) => !CHARACTER_FILES.includes(file),
+      ),
     );
   });
 
-  it('stands the characters evenly apart, all facing the same way', () => {
-    const arc: Placement[] = layoutVillage(CHARACTER_FILES);
-    const first: Placement = findOnly(arc, 'character-01.glb');
-    const second: Placement = findOnly(arc, 'character-02.glb');
-    expect(arc).toHaveLength(CHARACTER_FILES.length);
-    const spacing: number = measureDistance(first, second);
-    expect(spacing).toBeGreaterThan(1);
-    arc.forEach((placement: Placement, index: number) => {
-      const next: Placement | undefined = arc[index + 1];
-      if (next !== undefined) {
-        expect(next.x).toBeGreaterThan(placement.x);
-        expect(measureDistance(placement, next)).toBeCloseTo(spacing);
-      }
-      expect(placement.yaw).toBe(first.yaw);
-    });
+  it('leaves the characters to stand where their players are', () => {
+    expect(layoutVillage(CHARACTER_FILES)).toEqual([]);
   });
 
   it('stands the buildings around the fountain, each facing it', () => {
@@ -115,14 +106,30 @@ describe('layoutVillage', () => {
     expect(corners.size).toBe(4);
   });
 
-  it('stands the fountain between the characters and the great tree', () => {
+  it('stands the fountain between the spawn points and the great tree', () => {
     const placements: Placement[] = layoutVillage(PLAZA_FILES);
     const fountain: Placement = findOnly(placements, 'fountain.glb');
     const tree: Placement = findOnly(placements, 'prop-great-tree.glb');
     expect(tree.x).toBe(fountain.x);
     expect(tree.z).toBeLessThan(fountain.z);
-    for (const file of CHARACTER_FILES) {
-      expect(findOnly(placements, file).z).toBeGreaterThan(fountain.z);
+    for (let index = 0; index < CHARACTER_FILES.length; index++) {
+      const spawn = findSpawnPoint(index);
+      expect(spawn.x - fountain.x).toBeLessThan(8);
+      expect(spawn.z).toBeGreaterThan(fountain.z);
+    }
+  });
+
+  it('keeps the first spawn points clear of everything on the plaza', () => {
+    const placements: Placement[] = layoutVillage(PLAZA_FILES);
+    for (let index = 0; index < CHARACTER_FILES.length; index++) {
+      const spawn = findSpawnPoint(index);
+      for (const placement of placements) {
+        const distance: number = Math.hypot(
+          placement.x - spawn.x,
+          placement.z - spawn.z,
+        );
+        expect(distance).toBeGreaterThan(2);
+      }
     }
   });
 
@@ -133,19 +140,12 @@ describe('layoutVillage', () => {
     expect(measureDistance(npc, fountain)).toBeLessThan(5);
   });
 
-  it('keeps a character in its place when others are missing', () => {
-    const all: Placement[] = layoutVillage(CHARACTER_FILES);
-    const alone: Placement[] = layoutVillage(['character-05.glb']);
-    expect(alone).toEqual([findOnly(all, 'character-05.glb')]);
-  });
-
   it('stands the monster farther out than everyone in the village', () => {
     const placements: Placement[] = layoutVillage(PLAZA_FILES);
     const fountain: Placement = findOnly(placements, 'fountain.glb');
     const monster: Placement = findOnly(placements, 'monster.glb');
     for (const villager of placements) {
       const isVillager: boolean = [
-        ...CHARACTER_FILES,
         'npc.glb',
         'weapon-shop.glb',
         'prop-cottage.glb',

@@ -21,8 +21,11 @@
  * @module shared/movement Movement rules applied by the server and its peers.
  */
 
-/** The fastest a character can move, in metres per second. */
-export const MAX_SPEED = 4;
+/** The speed a character walks at, in metres per second. */
+export const WALK_SPEED = 1.5;
+
+/** The number of steps the simulation of the world takes every second. */
+export const SIMULATION_RATE = 20;
 
 /** A point or a direction on the ground plane. */
 export interface GroundVector {
@@ -33,15 +36,15 @@ export interface GroundVector {
 }
 
 /**
- * Moves a position in a direction for a period of time.
+ * Moves a position in a direction for a period of time, at walking speed.
  *
- * The length of the direction is the fraction of the maximum speed to move
- * at; a direction longer than 1 still moves at the maximum speed.
+ * Only the bearing of the direction counts, not its length.
  *
  * @param {GroundVector} position - The position to move from.
  * @param {GroundVector} direction - The direction to move in.
  * @param {number} seconds - How long to move for, in seconds.
- * @returns {GroundVector} The position after the move.
+ * @returns {GroundVector} The position after the move, which is the same
+ *   position if the direction has no length.
  */
 export function movePosition(
   position: GroundVector,
@@ -52,9 +55,20 @@ export function movePosition(
   if (length === 0) {
     return position;
   }
-  const distance = Math.min(length, 1) * MAX_SPEED * seconds;
+  const distance = WALK_SPEED * seconds;
   return {
     x: position.x + (direction.x / length) * distance,
     z: position.z + (direction.z / length) * distance,
   };
+}
+
+/**
+ * Finds the yaw of a character that faces a direction.
+ *
+ * @param {GroundVector} direction - The direction to face.
+ * @returns {number} The turn around the Y axis from facing +Z towards +X, in
+ *   degrees, above -180 and up to 180.
+ */
+export function findYaw(direction: GroundVector): number {
+  return (Math.atan2(direction.x, direction.z) * 180) / Math.PI;
 }

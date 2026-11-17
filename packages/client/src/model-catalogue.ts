@@ -21,6 +21,8 @@
  * @module client/model-catalogue Knowing which model files the game uses.
  */
 
+import { APPEARANCE_COUNT } from '@clovervale/shared';
+
 /** What a model stands for in the game. */
 export type ModelKind = 'character' | 'npc' | 'monster' | 'building' | 'prop';
 
@@ -32,12 +34,12 @@ export interface ModelPlan {
   readonly missing: readonly string[];
 }
 
-/** The number of player and bot characters. */
-const CHARACTER_COUNT = 8;
-
-/** The file names of the player and bot characters, in order. */
+/**
+ * The file names of the player and bot characters, in the order of the
+ * appearances they give a player.
+ */
 export const CHARACTER_FILES: readonly string[] = Array.from(
-  { length: CHARACTER_COUNT },
+  { length: APPEARANCE_COUNT },
   (_, index: number) => `character-${String(index + 1).padStart(2, '0')}.glb`,
 );
 

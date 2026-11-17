@@ -18,66 +18,44 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/tests/clip-choice Tests for choosing the animation clips.
+ * @module client/tests/clip-choice Tests for choosing the clip to play.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { chooseClip } from '../src/clip-choice.ts';
 
-const CHARACTER_CLIPS = ['Idle', 'Walk', 'Slash', 'Die'];
-const MONSTER_CLIPS = ['Idle', 'Walk', 'Attack', 'Die'];
+/** The names of the clips of a character. */
+const CHARACTER_CLIPS: readonly string[] = ['Idle', 'Walk', 'Slash', 'Die'];
 
 describe('chooseClip', () => {
-  it('loops the idling and the walking', () => {
-    expect(chooseClip('character', 'Idle', CHARACTER_CLIPS)).toEqual({
+  it('loops the clips of idling and of walking', () => {
+    expect(chooseClip('Idle', CHARACTER_CLIPS)).toEqual({
       name: 'Idle',
       playback: 'loop',
     });
-    expect(chooseClip('monster', 'Walk', MONSTER_CLIPS)).toEqual({
+    expect(chooseClip('Walk', CHARACTER_CLIPS)).toEqual({
       name: 'Walk',
       playback: 'loop',
     });
   });
 
-  it('attacks once, with the clip of each kind of model', () => {
-    expect(chooseClip('character', 'Attack', CHARACTER_CLIPS)).toEqual({
+  it('plays the clip of a slash once and holds its last pose', () => {
+    expect(chooseClip('Slash', CHARACTER_CLIPS)).toEqual({
       name: 'Slash',
-      playback: 'once',
-    });
-    expect(chooseClip('monster', 'Attack', MONSTER_CLIPS)).toEqual({
-      name: 'Attack',
-      playback: 'once',
-    });
-  });
-
-  it('holds the last pose of the dying', () => {
-    expect(chooseClip('character', 'Die', CHARACTER_CLIPS)).toEqual({
-      name: 'Die',
       playback: 'hold',
     });
   });
 
-  it('keeps everything but the characters and the monster idling', () => {
-    expect(chooseClip('npc', 'Walk', ['Idle', 'Walk'])).toEqual({
-      name: 'Idle',
-      playback: 'loop',
-    });
-    expect(chooseClip('building', 'Die', ['Idle', 'Die'])).toEqual({
+  it('idles when the model lacks the clip', () => {
+    expect(chooseClip('Slash', ['Idle', 'Talk'])).toEqual({
       name: 'Idle',
       playback: 'loop',
     });
   });
 
-  it('idles a model that lacks the chosen clip', () => {
-    expect(chooseClip('monster', 'Attack', ['Idle', 'Slash'])).toEqual({
-      name: 'Idle',
-      playback: 'loop',
-    });
-  });
-
-  it('plays nothing on a model that cannot idle', () => {
-    expect(chooseClip('prop', 'Idle', [])).toBeNull();
-    expect(chooseClip('character', 'Walk', ['Slash'])).toBeNull();
+  it('plays nothing when the model cannot even idle', () => {
+    expect(chooseClip('Walk', [])).toBeNull();
+    expect(chooseClip('Idle', ['Spin'])).toBeNull();
   });
 });

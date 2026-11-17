@@ -24,47 +24,28 @@
 import { AnimationMixer, LoopOnce, LoopRepeat } from 'three';
 import type { AnimationAction, AnimationClip, Object3D } from 'three';
 
-import { IDLE_CLIP, chooseClip } from './clip-choice.ts';
-import type { ClipChoice, ClipPlan } from './clip-choice.ts';
-import type { ModelKind } from './model-catalogue.ts';
+import type { ActionState } from '@clovervale/shared';
 
-/** How long a model rests before repeating a clip, in seconds. */
-export const REPEAT_DELAY = 1;
+import { chooseClip } from './clip-choice.ts';
+import type { ClipPlan } from './clip-choice.ts';
 
 /** A model that plays its animation clips. */
 export class Actor {
-  /**
-   * Whether a clip that does not loop is played again, after a short rest.
-   */
-  repeats = true;
-  readonly #kind: ModelKind;
   readonly #clips: ReadonlyMap<string, AnimationClip>;
   readonly #mixer: AnimationMixer;
-  #chosen: ClipPlan | null = null;
   #playing: string | null = null;
-  #stage: 'playing' | 'finished' | 'resting' = 'playing';
-  #restSeconds = 0;
 
   /**
    * Makes a model idle, if it has a clip for that.
    *
    * @param {Object3D} root - The root of the model.
    * @param {readonly AnimationClip[]} clips - The clips of the model.
-   * @param {ModelKind} kind - The kind of the model.
    */
-  constructor(
-    root: Object3D,
-    clips: readonly AnimationClip[],
-    kind: ModelKind,
-  ) {
-    this.#kind = kind;
+  constructor(root: Object3D, clips: readonly AnimationClip[]) {
     this.#clips = new Map(
       clips.map((clip: AnimationClip) => [clip.name, clip]),
     );
     this.#mixer = new AnimationMixer(root);
-    this.#mixer.addEventListener('finished', () => {
-      this.#stage = 'finished';
-    });
     this.play('Idle');
   }
 
@@ -78,18 +59,28 @@ export class Actor {
   }
 
   /**
-   * Plays the clip of the model for an animation, from its beginning.
+   * Plays the clip of the model for what it is doing, from its beginning.
    *
-   * A model that lacks the clip idles instead.
+   * Idling and walking go on in a loop, and a slash is played once, after
+   * which the model holds its last pose.  A model that lacks the clip idles
+   * instead.
    *
-   * @param {ClipChoice} choice - The animation to play.
+   * @param {ActionState} action - What the model is doing.
    */
-  play(choice: ClipChoice): void {
-    this.#chosen = chooseClip(this.#kind, choice, [...this.#clips.keys()]);
-    this.#stage = 'playing';
-    if (this.#chosen !== null) {
-      this.#start(this.#chosen);
+  play(action: ActionState): void {
+    const plan: ClipPlan | null = chooseClip(action, [...this.#clips.keys()]);
+    const clip: AnimationClip | undefined = this.#clips.get(plan?.name ?? '');
+    if (plan === null || clip === undefined) {
+      return;
     }
+    this.#mixer.stopAllAction();
+    const animation: AnimationAction = this.#mixer.clipAction(clip);
+    animation.reset();
+    const isLooping: boolean = plan.playback === 'loop';
+    animation.setLoop(isLooping ? LoopRepeat : LoopOnce, Infinity);
+    animation.clampWhenFinished = true;
+    animation.play();
+    this.#playing = plan.name;
   }
 
   /**
@@ -99,40 +90,5 @@ export class Actor {
    */
   update(seconds: number): void {
     this.#mixer.update(seconds);
-    if (this.#chosen === null || this.#stage === 'playing') {
-      return;
-    }
-    if (this.#stage === 'finished') {
-      this.#stage = 'resting';
-      this.#restSeconds = 0;
-      if (this.#chosen.playback === 'once') {
-        this.#start({ name: IDLE_CLIP, playback: 'loop' });
-      }
-      return;
-    }
-    this.#restSeconds += seconds;
-    if (this.repeats && this.#restSeconds >= REPEAT_DELAY) {
-      this.#stage = 'playing';
-      this.#start(this.#chosen);
-    }
-  }
-
-  /**
-   * Starts a clip from its beginning, in place of the one playing.
-   *
-   * @param {ClipPlan} plan - The clip to start.
-   */
-  #start(plan: ClipPlan): void {
-    const clip: AnimationClip | undefined = this.#clips.get(plan.name);
-    if (clip === undefined) {
-      return;
-    }
-    this.#mixer.stopAllAction();
-    const action: AnimationAction = this.#mixer.clipAction(clip);
-    action.reset();
-    action.setLoop(plan.playback === 'loop' ? LoopRepeat : LoopOnce, Infinity);
-    action.clampWhenFinished = true;
-    action.play();
-    this.#playing = plan.name;
   }
 }

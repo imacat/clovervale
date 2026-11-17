@@ -35,8 +35,9 @@ import type { Object3D } from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { Actor } from './actor.ts';
-import { classifyModel } from './model-catalogue.ts';
+import { CHARACTER_FILES } from './model-catalogue.ts';
 import type { LoadedModel } from './model-loader.ts';
+import type { Figure } from './player-figures.ts';
 import { layoutVillage } from './village-layout.ts';
 import type { Placement } from './village-layout.ts';
 
@@ -142,6 +143,20 @@ export function createVillageScene(): Scene {
 }
 
 /**
+ * Makes a model cast and receive shadows, wherever its animation takes it.
+ *
+ * @param {Object3D} model - The root of the model.
+ */
+function prepareModel(model: Object3D): void {
+  model.traverse((node: Object3D) => {
+    node.castShadow = true;
+    node.receiveShadow = true;
+    // An animated model moves out of the bounds of its resting pose.
+    node.frustumCulled = false;
+  });
+}
+
+/**
  * Stands a model in the village.
  *
  * @param {Scene} scene - The village.
@@ -153,23 +168,19 @@ function placeModel(
   model: Object3D,
   placement: Placement,
 ): void {
-  model.traverse((node: Object3D) => {
-    node.castShadow = true;
-    node.receiveShadow = true;
-    // An animated model moves out of the bounds of its resting pose.
-    node.frustumCulled = false;
-  });
+  prepareModel(model);
   model.position.set(placement.x, 0, placement.z);
   model.rotation.y = (placement.yaw * Math.PI) / 180;
   scene.add(model);
 }
 
 /**
- * Stands the models in the village, each idling if it is animated.
+ * Stands the models that have a place in the village there, each idling if
+ * it is animated.
  *
  * @param {Scene} scene - The village.
  * @param {readonly LoadedModel[]} models - The models.
- * @returns {Actor[]} The models as actors, to animate and to direct.
+ * @returns {Actor[]} The models as actors, to animate.
  */
 export function populateVillage(
   scene: Scene,
@@ -182,8 +193,7 @@ export function populateVillage(
     const model: LoadedModel | undefined = models.find(
       (candidate: LoadedModel) => candidate.file === placement.file,
     );
-    const kind = classifyModel(placement.file);
-    if (model === undefined || kind === null) {
+    if (model === undefined) {
       continue;
     }
     // A model that stands in several places is copied for all but the first.
@@ -192,7 +202,32 @@ export function populateVillage(
       : model.root;
     used.add(model.file);
     placeModel(scene, root, placement);
-    actors.push(new Actor(root, model.clips, kind));
+    actors.push(new Actor(root, model.clips));
   }
   return actors;
+}
+
+/**
+ * Makes a model to show a player with, ready to stand in the village.
+ *
+ * @param {readonly LoadedModel[]} models - The models.
+ * @param {number} appearance - The number of the appearance of the player,
+ *   from 1.
+ * @returns {Figure | null} A copy of the character of that appearance, or
+ *   `null` if that character is not among the models.
+ */
+export function createPlayerFigure(
+  models: readonly LoadedModel[],
+  appearance: number,
+): Figure | null {
+  const file: string | undefined = CHARACTER_FILES[appearance - 1];
+  const model: LoadedModel | undefined = models.find(
+    (candidate: LoadedModel) => candidate.file === file,
+  );
+  if (model === undefined) {
+    return null;
+  }
+  const root: Object3D = clone(model.root);
+  prepareModel(root);
+  return { root, clips: model.clips };
 }

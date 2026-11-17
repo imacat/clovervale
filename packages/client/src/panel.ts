@@ -23,26 +23,28 @@
 
 import GUI from 'lil-gui';
 
-import { CLIP_CHOICES } from './clip-choice.ts';
-import type { ClipChoice } from './clip-choice.ts';
 import type { ModelProblem } from './model-report.ts';
+import { describeSnapshot } from './player-readout.ts';
+import type { PlayerReadout } from './player-readout.ts';
 
-/** What the panel shows, and what the owner has set in it. */
+/** What the panel shows of the client itself. */
 export interface PanelState {
   /** The status of the connection to the server. */
   server: string;
   /** How showing the models went. */
   models: string;
-  /** The animation the characters and the monster play. */
-  animation: ClipChoice;
-  /** Whether an animation that does not loop is played again and again. */
-  repeats: boolean;
 }
 
 /** The settings panel of the client. */
 export interface Panel {
-  /** What the panel shows, and what the owner has set in it. */
+  /** What the panel shows of the client itself. */
   readonly state: PanelState;
+  /**
+   * Shows what is synchronised with the server, for the owner to see.
+   *
+   * @param {PlayerReadout} readout - What the owner reads.
+   */
+  readonly showReadout: (readout: PlayerReadout) => void;
   /**
    * Lists the models that cannot be shown, for the owner to see.
    *
@@ -52,31 +54,36 @@ export interface Panel {
   readonly listProblems: (problems: readonly ModelProblem[]) => void;
 }
 
+/** The names of the values of the readout, in the order they are shown. */
+const READOUT_NAMES: readonly [keyof PlayerReadout, string][] = [
+  ['player', 'Player'],
+  ['players', 'Players'],
+  ['position', 'Position'],
+  ['yaw', 'Yaw'],
+  ['action', 'Action'],
+];
+
 /**
- * Creates the settings panel.
+ * Creates the settings panel, which starts with nothing synchronised yet.
  *
- * @param {() => void} playAnimation - Called to play the animation set in
- *   the panel from its beginning, whenever the owner changes how the
- *   animation plays or asks for it again.
  * @returns {Panel} The panel.
  */
-export function createPanel(playAnimation: () => void): Panel {
-  const state: PanelState = {
-    server: 'connecting',
-    models: 'loading',
-    animation: 'Idle',
-    repeats: true,
+export function createPanel(): Panel {
+  const state: PanelState = { server: 'connecting', models: 'loading' };
+  const shown: Record<keyof PlayerReadout, string> = {
+    ...describeSnapshot(null, null),
   };
   const gui = new GUI({ title: 'Clovervale' });
   gui.add(state, 'server').name('Server').disable().listen();
   gui.add(state, 'models').name('Models').disable().listen();
-  gui
-    .add(state, 'animation', CLIP_CHOICES)
-    .name('Animation')
-    .onChange(playAnimation);
-  gui.add(state, 'repeats').name('Repeat').onChange(playAnimation);
-  gui.add({ playAnimation }, 'playAnimation').name('Play again');
+  const folder: GUI = gui.addFolder('Latest snapshot');
+  for (const [key, name] of READOUT_NAMES) {
+    folder.add(shown, key).name(name).disable().listen();
+  }
 
+  const showReadout = (readout: PlayerReadout): void => {
+    Object.assign(shown, readout);
+  };
   const listProblems = (problems: readonly ModelProblem[]): void => {
     if (problems.length === 0) {
       return;
@@ -88,5 +95,5 @@ export function createPanel(playAnimation: () => void): Panel {
       entry.domElement.title = `${problem.file}: ${problem.reason}`;
     }
   };
-  return { state, listProblems };
+  return { state, showReadout, listProblems };
 }

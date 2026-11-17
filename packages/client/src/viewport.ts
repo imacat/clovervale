@@ -25,35 +25,61 @@ import { PCFShadowMap, PerspectiveCamera, WebGLRenderer } from 'three';
 import type { Scene } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+import type { GroundVector } from '@clovervale/shared';
+
+/** A view of a scene in the browser window. */
+export interface Viewport {
+  /**
+   * Tells which way the camera looks along the ground.
+   *
+   * @returns {number} The turn around the Y axis from looking towards +Z
+   *   towards +X, in degrees.
+   */
+  readonly getHeading: () => number;
+  /**
+   * Moves the camera along with what it looks at, at once, keeping its
+   * distance and its angles.
+   *
+   * @param {GroundVector} focus - Where what the camera looks at stands now.
+   */
+  readonly follow: (focus: GroundVector) => void;
+}
+
+/** The height above the ground the camera looks at, in metres. */
+const FOCUS_HEIGHT = 1.2;
+
 /**
  * Shows a scene in the browser window, for the owner to look around in.
  *
- * Dragging with the left mouse button orbits, the wheel zooms, and dragging
- * with the right mouse button pans.
+ * Dragging with the left mouse button orbits around what the camera looks
+ * at, and the wheel zooms.
  *
  * @param {Scene} scene - The scene to show.
+ * @param {GroundVector} focus - Where what the camera looks at stands at
+ *   first.
  * @param {(seconds: number) => void} update - Called before every frame is
  *   drawn, with the time since the last one, in seconds.
+ * @returns {Viewport} The view.
  */
 export function showScene(
   scene: Scene,
+  focus: GroundVector,
   update: (seconds: number) => void,
-): void {
+): Viewport {
   const renderer = new WebGLRenderer({ antialias: true });
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFShadowMap;
   document.body.append(renderer.domElement);
 
   const camera = new PerspectiveCamera(40, 1, 0.5, 600);
-  camera.position.set(0, 14, 28);
+  camera.position.set(focus.x, 7.5, focus.z + 13);
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 1.5, -5);
+  controls.target.set(focus.x, FOCUS_HEIGHT, focus.z);
   controls.enableDamping = true;
   controls.minDistance = 2;
   controls.maxDistance = 90;
-  // Panning along the ground and never looking up from below the target
-  // keep the owner above the ground.
-  controls.screenSpacePanning = false;
+  // The camera stays on what it follows, and never looks up from below it.
+  controls.enablePan = false;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.update();
 
@@ -75,4 +101,18 @@ export function showScene(
     controls.update();
     renderer.render(scene, camera);
   });
+
+  return {
+    getHeading: (): number => {
+      const x: number = controls.target.x - camera.position.x;
+      const z: number = controls.target.z - camera.position.z;
+      return (Math.atan2(x, z) * 180) / Math.PI;
+    },
+    follow: (next: GroundVector): void => {
+      camera.position.x += next.x - controls.target.x;
+      camera.position.z += next.z - controls.target.z;
+      controls.target.x = next.x;
+      controls.target.z = next.z;
+    },
+  };
 }

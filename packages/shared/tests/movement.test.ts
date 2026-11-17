@@ -23,28 +23,49 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { MAX_SPEED, movePosition } from '../src/index.ts';
+import { WALK_SPEED, findYaw, movePosition } from '../src/index.ts';
 
 describe('movePosition', () => {
-  it('moves at the maximum speed along a unit direction', () => {
+  it('moves at walking speed along a direction', () => {
     const moved = movePosition({ x: 1, z: 2 }, { x: 1, z: 0 }, 0.5);
-    expect(moved.x).toBeCloseTo(1 + MAX_SPEED * 0.5);
+    expect(moved.x).toBeCloseTo(1 + WALK_SPEED * 0.5);
     expect(moved.z).toBeCloseTo(2);
   });
 
   it('does not move faster diagonally', () => {
     const moved = movePosition({ x: 0, z: 0 }, { x: 1, z: 1 }, 1);
-    expect(Math.hypot(moved.x, moved.z)).toBeCloseTo(MAX_SPEED);
+    expect(Math.hypot(moved.x, moved.z)).toBeCloseTo(WALK_SPEED);
   });
 
-  it('moves slower for a direction shorter than 1', () => {
-    const moved = movePosition({ x: 0, z: 0 }, { x: 0, z: -0.5 }, 1);
-    expect(moved.x).toBeCloseTo(0);
-    expect(moved.z).toBeCloseTo(-MAX_SPEED / 2);
+  it('moves at walking speed whatever the length of the direction', () => {
+    const slow = movePosition({ x: 0, z: 0 }, { x: 0, z: -0.5 }, 1);
+    const fast = movePosition({ x: 0, z: 0 }, { x: 0, z: -40 }, 1);
+    expect(slow.x).toBeCloseTo(0);
+    expect(slow.z).toBeCloseTo(-WALK_SPEED);
+    expect(fast.z).toBeCloseTo(-WALK_SPEED);
   });
 
   it('stays put without a direction', () => {
     const moved = movePosition({ x: 3, z: 4 }, { x: 0, z: 0 }, 1);
     expect(moved).toEqual({ x: 3, z: 4 });
+  });
+});
+
+describe('findYaw', () => {
+  it('faces +Z without a turn', () => {
+    expect(findYaw({ x: 0, z: 1 })).toBeCloseTo(0);
+  });
+
+  it('turns towards +X by a quarter to face it', () => {
+    expect(findYaw({ x: 2, z: 0 })).toBeCloseTo(90);
+    expect(findYaw({ x: -2, z: 0 })).toBeCloseTo(-90);
+  });
+
+  it('turns half way round to face -Z', () => {
+    expect(findYaw({ x: 0, z: -3 })).toBeCloseTo(180);
+  });
+
+  it('faces a diagonal half way between its axes', () => {
+    expect(findYaw({ x: 1, z: 1 })).toBeCloseTo(45);
   });
 });

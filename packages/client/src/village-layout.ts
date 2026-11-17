@@ -21,7 +21,9 @@
  * @module client/village-layout Arranging the models into a village.
  */
 
-import { CHARACTER_FILES, classifyModel } from './model-catalogue.ts';
+import { PLAZA_CENTRE } from '@clovervale/shared';
+
+import { classifyModel } from './model-catalogue.ts';
 
 /** Where a model stands on the ground, and which way it faces. */
 export interface Placement {
@@ -38,14 +40,6 @@ export interface Placement {
 /** A spot on the ground: its X and Z positions, and its yaw. */
 type Spot = readonly [x: number, z: number, yaw: number];
 
-/** The centre of the plaza, where the fountain stands. */
-const PLAZA_CENTRE: readonly [x: number, z: number] = [0, -8.5];
-
-/** The distance between two neighbouring characters, in metres. */
-const CHARACTER_SPACING = 1.6;
-/** The distance of the characters from the centre of the plaza, in metres. */
-const CHARACTER_ARC_RADIUS = 8;
-
 /** The distance between two neighbouring unknown props, in metres. */
 const SPARE_SPACING = 6;
 /** The number of unknown props in a row. */
@@ -55,7 +49,7 @@ const FIRST_SPARE_SPOT: Spot = [-12, 18, 0];
 
 /** The spots of the models the village has a place for. */
 const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
-  'fountain.glb': [[...PLAZA_CENTRE, 0]],
+  'fountain.glb': [[PLAZA_CENTRE.x, PLAZA_CENTRE.z, 0]],
   'weapon-shop.glb': [[12, -4.5, -90]],
   'npc.glb': [[3.2, -6.4, -25]],
   'monster.glb': [[8.4, 6.8, -60]],
@@ -146,23 +140,6 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
 };
 
 /**
- * Finds the spots of a character in the arc where they can be compared.
- *
- * @param {number} index - The position of the character among them all,
- *   from zero.
- * @returns {Spot[]} The one spot of the character.
- */
-function findCharacterSpots(index: number): Spot[] {
-  const [centreX, centreZ] = PLAZA_CENTRE;
-  const middle: number = (CHARACTER_FILES.length - 1) / 2;
-  const angle: number =
-    ((index - middle) * CHARACTER_SPACING) / CHARACTER_ARC_RADIUS;
-  const x: number = centreX + CHARACTER_ARC_RADIUS * Math.sin(angle);
-  const z: number = centreZ + CHARACTER_ARC_RADIUS * Math.cos(angle);
-  return [[x, z, 0]];
-}
-
-/**
  * Finds the spots of a prop the village has no place for.
  *
  * @param {number} index - The position of the prop among such props, from
@@ -181,24 +158,23 @@ function findSpareSpots(index: number): Spot[] {
  *
  * The fountain stands in the middle of a plaza, in front of the great tree,
  * and the cottages and the weapon shop stand around the plaza, each facing
- * it.  The NPC is by the fountain, the characters stand in an arc at the
- * near edge of the plaza, each always in its own place, and the monster is
- * a little way outside.  A prop the village has no place for stands by
- * itself to one side.
+ * it.  The NPC is by the fountain, and the monster is a little way outside.
+ * The characters have no place of their own, as they stand wherever their
+ * players are.  A prop the village has no place for stands by itself to one
+ * side.
  *
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.
  * @returns {Placement[]} Where each model stands.  A model can stand in
- *   several places, and a file the game does not use stands nowhere.
+ *   several places, and a character or a file the game does not use stands
+ *   nowhere.
  */
 export function layoutVillage(files: readonly string[]): Placement[] {
   const placements: Placement[] = [];
   let spareCount = 0;
   for (const file of files) {
     let spots: readonly Spot[] = SPOTS[file] ?? [];
-    if (classifyModel(file) === 'character') {
-      spots = findCharacterSpots(CHARACTER_FILES.indexOf(file));
-    } else if (spots.length === 0 && classifyModel(file) === 'prop') {
+    if (spots.length === 0 && classifyModel(file) === 'prop') {
       spots = findSpareSpots(spareCount++);
     }
     for (const [x, z, yaw] of spots) {
