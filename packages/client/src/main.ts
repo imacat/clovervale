@@ -21,68 +21,87 @@
  * @module client/main The entry point of the browser client.
  */
 
-import GUI from 'lil-gui';
-import {
-  BoxGeometry,
-  Mesh,
-  MeshNormalMaterial,
-  PerspectiveCamera,
-  Scene,
-  WebGLRenderer,
-} from 'three';
-
 import { decodeServerMessage } from '@clovervale/shared';
 
+import type { Actor } from './actor.ts';
+import { REQUIRED_MODEL_FILES, planModels } from './model-catalogue.ts';
+import {
+  MODEL_INDEX_FILE,
+  fetchModelIndex,
+  loadModels,
+} from './model-loader.ts';
+import { describeFailure, summariseModels } from './model-report.ts';
+import type { ModelProblem } from './model-report.ts';
+import { createPanel } from './panel.ts';
+import type { Panel } from './panel.ts';
 import { resolveServerUrl } from './server-url.ts';
 import './style.css';
+import { createVillageScene, populateVillage } from './village-scene.ts';
+import { showScene } from './viewport.ts';
 
-const settings = { spinSpeed: 1, server: 'connecting' };
+/** The URL of the directory of the models, relative to the page. */
+const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 
-const gui = new GUI({ title: 'Clovervale' });
-gui.add(settings, 'spinSpeed', 0, 5).name('Spin speed');
-gui.add(settings, 'server').name('Server').disable().listen();
-
-const renderer = new WebGLRenderer({ antialias: true });
-document.body.append(renderer.domElement);
-
-const scene = new Scene();
-const camera = new PerspectiveCamera(60, 1, 0.1, 100);
-camera.position.z = 3;
-const cube = new Mesh(new BoxGeometry(), new MeshNormalMaterial());
-scene.add(cube);
+const actors: Actor[] = [];
 
 /**
- * Fits the rendered view to the browser window.
+ * Plays the animation set in the panel on every model, from its beginning.
  */
-function fitViewToWindow(): void {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+function playAnimation(): void {
+  for (const actor of actors) {
+    actor.repeats = panel.state.repeats;
+    actor.play(panel.state.animation);
+  }
 }
 
-window.addEventListener('resize', fitViewToWindow);
-fitViewToWindow();
-
-let lastTime = performance.now();
-renderer.setAnimationLoop((time: number) => {
-  const seconds = (time - lastTime) / 1000;
-  lastTime = time;
-  cube.rotation.x += settings.spinSpeed * seconds * 0.5;
-  cube.rotation.y += settings.spinSpeed * seconds;
-  renderer.render(scene, camera);
+const panel: Panel = createPanel(playAnimation);
+const scene = createVillageScene();
+showScene(scene, (seconds: number) => {
+  for (const actor of actors) {
+    actor.update(seconds);
+  }
 });
+
+/**
+ * Shows the available models in the village, and reports those that cannot
+ * be shown in the panel.
+ *
+ * @returns {Promise<void>} A promise settled once the models are shown.
+ */
+async function showModels(): Promise<void> {
+  const problems: ModelProblem[] = [];
+  let available: readonly string[];
+  try {
+    available = await fetchModelIndex(MODELS_URL);
+  } catch (error: unknown) {
+    // Without the list, the required models may still be there.
+    available = REQUIRED_MODEL_FILES;
+    problems.push({ file: MODEL_INDEX_FILE, reason: describeFailure(error) });
+  }
+  const plan = planModels(available);
+  for (const file of plan.missing) {
+    problems.push({ file, reason: 'missing' });
+  }
+  const loaded = await loadModels(MODELS_URL, plan.shown);
+  problems.push(...loaded.problems);
+  actors.push(...populateVillage(scene, loaded.models));
+  playAnimation();
+  panel.state.models = summariseModels(loaded.models.length, problems);
+  panel.listProblems(problems);
+}
+
+void showModels();
 
 const socket = new WebSocket(resolveServerUrl(new URL(window.location.href)));
 socket.addEventListener('message', (event: MessageEvent<unknown>) => {
   try {
     const message = decodeServerMessage(String(event.data));
     const version = String(message.protocolVersion);
-    settings.server = `connected (protocol ${version})`;
+    panel.state.server = `connected (protocol ${version})`;
   } catch {
-    settings.server = 'misbehaving';
+    panel.state.server = 'misbehaving';
   }
 });
 socket.addEventListener('close', () => {
-  settings.server = 'disconnected';
+  panel.state.server = 'disconnected';
 });

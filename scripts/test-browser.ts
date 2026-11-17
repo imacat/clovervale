@@ -69,8 +69,10 @@ interface PageState {
   readonly height: number;
   /** The server status the client displays. */
   readonly serverStatus: string;
-  /** The fraction of the centre of the view that is lit, from 0 to 1. */
-  readonly litFraction: number;
+  /** The model status the client displays. */
+  readonly modelStatus: string;
+  /** The fraction of the centre of the view that is lit grass, from 0 to 1. */
+  readonly grassFraction: number;
 }
 
 const rootDir: string = path.resolve(import.meta.dirname, '..');
@@ -94,28 +96,34 @@ const STOP_TIMEOUT = 5_000;
 
 /** The least a colour channel of a lit pixel can be, from 0 to 255. */
 const LIT_CHANNEL = 96;
-/** The least fraction of the centre of the view a drawn scene lights. */
+/** The least fraction of the centre of the view that is grass when drawn. */
 const DRAWN_FRACTION = 0.1;
+/** The model status of a client that has shown the models it could. */
+const MODELS_SHOWN_PATTERN = /^\d+ shown/;
 
 const MIME_TYPES: Readonly<Record<string, string>> = {
   '.css': 'text/css',
+  '.glb': 'model/gltf-binary',
   '.html': 'text/html',
   '.js': 'text/javascript',
+  '.json': 'application/json',
 };
 
-/** Reads the size of the view and the server status the client displays. */
+/** Reads the size of the view and the statuses the client displays. */
 const PAGE_EXPRESSION = `(() => {
-  let serverStatus = '';
+  const statuses = { Server: '', Models: '' };
   for (const input of document.querySelectorAll('input[aria-labelledby]')) {
     const labelId = input.getAttribute('aria-labelledby');
-    if (document.getElementById(labelId)?.textContent === 'Server') {
-      serverStatus = input.value;
+    const label = document.getElementById(labelId)?.textContent;
+    if (Object.hasOwn(statuses, label)) {
+      statuses[label] = input.value;
     }
   }
   return JSON.stringify({
     width: window.innerWidth,
     height: window.innerHeight,
-    serverStatus,
+    serverStatus: statuses.Server,
+    modelStatus: statuses.Models,
   });
 })()`;
 
@@ -427,13 +435,17 @@ class BidiSession {
 }
 
 /**
- * Measures how much of a PNG image is lit.
+ * Measures how much of a PNG image is lit grass.
+ *
+ * Neither the sky nor the page behind the scene counts: the sky is not
+ * green, and the page is dark.
  *
  * @param {Buffer} png - The image, as 8-bit RGB or RGBA without interlacing.
- * @returns {number} The fraction of its pixels that are lit, from 0 to 1.
+ * @returns {number} The fraction of its pixels that are lit and mostly
+ *   green, from 0 to 1.
  * @throws {Error} If the image is in another PNG format.
  */
-function measureLitFraction(png: Buffer): number {
+function measureGrassFraction(png: Buffer): number {
   const width: number = png.readUInt32BE(16);
   const height: number = png.readUInt32BE(20);
   const channels: number = png[25] === 6 ? 4 : 3;
@@ -451,7 +463,7 @@ function measureLitFraction(png: Buffer): number {
   const data: Buffer = inflateSync(Buffer.concat(parts));
   const stride: number = width * channels;
   let previous: Uint8Array = new Uint8Array(stride);
-  let lit = 0;
+  let grass = 0;
   for (let y = 0; y < height; y++) {
     const start: number = y * (stride + 1);
     const filter: number = data[start] ?? 0;
@@ -480,13 +492,13 @@ function measureLitFraction(png: Buffer): number {
       const red: number = row[x] ?? 0;
       const green: number = row[x + 1] ?? 0;
       const blue: number = row[x + 2] ?? 0;
-      if (Math.max(red, green, blue) >= LIT_CHANNEL) {
-        lit++;
+      if (green >= LIT_CHANNEL && green > red && green > blue) {
+        grass++;
       }
     }
     previous = row;
   }
-  return lit / (width * height);
+  return grass / (width * height);
 }
 
 /**
@@ -510,7 +522,7 @@ async function readPageState(
   }
   const page = JSON.parse(evaluated.result.value) as Omit<
     PageState,
-    'litFraction'
+    'grassFraction'
   >;
   // The centre of the view holds the scene, clear of the settings panel.
   const clip: object = {
@@ -525,11 +537,12 @@ async function readPageState(
     { context, clip },
   )) as { data: string };
   const png: Buffer = Buffer.from(screenshot.data, 'base64');
-  return { ...page, litFraction: measureLitFraction(png) };
+  return { ...page, grassFraction: measureGrassFraction(png) };
 }
 
 /**
- * Checks that the built client draws its scene and connects to the server.
+ * Checks that the built client draws its scene, shows the models it has,
+ * and connects to the server.
  *
  * @returns {Promise<void>} A promise settled once the client has passed.
  * @throws {Error} If the client fails the check, or the check cannot run.
@@ -561,7 +574,8 @@ async function checkClient(): Promise<void> {
   let state: PageState = await readPageState(session, context);
   const isPassing = (): boolean =>
     state.serverStatus.startsWith('connected') &&
-    state.litFraction >= DRAWN_FRACTION;
+    MODELS_SHOWN_PATTERN.test(state.modelStatus) &&
+    state.grassFraction >= DRAWN_FRACTION;
   while (!isPassing() && Date.now() < deadline) {
     await sleep(POLL_INTERVAL);
     state = await readPageState(session, context);
@@ -577,11 +591,17 @@ async function checkClient(): Promise<void> {
         `"${state.serverStatus}".`,
     );
   }
-  if (state.litFraction < DRAWN_FRACTION) {
-    const percentage: string = (state.litFraction * 100).toFixed(1);
+  if (!MODELS_SHOWN_PATTERN.test(state.modelStatus)) {
+    problems.push(
+      'The client did not finish showing its models: its model status is ' +
+        `"${state.modelStatus}".`,
+    );
+  }
+  if (state.grassFraction < DRAWN_FRACTION) {
+    const percentage: string = (state.grassFraction * 100).toFixed(1);
     problems.push(
       `The client did not draw its scene: only ${percentage}% of the ` +
-        'centre of the view is lit.',
+        'centre of the view is lit grass.',
     );
   }
   for (const text of session.pageErrors) {

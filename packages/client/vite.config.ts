@@ -23,9 +23,12 @@
 
 import { defineConfig } from 'vite';
 
+import { listModels } from './plugins/model-index.ts';
+
 export default defineConfig({
   // Relative asset URLs let the built client be served from any directory.
   base: './',
+  plugins: [listModels()],
   build: {
     // Three.js alone exceeds the default 500 kB warning threshold.
     chunkSizeWarningLimit: 1000,
