@@ -81,7 +81,13 @@ const fileHeaderRule = {
 };
 
 export default defineConfig(
-  globalIgnores(['**/dist/', 'docs/api/', 'release/', 'coverage/']),
+  globalIgnores([
+    '**/dist/',
+    'docs/api/',
+    'release/',
+    'coverage/',
+    'excludes/',
+  ]),
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
