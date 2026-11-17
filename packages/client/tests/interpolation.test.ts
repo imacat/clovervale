@@ -23,8 +23,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { SIMULATION_RATE, createSnapshotMessage } from '@clovervale/shared';
-import type { PlayerState } from '@clovervale/shared';
+import {
+  SIMULATION_RATE,
+  createMotion,
+  createSnapshotMessage,
+} from '@clovervale/shared';
+import type { InputProgress, PlayerState } from '@clovervale/shared';
 
 import {
   HISTORY_LIMIT,
@@ -48,6 +52,13 @@ const PLAYER: PlayerState = {
   actionCount: 1,
 };
 
+/** What the snapshots tell the page of its own player. */
+const OWN: InputProgress = {
+  sequence: 0,
+  steps: 0,
+  motion: createMotion(PLAYER, PLAYER.yaw),
+};
+
 /**
  * Receives a snapshot the moment the server takes it, as if the server and
  * the page shared a clock.
@@ -61,7 +72,7 @@ function receiveAtOnce(
   step: number,
   players: readonly PlayerState[],
 ): void {
-  timeline.addSnapshot(createSnapshotMessage(step, players), step * STEP);
+  timeline.addSnapshot(createSnapshotMessage(step, players, OWN), step * STEP);
 }
 
 /**
@@ -218,7 +229,7 @@ describe('SnapshotTimeline', () => {
     ];
     for (const [step, arrival] of arrivals) {
       const player: PlayerState = { ...PLAYER, x: step * 0.05 };
-      timeline.addSnapshot(createSnapshotMessage(step, [player]), arrival);
+      timeline.addSnapshot(createSnapshotMessage(step, [player], OWN), arrival);
     }
     const seen: number[] = [1400, 1425, 1450, 1475, 1500].map(
       (time: number) => findOnly(timeline.readPast(time, 200)).x,
@@ -294,7 +305,7 @@ describe('SnapshotTimeline', () => {
     receiveAtOnce(timeline, 2, [PLAYER]);
     receiveAtOnce(timeline, 4, [{ ...PLAYER, x: 1.2 }]);
     expect(findOnly(timeline.readPast(440, 200)).x).toBe(1.2);
-    const late = createSnapshotMessage(6, [{ ...PLAYER, x: 1.4 }]);
+    const late = createSnapshotMessage(6, [{ ...PLAYER, x: 1.4 }], OWN);
     timeline.addSnapshot(late, 445);
     expect(findOnly(timeline.readPast(450, 200)).x).toBeCloseTo(1.3);
   });

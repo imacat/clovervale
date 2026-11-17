@@ -24,12 +24,35 @@
 export { ACTION_STATES, SLASH_DURATION } from './actions.ts';
 export type { ActionState } from './actions.ts';
 export {
+  AuthoritativePlayer,
+  INPUT_WAIT_LIMIT,
+  WAITING_INPUT_LIMIT,
+} from './authoritative-player.ts';
+export type {
+  InputProgress,
+  InputStamp,
+  StampedInput,
+} from './authoritative-player.ts';
+export {
   SIMULATION_RATE,
   WALK_SPEED,
   findYaw,
   movePosition,
 } from './movement.ts';
 export type { GroundVector } from './movement.ts';
+export {
+  SLASH_STEPS,
+  applyInput,
+  createMotion,
+  isResting,
+  stepMotion,
+} from './player-motion.ts';
+export type {
+  InteractInput,
+  MoveInput,
+  PlayerInput,
+  PlayerMotion,
+} from './player-motion.ts';
 export {
   APPEARANCE_COUNT,
   DEFAULT_SERVER_PORT,

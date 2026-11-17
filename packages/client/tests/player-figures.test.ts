@@ -24,8 +24,8 @@
 import { AnimationClip, NumberKeyframeTrack, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { createSnapshotMessage } from '@clovervale/shared';
-import type { PlayerState } from '@clovervale/shared';
+import { createMotion, createSnapshotMessage } from '@clovervale/shared';
+import type { InputProgress, PlayerState } from '@clovervale/shared';
 
 import { SnapshotTimeline } from '../src/interpolation.ts';
 import { PlayerFigures } from '../src/player-figures.ts';
@@ -40,6 +40,13 @@ const PLAYER: PlayerState = {
   yaw: 90,
   action: 'Idle',
   actionCount: 0,
+};
+
+/** What the snapshots tell the page of its own player. */
+const OWN: InputProgress = {
+  sequence: 0,
+  steps: 0,
+  motion: createMotion(PLAYER, PLAYER.yaw),
 };
 
 /**
@@ -278,7 +285,11 @@ describe('PlayerFigures', () => {
       [20, { action: 'Idle', actionCount: 5 }],
     ];
     for (const [step, state] of states) {
-      const snapshot = createSnapshotMessage(step, [{ ...PLAYER, ...state }]);
+      const snapshot = createSnapshotMessage(
+        step,
+        [{ ...PLAYER, ...state }],
+        OWN,
+      );
       timeline.addSnapshot(snapshot, step * 50);
     }
     // The page shows what was 200 milliseconds ago, 50 times a second.

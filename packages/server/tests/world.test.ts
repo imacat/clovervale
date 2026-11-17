@@ -29,8 +29,10 @@ import {
   SIMULATION_RATE,
   SLASH_DURATION,
   WALK_SPEED,
+  createInteractMessage,
+  createMoveMessage,
 } from '@clovervale/shared';
-import type { PlayerState } from '@clovervale/shared';
+import type { GroundVector, PlayerState } from '@clovervale/shared';
 
 import { World } from '../src/world.ts';
 
@@ -47,6 +49,40 @@ function stepTimes(world: World, count: number): void {
   for (let step = 0; step < count; step++) {
     world.step();
   }
+}
+
+/** The number of the last input a test has given a world. */
+let lastSequence = 0;
+
+/**
+ * Tells a world, as the next input of a player, which way the player wants
+ * to move from the next step on.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {GroundVector} direction - The direction to move in.
+ * @returns {boolean} Whether the world accepted the input.
+ */
+function steerPlayer(
+  world: World,
+  id: number,
+  direction: GroundVector,
+): boolean {
+  const stamp = { sequence: ++lastSequence, after: 0 };
+  return world.receiveInput(id, createMoveMessage(stamp, direction));
+}
+
+/**
+ * Tells a world, as the next input of a player, that the player interacts
+ * at the next step.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @returns {boolean} Whether the world accepted the input.
+ */
+function interactPlayer(world: World, id: number): boolean {
+  const stamp = { sequence: ++lastSequence, after: 0 };
+  return world.receiveInput(id, createInteractMessage(stamp));
 }
 
 /**
@@ -149,7 +185,7 @@ describe('a player coming into the world', () => {
     const second: PlayerState = world.addPlayer();
     world.removePlayer(first.id);
     // The second player walks to where the first one stood.
-    world.steerPlayer(second.id, { x: first.x - second.x, z: 0 });
+    steerPlayer(world, second.id, { x: first.x - second.x, z: 0 });
     const steps: number =
       (measureDistance(first, second) / WALK_SPEED) * SIMULATION_RATE;
     stepTimes(world, Math.round(steps));
@@ -181,14 +217,14 @@ describe('a player who wants to move', () => {
   it('stays put until the next step', () => {
     const world = new World();
     const player: PlayerState = world.addPlayer();
-    world.steerPlayer(player.id, { x: 1, z: 0 });
+    steerPlayer(world, player.id, { x: 1, z: 0 });
     expect(findPlayer(world, player.id)).toEqual(player);
   });
 
   it('walks at walking speed, facing the way it goes', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, SIMULATION_RATE * 2);
     const player: PlayerState = findPlayer(world, start.id);
     expect(player.x).toBeCloseTo(start.x + WALK_SPEED * 2);
@@ -200,7 +236,7 @@ describe('a player who wants to move', () => {
   it('walks no faster for a longer direction', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.steerPlayer(start.id, { x: -30, z: 40 });
+    steerPlayer(world, start.id, { x: -30, z: 40 });
     stepTimes(world, SIMULATION_RATE);
     const player: PlayerState = findPlayer(world, start.id);
     expect(measureDistance(player, start)).toBeCloseTo(WALK_SPEED);
@@ -211,9 +247,9 @@ describe('a player who wants to move', () => {
   it('turns when its direction changes', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 3);
-    world.steerPlayer(start.id, { x: 0, z: 1 });
+    steerPlayer(world, start.id, { x: 0, z: 1 });
     world.step();
     expect(findPlayer(world, start.id).yaw).toBeCloseTo(0);
   });
@@ -221,10 +257,10 @@ describe('a player who wants to move', () => {
   it('stops where it is, facing the same way, and idles', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 5);
     const walking: PlayerState = findPlayer(world, start.id);
-    world.steerPlayer(start.id, { x: 0, z: 0 });
+    steerPlayer(world, start.id, { x: 0, z: 0 });
     stepTimes(world, 5);
     const player: PlayerState = findPlayer(world, start.id);
     expect(player.action).toBe('Idle');
@@ -236,7 +272,7 @@ describe('a player who wants to move', () => {
     const world = new World();
     const mover: PlayerState = world.addPlayer();
     const other: PlayerState = world.addPlayer();
-    world.steerPlayer(mover.id, { x: 0, z: 1 });
+    steerPlayer(world, mover.id, { x: 0, z: 1 });
     stepTimes(world, 5);
     expect(findPlayer(world, other.id)).toEqual(other);
   });
@@ -245,10 +281,11 @@ describe('a player who wants to move', () => {
     const world = new World();
     const player: PlayerState = world.addPlayer();
     world.removePlayer(player.id);
-    world.steerPlayer(player.id, { x: 0, z: 1 });
-    world.interactPlayer(player.id);
+    expect(steerPlayer(world, player.id, { x: 0, z: 1 })).toBe(false);
+    expect(interactPlayer(world, player.id)).toBe(false);
     world.step();
     expect(world.listPlayers()).toEqual([]);
+    expect(world.findProgress(player.id)).toBeNull();
   });
 });
 
@@ -256,7 +293,7 @@ describe('a player who interacts', () => {
   it('slashes from the next step, for as long as a slash lasts', () => {
     const world = new World();
     const player: PlayerState = world.addPlayer();
-    world.interactPlayer(player.id);
+    interactPlayer(world, player.id);
     expect(findPlayer(world, player.id).action).toBe('Idle');
     world.step();
     expect(findPlayer(world, player.id).action).toBe('Slash');
@@ -269,7 +306,7 @@ describe('a player who interacts', () => {
   it('slashes once for every request', () => {
     const world = new World();
     const player: PlayerState = world.addPlayer();
-    world.interactPlayer(player.id);
+    interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS + 1);
     stepTimes(world, SIMULATION_RATE);
     expect(findPlayer(world, player.id).action).toBe('Idle');
@@ -278,10 +315,10 @@ describe('a player who interacts', () => {
   it('carries on with its slash alone when asked again during it', () => {
     const world = new World();
     const player: PlayerState = world.addPlayer();
-    world.interactPlayer(player.id);
+    interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS / 2);
     const slashing: PlayerState = findPlayer(world, player.id);
-    world.interactPlayer(player.id);
+    interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS / 2);
     expect(findPlayer(world, player.id)).toEqual(slashing);
     world.step();
@@ -293,11 +330,11 @@ describe('a player who interacts', () => {
   it('stands still without turning while it slashes', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 4);
     const walking: PlayerState = findPlayer(world, start.id);
-    world.interactPlayer(start.id);
-    world.steerPlayer(start.id, { x: 0, z: 1 });
+    interactPlayer(world, start.id);
+    steerPlayer(world, start.id, { x: 0, z: 1 });
     stepTimes(world, SLASH_STEPS);
     const player: PlayerState = findPlayer(world, start.id);
     expect(player.action).toBe('Slash');
@@ -311,11 +348,11 @@ describe('a player who interacts', () => {
   it('walks on after the slash the way it wants to move by then', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.interactPlayer(start.id);
+    interactPlayer(world, start.id);
     world.step();
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 3);
-    world.steerPlayer(start.id, { x: 0, z: 1 });
+    steerPlayer(world, start.id, { x: 0, z: 1 });
     stepTimes(world, SLASH_STEPS - 3);
     const player: PlayerState = findPlayer(world, start.id);
     expect(player.action).toBe('Walk');
@@ -327,11 +364,11 @@ describe('a player who interacts', () => {
   it('idles after the slash if it has stopped wanting to move', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     world.step();
-    world.interactPlayer(start.id);
+    interactPlayer(world, start.id);
     world.step();
-    world.steerPlayer(start.id, { x: 0, z: 0 });
+    steerPlayer(world, start.id, { x: 0, z: 0 });
     stepTimes(world, SLASH_STEPS);
     expect(findPlayer(world, start.id).action).toBe('Idle');
   });
@@ -339,9 +376,9 @@ describe('a player who interacts', () => {
   it('can slash again as soon as the slash is over', () => {
     const world = new World();
     const player: PlayerState = world.addPlayer();
-    world.interactPlayer(player.id);
+    interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS + 1);
-    world.interactPlayer(player.id);
+    interactPlayer(world, player.id);
     world.step();
     expect(findPlayer(world, player.id).action).toBe('Slash');
   });
@@ -355,13 +392,13 @@ describe('the action count of a player', () => {
     const record = (): void => {
       counts.push(findPlayer(world, start.id).actionCount - (counts[0] ?? 0));
     };
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     world.step();
     record();
-    world.interactPlayer(start.id);
+    interactPlayer(world, start.id);
     world.step();
     record();
-    world.steerPlayer(start.id, { x: 0, z: 0 });
+    steerPlayer(world, start.id, { x: 0, z: 0 });
     stepTimes(world, SLASH_STEPS);
     record();
     expect(counts.slice(1)).toEqual([1, 2, 3]);
@@ -372,16 +409,16 @@ describe('the action count of a player', () => {
     const start: PlayerState = world.addPlayer();
     stepTimes(world, 5);
     expect(findPlayer(world, start.id).actionCount).toBe(start.actionCount);
-    world.steerPlayer(start.id, { x: 1, z: 0 });
+    steerPlayer(world, start.id, { x: 1, z: 0 });
     world.step();
     const walking: PlayerState = findPlayer(world, start.id);
-    world.steerPlayer(start.id, { x: 0, z: 1 });
+    steerPlayer(world, start.id, { x: 0, z: 1 });
     stepTimes(world, 5);
     expect(findPlayer(world, start.id).actionCount).toBe(walking.actionCount);
-    world.interactPlayer(start.id);
+    interactPlayer(world, start.id);
     world.step();
     const slashing: PlayerState = findPlayer(world, start.id);
-    world.interactPlayer(start.id);
+    interactPlayer(world, start.id);
     stepTimes(world, SLASH_STEPS - 1);
     expect(findPlayer(world, start.id).actionCount).toBe(
       slashing.actionCount,
@@ -391,14 +428,67 @@ describe('the action count of a player', () => {
   it('tells two slashes in a row apart', () => {
     const world = new World();
     const start: PlayerState = world.addPlayer();
-    world.interactPlayer(start.id);
+    interactPlayer(world, start.id);
     world.step();
     const first: PlayerState = findPlayer(world, start.id);
     stepTimes(world, SLASH_STEPS);
-    world.interactPlayer(start.id);
+    interactPlayer(world, start.id);
     world.step();
     const second: PlayerState = findPlayer(world, start.id);
     expect(second.action).toBe('Slash');
     expect(second.actionCount).toBeGreaterThan(first.actionCount);
+  });
+});
+
+describe('the inputs of a player', () => {
+  it('come into effect in turn, as far apart as they tell', () => {
+    const world = new World();
+    const start: PlayerState = world.addPlayer();
+    const east = createMoveMessage({ sequence: 1, after: 0 }, { x: 1, z: 0 });
+    const stop = createMoveMessage({ sequence: 2, after: 3 }, { x: 0, z: 0 });
+    expect(world.receiveInput(start.id, east)).toBe(true);
+    expect(world.receiveInput(start.id, stop)).toBe(true);
+    stepTimes(world, 10);
+    const player: PlayerState = findPlayer(world, start.id);
+    expect(player.action).toBe('Idle');
+    expect(player.x).toBeCloseTo(start.x + (WALK_SPEED * 3) / SIMULATION_RATE);
+  });
+
+  it('are told with how far the player has got with them', () => {
+    const world = new World();
+    const { id }: PlayerState = world.addPlayer();
+    stepTimes(world, 2);
+    expect(world.findProgress(id)).toMatchObject({ sequence: 0, steps: 2 });
+    world.receiveInput(
+      id,
+      createMoveMessage({ sequence: 1, after: 0 }, { x: 0, z: 1 }),
+    );
+    expect(world.findProgress(id)).toMatchObject({ sequence: 0, steps: 2 });
+    stepTimes(world, 3);
+    const player: PlayerState = findPlayer(world, id);
+    expect(world.findProgress(id)).toEqual({
+      sequence: 1,
+      steps: 3,
+      motion: {
+        x: player.x,
+        z: player.z,
+        yaw: player.yaw,
+        action: 'Walk',
+        actionCount: player.actionCount,
+        direction: { x: 0, z: 1 },
+        isInteracting: false,
+        slashSteps: 0,
+      },
+    });
+  });
+
+  it('are refused when they are not numbered upwards', () => {
+    const world = new World();
+    const { id }: PlayerState = world.addPlayer();
+    const first = createInteractMessage({ sequence: 5, after: 0 });
+    expect(world.receiveInput(id, first)).toBe(true);
+    expect(world.receiveInput(id, first)).toBe(false);
+    const earlier = createInteractMessage({ sequence: 4, after: 0 });
+    expect(world.receiveInput(id, earlier)).toBe(false);
   });
 });

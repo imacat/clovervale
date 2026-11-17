@@ -39,7 +39,11 @@ import {
   decodeClientMessage,
   encodeServerMessage,
 } from '@clovervale/shared';
-import type { ClientMessage, PlayerState } from '@clovervale/shared';
+import type {
+  ClientMessage,
+  InputProgress,
+  PlayerState,
+} from '@clovervale/shared';
 
 import { World } from './world.ts';
 
@@ -86,8 +90,10 @@ const SOCKET_FILE_MODE = 0o660;
  * Every peer that connects gets a player of its own, which it is welcomed
  * with and steers with its messages, and which leaves the world when the
  * peer disconnects.  A peer that sends anything but well-formed client
- * messages is disconnected.  All peers are sent snapshots of all the
- * players, again and again, as the simulation of the world goes on.
+ * messages, or inputs that are not numbered upwards, or more inputs than
+ * can wait for their turn, is disconnected.  All peers are sent snapshots
+ * of all the players, again and again, as the simulation of the world goes
+ * on, each with how far its own player has got with its inputs.
  *
  * A Unix socket file is created for its owner and its group to connect to.
  * A socket file that nothing listens on any more is replaced.
@@ -112,8 +118,10 @@ export async function startServer(
   }
   const sockets = new WebSocketServer({ server: listener });
   const world = new World();
+  const playerIds = new Map<WebSocket, number>();
   sockets.on('connection', (socket: WebSocket) => {
     const player: PlayerState = world.addPlayer();
+    playerIds.set(socket, player.id);
     socket.on('message', (data: RawData) => {
       let message: ClientMessage;
       try {
@@ -122,18 +130,17 @@ export async function startServer(
         socket.close(POLICY_VIOLATION, 'The message is malformed.');
         return;
       }
-      if (message.type === 'move') {
-        world.steerPlayer(player.id, message.direction);
-      } else {
-        world.interactPlayer(player.id);
+      if (!world.receiveInput(player.id, message)) {
+        socket.close(POLICY_VIOLATION, 'The input is out of turn.');
       }
     });
     socket.on('close', () => {
+      playerIds.delete(socket);
       world.removePlayer(player.id);
     });
     socket.send(encodeServerMessage(createWelcomeMessage(player.id)));
   });
-  const stopSimulation: () => void = runSimulation(world, sockets);
+  const stopSimulation: () => void = runSimulation(world, playerIds);
   const address = listener.address();
   return {
     port: address === null || typeof address === 'string' ? null : address.port,
@@ -251,14 +258,18 @@ function readText(data: RawData): string {
 /**
  * Keeps the simulation of a world going at its fixed rate, and sends every
  * peer a snapshot of the players at the snapshot rate, which tells the
- * number of steps the simulation has taken.
+ * number of steps the simulation has taken, and how far the player of the
+ * peer has got with the inputs of the peer.
  *
  * @param {World} world - The world to simulate.
- * @param {WebSocketServer} sockets - The WebSocket server the peers are
- *   connected to.
+ * @param {ReadonlyMap<WebSocket, number>} playerIds - The identifiers of
+ *   the players of the connected peers, by their connections.
  * @returns {() => void} Stops the simulation and the snapshots.
  */
-function runSimulation(world: World, sockets: WebSocketServer): () => void {
+function runSimulation(
+  world: World,
+  playerIds: ReadonlyMap<WebSocket, number>,
+): () => void {
   const startTime: number = performance.now();
   let stepCount = 0;
   let timer: NodeJS.Timeout;
@@ -273,12 +284,15 @@ function runSimulation(world: World, sockets: WebSocketServer): () => void {
       isSnapshotDue ||= stepCount % STEPS_PER_SNAPSHOT === 0;
     }
     if (isSnapshotDue) {
-      const snapshot: string = encodeServerMessage(
-        createSnapshotMessage(stepCount, world.listPlayers()),
-      );
-      for (const socket of sockets.clients) {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(snapshot);
+      const players: PlayerState[] = world.listPlayers();
+      for (const [socket, id] of playerIds) {
+        const own: InputProgress | null = world.findProgress(id);
+        if (own !== null && socket.readyState === WebSocket.OPEN) {
+          socket.send(
+            encodeServerMessage(
+              createSnapshotMessage(stepCount, players, own),
+            ),
+          );
         }
       }
     }

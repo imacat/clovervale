@@ -51,6 +51,7 @@ import {
 } from '@clovervale/shared';
 import type {
   ClientMessage,
+  InputProgress,
   PlayerState,
   ServerMessage,
   WelcomeMessage,
@@ -68,6 +69,8 @@ interface TimedSnapshot {
   readonly step: number;
   /** The players in the snapshot. */
   readonly players: readonly PlayerState[];
+  /** How far the player of the peer has got with the inputs of the peer. */
+  readonly own: InputProgress;
   /** When the snapshot was received, in milliseconds. */
   readonly time: number;
 }
@@ -150,7 +153,8 @@ class Peer {
     for (;;) {
       const [message, time] = await this.#receive();
       if (message.type === 'snapshot') {
-        return { step: message.step, players: message.players, time };
+        const { step, players, own } = message;
+        return { step, players, own, time };
       }
     }
   }
@@ -291,10 +295,10 @@ describe('the game server', () => {
       .toBeGreaterThan(1);
   });
 
-  it('sends every peer the same snapshots', async () => {
+  it('sends every peer the same players', async () => {
     const [mover, moverId] = await connectPeer();
     const [watcher] = await connectPeer();
-    mover.send(createMoveMessage({ x: 1, z: 0 }));
+    mover.send(createMoveMessage({ sequence: 1, after: 0 }, { x: 1, z: 0 }));
     const isWalking = (players: readonly PlayerState[]): boolean =>
       isPair(players) &&
       players.some(
@@ -338,7 +342,7 @@ describe('the game server', () => {
     const [peer, id] = await connectPeer();
     const still: TimedSnapshot = await peer.receiveSnapshot();
     expect(findPlayer(still, id).action).toBe('Idle');
-    peer.send(createMoveMessage({ x: 0, z: 1 }));
+    peer.send(createMoveMessage({ sequence: 1, after: 0 }, { x: 0, z: 1 }));
     const start: TimedSnapshot = await peer.receiveSnapshotWhere(
       ([player]: readonly PlayerState[]) => player?.action === 'Walk',
     );
@@ -354,7 +358,7 @@ describe('the game server', () => {
     expect(to.x).toBeCloseTo(from.x);
     expect(to.yaw).toBeCloseTo(0);
 
-    peer.send(createMoveMessage({ x: 0, z: 0 }));
+    peer.send(createMoveMessage({ sequence: 2, after: 0 }, { x: 0, z: 0 }));
     const stopped: TimedSnapshot = await peer.receiveSnapshotWhere(
       ([player]: readonly PlayerState[]) => player?.action === 'Idle',
     );
@@ -365,7 +369,7 @@ describe('the game server', () => {
   it('makes a player slash for a while when its peer interacts', async () => {
     const [actor, id] = await connectPeer();
     const [watcher] = await connectPeer();
-    actor.send(createInteractMessage());
+    actor.send(createInteractMessage({ sequence: 1, after: 0 }));
     const isSlashing = (players: readonly PlayerState[]): boolean =>
       players.some(
         (player: PlayerState) => player.id === id && player.action === 'Slash',
@@ -384,6 +388,58 @@ describe('the game server', () => {
     expect(after.actionCount).toBeGreaterThan(before.actionCount);
   });
 
+  it('tells every peer how far its own player has got', async () => {
+    const [mover, moverId] = await connectPeer();
+    const [watcher, watcherId] = await connectPeer();
+    const still: TimedSnapshot = await mover.receiveSnapshot();
+    expect(still.own.sequence).toBe(0);
+    mover.send(createMoveMessage({ sequence: 1, after: 0 }, { x: 1, z: 0 }));
+    mover.send(createMoveMessage({ sequence: 2, after: 4 }, { x: 0, z: 0 }));
+    const stopped: TimedSnapshot = await mover.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) =>
+        players.some(
+          (player: PlayerState) =>
+            player.id === moverId &&
+            player.action === 'Idle' &&
+            player.actionCount > 0,
+        ),
+    );
+    const { x, z, yaw, action, actionCount } = findPlayer(stopped, moverId);
+    expect(stopped.own.sequence).toBe(2);
+    expect(stopped.own.steps).toBeGreaterThan(0);
+    expect(stopped.own.motion).toEqual({
+      x,
+      z,
+      yaw,
+      action,
+      actionCount,
+      direction: { x: 0, z: 0 },
+      isInteracting: false,
+      slashSteps: 0,
+    });
+    // The stop waited for the four steps it told.
+    expect(x - findPlayer(still, moverId).x).toBeCloseTo(
+      (WALK_SPEED * 4) / SIMULATION_RATE,
+    );
+    const seen: TimedSnapshot = await watcher.receiveSnapshot();
+    const { x: ownX, z: ownZ } = findPlayer(seen, watcherId);
+    expect(seen.own.sequence).toBe(0);
+    expect(seen.own.motion).toMatchObject({ x: ownX, z: ownZ });
+  });
+
+  it('disconnects a peer whose inputs are not numbered upwards', async () => {
+    const [offender] = await connectPeer();
+    const [watcher, watcherId] = await connectPeer();
+    await watcher.receiveSnapshotWhere(isPair);
+    offender.send(createInteractMessage({ sequence: 2, after: 0 }));
+    offender.send(createInteractMessage({ sequence: 2, after: 0 }));
+    await offender.waitUntilClosed();
+    const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) => !isPair(players),
+    );
+    expect(listIds(snapshot)).toEqual([watcherId]);
+  });
+
   it('takes the player of a peer that leaves out of the world', async () => {
     const [leaver] = await connectPeer();
     const [watcher, watcherId] = await connectPeer();
@@ -399,7 +455,7 @@ describe('the game server', () => {
     const [offender] = await connectPeer();
     const [watcher, watcherId] = await connectPeer();
     await watcher.receiveSnapshotWhere(isPair);
-    offender.send('{"type":"move","direction":"north"}');
+    offender.send('{"type":"move","sequence":1,"after":0,"direction":"north"}');
     await offender.waitUntilClosed();
     const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(
       (players: readonly PlayerState[]) => !isPair(players),

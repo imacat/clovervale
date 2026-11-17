@@ -21,7 +21,7 @@
  * @module client/player-readout Telling the owner what is synchronised.
  */
 
-import type { PlayerState } from '@clovervale/shared';
+import type { GroundVector, PlayerState } from '@clovervale/shared';
 
 import type { PlayersView } from './interpolation.ts';
 
@@ -45,9 +45,31 @@ export interface DisplayReadout {
   readonly drawnAt: string;
   /**
    * How far behind the latest snapshot the players are shown, in time, and
-   * the player of the page in distance.
+   * how far from where it tells the player of the page is shown, in
+   * distance.
    */
   readonly behind: string;
+}
+
+/** What the owner reads about the prediction of the player of the page. */
+export interface PredictionReadout {
+  /** The position the player of the page is predicted to be at. */
+  readonly predicted: string;
+  /** The number of corrections so far, and the size of the last one. */
+  readonly corrections: string;
+}
+
+/** What there is to tell about a prediction. */
+export interface PredictionSummary {
+  /** Where the player is predicted to be. */
+  readonly motion: GroundVector;
+  /** The number of times the server has contradicted the prediction. */
+  readonly correctionCount: number;
+  /**
+   * How far the last correction moved the player, in metres, or `null`
+   * before the first correction.
+   */
+  readonly lastCorrection: number | null;
 }
 
 /** What stands for a value that is not known yet. */
@@ -121,6 +143,30 @@ export function describeDisplay(
   }
   const distance: number = Math.hypot(latest.x - drawn.x, latest.z - drawn.z);
   return { drawnAt, behind: `${time}, ${formatNumber(distance, 2)} m` };
+}
+
+/**
+ * Describes the prediction of the player of the page.
+ *
+ * @param {PredictionSummary | null} prediction - The prediction, or `null`
+ *   while there is none.
+ * @returns {PredictionReadout} What the owner reads.
+ */
+export function describePrediction(
+  prediction: PredictionSummary | null,
+): PredictionReadout {
+  if (prediction === null) {
+    return { predicted: UNKNOWN, corrections: UNKNOWN };
+  }
+  const { motion, correctionCount, lastCorrection } = prediction;
+  const x: string = formatNumber(motion.x, 2);
+  const predicted = `${x}, ${formatNumber(motion.z, 2)}`;
+  const count = String(correctionCount);
+  if (lastCorrection === null) {
+    return { predicted, corrections: count };
+  }
+  const size = `${formatNumber(lastCorrection, 2)} m`;
+  return { predicted, corrections: `${count}, last ${size}` };
 }
 
 /**

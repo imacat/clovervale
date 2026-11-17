@@ -25,7 +25,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlayerState } from '@clovervale/shared';
 
-import { describeDisplay, describeSnapshot } from '../src/player-readout.ts';
+import {
+  describeDisplay,
+  describePrediction,
+  describeSnapshot,
+} from '../src/player-readout.ts';
 
 /** Two players of a snapshot. */
 const PLAYERS: readonly PlayerState[] = [
@@ -124,6 +128,36 @@ describe('describeDisplay', () => {
     expect(describeDisplay(12, PLAYERS.slice(0, 1), view)).toEqual({
       drawnAt: '-4.26, 0.00',
       behind: '80 ms',
+    });
+  });
+});
+
+describe('describePrediction', () => {
+  it('tells nothing while there is no prediction', () => {
+    expect(describePrediction(null)).toEqual({
+      predicted: '–',
+      corrections: '–',
+    });
+  });
+
+  it('tells where the player is predicted to be', () => {
+    const readout = describePrediction({
+      motion: { x: -4.256, z: -0.001 },
+      correctionCount: 0,
+      lastCorrection: null,
+    });
+    expect(readout).toEqual({ predicted: '-4.26, 0.00', corrections: '0' });
+  });
+
+  it('tells the number of corrections and the size of the last', () => {
+    const readout = describePrediction({
+      motion: { x: 1, z: 2 },
+      correctionCount: 3,
+      lastCorrection: 0.0749,
+    });
+    expect(readout).toEqual({
+      predicted: '1.00, 2.00',
+      corrections: '3, last 0.07 m',
     });
   });
 });

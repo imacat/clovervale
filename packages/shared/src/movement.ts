@@ -51,7 +51,9 @@ export function movePosition(
   direction: GroundVector,
   seconds: number,
 ): GroundVector {
-  const length = Math.hypot(direction.x, direction.z);
+  // Unlike Math.hypot, a square root is the same in every JavaScript engine,
+  // to the last bit, so that a browser and the server move alike.
+  const length = Math.sqrt(direction.x ** 2 + direction.z ** 2);
   if (length === 0) {
     return position;
   }

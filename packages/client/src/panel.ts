@@ -25,8 +25,17 @@ import GUI from 'lil-gui';
 
 import { DEFAULT_DELAY, MAX_DELAY } from './interpolation.ts';
 import type { ModelProblem } from './model-report.ts';
-import { describeDisplay, describeSnapshot } from './player-readout.ts';
-import type { DisplayReadout, PlayerReadout } from './player-readout.ts';
+import { MAX_NETWORK_DELAY } from './network-delay.ts';
+import {
+  describeDisplay,
+  describePrediction,
+  describeSnapshot,
+} from './player-readout.ts';
+import type {
+  DisplayReadout,
+  PlayerReadout,
+  PredictionReadout,
+} from './player-readout.ts';
 
 /** What the panel shows of the client itself. */
 export interface PanelState {
@@ -47,12 +56,34 @@ export interface InterpolationSettings {
   delay: number;
 }
 
+/** How the owner has the player of the page shown. */
+export interface PredictionSettings {
+  /**
+   * Whether the player of the page is shown as predicted, rather than as
+   * the snapshots tell it, like every other player.
+   */
+  isEnabled: boolean;
+}
+
+/** The connection the owner has the page pretend to have. */
+export interface NetworkSettings {
+  /**
+   * How long every message of the page is held back for, each way, in
+   * milliseconds.
+   */
+  delay: number;
+}
+
 /** The settings panel of the client. */
 export interface Panel {
   /** What the panel shows of the client itself. */
   readonly state: PanelState;
   /** How the owner has the players shown, as the panel is set now. */
   readonly interpolation: Readonly<InterpolationSettings>;
+  /** How the owner has the player of the page shown, as set now. */
+  readonly prediction: Readonly<PredictionSettings>;
+  /** The connection the page pretends to have, as set now. */
+  readonly network: Readonly<NetworkSettings>;
   /**
    * Shows what is synchronised with the server, for the owner to see.
    *
@@ -66,6 +97,13 @@ export interface Panel {
    * @param {DisplayReadout} readout - What the owner reads.
    */
   readonly showDisplay: (readout: DisplayReadout) => void;
+  /**
+   * Shows what is predicted of the player of the page, for the owner to
+   * compare with what is synchronised and with what is shown.
+   *
+   * @param {PredictionReadout} readout - What the owner reads.
+   */
+  readonly showPrediction: (readout: PredictionReadout) => void;
   /**
    * Lists the models that cannot be shown, for the owner to see.
    *
@@ -84,18 +122,25 @@ const READOUT_NAMES: readonly [keyof PlayerReadout, string][] = [
   ['action', 'Action'],
 ];
 
+/** The names of the values of the prediction, in the order shown. */
+const PREDICTION_NAMES: readonly [keyof PredictionReadout, string][] = [
+  ['predicted', 'Predicted'],
+  ['corrections', 'Corrections'],
+];
+
 /** The names of the values of the display, in the order they are shown. */
 const DISPLAY_NAMES: readonly [keyof DisplayReadout, string][] = [
   ['drawnAt', 'Drawn at'],
   ['behind', 'Behind'],
 ];
 
-/** The step of the delay the owner sets, in milliseconds. */
+/** The step of the delays the owner sets, in milliseconds. */
 const DELAY_STEP = 10;
 
 /**
  * Creates the settings panel, which starts with nothing synchronised yet,
- * and with the players to be shown smoothly, by the default delay.
+ * with the player of the page to be shown as predicted, the other players
+ * smoothly, by the default delay, and no message held back.
  *
  * @returns {Panel} The panel.
  */
@@ -104,6 +149,11 @@ export function createPanel(): Panel {
   const interpolation: InterpolationSettings = {
     isEnabled: true,
     delay: DEFAULT_DELAY,
+  };
+  const prediction: PredictionSettings = { isEnabled: true };
+  const network: NetworkSettings = { delay: 0 };
+  const predicted: Record<keyof PredictionReadout, string> = {
+    ...describePrediction(null),
   };
   const shown: Record<keyof PlayerReadout, string> = {
     ...describeSnapshot(null, null),
@@ -115,6 +165,10 @@ export function createPanel(): Panel {
   const gui = new GUI({ title: 'Clovervale', injectStyles: false });
   gui.add(state, 'server').name('Server').disable().listen();
   gui.add(state, 'models').name('Models').disable().listen();
+  gui.add(prediction, 'isEnabled').name('Predict');
+  gui
+    .add(network, 'delay', 0, MAX_NETWORK_DELAY, DELAY_STEP)
+    .name('Net delay (ms)');
   gui.add(interpolation, 'isEnabled').name('Interpolate');
   gui
     .add(interpolation, 'delay', 0, MAX_DELAY, DELAY_STEP)
@@ -129,6 +183,10 @@ export function createPanel(): Panel {
   for (const [key, name] of READOUT_NAMES) {
     folder.add(shown, key).name(name).disable().listen();
   }
+  const predictionFolder: GUI = gui.addFolder('Prediction');
+  for (const [key, name] of PREDICTION_NAMES) {
+    predictionFolder.add(predicted, key).name(name).disable().listen();
+  }
   const displayFolder: GUI = gui.addFolder('Displayed');
   for (const [key, name] of DISPLAY_NAMES) {
     displayFolder.add(display, key).name(name).disable().listen();
@@ -139,6 +197,9 @@ export function createPanel(): Panel {
   };
   const showDisplay = (readout: DisplayReadout): void => {
     Object.assign(display, readout);
+  };
+  const showPrediction = (readout: PredictionReadout): void => {
+    Object.assign(predicted, readout);
   };
   const listProblems = (problems: readonly ModelProblem[]): void => {
     if (problems.length === 0) {
@@ -151,5 +212,14 @@ export function createPanel(): Panel {
       entry.domElement.title = `${problem.file}: ${problem.reason}`;
     }
   };
-  return { state, interpolation, showReadout, showDisplay, listProblems };
+  return {
+    state,
+    interpolation,
+    prediction,
+    network,
+    showReadout,
+    showDisplay,
+    showPrediction,
+    listProblems,
+  };
 }

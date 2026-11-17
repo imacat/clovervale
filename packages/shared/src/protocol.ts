@@ -23,10 +23,16 @@
 
 import { ACTION_STATES } from './actions.ts';
 import type { ActionState } from './actions.ts';
+import type { InputProgress, InputStamp } from './authoritative-player.ts';
 import type { GroundVector } from './movement.ts';
+import type {
+  InteractInput,
+  MoveInput,
+  PlayerMotion,
+} from './player-motion.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -68,7 +74,10 @@ export interface WelcomeMessage {
   readonly playerId: number;
 }
 
-/** The state of every player, which the server sends again and again. */
+/**
+ * The state of every player, which the server sends every peer again and
+ * again, with what that peer alone is told of its own player.
+ */
 export interface SnapshotMessage {
   /** The message discriminator. */
   readonly type: 'snapshot';
@@ -79,30 +88,24 @@ export interface SnapshotMessage {
   readonly step: number;
   /** Every player in the world. */
   readonly players: readonly PlayerState[];
+  /**
+   * How far the player of the peer had got with the inputs of the peer
+   * when the snapshot was taken.
+   */
+  readonly own: InputProgress;
 }
 
 /** Any message the server can send to a peer. */
 export type ServerMessage = WelcomeMessage | SnapshotMessage;
 
 /** What a peer sends whenever the way its player wants to move changes. */
-export interface MoveMessage {
-  /** The message discriminator. */
-  readonly type: 'move';
-  /**
-   * The direction the player wants to move in, of which only the bearing
-   * counts, or a direction without length to stop.
-   */
-  readonly direction: GroundVector;
-}
+export type MoveMessage = MoveInput & InputStamp;
 
 /**
  * What a peer sends whenever its player wants to interact with the world.
  * What comes of it is for the server to decide.
  */
-export interface InteractMessage {
-  /** The message discriminator. */
-  readonly type: 'interact';
-}
+export type InteractMessage = InteractInput & InputStamp;
 
 /** Any message a peer can send to the server. */
 export type ClientMessage = MoveMessage | InteractMessage;
@@ -118,38 +121,51 @@ export function createWelcomeMessage(playerId: number): WelcomeMessage {
 }
 
 /**
- * Creates a snapshot message.
+ * Creates a snapshot message for one peer.
  *
  * @param {number} step - The number of simulation steps the world has
  *   taken.
  * @param {readonly PlayerState[]} players - Every player in the world.
+ * @param {InputProgress} own - How far the player of the peer has got with
+ *   the inputs of the peer.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
   step: number,
   players: readonly PlayerState[],
+  own: InputProgress,
 ): SnapshotMessage {
-  return { type: 'snapshot', step, players };
+  return { type: 'snapshot', step, players, own };
 }
 
 /**
  * Creates a move message.
  *
+ * @param {InputStamp} stamp - What places the input in time.
  * @param {GroundVector} direction - The direction the player wants to move
  *   in, or a direction without length to stop.
  * @returns {MoveMessage} The move message.
  */
-export function createMoveMessage(direction: GroundVector): MoveMessage {
-  return { type: 'move', direction: { x: direction.x, z: direction.z } };
+export function createMoveMessage(
+  stamp: InputStamp,
+  direction: GroundVector,
+): MoveMessage {
+  return {
+    type: 'move',
+    sequence: stamp.sequence,
+    after: stamp.after,
+    direction: { x: direction.x, z: direction.z },
+  };
 }
 
 /**
  * Creates an interact message.
  *
+ * @param {InputStamp} stamp - What places the input in time.
  * @returns {InteractMessage} The interact message.
  */
-export function createInteractMessage(): InteractMessage {
-  return { type: 'interact' };
+export function createInteractMessage(stamp: InputStamp): InteractMessage {
+  return { type: 'interact', sequence: stamp.sequence, after: stamp.after };
 }
 
 /**
@@ -185,9 +201,11 @@ export function decodeServerMessage(data: string): ServerMessage {
   if (
     value.type === 'snapshot' &&
     Number.isInteger(value.step) &&
-    Array.isArray(value.players)
+    Array.isArray(value.players) &&
+    isInputProgress(value.own)
   ) {
     const players: unknown[] = value.players;
+    const { sequence, steps, motion } = value.own;
     if (players.every(isPlayerState)) {
       return {
         type: 'snapshot',
@@ -201,6 +219,20 @@ export function decodeServerMessage(data: string): ServerMessage {
           action: player.action,
           actionCount: player.actionCount,
         })),
+        own: {
+          sequence,
+          steps,
+          motion: {
+            x: motion.x,
+            z: motion.z,
+            yaw: motion.yaw,
+            action: motion.action,
+            actionCount: motion.actionCount,
+            direction: { x: motion.direction.x, z: motion.direction.z },
+            isInteracting: motion.isInteracting,
+            slashSteps: motion.slashSteps,
+          },
+        },
       };
     }
   }
@@ -226,16 +258,14 @@ export function encodeClientMessage(message: ClientMessage): string {
  */
 export function decodeClientMessage(data: string): ClientMessage {
   const value: Record<string, unknown> = parseObject(data, 'client');
-  if (value.type === 'interact') {
-    return { type: 'interact' };
-  }
-  if (value.type === 'move' && isRecord(value.direction)) {
-    const { x, z } = value.direction;
-    if (Number.isFinite(x) && Number.isFinite(z)) {
-      return {
-        type: 'move',
-        direction: { x: x as number, z: z as number },
-      };
+  const { sequence, after } = value;
+  if (isCount(sequence) && sequence > 0 && isCount(after)) {
+    if (value.type === 'interact') {
+      return { type: 'interact', sequence, after };
+    }
+    if (value.type === 'move' && isGroundVector(value.direction)) {
+      const { x, z } = value.direction;
+      return { type: 'move', sequence, after, direction: { x, z } };
     }
   }
   throw new Error('The client message is malformed.');
@@ -273,6 +303,74 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Checks whether a decoded value is a count: a whole number from 0.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is a count.
+ */
+function isCount(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
+}
+
+/**
+ * Checks whether a decoded value is a point or a direction on the ground.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is one.
+ */
+function isGroundVector(value: unknown): value is GroundVector {
+  return (
+    isRecord(value) && Number.isFinite(value.x) && Number.isFinite(value.z)
+  );
+}
+
+/**
+ * Checks whether a decoded value is an action a player can be doing.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is such an action.
+ */
+function isActionState(value: unknown): value is ActionState {
+  return ACTION_STATES.some((action: ActionState) => action === value);
+}
+
+/**
+ * Checks whether a decoded value is the motion of a player.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is the motion of a player.
+ */
+function isPlayerMotion(value: unknown): value is PlayerMotion {
+  return (
+    isRecord(value) &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.z) &&
+    Number.isFinite(value.yaw) &&
+    isActionState(value.action) &&
+    isCount(value.actionCount) &&
+    isGroundVector(value.direction) &&
+    typeof value.isInteracting === 'boolean' &&
+    isCount(value.slashSteps)
+  );
+}
+
+/**
+ * Checks whether a decoded value tells how far a player has got with the
+ * inputs of its peer.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value tells that.
+ */
+function isInputProgress(value: unknown): value is InputProgress {
+  return (
+    isRecord(value) &&
+    isCount(value.sequence) &&
+    isCount(value.steps) &&
+    isPlayerMotion(value.motion)
+  );
+}
+
+/**
  * Checks whether a decoded value is the state of a player.
  *
  * @param {unknown} value - The value to check.
@@ -286,7 +384,7 @@ function isPlayerState(value: unknown): value is PlayerState {
     Number.isFinite(value.x) &&
     Number.isFinite(value.z) &&
     Number.isFinite(value.yaw) &&
-    ACTION_STATES.some((action: ActionState) => action === value.action) &&
+    isActionState(value.action) &&
     Number.isInteger(value.actionCount)
   );
 }

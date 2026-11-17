@@ -101,6 +101,20 @@ interface WalkSample {
   readonly told: number;
 }
 
+/** How a page shows its own player, against what the server tells. */
+interface OwnView {
+  /** Where the page draws the player, or `null` if it does not. */
+  readonly drawn: { readonly x: number; readonly z: number } | null;
+  /** The player in the latest snapshot, or `null` if it is not there. */
+  readonly told: {
+    readonly x: number;
+    readonly z: number;
+    readonly action: string;
+  } | null;
+  /** The number of corrections the panel of the page counts. */
+  readonly corrections: string;
+}
+
 /** The pixels of an image. */
 interface Pixels {
   /** The width of the image, in pixels. */
@@ -159,6 +173,11 @@ const SMOOTH_FRACTION = 0.8;
 /** The most two positions differ by when they are the same, in metres. */
 const SAME_POSITION = 1e-9;
 
+/** How long a page holds its messages back each way, in milliseconds. */
+const NETWORK_DELAY = 300;
+/** How long a player is walked for behind the delay, in milliseconds. */
+const DELAYED_WALK_DURATION = 700;
+
 const MIME_TYPES: Readonly<Record<string, string>> = {
   '.css': 'text/css',
   '.glb': 'model/gltf-binary',
@@ -197,17 +216,18 @@ const PANEL_ACTION_EXPRESSION = `(() => {
 })()`;
 
 /**
- * Makes the expression that sets the interpolation switch of the panel, and
- * gives whether it is set afterwards, as `true` or `false`.
+ * Makes the expression that sets a switch of the panel, and gives whether
+ * it is set afterwards, as `true` or `false`.
  *
- * @param {boolean} isEnabled - Whether to switch the interpolation on.
+ * @param {string} name - The name of the switch.
+ * @param {boolean} isEnabled - Whether to switch it on.
  * @returns {string} The expression.
  */
-function createSwitchExpression(isEnabled: boolean): string {
+function createSwitchExpression(name: string, isEnabled: boolean): string {
   return `(() => {
     for (const input of document.querySelectorAll('input[type=checkbox]')) {
       const labelId = input.getAttribute('aria-labelledby');
-      if (document.getElementById(labelId)?.textContent === 'Interpolate') {
+      if (document.getElementById(labelId)?.textContent === '${name}') {
         if (input.checked !== ${String(isEnabled)}) {
           input.click();
         }
@@ -216,6 +236,100 @@ function createSwitchExpression(isEnabled: boolean): string {
     }
     return 'missing';
   })()`;
+}
+
+/**
+ * Makes the expression that types a number into a number field of the
+ * panel, and gives what the field holds afterwards.
+ *
+ * @param {string} name - The name of the field.
+ * @param {number} value - The number.
+ * @returns {string} The expression.
+ */
+function createNumberExpression(name: string, value: number): string {
+  return `(() => {
+    for (const input of document.querySelectorAll('input[aria-labelledby]')) {
+      const labelId = input.getAttribute('aria-labelledby');
+      if (
+        input.type !== 'checkbox' &&
+        document.getElementById(labelId)?.textContent === '${name}'
+      ) {
+        input.focus();
+        input.value = '${String(value)}';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.blur();
+        return input.value;
+      }
+    }
+    return 'missing';
+  })()`;
+}
+
+/**
+ * Makes the expression that tells how a page shows a player, against what
+ * the latest snapshot tells of it, as JSON.
+ *
+ * @param {number} id - The identifier of the player.
+ * @returns {string} The expression.
+ */
+function createOwnExpression(id: number): string {
+  return `(() => {
+    const find = (players) =>
+      players.find((player) => player.id === ${String(id)}) ?? null;
+    let corrections = '';
+    for (const input of document.querySelectorAll('input[aria-labelledby]')) {
+      const labelId = input.getAttribute('aria-labelledby');
+      if (document.getElementById(labelId)?.textContent === 'Corrections') {
+        corrections = input.value;
+      }
+    }
+    return JSON.stringify({
+      drawn: find(window.clovervale.describeFigures()),
+      told: find(window.clovervale.listLatestPlayers()),
+      corrections,
+    });
+  })()`;
+}
+
+/**
+ * Makes the expression that waits in a page for the next key to go down,
+ * and then for the first frame the page draws with a player moved, and
+ * gives how long that took, in milliseconds, or `never`.
+ *
+ * @param {number} id - The identifier of the player.
+ * @returns {string} The expression.
+ */
+function createResponseExpression(id: number): string {
+  return `new Promise((resolve) => {
+    const find = () =>
+      window.clovervale.describeFigures()
+        .find((figure) => figure.id === ${String(id)});
+    const start = find();
+    const end = performance.now() + ${String(ACTION_TIMEOUT)};
+    let pressTime = null;
+    window.addEventListener(
+      'keydown',
+      () => {
+        pressTime = performance.now();
+      },
+      { once: true, capture: true },
+    );
+    const look = () => {
+      const now = performance.now();
+      const figure = find();
+      if (
+        pressTime !== null &&
+        (figure?.x !== start?.x || figure?.z !== start?.z)
+      ) {
+        resolve(String(now - pressTime));
+      } else if (now > end) {
+        resolve('never');
+      } else {
+        requestAnimationFrame(look);
+      }
+    };
+    requestAnimationFrame(look);
+  })`;
 }
 
 /**
@@ -1026,7 +1140,7 @@ async function checkMotion(
   const switched: string = await evaluateInPage(
     session,
     watcher,
-    createSwitchExpression(isSmooth),
+    createSwitchExpression('Interpolate', isSmooth),
   );
   if (switched !== String(isSmooth)) {
     throw new Error(
@@ -1159,10 +1273,158 @@ async function checkSlash(
 }
 
 /**
+ * Reads how a page shows a player, against what the server tells of it.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<OwnView>} How the page shows the player.
+ */
+async function readOwnView(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<OwnView> {
+  return JSON.parse(
+    await evaluateInPage(session, context, createOwnExpression(id)),
+  ) as OwnView;
+}
+
+/**
+ * Sets a control of the panel of a page.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {string} name - The name of the control.
+ * @param {boolean | number} value - What to set it to.
+ * @returns {Promise<void>} A promise settled once the control is set.
+ * @throws {Error} If the control does not take the value.
+ */
+async function setControl(
+  session: BidiSession,
+  context: string,
+  name: string,
+  value: boolean | number,
+): Promise<void> {
+  const expression: string =
+    typeof value === 'boolean'
+      ? createSwitchExpression(name, value)
+      : createNumberExpression(name, value);
+  const set: string = await evaluateInPage(session, context, expression);
+  if (set !== String(value)) {
+    throw new Error(
+      `Set to ${String(value)}, the "${name}" control of the panel tells ` +
+        `"${set}".`,
+    );
+  }
+}
+
+/**
+ * Checks how a page shows its own player behind a slow connection, with the
+ * prediction switched on or off: moving at once when a key goes down, or
+ * only once the server has answered, and in the end where the server tells,
+ * without a correction, in its own page and in the page of another player.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {string} watcher - The browsing context of the other page.
+ * @param {number} id - The identifier of the player.
+ * @param {boolean} isPredicting - Whether the prediction is switched on.
+ * @param {string} key - The character of the key that walks the player.
+ * @returns {Promise<void>} A promise settled once the player has passed.
+ * @throws {Error} If either page does not show the player so.
+ */
+async function checkPrediction(
+  session: BidiSession,
+  actor: string,
+  watcher: string,
+  id: number,
+  isPredicting: boolean,
+  key: string,
+): Promise<void> {
+  const delay = String(NETWORK_DELAY);
+  const mode =
+    `With the prediction switched ${isPredicting ? 'on' : 'off'} and its ` +
+    `messages held back for ${delay} milliseconds each way, the first page`;
+  await setControl(session, actor, 'Predict', isPredicting);
+  await setControl(session, actor, 'Net delay (ms)', NETWORK_DELAY);
+  const before: OwnView = await readOwnView(session, actor, id);
+  let response: string;
+  try {
+    // The page times itself, from the key going down to the frame it draws.
+    const watch: Promise<string> = evaluateInPage(
+      session,
+      actor,
+      createResponseExpression(id),
+    );
+    // A watch that fails must not go unhandled while the key is sent.
+    watch.catch(() => undefined);
+    await sendKey(session, actor, 'keyDown', key);
+    response = await watch;
+    await sleep(DELAYED_WALK_DURATION);
+  } finally {
+    await sendKey(session, actor, 'keyUp', key);
+  }
+  const elapsed = Number(response);
+  const took =
+    response === 'never'
+      ? 'never drew its player moving'
+      : `drew its player moving after ${elapsed.toFixed(0)} milliseconds`;
+  if (isPredicting && !(elapsed < NETWORK_DELAY)) {
+    throw new Error(`${mode} ${took}, which is not at once.`);
+  }
+  if (!isPredicting && !(elapsed >= NETWORK_DELAY * 2)) {
+    throw new Error(
+      `${mode} ${took}, which is not after the server has answered.`,
+    );
+  }
+
+  const isAt = (view: OwnView, x: number, z: number): boolean =>
+    view.drawn?.x === x && view.drawn.z === z;
+  const describeView = (view: OwnView): string =>
+    `draws its player at x ${String(view.drawn?.x)}, z ` +
+    `${String(view.drawn?.z)}, and the server tells x ` +
+    `${String(view.told?.x)}, z ${String(view.told?.z)}, doing ` +
+    `"${view.told?.action ?? ''}"`;
+  const own: OwnView = await waitFor(
+    () => readOwnView(session, actor, id),
+    (view: OwnView) =>
+      view.told?.action === 'Idle' &&
+      view.told.x !== before.told?.x &&
+      isAt(view, view.told.x, view.told.z),
+    ACTION_TIMEOUT,
+    (view: OwnView) => `${mode} ${describeView(view)}, with the key released.`,
+  );
+  await sleep(POLL_INTERVAL * 5 + NETWORK_DELAY * 2);
+  const later: OwnView = await readOwnView(session, actor, id);
+  if (!isAt(later, own.told?.x ?? NaN, own.told?.z ?? NaN)) {
+    throw new Error(`${mode} ${describeView(later)}, still moving.`);
+  }
+  if (later.corrections !== before.corrections) {
+    throw new Error(
+      `${mode} counts "${later.corrections}" corrections, after ` +
+        `"${before.corrections}" before its player walked.`,
+    );
+  }
+  await waitFor(
+    () => readOwnView(session, watcher, id),
+    (view: OwnView) => isAt(view, own.told?.x ?? NaN, own.told?.z ?? NaN),
+    ACTION_TIMEOUT,
+    (view: OwnView) =>
+      `${mode} ${describeView(later)}, and the second page ` +
+      `${describeView(view)}.`,
+  );
+  await setControl(session, actor, 'Net delay (ms)', 0);
+  await setControl(session, actor, 'Predict', true);
+}
+
+/**
  * Checks the built client in two pages connected to one server: that each
- * draws its scene, shows the models it has and connects, and that what the
+ * draws its scene, shows the models it has and connects, that what the
  * player of one page does with the keyboard shows in the other page,
- * smoothly or snapshot by snapshot as the panel of that page is set.
+ * smoothly or snapshot by snapshot as the panel of that page is set, and
+ * that a page shows its own player ahead of a slow connection, or behind
+ * it, as its panel is set.
  *
  * @returns {Promise<void>} A promise settled once the client has passed.
  * @throws {Error} If the client fails the check, or the check cannot run.
@@ -1227,6 +1489,8 @@ async function checkClient(): Promise<void> {
     await checkMotion(session, first, second, id, false, 'd');
     await checkMotion(session, first, second, id, true, 'a');
     await checkSlash(session, first, second, id);
+    await checkPrediction(session, first, second, id, false, 'd');
+    await checkPrediction(session, first, second, id, true, 'a');
   } catch (error: unknown) {
     const reason: string =
       error instanceof Error ? error.message : String(error);
@@ -1248,8 +1512,8 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
 try {
   await checkClient();
   console.log(
-    'Browser check passed: two clients draw their scenes, connect, and ' +
-      'show each other what their players do.',
+    'Browser check passed: two clients draw their scenes, connect, show ' +
+      'each other what their players do, and predict their own.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);

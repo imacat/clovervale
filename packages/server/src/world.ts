@@ -23,24 +23,17 @@
 
 import {
   APPEARANCE_COUNT,
-  SIMULATION_RATE,
-  SLASH_DURATION,
+  AuthoritativePlayer,
   SPAWN_YAW,
+  createMotion,
   findSpawnPoint,
-  findYaw,
-  movePosition,
 } from '@clovervale/shared';
 import type {
-  ActionState,
   GroundVector,
+  InputProgress,
   PlayerState,
+  StampedInput,
 } from '@clovervale/shared';
-
-/** How long one step of the simulation lasts, in seconds. */
-const STEP_SECONDS: number = 1 / SIMULATION_RATE;
-
-/** The number of steps a slash lasts. */
-const SLASH_STEPS: number = Math.round(SLASH_DURATION * SIMULATION_RATE);
 
 /** The least distance between a new player and everyone else, in metres. */
 const SPAWN_CLEARANCE = 1;
@@ -51,20 +44,8 @@ interface Player {
   readonly id: number;
   /** The number of the appearance of the player, from 1. */
   readonly appearance: number;
-  /** Where the player stands. */
-  position: GroundVector;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
-  yaw: number;
-  /** What the player is doing. */
-  action: ActionState;
-  /** The number of actions the player has started so far. */
-  actionCount: number;
-  /** The direction the player wants to move in, if it has a length. */
-  direction: GroundVector;
-  /** Whether the player wants to interact with the world. */
-  isInteracting: boolean;
-  /** The number of steps the slash of the player still lasts. */
-  slashSteps: number;
+  /** The player as the inputs of its peer move it. */
+  readonly mover: AuthoritativePlayer;
 }
 
 /** The world the server simulates. */
@@ -86,13 +67,9 @@ export class World {
     const player: Player = {
       id: ++this.#lastId,
       appearance: this.#chooseAppearance(),
-      position: this.#chooseSpawnPoint(),
-      yaw: SPAWN_YAW,
-      action: 'Idle',
-      actionCount: 0,
-      direction: { x: 0, z: 0 },
-      isInteracting: false,
-      slashSteps: 0,
+      mover: new AuthoritativePlayer(
+        createMotion(this.#chooseSpawnPoint(), SPAWN_YAW),
+      ),
     };
     this.#players.set(player.id, player);
     return describePlayer(player);
@@ -108,31 +85,23 @@ export class World {
   }
 
   /**
-   * Sets the way a player wants to move from the next step on.
+   * Receives an input of a player from its peer.
+   *
+   * A move changes the way the player wants to move, and an interaction
+   * makes it slash, unless it is slashing already.  Either shows from the
+   * step at which the input comes into effect: no sooner than the next
+   * one, and no sooner than the player has taken as many steps since its
+   * previous input came into effect as the input tells.
    *
    * @param {number} id - The identifier of the player.
-   * @param {GroundVector} direction - The direction to move in, of which
-   *   only the bearing counts, or a direction without length to stop.
+   * @param {StampedInput} input - The input.
+   * @returns {boolean} Whether the input was accepted.  It is not if the
+   *   player is not in the world, if the number of the input is no higher
+   *   than that of the input before it, or if too many inputs of the
+   *   player are waiting to come into effect.
    */
-  steerPlayer(id: number, direction: GroundVector): void {
-    const player: Player | undefined = this.#players.get(id);
-    if (player !== undefined) {
-      player.direction = { x: direction.x, z: direction.z };
-    }
-  }
-
-  /**
-   * Makes a player interact with the world at the next step, which is to
-   * slash.  A player that is slashing already carries on with that slash
-   * alone.
-   *
-   * @param {number} id - The identifier of the player.
-   */
-  interactPlayer(id: number): void {
-    const player: Player | undefined = this.#players.get(id);
-    if (player !== undefined && player.action !== 'Slash') {
-      player.isInteracting = true;
-    }
+  receiveInput(id: number, input: StampedInput): boolean {
+    return this.#players.get(id)?.mover.receiveInput(input) ?? false;
   }
 
   /**
@@ -144,24 +113,19 @@ export class World {
    */
   step(): void {
     for (const player of this.#players.values()) {
-      if (player.action === 'Slash' && --player.slashSteps > 0) {
-        continue;
-      }
-      if (player.isInteracting) {
-        player.isInteracting = false;
-        player.slashSteps = SLASH_STEPS;
-        startAction(player, 'Slash');
-        continue;
-      }
-      const { direction } = player;
-      if (direction.x === 0 && direction.z === 0) {
-        startAction(player, 'Idle');
-        continue;
-      }
-      player.position = movePosition(player.position, direction, STEP_SECONDS);
-      player.yaw = findYaw(direction);
-      startAction(player, 'Walk');
+      player.mover.step();
     }
+  }
+
+  /**
+   * Tells how far a player has got with the inputs of its peer.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {InputProgress | null} The progress, or `null` if the player
+   *   is not in the world.
+   */
+  findProgress(id: number): InputProgress | null {
+    return this.#players.get(id)?.mover.progress ?? null;
   }
 
   /**
@@ -195,8 +159,8 @@ export class World {
     for (let index = 0; ; index++) {
       const point: GroundVector = findSpawnPoint(index);
       const isClear: boolean = [...this.#players.values()].every(
-        ({ position }: Player) =>
-          Math.hypot(position.x - point.x, position.z - point.z) >=
+        ({ mover }: Player) =>
+          Math.hypot(mover.motion.x - point.x, mover.motion.z - point.z) >=
           SPAWN_CLEARANCE,
       );
       if (isClear) {
@@ -207,32 +171,13 @@ export class World {
 }
 
 /**
- * Makes a player do something, unless it is doing just that already.
- *
- * @param {Player} player - The player.
- * @param {ActionState} action - What the player does from now on.
- */
-function startAction(player: Player, action: ActionState): void {
-  if (player.action !== action) {
-    player.action = action;
-    player.actionCount++;
-  }
-}
-
-/**
  * Describes a player as it is now.
  *
  * @param {Player} player - The player.
  * @returns {PlayerState} The state of the player.
  */
 function describePlayer(player: Player): PlayerState {
-  return {
-    id: player.id,
-    appearance: player.appearance,
-    x: player.position.x,
-    z: player.position.z,
-    yaw: player.yaw,
-    action: player.action,
-    actionCount: player.actionCount,
-  };
+  const { x, z, yaw, action, actionCount } = player.mover.motion;
+  const { id, appearance } = player;
+  return { id, appearance, x, z, yaw, action, actionCount };
 }
