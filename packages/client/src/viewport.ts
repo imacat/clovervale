@@ -32,8 +32,8 @@ export interface Viewport {
   /**
    * Tells which way the camera looks along the ground.
    *
-   * @returns {number} The turn around the Y axis from looking towards +Z
-   *   towards +X, in degrees.
+   * @returns {number} The turn around the Y axis, measured from looking
+   *   along +Z and positive towards +X, in degrees.
    */
   readonly getHeading: () => number;
   /**

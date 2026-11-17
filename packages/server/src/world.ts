@@ -76,8 +76,9 @@ export class World {
    * Lets a new player into the world.
    *
    * The player gets an identifier no player has had before, the appearance
-   * the fewest players have, the lowest of them, and a place on the plaza
-   * clear of everyone else, where it idles facing the fountain.
+   * the fewest players have (the lowest-numbered one if several tie), and a
+   * place on the plaza clear of everyone else, where it idles facing the
+   * fountain.
    *
    * @returns {PlayerState} The new player.
    */

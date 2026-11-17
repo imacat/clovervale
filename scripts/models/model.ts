@@ -387,10 +387,12 @@ function computeSmoothNormals(shape: Shape): Triangle[] {
 }
 
 /**
- * Rounds a normal to single precision, keeping it of unit length.
+ * Rounds the components of a normal to single precision, then scales the
+ * result back to unit length.
  *
  * @param {Vector3} normal - The unit normal.
- * @returns {number[]} The components of the rounded unit normal.
+ * @returns {number[]} The components of the unit vector along the rounded
+ *   normal.
  */
 function roundNormal(normal: Vector3): number[] {
   const n: number[] = normal.toArray().map((x: number) => Math.fround(x));
