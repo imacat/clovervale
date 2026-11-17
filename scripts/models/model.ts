@@ -387,20 +387,6 @@ function computeSmoothNormals(shape: Shape): Triangle[] {
 }
 
 /**
- * Rounds the components of a normal to single precision, then scales the
- * result back to unit length.
- *
- * @param {Vector3} normal - The unit normal.
- * @returns {number[]} The components of the unit vector along the rounded
- *   normal.
- */
-function roundNormal(normal: Vector3): number[] {
-  const n: number[] = normal.toArray().map((x: number) => Math.fround(x));
-  const length: number = Math.hypot(...n);
-  return n.map((x: number) => x / length);
-}
-
-/**
  * Builds indexed vertex data from faces.
  *
  * @param {readonly Face[]} faces - The faces.
@@ -416,10 +402,11 @@ function buildVertices(faces: readonly Face[]): VertexData {
   };
   const lookup = new Map<string, number>();
   for (const { tri, bone, normals } of faces) {
-    const flat: number[] = roundNormal(computeFaceNormal(tri));
+    const flat: Vector3 = computeFaceNormal(tri);
     for (const [corner, p] of tri.entries()) {
-      const unit: number[] =
-        normals === undefined ? flat : roundNormal(getItem(normals, corner));
+      const unit: number[] = (
+        normals === undefined ? flat : getItem(normals, corner)
+      ).toArray();
       const key: string = [
         ...p.toArray().map((x: number) => x.toFixed(5)),
         ...unit.map((x: number) => x.toFixed(3)),
