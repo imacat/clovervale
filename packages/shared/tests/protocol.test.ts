@@ -59,17 +59,19 @@ describe('the server message codec', () => {
 
   it('decodes the snapshot message it encodes', () => {
     const idler: PlayerState = { ...PLAYER, id: 8, action: 'Slash' };
-    const message = createSnapshotMessage([PLAYER, idler]);
+    const message = createSnapshotMessage(42, [PLAYER, idler]);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
+      step: 42,
       players: [PLAYER, idler],
     });
   });
 
   it('decodes a snapshot message without players', () => {
-    const message = createSnapshotMessage([]);
+    const message = createSnapshotMessage(0, []);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
+      step: 0,
       players: [],
     });
   });
@@ -103,7 +105,16 @@ describe('the server message codec', () => {
   });
 
   it('rejects a snapshot message without a list of players', () => {
-    const data = JSON.stringify({ type: 'snapshot', players: {} });
+    const data = JSON.stringify({ type: 'snapshot', step: 4, players: {} });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['is missing', {}],
+    ['is not a whole number', { step: 4.5 }],
+    ['is not a number', { step: '4' }],
+  ])('rejects a snapshot message whose step %s', (_, flaw) => {
+    const data = JSON.stringify({ type: 'snapshot', players: [], ...flaw });
     expect(() => decodeServerMessage(data)).toThrow();
   });
 
@@ -117,6 +128,7 @@ describe('the server message codec', () => {
   ])('rejects a snapshot of a player without %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
+      step: 4,
       players: [PLAYER, { ...PLAYER, ...flaw }],
     });
     expect(() => decodeServerMessage(data)).toThrow();

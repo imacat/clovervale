@@ -250,7 +250,8 @@ function readText(data: RawData): string {
 
 /**
  * Keeps the simulation of a world going at its fixed rate, and sends every
- * peer a snapshot of the players at the snapshot rate.
+ * peer a snapshot of the players at the snapshot rate, which tells the
+ * number of steps the simulation has taken.
  *
  * @param {World} world - The world to simulate.
  * @param {WebSocketServer} sockets - The WebSocket server the peers are
@@ -273,7 +274,7 @@ function runSimulation(world: World, sockets: WebSocketServer): () => void {
     }
     if (isSnapshotDue) {
       const snapshot: string = encodeServerMessage(
-        createSnapshotMessage(world.listPlayers()),
+        createSnapshotMessage(stepCount, world.listPlayers()),
       );
       for (const socket of sockets.clients) {
         if (socket.readyState === WebSocket.OPEN) {

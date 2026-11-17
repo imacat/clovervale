@@ -24,8 +24,10 @@
 import { AnimationClip, NumberKeyframeTrack, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
+import { createSnapshotMessage } from '@clovervale/shared';
 import type { PlayerState } from '@clovervale/shared';
 
+import { SnapshotTimeline } from '../src/interpolation.ts';
 import { PlayerFigures } from '../src/player-figures.ts';
 import type { Figure, FigureView } from '../src/player-figures.ts';
 
@@ -117,7 +119,7 @@ describe('PlayerFigures', () => {
   it('shows a player where the snapshot tells, as it tells', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showSnapshot([PLAYER]);
+    figures.showPlayers([PLAYER]);
     const view: FigureView = findOnly(figures);
     expect(view).toMatchObject({ id: 5, appearance: 2, x: 1.5, z: -3 });
     expect(view.yaw).toBeCloseTo(90);
@@ -134,7 +136,7 @@ describe('PlayerFigures', () => {
     const figures = new PlayerFigures(scene, createFigure);
     const twin: PlayerState = { ...PLAYER, id: 6, x: 4 };
     const other: PlayerState = { ...PLAYER, id: 7, appearance: 8, x: 6 };
-    figures.showSnapshot([PLAYER, twin, other]);
+    figures.showPlayers([PLAYER, twin, other]);
     expect(
       figures.describeFigures().map((view: FigureView) => view.appearance),
     ).toEqual([2, 2, 8]);
@@ -146,9 +148,9 @@ describe('PlayerFigures', () => {
   it('puts a player exactly where the latest snapshot tells', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showSnapshot([PLAYER]);
+    figures.showPlayers([PLAYER]);
     figures.update(0.03);
-    figures.showSnapshot([{ ...PLAYER, x: 9, z: 2, yaw: -45 }]);
+    figures.showPlayers([{ ...PLAYER, x: 9, z: 2, yaw: -45 }]);
     figures.update(0.03);
     const view: FigureView = findOnly(figures);
     expect(view.x).toBe(9);
@@ -161,24 +163,24 @@ describe('PlayerFigures', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
     const other: PlayerState = { ...PLAYER, id: 6, appearance: 3 };
-    figures.showSnapshot([PLAYER, other]);
-    figures.showSnapshot([other]);
+    figures.showPlayers([PLAYER, other]);
+    figures.showPlayers([other]);
     expect(findOnly(figures).id).toBe(6);
     expect(scene.children.map((root: Object3D) => root.name)).toEqual(
       ['appearance 3'],
     );
-    figures.showSnapshot([]);
+    figures.showPlayers([]);
     expect(scene.children).toEqual([]);
   });
 
   it('plays the clip of the action the snapshot tells', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showSnapshot([{ ...PLAYER, action: 'Walk', actionCount: 3 }]);
+    figures.showPlayers([{ ...PLAYER, action: 'Walk', actionCount: 3 }]);
     figures.update(0.5);
     expect(findOnly(figures).clip).toBe('Walk');
     expect(measureArm(scene)).toBeCloseTo(1);
-    figures.showSnapshot([{ ...PLAYER, action: 'Idle', actionCount: 4 }]);
+    figures.showPlayers([{ ...PLAYER, action: 'Idle', actionCount: 4 }]);
     figures.update(0.5);
     expect(findOnly(figures).clip).toBe('Idle');
     expect(measureArm(scene)).toBeCloseTo(0);
@@ -188,9 +190,9 @@ describe('PlayerFigures', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
     const walking: PlayerState = { ...PLAYER, action: 'Walk', actionCount: 1 };
-    figures.showSnapshot([walking]);
+    figures.showPlayers([walking]);
     figures.update(0.25);
-    figures.showSnapshot([{ ...walking, x: 2 }]);
+    figures.showPlayers([{ ...walking, x: 2 }]);
     figures.update(0.25);
     expect(measureArm(scene)).toBeCloseTo(1);
   });
@@ -203,16 +205,16 @@ describe('PlayerFigures', () => {
       action: 'Slash',
       actionCount: 1,
     };
-    figures.showSnapshot([slashing]);
+    figures.showPlayers([slashing]);
     figures.update(0.3);
     expect(measureArm(scene)).toBeCloseTo(3);
-    figures.showSnapshot([slashing]);
+    figures.showPlayers([slashing]);
     figures.update(0.5);
-    figures.showSnapshot([slashing]);
+    figures.showPlayers([slashing]);
     figures.update(0.5);
     expect(findOnly(figures).clip).toBe('Slash');
     expect(measureArm(scene)).toBeCloseTo(6);
-    figures.showSnapshot([{ ...PLAYER, action: 'Idle', actionCount: 2 }]);
+    figures.showPlayers([{ ...PLAYER, action: 'Idle', actionCount: 2 }]);
     figures.update(0.1);
     expect(findOnly(figures).clip).toBe('Idle');
     expect(measureArm(scene)).toBeCloseTo(0);
@@ -221,10 +223,10 @@ describe('PlayerFigures', () => {
   it('starts a slash over when the action count changes', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showSnapshot([{ ...PLAYER, action: 'Slash', actionCount: 1 }]);
+    figures.showPlayers([{ ...PLAYER, action: 'Slash', actionCount: 1 }]);
     figures.update(0.6);
     expect(measureArm(scene)).toBeCloseTo(6);
-    figures.showSnapshot([{ ...PLAYER, action: 'Slash', actionCount: 3 }]);
+    figures.showPlayers([{ ...PLAYER, action: 'Slash', actionCount: 3 }]);
     figures.update(0.1);
     expect(findOnly(figures).clip).toBe('Slash');
     expect(measureArm(scene)).toBeCloseTo(1);
@@ -235,9 +237,9 @@ describe('PlayerFigures', () => {
     const figures = new PlayerFigures(scene, createFigure);
     const first: PlayerState = { ...PLAYER, action: 'Slash', actionCount: 1 };
     const second: PlayerState = { ...first, id: 6 };
-    figures.showSnapshot([first, second]);
+    figures.showPlayers([first, second]);
     figures.update(0.6);
-    figures.showSnapshot([first, { ...second, actionCount: 3 }]);
+    figures.showPlayers([first, { ...second, actionCount: 3 }]);
     figures.update(0.1);
     expect(measureArm(scene, 0)).toBeCloseTo(6);
     expect(measureArm(scene, 1)).toBeCloseTo(1);
@@ -250,10 +252,58 @@ describe('PlayerFigures', () => {
       isLoaded ? createFigure(appearance) : null,
     );
     const walking: PlayerState = { ...PLAYER, action: 'Walk', actionCount: 2 };
-    figures.showSnapshot([walking]);
+    figures.showPlayers([walking]);
     expect(figures.describeFigures()).toEqual([]);
     isLoaded = true;
-    figures.showSnapshot([walking]);
+    figures.showPlayers([walking]);
     expect(findOnly(figures)).toMatchObject({ id: 5, clip: 'Walk' });
+  });
+
+  it('plays every slash of the past from its start, once', () => {
+    const scene = new Object3D();
+    const figures = new PlayerFigures(scene, createFigure);
+    const timeline = new SnapshotTimeline();
+    // A walk, then two slashes in a row with an idle step no snapshot has.
+    const states: [number, Partial<PlayerState>][] = [
+      [0, { x: 1.2, action: 'Walk', actionCount: 1 }],
+      [2, { x: 1.35, action: 'Walk', actionCount: 1 }],
+      [4, { action: 'Slash', actionCount: 2 }],
+      [6, { action: 'Slash', actionCount: 2 }],
+      [8, { action: 'Slash', actionCount: 2 }],
+      [10, { action: 'Slash', actionCount: 2 }],
+      [12, { action: 'Slash', actionCount: 2 }],
+      [14, { action: 'Slash', actionCount: 2 }],
+      [16, { action: 'Slash', actionCount: 4 }],
+      [18, { action: 'Slash', actionCount: 4 }],
+      [20, { action: 'Idle', actionCount: 5 }],
+    ];
+    for (const [step, state] of states) {
+      const snapshot = createSnapshotMessage(step, [{ ...PLAYER, ...state }]);
+      timeline.addSnapshot(snapshot, step * 50);
+    }
+    // The page shows what was 200 milliseconds ago, 50 times a second.
+    const showUntil = (from: number, to: number): void => {
+      for (let time = from; time <= to; time += 20) {
+        figures.showPlayers(timeline.readPast(time + 200, 200).players);
+        figures.update(0.02);
+      }
+    };
+    showUntil(0, 180);
+    expect(findOnly(figures).clip).toBe('Walk');
+    expect(findOnly(figures).x).toBeLessThan(1.5);
+    showUntil(200, 200);
+    expect(findOnly(figures)).toMatchObject({ clip: 'Slash', x: 1.5 });
+    expect(measureArm(scene)).toBeCloseTo(0.2);
+    showUntil(220, 480);
+    expect(measureArm(scene)).toBeCloseTo(3);
+    showUntil(500, 780);
+    expect(measureArm(scene)).toBeCloseTo(6);
+    showUntil(800, 800);
+    expect(findOnly(figures).clip).toBe('Slash');
+    expect(measureArm(scene)).toBeCloseTo(0.2);
+    showUntil(820, 980);
+    expect(measureArm(scene)).toBeCloseTo(2);
+    showUntil(1000, 1000);
+    expect(findOnly(figures).clip).toBe('Idle');
   });
 });

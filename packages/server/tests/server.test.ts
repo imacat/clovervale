@@ -40,6 +40,7 @@ import { WebSocket as SocketFileClient } from 'ws';
 
 import {
   PROTOCOL_VERSION,
+  SIMULATION_RATE,
   SLASH_DURATION,
   SNAPSHOT_RATE,
   WALK_SPEED,
@@ -63,6 +64,8 @@ const MESSAGE_TIMEOUT = 3000;
 
 /** A snapshot, and when it was received. */
 interface TimedSnapshot {
+  /** The number of simulation steps the snapshot tells. */
+  readonly step: number;
   /** The players in the snapshot. */
   readonly players: readonly PlayerState[];
   /** When the snapshot was received, in milliseconds. */
@@ -147,7 +150,7 @@ class Peer {
     for (;;) {
       const [message, time] = await this.#receive();
       if (message.type === 'snapshot') {
-        return { players: message.players, time };
+        return { step: message.step, players: message.players, time };
       }
     }
   }
@@ -314,6 +317,21 @@ describe('the game server', () => {
     const seconds: number = (last.time - first.time) / 1000;
     expect(seconds).toBeGreaterThan(0.8);
     expect(seconds).toBeLessThan(1.3);
+  });
+
+  it('tells the simulation step of every snapshot', async () => {
+    const [peer] = await connectPeer();
+    const first: TimedSnapshot = await peer.receiveSnapshot();
+    let last: TimedSnapshot = first;
+    for (let count = 0; count < SNAPSHOT_RATE; count++) {
+      const next: TimedSnapshot = await peer.receiveSnapshot();
+      expect(Number.isInteger(next.step)).toBe(true);
+      expect(next.step).toBeGreaterThan(last.step);
+      last = next;
+    }
+    const simulated: number = (last.step - first.step) / SIMULATION_RATE;
+    const waited: number = (last.time - first.time) / 1000;
+    expect(Math.abs(simulated - waited)).toBeLessThan(0.3);
   });
 
   it('walks a player the way its peer asks, at walking speed', async () => {

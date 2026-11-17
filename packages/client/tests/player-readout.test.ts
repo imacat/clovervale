@@ -25,7 +25,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlayerState } from '@clovervale/shared';
 
-import { describeSnapshot } from '../src/player-readout.ts';
+import { describeDisplay, describeSnapshot } from '../src/player-readout.ts';
 
 /** Two players of a snapshot. */
 const PLAYERS: readonly PlayerState[] = [
@@ -80,6 +80,50 @@ describe('describeSnapshot', () => {
       position: '–',
       yaw: '–',
       action: '–',
+    });
+  });
+});
+
+describe('describeDisplay', () => {
+  it('tells nothing before the first snapshot', () => {
+    expect(describeDisplay(12, null, { players: [], lag: 0 })).toEqual({
+      drawnAt: '–',
+      behind: '–',
+    });
+  });
+
+  it('tells a player shown as the latest snapshot tells is not behind', () => {
+    expect(describeDisplay(12, PLAYERS, { players: PLAYERS, lag: 0 })).toEqual({
+      drawnAt: '-4.26, 0.00',
+      behind: '0 ms, 0.00 m',
+    });
+  });
+
+  it('tells where the player is shown and how far behind that is', () => {
+    const drawn: PlayerState[] = PLAYERS.map((player: PlayerState) => ({
+      ...player,
+      x: player.x - 0.3,
+      z: player.z + 0.4,
+    }));
+    const view = { players: drawn, lag: 149.6 };
+    expect(describeDisplay(12, PLAYERS, view)).toEqual({
+      drawnAt: '-4.56, 0.40',
+      behind: '150 ms, 0.50 m',
+    });
+  });
+
+  it('tells only the time behind while the player is not shown yet', () => {
+    expect(describeDisplay(12, PLAYERS, { players: [], lag: 200 })).toEqual({
+      drawnAt: '–',
+      behind: '200 ms',
+    });
+  });
+
+  it('tells only the time behind once the player is gone', () => {
+    const view = { players: PLAYERS, lag: 80 };
+    expect(describeDisplay(12, PLAYERS.slice(0, 1), view)).toEqual({
+      drawnAt: '-4.26, 0.00',
+      behind: '80 ms',
     });
   });
 });

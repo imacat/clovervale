@@ -23,6 +23,8 @@
 
 import type { PlayerState } from '@clovervale/shared';
 
+import type { PlayersView } from './interpolation.ts';
+
 /** What the owner reads about the player of the page and the snapshots. */
 export interface PlayerReadout {
   /** The identifier and the appearance of the player of the page. */
@@ -35,6 +37,17 @@ export interface PlayerReadout {
   readonly yaw: string;
   /** What the player of the page is doing in the latest snapshot. */
   readonly action: string;
+}
+
+/** What the owner reads about the player of the page as it is shown. */
+export interface DisplayReadout {
+  /** The position the player of the page is shown at. */
+  readonly drawnAt: string;
+  /**
+   * How far behind the latest snapshot the players are shown, in time, and
+   * the player of the page in distance.
+   */
+  readonly behind: string;
 }
 
 /** What stands for a value that is not known yet. */
@@ -74,6 +87,40 @@ export function describeSnapshot(
     yaw: `${formatNumber(own.yaw, 1)}°`,
     action: own.action,
   };
+}
+
+/**
+ * Describes the player of the page as it is shown, against the latest
+ * snapshot.
+ *
+ * @param {number | null} ownId - The identifier of the player of the page,
+ *   or `null` before the server has told it.
+ * @param {(readonly PlayerState[]) | null} players - The players in the latest
+ *   snapshot, or `null` before the first one.
+ * @param {PlayersView} view - The players as they are shown.
+ * @returns {DisplayReadout} What the owner reads.
+ */
+export function describeDisplay(
+  ownId: number | null,
+  players: readonly PlayerState[] | null,
+  view: PlayersView,
+): DisplayReadout {
+  if (players === null) {
+    return { drawnAt: UNKNOWN, behind: UNKNOWN };
+  }
+  const isOwn = (player: PlayerState): boolean => player.id === ownId;
+  const latest: PlayerState | undefined = players.find(isOwn);
+  const drawn: PlayerState | undefined = view.players.find(isOwn);
+  const time = `${formatNumber(view.lag, 0)} ms`;
+  if (drawn === undefined) {
+    return { drawnAt: UNKNOWN, behind: time };
+  }
+  const drawnAt = `${formatNumber(drawn.x, 2)}, ${formatNumber(drawn.z, 2)}`;
+  if (latest === undefined) {
+    return { drawnAt, behind: time };
+  }
+  const distance: number = Math.hypot(latest.x - drawn.x, latest.z - drawn.z);
+  return { drawnAt, behind: `${time}, ${formatNumber(distance, 2)} m` };
 }
 
 /**

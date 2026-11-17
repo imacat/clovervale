@@ -93,6 +93,14 @@ interface PageLook extends PageState {
   readonly grassFraction: number;
 }
 
+/** How a page shows a walking player, frame after frame. */
+interface WalkSample {
+  /** The position along the X axis the page shows the player at. */
+  readonly drawn: number;
+  /** The position along the X axis the latest snapshot tells. */
+  readonly told: number;
+}
+
 /** The pixels of an image. */
 interface Pixels {
   /** The width of the image, in pixels. */
@@ -142,6 +150,15 @@ const CHANGED_CHANNEL = 48;
 /** The least number of pixels a player changes by walking across a view. */
 const MOVED_PIXELS = 3000;
 
+/** How long a walking player is watched frame by frame, in milliseconds. */
+const WATCH_DURATION = 1000;
+/** The fewest frames a page draws while a walking player is watched. */
+const WATCHED_FRAMES = 20;
+/** The least fraction of the frames a smooth player is between snapshots. */
+const SMOOTH_FRACTION = 0.8;
+/** The most two positions differ by when they are the same, in metres. */
+const SAME_POSITION = 1e-9;
+
 const MIME_TYPES: Readonly<Record<string, string>> = {
   '.css': 'text/css',
   '.glb': 'model/gltf-binary',
@@ -178,6 +195,57 @@ const PANEL_ACTION_EXPRESSION = `(() => {
   }
   return '';
 })()`;
+
+/**
+ * Makes the expression that sets the interpolation switch of the panel, and
+ * gives whether it is set afterwards, as `true` or `false`.
+ *
+ * @param {boolean} isEnabled - Whether to switch the interpolation on.
+ * @returns {string} The expression.
+ */
+function createSwitchExpression(isEnabled: boolean): string {
+  return `(() => {
+    for (const input of document.querySelectorAll('input[type=checkbox]')) {
+      const labelId = input.getAttribute('aria-labelledby');
+      if (document.getElementById(labelId)?.textContent === 'Interpolate') {
+        if (input.checked !== ${String(isEnabled)}) {
+          input.click();
+        }
+        return String(input.checked);
+      }
+    }
+    return 'missing';
+  })()`;
+}
+
+/**
+ * Makes the expression that watches how a page shows a player, at every
+ * frame the page draws for a while, and gives the samples as JSON.
+ *
+ * @param {number} id - The identifier of the player.
+ * @returns {string} The expression.
+ */
+function createWatchExpression(id: number): string {
+  return `new Promise((resolve) => {
+    const samples = [];
+    const end = performance.now() + ${String(WATCH_DURATION)};
+    const findX = (players) =>
+      players.find((player) => player.id === ${String(id)})?.x;
+    const sample = () => {
+      const drawn = findX(window.clovervale.describeFigures());
+      const told = findX(window.clovervale.listLatestPlayers());
+      if (drawn !== undefined && told !== undefined) {
+        samples.push({ drawn, told });
+      }
+      if (performance.now() < end) {
+        requestAnimationFrame(sample);
+      } else {
+        resolve(JSON.stringify(samples));
+      }
+    };
+    requestAnimationFrame(sample);
+  })`;
+}
 
 /** The steps that undo what the check has started, in starting order. */
 const cleanups: (() => Promise<void> | void)[] = [];
@@ -931,6 +999,113 @@ async function checkWalk(
 }
 
 /**
+ * Checks how the page of another player shows a player that walks, with the
+ * interpolation switched on or off: between the snapshots, moving at about
+ * every frame, or exactly as the latest snapshot tells, and in the end
+ * where the latest snapshot tells either way.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {string} watcher - The browsing context of the other page.
+ * @param {number} id - The identifier of the player.
+ * @param {boolean} isSmooth - Whether the interpolation is switched on.
+ * @param {string} key - The character of the key that walks the player
+ *   along the X axis.
+ * @returns {Promise<void>} A promise settled once the player has passed.
+ * @throws {Error} If the other page does not show the player so.
+ */
+async function checkMotion(
+  session: BidiSession,
+  actor: string,
+  watcher: string,
+  id: number,
+  isSmooth: boolean,
+  key: string,
+): Promise<void> {
+  const mode = `With the interpolation switched ${isSmooth ? 'on' : 'off'}`;
+  const switched: string = await evaluateInPage(
+    session,
+    watcher,
+    createSwitchExpression(isSmooth),
+  );
+  if (switched !== String(isSmooth)) {
+    throw new Error(
+      `${mode} in the second page, its switch tells "${switched}".`,
+    );
+  }
+
+  await sendKey(session, actor, 'keyDown', key);
+  let samples: WalkSample[];
+  try {
+    await waitFor(
+      () => readPageState(session, watcher),
+      (state: PageState) => findFigure(state, id)?.clip === 'Walk',
+      ACTION_TIMEOUT,
+      (state: PageState) =>
+        `${mode}, and the ${key.toUpperCase()} key held down in the first ` +
+        `page, the second page ${describeFigure(state, id)}.`,
+    );
+    samples = JSON.parse(
+      await evaluateInPage(session, watcher, createWatchExpression(id)),
+    ) as WalkSample[];
+  } finally {
+    await sendKey(session, actor, 'keyUp', key);
+  }
+
+  // The first frame may show a snapshot from before the watch began.
+  const frames: WalkSample[] = samples.slice(1);
+  const told: number[] = samples.map((sample: WalkSample) => sample.told);
+  const between: number = frames.filter((sample: WalkSample) =>
+    told.every((x: number) => Math.abs(x - sample.drawn) > SAME_POSITION),
+  ).length;
+  const snapshots: number = new Set<number>(told).size;
+  const seen =
+    `the second page drew ${String(frames.length)} frames from ` +
+    `${String(snapshots)} snapshots, with the player between two ` +
+    `snapshots in ${String(between)} of them`;
+  if (frames.length < WATCHED_FRAMES || snapshots < 2) {
+    throw new Error(`${mode}, ${seen}, which is too few to tell.`);
+  }
+  if (isSmooth && between < frames.length * SMOOTH_FRACTION) {
+    throw new Error(`${mode}, ${seen}, which is not smooth.`);
+  }
+  if (!isSmooth && between > 0) {
+    throw new Error(`${mode}, ${seen}, not as the latest snapshot tells.`);
+  }
+  const start: number = frames[0]?.drawn ?? NaN;
+  const end: number = frames.at(-1)?.drawn ?? NaN;
+  const isBackward: boolean = frames.some(
+    (sample: WalkSample, index: number) =>
+      (sample.drawn - (frames[index - 1]?.drawn ?? start)) * (end - start) <
+      0,
+  );
+  if (isBackward) {
+    throw new Error(`${mode}, the second page drew the player going back.`);
+  }
+
+  await waitFor(
+    () => readPageState(session, watcher),
+    (state: PageState) => findFigure(state, id)?.clip === 'Idle',
+    ACTION_TIMEOUT,
+    (state: PageState) =>
+      `${mode}, and the key released in the first page, the second page ` +
+      `${describeFigure(state, id)}.`,
+  );
+  const rest: WalkSample | undefined = (
+    JSON.parse(
+      await evaluateInPage(session, watcher, createWatchExpression(id)),
+    ) as WalkSample[]
+  ).at(-1);
+  if (rest === undefined || rest.drawn !== rest.told) {
+    throw new Error(
+      `${mode}, the second page shows the player at x ` +
+        `${String(rest?.drawn)} in the end, and the latest snapshot tells ` +
+        `x ${String(rest?.told)}.`,
+    );
+  }
+}
+
+/**
  * Checks that a player slashes once, in its own page and in the page of
  * another player, when the space bar is pressed in its own page.
  *
@@ -986,7 +1161,8 @@ async function checkSlash(
 /**
  * Checks the built client in two pages connected to one server: that each
  * draws its scene, shows the models it has and connects, and that what the
- * player of one page does with the keyboard shows in the other page.
+ * player of one page does with the keyboard shows in the other page,
+ * smoothly or snapshot by snapshot as the panel of that page is set.
  *
  * @returns {Promise<void>} A promise settled once the client has passed.
  * @throws {Error} If the client fails the check, or the check cannot run.
@@ -1048,6 +1224,8 @@ async function checkClient(): Promise<void> {
     }
 
     await checkWalk(session, first, second, id);
+    await checkMotion(session, first, second, id, false, 'd');
+    await checkMotion(session, first, second, id, true, 'a');
     await checkSlash(session, first, second, id);
   } catch (error: unknown) {
     const reason: string =

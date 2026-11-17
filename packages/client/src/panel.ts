@@ -23,9 +23,10 @@
 
 import GUI from 'lil-gui';
 
+import { DEFAULT_DELAY, MAX_DELAY } from './interpolation.ts';
 import type { ModelProblem } from './model-report.ts';
-import { describeSnapshot } from './player-readout.ts';
-import type { PlayerReadout } from './player-readout.ts';
+import { describeDisplay, describeSnapshot } from './player-readout.ts';
+import type { DisplayReadout, PlayerReadout } from './player-readout.ts';
 
 /** What the panel shows of the client itself. */
 export interface PanelState {
@@ -35,16 +36,36 @@ export interface PanelState {
   models: string;
 }
 
+/** How the owner has the players shown. */
+export interface InterpolationSettings {
+  /**
+   * Whether the players are shown moving smoothly, slightly in the past,
+   * rather than exactly as the latest snapshot tells them.
+   */
+  isEnabled: boolean;
+  /** How far in the past the players are then shown, in milliseconds. */
+  delay: number;
+}
+
 /** The settings panel of the client. */
 export interface Panel {
   /** What the panel shows of the client itself. */
   readonly state: PanelState;
+  /** How the owner has the players shown, as the panel is set now. */
+  readonly interpolation: Readonly<InterpolationSettings>;
   /**
    * Shows what is synchronised with the server, for the owner to see.
    *
    * @param {PlayerReadout} readout - What the owner reads.
    */
   readonly showReadout: (readout: PlayerReadout) => void;
+  /**
+   * Shows how the player of the page is shown, for the owner to compare
+   * with what is synchronised.
+   *
+   * @param {DisplayReadout} readout - What the owner reads.
+   */
+  readonly showDisplay: (readout: DisplayReadout) => void;
   /**
    * Lists the models that cannot be shown, for the owner to see.
    *
@@ -63,27 +84,61 @@ const READOUT_NAMES: readonly [keyof PlayerReadout, string][] = [
   ['action', 'Action'],
 ];
 
+/** The names of the values of the display, in the order they are shown. */
+const DISPLAY_NAMES: readonly [keyof DisplayReadout, string][] = [
+  ['drawnAt', 'Drawn at'],
+  ['behind', 'Behind'],
+];
+
+/** The step of the delay the owner sets, in milliseconds. */
+const DELAY_STEP = 10;
+
 /**
- * Creates the settings panel, which starts with nothing synchronised yet.
+ * Creates the settings panel, which starts with nothing synchronised yet,
+ * and with the players to be shown smoothly, by the default delay.
  *
  * @returns {Panel} The panel.
  */
 export function createPanel(): Panel {
   const state: PanelState = { server: 'connecting', models: 'loading' };
+  const interpolation: InterpolationSettings = {
+    isEnabled: true,
+    delay: DEFAULT_DELAY,
+  };
   const shown: Record<keyof PlayerReadout, string> = {
     ...describeSnapshot(null, null),
+  };
+  const display: Record<keyof DisplayReadout, string> = {
+    ...describeDisplay(null, null, { players: [], lag: 0 }),
   };
   // The style sheet of the panel is part of the style sheet of the client.
   const gui = new GUI({ title: 'Clovervale', injectStyles: false });
   gui.add(state, 'server').name('Server').disable().listen();
   gui.add(state, 'models').name('Models').disable().listen();
+  gui.add(interpolation, 'isEnabled').name('Interpolate');
+  gui
+    .add(interpolation, 'delay', 0, MAX_DELAY, DELAY_STEP)
+    .name('Delay (ms)');
+  // The panel keeps the keys from the game while a control of it is in use.
+  gui.onFinishChange(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
   const folder: GUI = gui.addFolder('Latest snapshot');
   for (const [key, name] of READOUT_NAMES) {
     folder.add(shown, key).name(name).disable().listen();
   }
+  const displayFolder: GUI = gui.addFolder('Displayed');
+  for (const [key, name] of DISPLAY_NAMES) {
+    displayFolder.add(display, key).name(name).disable().listen();
+  }
 
   const showReadout = (readout: PlayerReadout): void => {
     Object.assign(shown, readout);
+  };
+  const showDisplay = (readout: DisplayReadout): void => {
+    Object.assign(display, readout);
   };
   const listProblems = (problems: readonly ModelProblem[]): void => {
     if (problems.length === 0) {
@@ -96,5 +151,5 @@ export function createPanel(): Panel {
       entry.domElement.title = `${problem.file}: ${problem.reason}`;
     }
   };
-  return { state, showReadout, listProblems };
+  return { state, interpolation, showReadout, showDisplay, listProblems };
 }

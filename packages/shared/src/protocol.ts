@@ -26,7 +26,7 @@ import type { ActionState } from './actions.ts';
 import type { GroundVector } from './movement.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -72,6 +72,11 @@ export interface WelcomeMessage {
 export interface SnapshotMessage {
   /** The message discriminator. */
   readonly type: 'snapshot';
+  /**
+   * The number of simulation steps the world had taken when the snapshot
+   * was taken, which tells when that was on the clock of the server.
+   */
+  readonly step: number;
   /** Every player in the world. */
   readonly players: readonly PlayerState[];
 }
@@ -115,13 +120,16 @@ export function createWelcomeMessage(playerId: number): WelcomeMessage {
 /**
  * Creates a snapshot message.
  *
+ * @param {number} step - The number of simulation steps the world has
+ *   taken.
  * @param {readonly PlayerState[]} players - Every player in the world.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
+  step: number,
   players: readonly PlayerState[],
 ): SnapshotMessage {
-  return { type: 'snapshot', players };
+  return { type: 'snapshot', step, players };
 }
 
 /**
@@ -174,11 +182,16 @@ export function decodeServerMessage(data: string): ServerMessage {
       playerId: value.playerId as number,
     };
   }
-  if (value.type === 'snapshot' && Array.isArray(value.players)) {
+  if (
+    value.type === 'snapshot' &&
+    Number.isInteger(value.step) &&
+    Array.isArray(value.players)
+  ) {
     const players: unknown[] = value.players;
     if (players.every(isPlayerState)) {
       return {
         type: 'snapshot',
+        step: value.step as number,
         players: players.map((player: PlayerState) => ({
           id: player.id,
           appearance: player.appearance,

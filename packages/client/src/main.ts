@@ -39,6 +39,8 @@ import type {
 import type { Actor } from './actor.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
+import { SnapshotTimeline } from './interpolation.ts';
+import type { PlayersView } from './interpolation.ts';
 import { REQUIRED_MODEL_FILES, planModels } from './model-catalogue.ts';
 import {
   MODEL_INDEX_FILE,
@@ -53,7 +55,7 @@ import type { Panel } from './panel.ts';
 import { PlayerFigures } from './player-figures.ts';
 import { MoveKeys, findKeyCommand } from './player-input.ts';
 import type { KeyCommand } from './player-input.ts';
-import { describeSnapshot } from './player-readout.ts';
+import { describeDisplay, describeSnapshot } from './player-readout.ts';
 import { resolveServerUrl } from './server-url.ts';
 import './style.css';
 import {
@@ -72,6 +74,9 @@ const actors: Actor[] = [];
 /** The models that have been loaded so far. */
 let models: readonly LoadedModel[] = [];
 
+/** The latest snapshots from the server, to show the players from. */
+const timeline = new SnapshotTimeline();
+
 const panel: Panel = createPanel();
 const scene = createVillageScene();
 const figures = new PlayerFigures(scene, (appearance: number) =>
@@ -82,6 +87,7 @@ const viewport: Viewport = showScene(
   findSpawnPoint(0),
   (seconds: number) => {
     sendMove();
+    showPlayers();
     for (const actor of actors) {
       actor.update(seconds);
     }
@@ -89,9 +95,13 @@ const viewport: Viewport = showScene(
   },
 );
 
-// For looking at what the page shows from the console of the browser.
+// For looking at what the page shows, and at the latest snapshot it shows
+// that from, from the console of the browser.
 Object.defineProperty(window, 'clovervale', {
-  value: { describeFigures: () => figures.describeFigures() },
+  value: {
+    describeFigures: () => figures.describeFigures(),
+    listLatestPlayers: () => timeline.latest ?? [],
+  },
 });
 
 /**
@@ -163,15 +173,18 @@ function sendMove(): void {
 }
 
 /**
- * Shows the players exactly as a snapshot tells them, with the camera on
- * the player of the page.
- *
- * @param {readonly PlayerState[]} players - The players in the snapshot.
+ * Shows the players as the panel is set to show them, with the camera on
+ * the player of the page as it is shown: either smoothly, as they were a
+ * while ago, or exactly as the latest snapshot tells them.
  */
-function showSnapshot(players: readonly PlayerState[]): void {
-  figures.showSnapshot(players);
-  panel.showReadout(describeSnapshot(ownId, players));
-  const own: PlayerState | undefined = players.find(
+function showPlayers(): void {
+  const { isEnabled, delay } = panel.interpolation;
+  const view: PlayersView = isEnabled
+    ? timeline.readPast(performance.now(), delay)
+    : timeline.readLatest();
+  figures.showPlayers(view.players);
+  panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
+  const own: PlayerState | undefined = view.players.find(
     (player: PlayerState) => player.id === ownId,
   );
   if (own !== undefined) {
@@ -194,7 +207,8 @@ function receiveMessage(event: MessageEvent<unknown>): void {
   }
   if (message.type === 'snapshot') {
     if (ownId !== null) {
-      showSnapshot(message.players);
+      timeline.addSnapshot(message, performance.now());
+      panel.showReadout(describeSnapshot(ownId, message.players));
     }
     return;
   }
@@ -225,7 +239,7 @@ async function connectToServer(): Promise<void> {
   socket.addEventListener('close', () => {
     ownId = null;
     panel.state.server = 'disconnected';
-    figures.showSnapshot([]);
+    timeline.clear();
     panel.showReadout(describeSnapshot(null, null));
   });
 }

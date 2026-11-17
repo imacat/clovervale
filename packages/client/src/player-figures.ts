@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/player-figures Showing the players as the server tells them.
+ * @module client/player-figures Showing the players in the village.
  */
 
 import type { AnimationClip, Object3D } from 'three';
@@ -72,7 +72,7 @@ interface ShownPlayer {
   actionCount: number;
 }
 
-/** The players, shown exactly as the latest snapshot tells them. */
+/** The players, shown exactly as they are told from moment to moment. */
 export class PlayerFigures {
   readonly #parent: Object3D;
   readonly #createFigure: FigureSource;
@@ -91,16 +91,17 @@ export class PlayerFigures {
   }
 
   /**
-   * Shows the players of a snapshot, and no others.
+   * Shows the given players, and no others.
    *
-   * Each player stands where the snapshot tells, facing the way it tells,
-   * and plays the clip of the action it tells, which starts over whenever
-   * the action count of the player changes.  A player without a model to
-   * show it with is left out.
+   * Each player stands where its state tells, facing the way it tells, and
+   * plays the clip of the action it tells, which starts over whenever the
+   * action count of the player changes.  A player without a model to show
+   * it with is left out.
    *
-   * @param {readonly PlayerState[]} players - The players in the snapshot.
+   * @param {readonly PlayerState[]} players - The players as they are to be
+   *   shown, whether a snapshot tells them so or they lie between two.
    */
-  showSnapshot(players: readonly PlayerState[]): void {
+  showPlayers(players: readonly PlayerState[]): void {
     const ids = new Set<number>(
       players.map((player: PlayerState) => player.id),
     );
