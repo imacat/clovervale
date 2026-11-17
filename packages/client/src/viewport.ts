@@ -37,6 +37,12 @@ export interface Viewport {
    */
   readonly getHeading: () => number;
   /**
+   * Tells where what the camera looks at stands.
+   *
+   * @returns {GroundVector} The point on the ground.
+   */
+  readonly getFocus: () => GroundVector;
+  /**
    * Moves the camera along with what it looks at, at once, keeping its
    * distance and its angles.
    *
@@ -108,6 +114,10 @@ export function showScene(
       const z: number = controls.target.z - camera.position.z;
       return (Math.atan2(x, z) * 180) / Math.PI;
     },
+    getFocus: (): GroundVector => ({
+      x: controls.target.x,
+      z: controls.target.z,
+    }),
     follow: (next: GroundVector): void => {
       camera.position.x += next.x - controls.target.x;
       camera.position.z += next.z - controls.target.z;

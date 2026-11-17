@@ -36,6 +36,7 @@ import type {
 } from '@clovervale/shared';
 
 import type { Actor } from './actor.ts';
+import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
 import { SnapshotTimeline } from './interpolation.ts';
@@ -104,6 +105,7 @@ const viewport: Viewport = showScene(
 // that from, from the console of the browser.
 Object.defineProperty(window, 'clovervale', {
   value: {
+    describeCamera: () => viewport.getFocus(),
     describeFigures: () => figures.describeFigures(),
     listLatestPlayers: () => timeline.latest ?? [],
   },
@@ -197,9 +199,10 @@ function sendMove(): void {
 
 /**
  * Shows the players as the panel is set to show them, with the camera on
- * the player of the page as it is shown.  The player of the page is shown
- * as predicted, or like the others.  The others are shown either smoothly,
- * as they were a while ago, or exactly as the latest snapshot tells them.
+ * the player the panel has it follow, as it is shown.  The player of the
+ * page is shown as predicted, or like the others.  The others are shown
+ * either smoothly, as they were a while ago, or exactly as the latest
+ * snapshot tells them.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -222,9 +225,12 @@ function showPlayers(): void {
   figures.showPlayers(view.players);
   panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
   panel.showPrediction(describePrediction(prediction));
-  const own: PlayerState | undefined = view.players.find(isOwn);
-  if (own !== undefined) {
-    viewport.follow(own);
+  const followedId: number | null = panel.camera.followedId ?? ownId;
+  const followed: PlayerState | undefined = view.players.find(
+    (player: PlayerState) => player.id === followedId,
+  );
+  if (followed !== undefined) {
+    viewport.follow(followed);
   }
 }
 
@@ -245,6 +251,11 @@ function receiveMessage(data: string): void {
     if (ownId !== null) {
       const now: number = performance.now();
       timeline.addSnapshot(message, now);
+      panel.camera.followedId = keepFollowedPlayer(
+        panel.camera.followedId,
+        message.players,
+      );
+      panel.offerCameraChoices(listCameraChoices(ownId, message.players));
       if (prediction === null) {
         prediction = new PlayerPrediction(message.own.motion, now);
       } else {
@@ -287,6 +298,8 @@ async function connectToServer(): Promise<void> {
     prediction = null;
     panel.state.server = 'disconnected';
     timeline.clear();
+    panel.camera.followedId = null;
+    panel.offerCameraChoices(listCameraChoices(null, null));
     panel.showReadout(describeSnapshot(null, null));
   });
 }

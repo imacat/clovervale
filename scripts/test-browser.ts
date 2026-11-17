@@ -115,6 +115,18 @@ interface OwnView {
   readonly corrections: string;
 }
 
+/** Where a page has its camera. */
+interface CameraView {
+  /** The player the camera control of the panel has chosen. */
+  readonly chosen: string;
+  /** The players the camera control of the panel offers. */
+  readonly offered: readonly string[];
+  /** Where what the camera looks at stands. */
+  readonly focus: { readonly x: number; readonly z: number };
+  /** The players the page shows. */
+  readonly figures: readonly FigureView[];
+}
+
 /** The pixels of an image. */
 interface Pixels {
   /** The width of the image, in pixels. */
@@ -262,6 +274,38 @@ function createNumberExpression(name: string, value: number): string {
       }
     }
     return 'missing';
+  })()`;
+}
+
+/**
+ * Makes the expression that chooses a player in the camera control of the
+ * panel, if told to, and gives where the page has its camera, as JSON.
+ *
+ * @param {string | null} choice - The name of the player to choose, or
+ *   `null` to choose nothing.
+ * @returns {string} The expression.
+ */
+function createCameraExpression(choice: string | null): string {
+  return `(() => {
+    let select = null;
+    for (const element of document.querySelectorAll('select')) {
+      const labelId = element.getAttribute('aria-labelledby');
+      if (document.getElementById(labelId)?.textContent === 'Camera on') {
+        select = element;
+      }
+    }
+    const offered = [...(select?.options ?? [])].map((option) => option.text);
+    const choice = ${JSON.stringify(choice)};
+    if (select !== null && choice !== null && offered.includes(choice)) {
+      select.selectedIndex = offered.indexOf(choice);
+      select.dispatchEvent(new Event('change'));
+    }
+    return JSON.stringify({
+      chosen: select?.selectedOptions[0]?.text ?? 'missing',
+      offered,
+      focus: window.clovervale.describeCamera(),
+      figures: window.clovervale.describeFigures(),
+    });
   })()`;
 }
 
@@ -1419,12 +1463,135 @@ async function checkPrediction(
 }
 
 /**
+ * Reads where a page has its camera, after choosing a player in the camera
+ * control of its panel, if told to.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {string | null} [choice] - The name of the player to choose, or
+ *   `null` to choose nothing, by default.
+ * @returns {Promise<CameraView>} Where the page has its camera.
+ */
+async function readCameraView(
+  session: BidiSession,
+  context: string,
+  choice: string | null = null,
+): Promise<CameraView> {
+  return JSON.parse(
+    await evaluateInPage(session, context, createCameraExpression(choice)),
+  ) as CameraView;
+}
+
+/**
+ * Tells whether a page has its camera on a player as it shows it.
+ *
+ * @param {CameraView} view - Where the page has its camera.
+ * @param {number} id - The identifier of the player.
+ * @returns {boolean} Whether the camera looks at where the player stands.
+ */
+function isCameraOn(view: CameraView, id: number): boolean {
+  const figure: FigureView | undefined = view.figures.find(
+    (shown: FigureView) => shown.id === id,
+  );
+  return (
+    figure !== undefined &&
+    Math.abs(figure.x - view.focus.x) < SAME_POSITION &&
+    Math.abs(figure.z - view.focus.z) < SAME_POSITION
+  );
+}
+
+/**
+ * Describes where a page has its camera, for the error messages.
+ *
+ * @param {CameraView} view - Where the page has its camera.
+ * @returns {string} The description.
+ */
+function describeCameraView(view: CameraView): string {
+  const figures: string = view.figures
+    .map(
+      (figure: FigureView) =>
+        `player ${String(figure.id)} at x ${figure.x.toFixed(2)}, ` +
+        `z ${figure.z.toFixed(2)}`,
+    )
+    .join(', ');
+  return (
+    `has "${view.chosen}" chosen out of "${view.offered.join('", "')}", ` +
+    `looks at x ${view.focus.x.toFixed(2)}, z ${view.focus.z.toFixed(2)}, ` +
+    `and shows ${figures === '' ? 'nobody' : figures}`
+  );
+}
+
+/**
+ * Checks that a page has its camera follow the player of another page once
+ * the player is chosen in its panel, while the player walks, and that it
+ * has the camera on its own player again once the other page has left.
+ * The other page is closed.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} watcher - The browsing context of the page whose camera
+ *   is checked.
+ * @param {number} ownId - The identifier of the player of that page.
+ * @param {string} actor - The browsing context of the other page.
+ * @param {number} id - The identifier of the player of the other page.
+ * @returns {Promise<void>} A promise settled once the camera has passed.
+ * @throws {Error} If the camera of the page does not do so.
+ */
+async function checkCamera(
+  session: BidiSession,
+  watcher: string,
+  ownId: number,
+  actor: string,
+  id: number,
+): Promise<void> {
+  const name = `#${String(id)}`;
+  const chosen: CameraView = await readCameraView(session, watcher, name);
+  if (chosen.chosen !== name) {
+    throw new Error(
+      `With player ${String(id)} chosen for its camera, the first page ` +
+        `${describeCameraView(chosen)}.`,
+    );
+  }
+  const findX = (view: CameraView): number =>
+    view.figures.find((figure: FigureView) => figure.id === id)?.x ?? NaN;
+  const startX: number = findX(chosen);
+  await sendKey(session, actor, 'keyDown', 'a');
+  try {
+    await waitFor(
+      () => readCameraView(session, watcher),
+      (view: CameraView) =>
+        isCameraOn(view, id) && findX(view) <= startX - WALK_DISTANCE,
+      ACTION_TIMEOUT,
+      (view: CameraView) =>
+        `With player ${String(id)} chosen for its camera, and walking from ` +
+        `x ${startX.toFixed(2)} in the second page, the first page ` +
+        `${describeCameraView(view)}.`,
+    );
+  } finally {
+    await sendKey(session, actor, 'keyUp', 'a');
+  }
+
+  await session.send('browsingContext.close', { context: actor });
+  await waitFor(
+    () => readCameraView(session, watcher),
+    (view: CameraView) =>
+      view.chosen.startsWith('Own player') &&
+      !view.offered.includes(name) &&
+      isCameraOn(view, ownId),
+    ACTION_TIMEOUT,
+    (view: CameraView) =>
+      `With player ${String(id)} chosen for its camera, and the second page ` +
+      `closed, the first page ${describeCameraView(view)}.`,
+  );
+}
+
+/**
  * Checks the built client in two pages connected to one server: that each
  * draws its scene, shows the models it has and connects, that what the
  * player of one page does with the keyboard shows in the other page,
  * smoothly or snapshot by snapshot as the panel of that page is set, and
  * that a page shows its own player ahead of a slow connection, or behind
- * it, as its panel is set.
+ * it, as its panel is set, and that the camera of a page follows the player
+ * of the other page when its panel is set to, until that player leaves.
  *
  * @returns {Promise<void>} A promise settled once the client has passed.
  * @throws {Error} If the client fails the check, or the check cannot run.
@@ -1491,6 +1658,9 @@ async function checkClient(): Promise<void> {
     await checkSlash(session, first, second, id);
     await checkPrediction(session, first, second, id, false, 'd');
     await checkPrediction(session, first, second, id, true, 'a');
+    const other: PageState = await readPageState(session, second);
+    const otherId = Number(/^#(\d+)/.exec(other.panel.Player ?? '')?.[1]);
+    await checkCamera(session, first, id, second, otherId);
   } catch (error: unknown) {
     const reason: string =
       error instanceof Error ? error.message : String(error);
@@ -1513,7 +1683,8 @@ try {
   await checkClient();
   console.log(
     'Browser check passed: two clients draw their scenes, connect, show ' +
-      'each other what their players do, and predict their own.',
+      'each other what their players do, predict their own, and have the ' +
+      'camera follow another player.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);

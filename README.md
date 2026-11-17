@@ -82,7 +82,8 @@ Serves the client at <http://localhost:5173/>.
 
 #### `npm run dev:bots`
 
-Runs the bots against the server.
+Runs bots, players that walk about the village by themselves.  Options
+for the bots follow a `--`, as in `npm run dev:bots -- --count 8`.
 
 
 Configuration
@@ -92,9 +93,10 @@ The server listens on port 8080, or on the port of its `--port` option,
 or on the Unix socket file of its `--socket` option.  The client
 connects to port 8080 of the host that serves its page, or to the server
 named in the `server` query parameter of the page address, as in
-`?server=ws://game.example.com:9000`.  The bots connect to
-`ws://localhost:8080`, or to the URL in the `SERVER_URL` environment
-variable.
+`?server=ws://game.example.com:9000`.  There are four bots, or as many
+as the `--count` option tells, and they connect to `ws://localhost:8080`,
+or to the server URL of the `--server` option, as in
+`--server ws://game.example.com:9000`.
 
 Firefox is run as `firefox`, or as the command in the `FIREFOX`
 environment variable.

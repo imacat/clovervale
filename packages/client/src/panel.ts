@@ -23,6 +23,7 @@
 
 import GUI from 'lil-gui';
 
+import type { CameraChoice } from './camera-choice.ts';
 import { DEFAULT_DELAY, MAX_DELAY } from './interpolation.ts';
 import type { ModelProblem } from './model-report.ts';
 import { MAX_NETWORK_DELAY } from './network-delay.ts';
@@ -74,6 +75,15 @@ export interface NetworkSettings {
   delay: number;
 }
 
+/** Where the owner has the camera. */
+export interface CameraSettings {
+  /**
+   * The identifier of the player the camera follows, or `null` for the
+   * player of the page.
+   */
+  followedId: number | null;
+}
+
 /** The settings panel of the client. */
 export interface Panel {
   /** What the panel shows of the client itself. */
@@ -84,6 +94,18 @@ export interface Panel {
   readonly prediction: Readonly<PredictionSettings>;
   /** The connection the page pretends to have, as set now. */
   readonly network: Readonly<NetworkSettings>;
+  /**
+   * Where the owner has the camera, as set now, which the page changes
+   * when the player it follows is gone.
+   */
+  readonly camera: CameraSettings;
+  /**
+   * Offers the owner the players the camera can follow.
+   *
+   * @param {readonly CameraChoice[]} choices - The players, in the order
+   *   offered.
+   */
+  readonly offerCameraChoices: (choices: readonly CameraChoice[]) => void;
   /**
    * Shows what is synchronised with the server, for the owner to see.
    *
@@ -140,7 +162,8 @@ const DELAY_STEP = 10;
 /**
  * Creates the settings panel, which starts with nothing synchronised yet,
  * with the player of the page to be shown as predicted, the other players
- * smoothly, by the default delay, and no message held back.
+ * smoothly, by the default delay, no message held back, and the camera on
+ * the player of the page.
  *
  * @returns {Panel} The panel.
  */
@@ -152,6 +175,7 @@ export function createPanel(): Panel {
   };
   const prediction: PredictionSettings = { isEnabled: true };
   const network: NetworkSettings = { delay: 0 };
+  const camera: CameraSettings = { followedId: null };
   const predicted: Record<keyof PredictionReadout, string> = {
     ...describePrediction(null),
   };
@@ -165,6 +189,10 @@ export function createPanel(): Panel {
   const gui = new GUI({ title: 'Clovervale', injectStyles: false });
   gui.add(state, 'server').name('Server').disable().listen();
   gui.add(state, 'models').name('Models').disable().listen();
+  const cameraControl = gui
+    .add(camera, 'followedId', { 'Own player': null })
+    .name('Camera on')
+    .listen();
   gui.add(prediction, 'isEnabled').name('Predict');
   gui
     .add(network, 'delay', 0, MAX_NETWORK_DELAY, DELAY_STEP)
@@ -201,6 +229,20 @@ export function createPanel(): Panel {
   const showPrediction = (readout: PredictionReadout): void => {
     Object.assign(predicted, readout);
   };
+  let offered = '';
+  const offerCameraChoices = (choices: readonly CameraChoice[]): void => {
+    // Offering the same choices again would close the list as it is open.
+    const next: string = JSON.stringify(choices);
+    if (next === offered) {
+      return;
+    }
+    offered = next;
+    cameraControl.options(
+      Object.fromEntries(
+        choices.map(({ name, playerId }: CameraChoice) => [name, playerId]),
+      ),
+    );
+  };
   const listProblems = (problems: readonly ModelProblem[]): void => {
     if (problems.length === 0) {
       return;
@@ -217,6 +259,8 @@ export function createPanel(): Panel {
     interpolation,
     prediction,
     network,
+    camera,
+    offerCameraChoices,
     showReadout,
     showDisplay,
     showPrediction,

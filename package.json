@@ -27,7 +27,7 @@
     "clean": "node scripts/clean.ts",
     "dev:server": "npm run dev --workspace @clovervale/server",
     "dev:client": "npm run dev --workspace @clovervale/client",
-    "dev:bots": "npm run dev --workspace @clovervale/bots"
+    "dev:bots": "npm run dev --workspace @clovervale/bots --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
