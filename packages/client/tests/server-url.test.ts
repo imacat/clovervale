@@ -30,22 +30,32 @@ import { resolveServerUrl } from '../src/server-url.ts';
 describe('resolveServerUrl', () => {
   it('defaults to the default port of the host serving the page', () => {
     const pageUrl = new URL('http://play.example.com:5173/index.html');
-    expect(resolveServerUrl(pageUrl)).toBe(
+    expect(resolveServerUrl(pageUrl, null)).toBe(
       `ws://play.example.com:${String(DEFAULT_SERVER_PORT)}`,
     );
   });
 
   it('uses a secure WebSocket for a page served over HTTPS', () => {
     const pageUrl = new URL('https://play.example.com/');
-    expect(resolveServerUrl(pageUrl)).toBe(
+    expect(resolveServerUrl(pageUrl, null)).toBe(
       `wss://play.example.com:${String(DEFAULT_SERVER_PORT)}`,
     );
   });
 
-  it('prefers the server named in the page address', () => {
+  it('prefers the server in the settings file to the default', () => {
+    const pageUrl = new URL('https://play.example.com/');
+    expect(resolveServerUrl(pageUrl, 'wss://play.example.com/ws')).toBe(
+      'wss://play.example.com/ws',
+    );
+  });
+
+  it('prefers the server named in the page address to both', () => {
     const pageUrl = new URL(
       'http://localhost:5173/?server=ws://game.example.com:9000',
     );
-    expect(resolveServerUrl(pageUrl)).toBe('ws://game.example.com:9000');
+    expect(resolveServerUrl(pageUrl, null)).toBe('ws://game.example.com:9000');
+    expect(resolveServerUrl(pageUrl, 'wss://play.example.com/ws')).toBe(
+      'ws://game.example.com:9000',
+    );
   });
 });

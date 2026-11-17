@@ -44,8 +44,9 @@ npm-debug.log*
 
 # Environment files
 .env
-.env.*
-!.env.example
+
+# The settings file of a client site
+client.conf
 
 # Editor and IDE files
 .idea/

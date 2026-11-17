@@ -73,7 +73,8 @@ export function createPanel(): Panel {
   const shown: Record<keyof PlayerReadout, string> = {
     ...describeSnapshot(null, null),
   };
-  const gui = new GUI({ title: 'Clovervale' });
+  // The style sheet of the panel is part of the style sheet of the client.
+  const gui = new GUI({ title: 'Clovervale', injectStyles: false });
   gui.add(state, 'server').name('Server').disable().listen();
   gui.add(state, 'models').name('Models').disable().listen();
   const folder: GUI = gui.addFolder('Latest snapshot');

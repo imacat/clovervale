@@ -19,6 +19,9 @@
  * AI assistance: Claude Code (Anthropic)
  */
 
+/* The style sheet of the panel, which the panel is told not to add itself. */
+@import 'lil-gui/dist/lil-gui.css';
+
 html,
 body {
   margin: 0;

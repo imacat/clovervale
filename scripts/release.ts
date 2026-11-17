@@ -52,6 +52,10 @@ const rootDir: string = path.resolve(import.meta.dirname, '..');
 const releaseDir: string = path.join(rootDir, 'release');
 const workspaceScope = '@clovervale/';
 const programs: string[] = ['server', 'client', 'bots'];
+/** The directory of the files that ship with a release as they are. */
+const supportDir = 'support-files';
+/** The support file that goes to the top of a release. */
+const readmeFile = 'README.md';
 
 /**
  * Reads the manifest of a package.
@@ -149,11 +153,11 @@ function composeThirdPartyNotices(): string {
 }
 
 /**
- * Copies a built file or directory into the release.
+ * Copies a file or directory of the project into the release.
  *
  * @param {string} source - The path to copy, relative to the project root.
  * @param {string} target - The path to copy to.
- * @throws {Error} If the source has not been built.
+ * @throws {Error} If the source is missing, as when it has not been built.
  */
 function copyBuilt(source: string, target: string): void {
   const sourcePath: string = path.join(rootDir, source);
@@ -181,7 +185,10 @@ function packRelease(): void {
   copyBuilt('packages/bots/dist/bots.cjs', `${stageDir}/bots/bots.cjs`);
   copyBuilt('packages/client/dist', `${stageDir}/client`);
   copyBuilt('LICENSE', `${stageDir}/LICENSE`);
-  copyBuilt('packaging/README.md', `${stageDir}/README.md`);
+  for (const file of readdirSync(path.join(rootDir, supportDir))) {
+    const target: string = file === readmeFile ? file : `${supportDir}/${file}`;
+    copyBuilt(`${supportDir}/${file}`, `${stageDir}/${target}`);
+  }
   writeFileSync(
     path.join(stageDir, 'THIRD-PARTY-LICENSES.txt'),
     composeThirdPartyNotices(),

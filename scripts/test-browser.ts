@@ -306,8 +306,8 @@ function startProgram(
  * @returns {Promise<number>} The port the server is listening on.
  */
 async function startGameServer(): Promise<number> {
-  const env: NodeJS.ProcessEnv = { ...process.env, PORT: '0' };
-  const child: ChildProcess = startProgram(process.execPath, [serverFile], env);
+  const args: string[] = [serverFile, '--port', '0'];
+  const child: ChildProcess = startProgram(process.execPath, args, process.env);
   const pattern = /listening on port (\d+)/;
   return Number(
     await waitForOutput(child, child.stdout, pattern, 'The game server'),

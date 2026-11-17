@@ -1,0 +1,19 @@
+# The Systemd service unit for the Clovervale Project
+# File location： /etc/systemd/system/clovervale.service
+[Unit]
+Description=The Clovervale Project
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/node server.cjs --socket /run/clovervale/clovervale.sock
+RuntimeDirectory=clovervale
+Restart=always
+WorkingDirectory=/srv/www/clovervale/server
+PrivateTmp=true
+User=clovervale
+Group=clovervale
+StandardOutput=append:/var/log/clovervale.log
+StandardError=append:/var/log/clovervale.log
+
+[Install]
+WantedBy=multi-user.target

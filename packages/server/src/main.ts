@@ -21,22 +21,49 @@
  * @module server/main The entry point of the game server program.
  */
 
-import { DEFAULT_SERVER_PORT } from '@clovervale/shared';
-
+import { parseListenTarget, USAGE } from './options.ts';
 import { startServer } from './server.ts';
+import type { RunningServer } from './server.ts';
 
 /**
- * Runs the game server on the port given by the PORT environment variable.
+ * Runs the game server until the program is asked to stop.
  *
+ * The server listens on the Unix socket file of the `--socket` option, or
+ * else on the TCP port of the `--port` option, or else on the default port,
+ * and stops on SIGTERM and SIGINT.  When the options are wrong, the program
+ * says why and how to use it, and fails without listening.
+ *
+ * @param {string[]} args - The command-line arguments, without the program
+ *   itself.
  * @returns {Promise<void>} A promise settled once the server is listening.
  */
-async function runServer(): Promise<void> {
-  const port = Number(process.env.PORT ?? DEFAULT_SERVER_PORT);
-  const server = await startServer(port);
-  console.log(`Clovervale server listening on port ${String(server.port)}.`);
+async function runServer(args: string[]): Promise<void> {
+  let target: number | string;
+  try {
+    target = parseListenTarget(args);
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : error);
+    console.error(USAGE);
+    process.exitCode = 2;
+    return;
+  }
+  const server: RunningServer = await startServer(target);
+  const place: string =
+    server.socketPath === null
+      ? `port ${String(server.port)}`
+      : `socket ${server.socketPath}`;
+  console.log(`Clovervale server listening on ${place}.`);
+  const stop = (): void => {
+    server.stop().catch((error: unknown) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+  };
+  process.once('SIGTERM', stop);
+  process.once('SIGINT', stop);
 }
 
-runServer().catch((error: unknown) => {
+runServer(process.argv.slice(2)).catch((error: unknown) => {
   console.error(error);
   process.exitCode = 1;
 });

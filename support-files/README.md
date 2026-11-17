@@ -1,0 +1,106 @@
+Clovervale
+==========
+
+Clovervale (四葉谷) is a small learning MMORPG for studying network state
+synchronisation.  This is a ready-to-run release.  The programs are
+bundled with their dependencies, so there is nothing to install except
+[Node.js] 24 or later.
+
+Contents
+--------
+
+| Path                       | What it is                                  |
+|----------------------------|---------------------------------------------|
+| `server/server.cjs`        | The game server.                            |
+| `client/`                  | The browser client, as static files.        |
+| `bots/bots.cjs`            | The headless bots.                          |
+| `support-files/`           | Example files for deploying on a web site.  |
+| `LICENSE`                  | The licence of Clovervale.                  |
+| `THIRD-PARTY-LICENSES.txt` | The licences of the bundled dependencies.   |
+
+Running
+-------
+
+Start the game server.  It listens for WebSocket connections on port
+8080, or on the port of the `--port` option, or on the Unix socket file
+of the `--socket` option.
+
+    node server/server.cjs
+
+Serve the `client/` directory with any static web server, and open it in
+Firefox.  For example:
+
+    python3 -m http.server --directory client 8000
+
+The client connects to port 8080 of the host that serves the page.  To
+use another game server, name it in the page address, for example
+`http://localhost:8000/?server=ws://game.example.com:9000`.  The
+`client/` directory may also hold a `client.conf` naming the game
+server; `support-files/.env.client` is an example of it.
+
+Run the bots against the game server at `ws://localhost:8080`, or at
+the URL in the `SERVER_URL` environment variable.
+
+    node bots/bots.cjs
+
+Deploying
+---------
+
+The files in `support-files/` are an example of a deployment at
+`https://clovervale.imacat.idv.tw/`, with Apache serving the client and
+passing `wss://clovervale.imacat.idv.tw/ws` on to the game server
+through a Unix socket file, and with systemd running the game server.
+Change the site name and the paths in them to your own.  Only the game
+server and the client are installed.  As root, with `rsync` installed:
+
+ 1. Create the user and the group of the game server, and let Apache
+    into the group.
+
+        adduser --system --group --no-create-home clovervale
+        adduser www-data clovervale
+
+ 2. Unpack the release into a new temporary directory, and go there.
+
+        cd "$(mktemp -d)"
+        tar -xzf /path/to/clovervale-*.tar.gz --strip-components=1 \
+            --no-same-owner
+
+ 3. Copy the game server and the client to `/srv/www/clovervale`.
+
+        mkdir -p /srv/www/clovervale
+        rsync -a --delete server/ /srv/www/clovervale/server/
+        rsync -a --delete --exclude=/client.conf \
+            client/ /srv/www/clovervale/client/
+
+ 4. Copy the example settings file of the client to `/etc/node/`, and
+    edit it.
+
+        mkdir -p /etc/node
+        cp support-files/.env.client /etc/node/clovervale.client.conf
+
+ 5. Link the settings file to where the client looks for it.
+
+        ln -s /etc/node/clovervale.client.conf \
+            /srv/www/clovervale/client/client.conf
+
+ 6. Copy `support-files/clovervale.service` to `/etc/systemd/system/`,
+    edit it, and start the game server.
+
+        systemctl daemon-reload
+        systemctl enable --now clovervale
+
+ 7. Obtain a TLS certificate for the site.  Copy
+    `support-files/clovervale.imacat.idv.tw-apache2.conf` to
+    `/etc/apache2/sites-available/clovervale.imacat.idv.tw.conf`, edit
+    it, and enable the site.
+
+        mkdir -p /var/log/apache2/clovervale
+        a2enmod ssl headers proxy proxy_http
+        a2ensite clovervale.imacat.idv.tw
+        systemctl restart apache2
+
+To upgrade, repeat steps 2 and 3 with the new release, and run
+`systemctl restart clovervale`.  Step 3 removes the files that the new
+release no longer has, and keeps the link.
+
+[Node.js]: https://nodejs.org/

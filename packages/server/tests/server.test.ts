@@ -21,7 +21,22 @@
  * @module server/tests/server Tests for the game server.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { createServer } from 'node:net';
+import type { Server } from 'node:net';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { WebSocket as SocketFileClient } from 'ws';
 
 import {
   PROTOCOL_VERSION,
@@ -229,7 +244,7 @@ describe('the game server', () => {
    */
   async function connectPeer(): Promise<[Peer, number]> {
     server ??= await startServer(0);
-    const peer = new Peer(server.port);
+    const peer = new Peer(server.port ?? 0);
     peers.push(peer);
     return [peer, (await peer.receiveWelcome()).playerId];
   }
@@ -254,7 +269,7 @@ describe('the game server', () => {
 
   it('welcomes a peer with its protocol version and its player', async () => {
     server = await startServer(0);
-    const peer = new Peer(server.port);
+    const peer = new Peer(server.port ?? 0);
     peers.push(peer);
     const welcome: WelcomeMessage = await peer.receiveWelcome();
     expect(welcome.protocolVersion).toBe(PROTOCOL_VERSION);
@@ -372,5 +387,132 @@ describe('the game server', () => {
       (players: readonly PlayerState[]) => !isPair(players),
     );
     expect(listIds(snapshot)).toEqual([watcherId]);
+  });
+});
+
+describe('the game server on a Unix socket file', () => {
+  let directory: string;
+  let socketPath: string;
+  let server: RunningServer | undefined;
+
+  /**
+   * Connects to a socket file, and waits for the first two messages.
+   *
+   * @param {string} file - The path of the socket file.
+   * @returns {Promise<ServerMessage[]>} The two messages.
+   */
+  function receiveFirstMessages(file: string): Promise<ServerMessage[]> {
+    return new Promise((resolve, reject) => {
+      const messages: ServerMessage[] = [];
+      const client = new SocketFileClient(`ws+unix:${file}:/`);
+      const timer: NodeJS.Timeout = setTimeout(() => {
+        client.terminate();
+        reject(new Error('The server sent nothing.'));
+      }, MESSAGE_TIMEOUT);
+      client.on('error', (error: Error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      client.on('message', (data: Buffer) => {
+        messages.push(decodeServerMessage(data.toString('utf8')));
+        if (messages.length === 2) {
+          clearTimeout(timer);
+          client.terminate();
+          resolve(messages);
+        }
+      });
+    });
+  }
+
+  /**
+   * Listens on a socket file with something that is not a game server.
+   *
+   * @param {string} file - The path of the socket file.
+   * @returns {Promise<Server>} The listening server.
+   */
+  function listenOnFile(file: string): Promise<Server> {
+    return new Promise((resolve, reject) => {
+      const other: Server = createServer();
+      other.once('error', reject);
+      other.listen(file, () => {
+        resolve(other);
+      });
+    });
+  }
+
+  /**
+   * Stops what listens on a socket file.
+   *
+   * @param {Server} other - The listening server.
+   * @returns {Promise<void>} A promise settled once it has stopped.
+   */
+  function stopListening(other: Server): Promise<void> {
+    return new Promise((resolve) => {
+      other.close(() => {
+        resolve();
+      });
+    });
+  }
+
+  beforeEach(() => {
+    directory = mkdtempSync(path.join(tmpdir(), 'clovervale-server-'));
+    socketPath = path.join(directory, 'game.sock');
+  });
+
+  afterEach(async () => {
+    await server?.stop();
+    server = undefined;
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  it('serves the peers that connect to the socket file', async () => {
+    server = await startServer(socketPath);
+    expect(server.socketPath).toBe(socketPath);
+    expect(server.port).toBeNull();
+    const [welcome, snapshot] = await receiveFirstMessages(socketPath);
+    expect(welcome?.type).toBe('welcome');
+    expect(snapshot?.type).toBe('snapshot');
+  });
+
+  it('lets the owner and the group of the socket file connect', async () => {
+    server = await startServer(socketPath);
+    expect(statSync(socketPath).mode & 0o777).toBe(0o660);
+  });
+
+  it('removes the socket file when it stops', async () => {
+    server = await startServer(socketPath);
+    await server.stop();
+    server = undefined;
+    expect(existsSync(socketPath)).toBe(false);
+  });
+
+  it('replaces a socket file that nothing listens on any more', async () => {
+    // A socket file that is moved away outlives what listened on it.
+    const elsewhere: string = path.join(directory, 'moved.sock');
+    const crashed: Server = await listenOnFile(elsewhere);
+    renameSync(elsewhere, socketPath);
+    await stopListening(crashed);
+    expect(statSync(socketPath).isSocket()).toBe(true);
+
+    server = await startServer(socketPath);
+    const [welcome] = await receiveFirstMessages(socketPath);
+    expect(welcome?.type).toBe('welcome');
+  });
+
+  it('leaves a socket file that something listens on alone', async () => {
+    const other: Server = await listenOnFile(socketPath);
+    try {
+      await expect(startServer(socketPath)).rejects.toThrow(socketPath);
+      expect(statSync(socketPath).isSocket()).toBe(true);
+      expect(other.listening).toBe(true);
+    } finally {
+      await stopListening(other);
+    }
+  });
+
+  it('leaves a file that is not a socket alone', async () => {
+    writeFileSync(socketPath, 'Not a socket.');
+    await expect(startServer(socketPath)).rejects.toThrow(socketPath);
+    expect(readFileSync(socketPath, 'utf8')).toBe('Not a socket.');
   });
 });

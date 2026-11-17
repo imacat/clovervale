@@ -21,13 +21,27 @@
  * @module client/vite.config The Vite configuration of the browser client.
  */
 
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vite';
 
 import { listModels } from './plugins/model-index.ts';
 
+/** The style sheet of the panel, as the client imports it. */
+const PANEL_STYLE_IMPORT = 'lil-gui/dist/lil-gui.css';
+
+/** The file of that style sheet, which is next to the code of the panel. */
+const panelStyleFile: string = fileURLToPath(
+  new URL('lil-gui.css', import.meta.resolve('lil-gui')),
+);
+
 export default defineConfig({
   // Relative asset URLs let the built client be served from any directory.
   base: './',
+  resolve: {
+    // The package of the panel does not export its style sheet by name.
+    alias: [{ find: PANEL_STYLE_IMPORT, replacement: panelStyleFile }],
+  },
   plugins: [listModels()],
   build: {
     // Three.js alone exceeds the default 500 kB warning threshold.

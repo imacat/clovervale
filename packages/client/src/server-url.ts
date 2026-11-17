@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/server-url Finding the game server from the page address.
+ * @module client/server-url Finding the game server of a page.
  */
 
 import { DEFAULT_SERVER_PORT } from '@clovervale/shared';
@@ -26,16 +26,25 @@ import { DEFAULT_SERVER_PORT } from '@clovervale/shared';
 /**
  * Resolves the WebSocket URL of the game server for a page.
  *
- * The server is expected on the default port of the host serving the page,
- * unless the page address names another one in its `server` query parameter.
+ * The server is the one the page address names in its `server` query
+ * parameter, or else the one the site has set, or else the one on the
+ * default port of the host serving the page.
  *
  * @param {URL} pageUrl - The address of the page.
+ * @param {string | null} siteServerUrl - The WebSocket URL of the game
+ *   server the site has set, or `null` if it has set none.
  * @returns {string} The WebSocket URL of the game server.
  */
-export function resolveServerUrl(pageUrl: URL): string {
+export function resolveServerUrl(
+  pageUrl: URL,
+  siteServerUrl: string | null,
+): string {
   const override = pageUrl.searchParams.get('server');
   if (override !== null) {
     return override;
+  }
+  if (siteServerUrl !== null) {
+    return siteServerUrl;
   }
   const scheme = pageUrl.protocol === 'https:' ? 'wss' : 'ws';
   return `${scheme}://${pageUrl.hostname}:${String(DEFAULT_SERVER_PORT)}`;

@@ -37,6 +37,8 @@ import type {
 } from '@clovervale/shared';
 
 import type { Actor } from './actor.ts';
+import { fetchClientConfig } from './client-config.ts';
+import type { ClientConfig } from './client-config.ts';
 import { REQUIRED_MODEL_FILES, planModels } from './model-catalogue.ts';
 import {
   MODEL_INDEX_FILE,
@@ -122,7 +124,8 @@ async function showModels(): Promise<void> {
 
 void showModels();
 
-const socket = new WebSocket(resolveServerUrl(new URL(window.location.href)));
+/** The connection to the game server, once the page has found it. */
+let socket: WebSocket | null = null;
 /** The identifier of the player of the page, once the server has told it. */
 let ownId: number | null = null;
 /** The direction the server was last told the player wants to move in. */
@@ -137,7 +140,7 @@ const moveKeys = new MoveKeys();
  * @returns {boolean} Whether the message was sent.
  */
 function sendMessage(message: ClientMessage): boolean {
-  if (ownId === null || socket.readyState !== WebSocket.OPEN) {
+  if (ownId === null || socket?.readyState !== WebSocket.OPEN) {
     return false;
   }
   socket.send(encodeClientMessage(message));
@@ -176,7 +179,12 @@ function showSnapshot(players: readonly PlayerState[]): void {
   }
 }
 
-socket.addEventListener('message', (event: MessageEvent<unknown>) => {
+/**
+ * Handles a message from the game server.
+ *
+ * @param {MessageEvent<unknown>} event - The event of the message.
+ */
+function receiveMessage(event: MessageEvent<unknown>): void {
   let message: ServerMessage;
   try {
     message = decodeServerMessage(String(event.data));
@@ -198,13 +206,31 @@ socket.addEventListener('message', (event: MessageEvent<unknown>) => {
   ownId = message.playerId;
   panel.state.server = `connected (protocol ${version})`;
   panel.showReadout(describeSnapshot(ownId, null));
-});
-socket.addEventListener('close', () => {
-  ownId = null;
-  panel.state.server = 'disconnected';
-  figures.showSnapshot([]);
-  panel.showReadout(describeSnapshot(null, null));
-});
+}
+
+/**
+ * Connects to the game server of the page, which the settings of the site
+ * may name.
+ *
+ * @returns {Promise<void>} A promise settled once the page is connecting.
+ */
+async function connectToServer(): Promise<void> {
+  const config: ClientConfig = await fetchClientConfig(
+    import.meta.env.BASE_URL,
+  );
+  socket = new WebSocket(
+    resolveServerUrl(new URL(window.location.href), config.serverUrl),
+  );
+  socket.addEventListener('message', receiveMessage);
+  socket.addEventListener('close', () => {
+    ownId = null;
+    panel.state.server = 'disconnected';
+    figures.showSnapshot([]);
+    panel.showReadout(describeSnapshot(null, null));
+  });
+}
+
+void connectToServer();
 
 window.addEventListener('keydown', (event: KeyboardEvent) => {
   const command: KeyCommand | null = findKeyCommand(event.code);

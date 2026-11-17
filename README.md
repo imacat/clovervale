@@ -88,12 +88,13 @@ Runs the bots against the server.
 Configuration
 -------------
 
-The server listens on port 8080, or on the port in the `PORT`
-environment variable.  The client connects to port 8080 of the host that
-serves its page, or to the server named in the `server` query parameter
-of the page address, as in `?server=ws://game.example.com:9000`.  The
-bots connect to `ws://localhost:8080`, or to the URL in the `SERVER_URL`
-environment variable.
+The server listens on port 8080, or on the port of its `--port` option,
+or on the Unix socket file of its `--socket` option.  The client
+connects to port 8080 of the host that serves its page, or to the server
+named in the `server` query parameter of the page address, as in
+`?server=ws://game.example.com:9000`.  The bots connect to
+`ws://localhost:8080`, or to the URL in the `SERVER_URL` environment
+variable.
 
 Firefox is run as `firefox`, or as the command in the `FIREFOX`
 environment variable.
