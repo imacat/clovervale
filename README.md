@@ -62,6 +62,14 @@ Runs the tests again whenever a file changes.
 
 Builds everything and checks the client in Firefox.
 
+### `npm run build:models`
+
+Regenerates the 3D models of the client.
+
+### `npm run test:models`
+
+Checks that the 3D models are valid glTF and meet the needs of the game.
+
 ### For development
 
 #### `npm run dev:server`
