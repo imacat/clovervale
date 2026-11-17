@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/model A flat-shaded model, written as binary glTF.
+ * @module scripts/models/model A low-poly model, written as binary glTF.
  */
 
 import { Vector3 } from 'three';
@@ -48,12 +48,20 @@ interface Material {
   readonly emissive: string | null;
 }
 
+/** How to shade a shape. */
+export interface ShapeOptions {
+  /** Whether the shape reads as a rounded surface instead of as facets. */
+  readonly smooth?: boolean;
+}
+
 /** A triangle of a model. */
 export interface Face {
   /** The corners in model space. */
   readonly tri: Triangle;
   /** The index of the bone the triangle follows. */
   readonly bone: number;
+  /** The unit normals at the corners, when the triangle is smooth-shaded. */
+  readonly normals?: Triangle;
 }
 
 /** A corner of a triangle of a model. */
@@ -312,7 +320,86 @@ function roundAll(v: Vector3): number[] {
 }
 
 /**
- * Builds indexed, flat-shaded vertex data from faces.
+ * Names a point, so that corners at the same place share a name.
+ *
+ * @param {Vector3} p - The point.
+ * @returns {string} The name of the point.
+ */
+function namePoint(p: Vector3): string {
+  return p
+    .toArray()
+    .map((x: number) => x.toFixed(5))
+    .join(',');
+}
+
+/**
+ * Computes the normal of a triangle.
+ *
+ * @param {Readonly<Triangle>} tri - The triangle.
+ * @returns {Vector3} The unit normal.
+ */
+function computeFaceNormal(tri: Readonly<Triangle>): Vector3 {
+  return new Vector3()
+    .subVectors(tri[1], tri[0])
+    .cross(new Vector3().subVectors(tri[2], tri[0]))
+    .normalize();
+}
+
+/**
+ * Computes the normals that shade a shape as one rounded surface.
+ *
+ * @param {Shape} shape - The shape.
+ * @returns {Triangle[]} The unit normals at the corners of each triangle.
+ */
+function computeSmoothNormals(shape: Shape): Triangle[] {
+  const sums = new Map<string, Vector3>();
+  for (const tri of shape) {
+    const normal: Vector3 = computeFaceNormal(tri);
+    tri.forEach((p: Vector3, i: number) => {
+      const next: Vector3 = getItem(tri, (i + 1) % 3);
+      const prev: Vector3 = getItem(tri, (i + 2) % 3);
+      const angle: number = new Vector3()
+        .subVectors(next, p)
+        .angleTo(new Vector3().subVectors(prev, p));
+      const key: string = namePoint(p);
+      let sum: Vector3 | undefined = sums.get(key);
+      if (sum === undefined) {
+        sum = new Vector3();
+        sums.set(key, sum);
+      }
+      sum.addScaledVector(normal, angle);
+    });
+  }
+  const findNormal = (p: Vector3): Vector3 => {
+    const sum: Vector3 | undefined = sums.get(namePoint(p));
+    if (sum === undefined) {
+      throw new Error('A corner has no normal.');
+    }
+    return sum.clone().normalize();
+  };
+  return shape.map(
+    (tri: Triangle): Triangle => [
+      findNormal(tri[0]),
+      findNormal(tri[1]),
+      findNormal(tri[2]),
+    ],
+  );
+}
+
+/**
+ * Rounds a normal to single precision, keeping it of unit length.
+ *
+ * @param {Vector3} normal - The unit normal.
+ * @returns {number[]} The components of the rounded unit normal.
+ */
+function roundNormal(normal: Vector3): number[] {
+  const n: number[] = normal.toArray().map((x: number) => Math.fround(x));
+  const length: number = Math.hypot(...n);
+  return n.map((x: number) => x / length);
+}
+
+/**
+ * Builds indexed vertex data from faces.
  *
  * @param {readonly Face[]} faces - The faces.
  * @returns {VertexData} The vertex data.
@@ -326,15 +413,11 @@ function buildVertices(faces: readonly Face[]): VertexData {
     indices: [],
   };
   const lookup = new Map<string, number>();
-  for (const { tri, bone } of faces) {
-    const normal: Vector3 = new Vector3()
-      .subVectors(tri[1], tri[0])
-      .cross(new Vector3().subVectors(tri[2], tri[0]))
-      .normalize();
-    const n: number[] = normal.toArray().map((x: number) => Math.fround(x));
-    const length: number = Math.hypot(...n);
-    const unit: number[] = n.map((x: number) => x / length);
-    for (const p of tri) {
+  for (const { tri, bone, normals } of faces) {
+    const flat: number[] = roundNormal(computeFaceNormal(tri));
+    for (const [corner, p] of tri.entries()) {
+      const unit: number[] =
+        normals === undefined ? flat : roundNormal(getItem(normals, corner));
       const key: string = [
         ...p.toArray().map((x: number) => x.toFixed(5)),
         ...unit.map((x: number) => x.toFixed(3)),
@@ -459,8 +542,8 @@ class BufferWriter {
 }
 
 /**
- * A model made of flat-shaded triangles in plain colours, optionally bound
- * to a skeleton and animated.
+ * A model made of triangles in plain colours, flat-shaded unless a shape
+ * asks to be smooth, optionally bound to a skeleton and animated.
  */
 export class Model {
   /** The name of the root node. */
@@ -538,11 +621,17 @@ export class Model {
    * @param {string} material - The material name.
    * @param {Shape} shape - The triangles in model space.
    * @param {string | null} [bone] - The bone the shape follows.
+   * @param {ShapeOptions} [options] - How to shade the shape.
    * @returns {this} This model.
    * @throws {Error} If the material is not defined, or there is no such
    *   bone.
    */
-  add(material: string, shape: Shape, bone: string | null = null): this {
+  add(
+    material: string,
+    shape: Shape,
+    bone: string | null = null,
+    { smooth = false }: ShapeOptions = {},
+  ): this {
     if (!this.materials.has(material)) {
       throw new Error(`Unknown material: ${material}`);
     }
@@ -552,8 +641,15 @@ export class Model {
       faces = [];
       this.faces.set(material, faces);
     }
-    for (const tri of shape) {
-      faces.push({ tri, bone: index });
+    if (smooth) {
+      const normals: Triangle[] = computeSmoothNormals(shape);
+      shape.forEach((tri: Triangle, i: number) => {
+        faces.push({ tri, bone: index, normals: getItem(normals, i) });
+      });
+    } else {
+      for (const tri of shape) {
+        faces.push({ tri, bone: index });
+      }
     }
     return this;
   }

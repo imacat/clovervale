@@ -233,7 +233,8 @@ function findHeadPoint(yaw: number, down: number, factor = 1): Triple {
 }
 
 /**
- * Adds the head and the face.
+ * Adds the head and the face.  The head is smooth-shaded; the features on
+ * it are flat-shaded.
  *
  * The model needs the materials `skin`, `eye`, `white`, `blush` and
  * `mouth`.
@@ -246,6 +247,7 @@ export function addHead(model: Model, bone: string): void {
     'skin',
     place(createEllipsoid(HEAD_RADII, 2), { pos: HEAD_CENTRE }),
     bone,
+    { smooth: true },
   );
   for (const side of [1, -1]) {
     model.add(
