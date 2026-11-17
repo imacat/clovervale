@@ -30,6 +30,13 @@ import {
 import { layoutVillage } from '../src/village-layout.ts';
 import type { Placement } from '../src/village-layout.ts';
 
+/** The required models, and the props the plaza is built from. */
+const PLAZA_FILES: readonly string[] = [
+  ...REQUIRED_MODEL_FILES,
+  'prop-cottage.glb',
+  'prop-great-tree.glb',
+];
+
 /**
  * Measures how far apart two models stand.
  *
@@ -68,18 +75,62 @@ describe('layoutVillage', () => {
     );
   });
 
-  it('stands the characters in an even row, all facing the same way', () => {
-    const row: Placement[] = layoutVillage(CHARACTER_FILES);
-    const first: Placement = findOnly(row, 'character-01.glb');
-    const second: Placement = findOnly(row, 'character-02.glb');
-    expect(row).toHaveLength(CHARACTER_FILES.length);
-    const spacing: number = second.x - first.x;
+  it('stands the characters evenly apart, all facing the same way', () => {
+    const arc: Placement[] = layoutVillage(CHARACTER_FILES);
+    const first: Placement = findOnly(arc, 'character-01.glb');
+    const second: Placement = findOnly(arc, 'character-02.glb');
+    expect(arc).toHaveLength(CHARACTER_FILES.length);
+    const spacing: number = measureDistance(first, second);
     expect(spacing).toBeGreaterThan(1);
-    row.forEach((placement: Placement, index: number) => {
-      expect(placement.x).toBeCloseTo(first.x + index * spacing);
-      expect(placement.z).toBe(first.z);
+    arc.forEach((placement: Placement, index: number) => {
+      const next: Placement | undefined = arc[index + 1];
+      if (next !== undefined) {
+        expect(next.x).toBeGreaterThan(placement.x);
+        expect(measureDistance(placement, next)).toBeCloseTo(spacing);
+      }
       expect(placement.yaw).toBe(first.yaw);
     });
+  });
+
+  it('stands the buildings around the fountain, each facing it', () => {
+    const placements: Placement[] = layoutVillage(PLAZA_FILES);
+    const fountain: Placement = findOnly(placements, 'fountain.glb');
+    const buildings: Placement[] = placements.filter(
+      (placement: Placement) =>
+        ['prop-cottage.glb', 'weapon-shop.glb'].includes(placement.file),
+    );
+    expect(buildings).toHaveLength(4);
+    const corners = new Set<string>();
+    for (const building of buildings) {
+      const x: number = fountain.x - building.x;
+      const z: number = fountain.z - building.z;
+      const yaw: number = (building.yaw * Math.PI) / 180;
+      // The cosine of the angle between the front and the way to the
+      // fountain.
+      const facing: number =
+        (x * Math.sin(yaw) + z * Math.cos(yaw)) / Math.hypot(x, z);
+      expect(facing).toBeGreaterThan(Math.cos(Math.PI / 4));
+      corners.add(`${String(x > 0)} ${String(z > 0)}`);
+    }
+    expect(corners.size).toBe(4);
+  });
+
+  it('stands the fountain between the characters and the great tree', () => {
+    const placements: Placement[] = layoutVillage(PLAZA_FILES);
+    const fountain: Placement = findOnly(placements, 'fountain.glb');
+    const tree: Placement = findOnly(placements, 'prop-great-tree.glb');
+    expect(tree.x).toBe(fountain.x);
+    expect(tree.z).toBeLessThan(fountain.z);
+    for (const file of CHARACTER_FILES) {
+      expect(findOnly(placements, file).z).toBeGreaterThan(fountain.z);
+    }
+  });
+
+  it('stands the NPC by the fountain', () => {
+    const placements: Placement[] = layoutVillage(REQUIRED_MODEL_FILES);
+    const fountain: Placement = findOnly(placements, 'fountain.glb');
+    const npc: Placement = findOnly(placements, 'npc.glb');
+    expect(measureDistance(npc, fountain)).toBeLessThan(5);
   });
 
   it('keeps a character in its place when others are missing', () => {
@@ -89,14 +140,21 @@ describe('layoutVillage', () => {
   });
 
   it('stands the monster farther out than everyone in the village', () => {
-    const placements: Placement[] = layoutVillage(REQUIRED_MODEL_FILES);
+    const placements: Placement[] = layoutVillage(PLAZA_FILES);
     const fountain: Placement = findOnly(placements, 'fountain.glb');
     const monster: Placement = findOnly(placements, 'monster.glb');
-    for (const file of [...CHARACTER_FILES, 'npc.glb', 'weapon-shop.glb']) {
-      const villager: Placement = findOnly(placements, file);
-      expect(measureDistance(monster, fountain)).toBeGreaterThan(
-        measureDistance(villager, fountain),
-      );
+    for (const villager of placements) {
+      const isVillager: boolean = [
+        ...CHARACTER_FILES,
+        'npc.glb',
+        'weapon-shop.glb',
+        'prop-cottage.glb',
+      ].includes(villager.file);
+      if (isVillager) {
+        expect(measureDistance(monster, fountain)).toBeGreaterThan(
+          measureDistance(villager, fountain),
+        );
+      }
     }
   });
 

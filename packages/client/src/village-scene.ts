@@ -40,8 +40,17 @@ import type { LoadedModel } from './model-loader.ts';
 import { layoutVillage } from './village-layout.ts';
 import type { Placement } from './village-layout.ts';
 
-/** A patch of bare earth: its centre and its radii along X and Z. */
-type Patch = readonly [x: number, z: number, radiusX: number, radiusZ: number];
+/**
+ * A patch of bare earth: its centre, its radii along X and Z, and its turn
+ * around the Y axis, in degrees.
+ */
+type Patch = readonly [
+  x: number,
+  z: number,
+  radiusX: number,
+  radiusZ: number,
+  yaw: number,
+];
 
 /** The colour of the sky. */
 const SKY_COLOUR = '#bfe4f2';
@@ -54,14 +63,13 @@ const GROUND_RADIUS = 300;
 /** Half the width of the square of ground that receives shadows, in metres. */
 const SHADOW_REACH = 34;
 
-/** The square around the fountain, the paths and the monster's ground. */
+/** The plaza, the paths into and out of it, and the monster's ground. */
 const PATCHES: readonly Patch[] = [
-  [0, 1, 2.2, 12],
-  [0, -8.5, 5.5, 4.6],
-  [6, -6.5, 6, 2],
-  [-6, -6, 6, 2],
-  [0, -2, 6.8, 1.5],
-  [10.2, 6.3, 3.6, 2.8],
+  [0, 8, 2.6, 16, 0],
+  [0, -8, 9, 8.2, 0],
+  [-5.2, -21, 1.6, 10, -12],
+  [5.2, -21, 1.6, 10, 12],
+  [10, 8, 4, 3, 0],
 ];
 
 /**
@@ -121,12 +129,13 @@ export function createVillageScene(): Scene {
   const ground: Mesh = createDisc(GRASS_COLOUR, 0);
   ground.scale.setScalar(GROUND_RADIUS);
   scene.add(ground);
-  PATCHES.forEach(([x, z, radiusX, radiusZ]: Patch, index: number) => {
+  PATCHES.forEach(([x, z, radiusX, radiusZ, yaw]: Patch, index: number) => {
     // Each patch lies a little higher than the last, so that none flickers.
     const patch: Mesh = createDisc(EARTH_COLOUR, 0.004 + index * 0.001);
     patch.position.x = x;
     patch.position.z = z;
     patch.scale.set(radiusX, radiusZ, 1);
+    patch.rotation.z = (yaw * Math.PI) / 180;
     scene.add(patch);
   });
   return scene;

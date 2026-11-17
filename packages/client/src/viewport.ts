@@ -45,9 +45,9 @@ export function showScene(
   document.body.append(renderer.domElement);
 
   const camera = new PerspectiveCamera(40, 1, 0.5, 600);
-  camera.position.set(0, 13, 24);
+  camera.position.set(0, 14, 28);
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 1.5, -4);
+  controls.target.set(0, 1.5, -5);
   controls.enableDamping = true;
   controls.minDistance = 2;
   controls.maxDistance = 90;

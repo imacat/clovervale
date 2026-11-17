@@ -38,93 +38,128 @@ export interface Placement {
 /** A spot on the ground: its X and Z positions, and its yaw. */
 type Spot = readonly [x: number, z: number, yaw: number];
 
+/** The centre of the plaza, where the fountain stands. */
+const PLAZA_CENTRE: readonly [x: number, z: number] = [0, -8.5];
+
 /** The distance between two neighbouring characters, in metres. */
-const CHARACTER_SPACING = 1.5;
-/** The position along the Z axis of the row of characters, in metres. */
-const CHARACTER_ROW_Z = -2;
+const CHARACTER_SPACING = 1.6;
+/** The distance of the characters from the centre of the plaza, in metres. */
+const CHARACTER_ARC_RADIUS = 8;
 
 /** The distance between two neighbouring unknown props, in metres. */
 const SPARE_SPACING = 6;
 /** The number of unknown props in a row. */
 const SPARE_ROW_LENGTH = 3;
 /** The spot of the first unknown prop. */
-const FIRST_SPARE_SPOT: Spot = [-12, 10, 0];
+const FIRST_SPARE_SPOT: Spot = [-12, 18, 0];
 
 /** The spots of the models the village has a place for. */
 const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
-  'fountain.glb': [[0, -8.5, 0]],
-  'weapon-shop.glb': [[10.5, -6.5, -35]],
-  'npc.glb': [[-3.2, -6.3, 20]],
-  'monster.glb': [[8.6, 5.2, -65]],
-  'prop-spawn-stones.glb': [[12, 7.5, -30]],
-  'prop-great-tree.glb': [[0, -17, 20]],
+  'fountain.glb': [[...PLAZA_CENTRE, 0]],
+  'weapon-shop.glb': [[12, -4.5, -90]],
+  'npc.glb': [[3.2, -6.4, -25]],
+  'monster.glb': [[8.4, 6.8, -60]],
+  'prop-spawn-stones.glb': [[11.4, 9, -30]],
+  'prop-great-tree.glb': [[0, -14.5, 20]],
   'prop-cottage.glb': [
-    [-10.5, -4, 40],
-    [-7.5, -13, 20],
-    [8, -16.5, -20],
+    [-11, -4.5, 90],
+    [-10.5, -16.5, 55],
+    [10.5, -16.5, -55],
   ],
   'prop-pine-tree.glb': [
-    [-15, -9, 0],
-    [-13, -12, 40],
-    [-16, -4, 80],
-    [14, -13, 120],
-    [16.5, -9, 160],
-    [16, -1, 200],
-    [-14.5, 4, 240],
-    [16, 4.5, 280],
-    [-4, -24, 320],
-    [5, -25, 0],
-    [-18, -16, 40],
-    [18, -17, 80],
-    [15.5, 10, 120],
+    [-16.5, 0.5, 0],
+    [-18.5, -6, 40],
+    [-18, -13.5, 80],
+    [-14.5, -21.5, 120],
+    [-10, -24.5, 160],
+    [0, -26, 200],
+    [10, -24.5, 240],
+    [14.5, -21.5, 280],
+    [18, -14, 320],
+    [18.5, -7, 0],
+    [17.5, 0, 40],
+    [-11, 7, 80],
+    [-15, 4, 120],
+    [17, 12, 160],
+    [6, 16.5, 200],
+    [-24, -18, 240],
+    [24, -22, 280],
+    [-3, -33, 320],
+    [23, 5, 0],
+    [-22, 9, 40],
   ],
   'prop-bush.glb': [
-    [-6, 1.5, 0],
-    [-8, 3.2, 70],
-    [-5, 4, 140],
-    [4.6, 6.2, 210],
-    [-3.2, -11, 280],
-    [3.3, -11.2, 350],
-    [-8.5, -8.5, 60],
-    [6, -11.5, 130],
-    [14.5, 3, 200],
+    [-3.3, -11.2, 0],
+    [3.4, -11.4, 70],
+    [-4.7, -12.5, 140],
+    [4.6, -12.7, 210],
+    [-5, 4.6, 280],
+    [-6.8, 6.2, 350],
+    [-4.6, 7.6, 60],
+    [-8.6, 4.6, 130],
+    [-7, 9, 200],
+    [4.4, 5, 270],
+    [4.6, 13.6, 340],
+    [4.3, 7.4, 50],
+    [15.2, 1.4, 120],
+    [-15, -10.5, 190],
+    [15, -10.5, 260],
   ],
   'prop-flowers.glb': [
-    [-3.5, 1.6, 0],
-    [-2.8, 4, 50],
-    [3.2, 2.8, 100],
-    [2.6, 0.8, 150],
-    [-6.6, -5.6, 200],
-    [5.2, -9.6, 250],
-    [-2.4, -9.6, 300],
+    [-3.6, 3.4, 0],
+    [-3.4, 6.4, 50],
+    [-5.6, 9.2, 100],
+    [3.4, 3.4, 150],
+    [-3.6, 10.5, 200],
+    [-2.6, -10.2, 250],
+    [2.6, -10.3, 300],
+    [-8, -0.2, 350],
+    [7.4, 0.4, 40],
+    [-13.5, -9.5, 90],
+    [13.5, -10, 140],
   ],
   'prop-rock.glb': [
-    [6.2, 8.2, 30],
-    [-9.2, 2.4, 120],
-    [13.2, 5, 250],
+    [6.6, 10.4, 30],
+    [14.6, 6.4, 120],
+    [-9.5, 8, 250],
+    [-16, -11.5, 80],
   ],
   'prop-fence.glb': [
-    [-15, 1, 0],
-    [-13, 1, 0],
-    [-11, 1, 0],
-    [5.5, 1.6, 0],
-    [7.5, 1.6, 0],
-    [9.5, 1.6, 0],
-    [11.5, 1.6, 0],
-    [13.5, 1.6, 0],
+    [-6, 3, 0],
+    [-8, 3, 0],
+    [-10, 3, 0],
+    [6, 3, 0],
+    [8, 3, 0],
+    [10, 3, 0],
+    [12, 3, 0],
+    [14, 3, 0],
+    [-16.5, -8.5, 90],
+    [-16.5, -10.5, 90],
+    [-16.5, -12.5, 90],
+    [16.5, -8.5, 90],
+    [16.5, -10.5, 90],
+    [16.5, -12.5, 90],
+    [-2, -23, 0],
+    [0, -23, 0],
+    [2, -23, 0],
   ],
 };
 
 /**
- * Finds the spots of a character in the row where they can be compared.
+ * Finds the spots of a character in the arc where they can be compared.
  *
  * @param {number} index - The position of the character among them all,
  *   from zero.
  * @returns {Spot[]} The one spot of the character.
  */
 function findCharacterSpots(index: number): Spot[] {
+  const [centreX, centreZ] = PLAZA_CENTRE;
   const middle: number = (CHARACTER_FILES.length - 1) / 2;
-  return [[(index - middle) * CHARACTER_SPACING, CHARACTER_ROW_Z, 0]];
+  const angle: number =
+    ((index - middle) * CHARACTER_SPACING) / CHARACTER_ARC_RADIUS;
+  const x: number = centreX + CHARACTER_ARC_RADIUS * Math.sin(angle);
+  const z: number = centreZ + CHARACTER_ARC_RADIUS * Math.cos(angle);
+  return [[x, z, 0]];
 }
 
 /**
@@ -144,10 +179,12 @@ function findSpareSpots(index: number): Spot[] {
 /**
  * Arranges the models into a village.
  *
- * The fountain, the weapon shop and the NPC are in the village, the
- * characters stand in a row in front of it, each always in its own place,
- * and the monster is a little way outside.  A prop the village has no place
- * for stands by itself to one side.
+ * The fountain stands in the middle of a plaza, in front of the great tree,
+ * and the cottages and the weapon shop stand around the plaza, each facing
+ * it.  The NPC is by the fountain, the characters stand in an arc at the
+ * near edge of the plaza, each always in its own place, and the monster is
+ * a little way outside.  A prop the village has no place for stands by
+ * itself to one side.
  *
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.
