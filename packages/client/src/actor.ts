@@ -26,7 +26,7 @@ import type { AnimationAction, AnimationClip, Object3D } from 'three';
 
 import type { ActionState, MonsterAction } from '@clovervale/shared';
 
-import { chooseClip } from './clip-choice.ts';
+import { chooseClip, chooseStandingClip } from './clip-choice.ts';
 import type { ClipPlan } from './clip-choice.ts';
 
 /** A model that plays its animation clips. */
@@ -36,7 +36,8 @@ export class Actor {
   #playing: string | null = null;
 
   /**
-   * Makes a model idle, if it has a clip for that.
+   * Makes a model work, if it has a clip for that, or else idle, if it has a
+   * clip for that.
    *
    * @param {Object3D} root - The root of the model.
    * @param {readonly AnimationClip[]} clips - The clips of the model.
@@ -46,7 +47,7 @@ export class Actor {
       clips.map((clip: AnimationClip) => [clip.name, clip]),
     );
     this.#mixer = new AnimationMixer(root);
-    this.play('Idle');
+    this.#start(chooseStandingClip([...this.#clips.keys()]));
   }
 
   /**
@@ -68,7 +69,25 @@ export class Actor {
    * @param {ActionState | MonsterAction} action - What the model is doing.
    */
   play(action: ActionState | MonsterAction): void {
-    const plan: ClipPlan | null = chooseClip(action, [...this.#clips.keys()]);
+    this.#start(chooseClip(action, [...this.#clips.keys()]));
+  }
+
+  /**
+   * Moves the animation of the model forward in time.
+   *
+   * @param {number} seconds - The time that has passed, in seconds.
+   */
+  update(seconds: number): void {
+    this.#mixer.update(seconds);
+  }
+
+  /**
+   * Plays a clip of the model from its beginning, as planned.
+   *
+   * @param {ClipPlan | null} plan - The clip and how to play it, or `null`
+   *   to leave the model as it is.
+   */
+  #start(plan: ClipPlan | null): void {
     const clip: AnimationClip | undefined = this.#clips.get(plan?.name ?? '');
     if (plan === null || clip === undefined) {
       return;
@@ -81,14 +100,5 @@ export class Actor {
     animation.clampWhenFinished = true;
     animation.play();
     this.#playing = plan.name;
-  }
-
-  /**
-   * Moves the animation of the model forward in time.
-   *
-   * @param {number} seconds - The time that has passed, in seconds.
-   */
-  update(seconds: number): void {
-    this.#mixer.update(seconds);
   }
 }

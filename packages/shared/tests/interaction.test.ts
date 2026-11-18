@@ -31,6 +31,7 @@ import {
   PLAYER_RADIUS,
   PLAZA_CENTRE,
   TALK_REACH,
+  VILLAGE_TERRAIN,
   findInteraction,
   findPlacement,
   findVillager,
@@ -56,6 +57,27 @@ const NANCY: Placement = findPlacement('npc-nancy.glb');
  */
 function standByNancy(distance: number, yaw: number): Pose {
   return { x: NANCY.x, z: NANCY.z + distance, yaw };
+}
+
+/**
+ * Lists the poses of a player that stands within talking reach of Emma the
+ * smith, wherever the ground around her is clear, facing her.
+ *
+ * @returns {Pose[]} The poses, of which there is at least one.
+ */
+function listPosesFacingEmma(): Pose[] {
+  const emma: Placement = findPlacement('npc-emma.glb');
+  const poses: Pose[] = [];
+  for (let degrees = 0; degrees < 360; degrees += 15) {
+    const angle: number = (degrees * Math.PI) / 180;
+    const x: number = emma.x + (TALK_REACH - 0.1) * Math.sin(angle);
+    const z: number = emma.z + (TALK_REACH - 0.1) * Math.cos(angle);
+    if (VILLAGE_TERRAIN.isClear({ x, z })) {
+      poses.push({ x, z, yaw: degrees + 180 });
+    }
+  }
+  expect(poses.length).toBeGreaterThan(0);
+  return poses;
 }
 
 describe('findInteraction', () => {
@@ -114,6 +136,15 @@ describe('findInteraction by Nancy', () => {
 
   it('slashes by her, facing away from her', () => {
     expect(findInteraction(standByNancy(TALK_REACH - 0.1, 0))).toBe('Slash');
+  });
+});
+
+describe('findInteraction by Emma the smith', () => {
+  it('slashes facing her close by, as she does not talk', () => {
+    for (const pose of listPosesFacingEmma()) {
+      expect(findInteraction(pose)).toBe('Slash');
+      expect(findVillager(pose)).toBeNull();
+    }
   });
 });
 

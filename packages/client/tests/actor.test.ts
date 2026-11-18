@@ -81,6 +81,18 @@ describe('Actor', () => {
     expect(root.position.x).toBe(0);
   });
 
+  it('works in a loop by default, if the model has a clip for that', () => {
+    const root = new Object3D();
+    const clips: AnimationClip[] = [
+      createClip('Idle', [0, 1], [0, 0]),
+      createClip('Work', [0, 0.5, 1], [1, 2, 1]),
+    ];
+    const actor = new Actor(root, clips);
+    advance(actor, 3.5);
+    expect(actor.clipName).toBe('Work');
+    expect(root.position.x).toBeCloseTo(2);
+  });
+
   it('keeps walking in a loop', () => {
     const root = new Object3D();
     const actor = new Actor(root, createCharacterClips());

@@ -29,13 +29,18 @@ import {
   PLAYER_RADIUS,
   PLAZA_CENTRE,
   TALK_REACH,
+  VILLAGE_TERRAIN,
   applyInput,
   createMotion,
   findPlacement,
   killMotion,
   stepMotion,
 } from '@clovervale/shared';
-import type { PlayerMotion } from '@clovervale/shared';
+import type {
+  GroundVector,
+  Placement,
+  PlayerMotion,
+} from '@clovervale/shared';
 
 import {
   describePrompt,
@@ -66,6 +71,31 @@ const BY_NANCY: PlayerMotion = createMotion(
   },
   180,
 );
+
+/**
+ * Finds a player by Emma the smith, on clear ground within talking reach of
+ * her, facing her.
+ *
+ * @returns {PlayerMotion} The player.
+ * @throws {Error} If the ground around her is not clear anywhere.
+ */
+function standByEmma(): PlayerMotion {
+  const emma: Placement = findPlacement('npc-emma.glb');
+  for (let degrees = 0; degrees < 360; degrees += 15) {
+    const angle: number = (degrees * Math.PI) / 180;
+    const position: GroundVector = {
+      x: emma.x + (TALK_REACH - 0.1) * Math.sin(angle),
+      z: emma.z + (TALK_REACH - 0.1) * Math.cos(angle),
+    };
+    if (VILLAGE_TERRAIN.isClear(position)) {
+      return createMotion(position, degrees + 180);
+    }
+  }
+  throw new Error('The ground around Emma is not clear anywhere.');
+}
+
+/** A player by Emma the smith, facing her. */
+const BY_EMMA: PlayerMotion = standByEmma();
 
 /**
  * Makes a translator of the text into a language.
@@ -100,6 +130,11 @@ describe('describePrompt', () => {
     expect(describePrompt(zhCn, BY_NANCY)).toBe('按空格键与南茜交谈');
     const ja: Translator = await createTranslator('ja');
     expect(describePrompt(ja, BY_NANCY)).toBe('スペースキーでナンシーと話す');
+  });
+
+  it('tells nothing to a player by Emma the smith, facing her', () => {
+    expect(describePrompt(EN, BY_EMMA)).toBeNull();
+    expect(describeSpaceKey(EN, BY_EMMA)).toBe('slash');
   });
 
   it('tells nothing while the player talks already', () => {

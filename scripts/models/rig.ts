@@ -58,6 +58,9 @@ export interface PoseSample {
 /** The upper leg, lower leg and foot bones of a leg. */
 export type LegBones = readonly [string, string, string];
 
+/** The upper arm, forearm and hand bones of an arm. */
+export type ArmBones = readonly [string, string, string];
+
 /** How a foot meets the target of its leg. */
 export interface LegOptions {
   /** The pitch of the foot in degrees, positive with the toes down. */
@@ -78,11 +81,19 @@ export interface BakeOptions {
   readonly fps?: number;
 }
 
+/** How a hand meets the target of its arm. */
+export interface ArmOptions {
+  /** The pitch of the hand in degrees, positive with the fingers down. */
+  readonly pitch?: number;
+  /** The heading of the hand and the elbow in degrees. */
+  readonly yaw?: number;
+}
+
 /** What was measured while baking a clip. */
 export interface ClipReport {
   /** The most a frame was lifted to stay above the ground, in metres. */
   lift: number;
-  /** The most a leg target was beyond the reach of the leg, in metres. */
+  /** The most a limb target was beyond the reach of the limb, in metres. */
   overreach?: number;
 }
 
@@ -273,6 +284,53 @@ export class Rig {
     target: Triple,
     { pitch = 0, yaw = 0, isKneeBackward = false }: LegOptions = {},
   ): number {
+    return this.#reachLimb(pose, names, target, pitch, yaw, isKneeBackward);
+  }
+
+  /**
+   * Bends a two-bone arm so that its wrist reaches a target, with the elbow
+   * bending back, and turns its hand as told.
+   *
+   * @param {Pose} pose - The pose to change.
+   * @param {ArmBones} names - The upper arm, forearm and hand bones.
+   * @param {Triple} target - The wrist position in model space.
+   * @param {ArmOptions} [options] - How the hand meets the target.
+   * @returns {number} How far the target is beyond the reach of the arm.
+   * @throws {Error} If there is no such bone.
+   */
+  reachArm(
+    pose: Pose,
+    names: ArmBones,
+    target: Triple,
+    { pitch = 0, yaw = 0 }: ArmOptions = {},
+  ): number {
+    return this.#reachLimb(pose, names, target, pitch, yaw, true);
+  }
+
+  /**
+   * Bends a two-bone limb so that the pivot of its third bone reaches a
+   * target, and turns that bone as told.
+   *
+   * @param {Pose} pose - The pose to change.
+   * @param {readonly [string, string, string]} names - The upper bone, the
+   *   lower bone and the end bone of the limb.
+   * @param {Triple} target - The pivot of the end bone in model space.
+   * @param {number} pitch - The pitch of the end bone in degrees.
+   * @param {number} yaw - The heading of the end bone and of the bend in
+   *   degrees.
+   * @param {boolean} isBentBackward - Whether the joint between the upper
+   *   and the lower bone points backwards.
+   * @returns {number} How far the target is beyond the reach of the limb.
+   * @throws {Error} If there is no such bone.
+   */
+  #reachLimb(
+    pose: Pose,
+    names: readonly [string, string, string],
+    target: Triple,
+    pitch: number,
+    yaw: number,
+    isBentBackward: boolean,
+  ): number {
     const upper: number = this.model.findBone(names[0]);
     const lower: number = this.model.findBone(names[1]);
     const foot: number = this.model.findBone(names[2]);
@@ -302,7 +360,7 @@ export class Rig {
     const kneeDirection: Vector3 = direction
       .clone()
       .multiplyScalar(Math.cos(angle))
-      .addScaledVector(forward, Math.sin(angle) * (isKneeBackward ? -1 : 1));
+      .addScaledVector(forward, Math.sin(angle) * (isBentBackward ? -1 : 1));
     const knee: Vector3 = hip.clone().addScaledVector(kneeDirection, a);
     const ankle: Vector3 = hip.clone().addScaledVector(direction, reach);
     const shinDirection: Vector3 = ankle.sub(knee).normalize();
@@ -413,7 +471,7 @@ export class Rig {
   }
 
   /**
-   * Notes the most a leg target was beyond the reach of its leg in a clip.
+   * Notes the most a limb target was beyond the reach of its limb in a clip.
    *
    * @param {string} name - The name of a baked clip.
    * @param {number} overreach - The distance, in metres.

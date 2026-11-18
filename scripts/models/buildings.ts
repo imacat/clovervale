@@ -412,6 +412,14 @@ export function buildWeaponShop(): BuiltModel {
   model.setMaterial('fire', '#ff8a1e', { emissive: '#ff6a00' });
   model.setMaterial('glow', '#ffd95a', { emissive: '#ffb020' });
   model.setMaterial('coal', '#2e2a2c');
+  model.setMaterial('embers', '#d2481e', {
+    roughness: 0.8,
+    emissive: '#5a1406',
+  });
+  model.setMaterial('hotIron', '#e0602a', {
+    roughness: 0.6,
+    emissive: '#5a1a06',
+  });
   const hx = -1.05;
   const plan: HousePlan = {
     x: hx,
@@ -714,6 +722,16 @@ export function buildWeaponShop(): BuiltModel {
       { pos: [fx, 1.32, 0.5] },
     ),
   );
+  // The bed of coals along the foot of the mouth, under the flames.
+  for (let i = 0; i < 6; i++) {
+    model.add(
+      'embers',
+      place(createBlob(0, 500 + i, 0.25), {
+        pos: [fx - 0.375 + i * 0.15, 0.6, 0.56],
+        scale: [0.085, 0.045, 0.06],
+      }),
+    );
+  }
   model.add(
     'fire',
     place(createCone(0.33, 0, 0.6, 5), {
@@ -736,8 +754,14 @@ export function buildWeaponShop(): BuiltModel {
     }),
   );
 
-  // The anvil on its stump, the barrel of swords and a crate.
-  const ax: number = fx - 0.25;
+  // The anvil on its stump, out in front of the forge on the side away from
+  // the house, low enough for the smith to bring her hammer down on it, with
+  // a bar of hot iron on it.  The smith stands in front of the mouth of the
+  // forge, facing away from the house, with the forge on her left and the
+  // anvil in front of her; its horn points to her left, at the forge.
+  const ax: number = fx + 0.46;
+  const az = 1.41;
+  const stump = 0.32;
   model.add(
     'wood',
     place(
@@ -745,12 +769,12 @@ export function buildWeaponShop(): BuiltModel {
         [
           [0, 0],
           [0.34, 0],
-          [0.3, 0.45],
-          [0, 0.45],
+          [0.3, stump],
+          [0, stump],
         ],
         8,
       ),
-      { pos: [ax, 0, 1.75] },
+      { pos: [ax, 0, az] },
     ),
   );
   model.add(
@@ -771,10 +795,22 @@ export function buildWeaponShop(): BuiltModel {
         ],
         0.26,
       ),
-      { pos: [ax, 0.45, 1.75] },
+      { pos: [ax, stump, az], rot: [0, 90, 0] },
     ),
   );
-  const bx: number = hx + 2.5 + 0.45;
+  // The bar lies across the flat of the anvil, pointing at the smith, with
+  // its end on her side out over the edge of the anvil for her tongs to
+  // hold.
+  model.add(
+    'hotIron',
+    place(createBlock(0.045, 0.03, 0.24), {
+      pos: [ax - 0.09, stump + 0.4, az + 0.02],
+      rot: [0, 90, 0],
+    }),
+  );
+  // The barrel of swords by the end of the counter.
+  const bx: number = hx + 2.55;
+  const bz = 2.97;
   model.add(
     'wood',
     place(
@@ -790,7 +826,7 @@ export function buildWeaponShop(): BuiltModel {
         ],
         8,
       ),
-      { pos: [bx, 0, 2.55] },
+      { pos: [bx, 0, bz] },
     ),
   );
   for (const y of [0.16, 0.62]) {
@@ -806,7 +842,7 @@ export function buildWeaponShop(): BuiltModel {
           ],
           8,
         ),
-        { pos: [bx, 0, 2.55] },
+        { pos: [bx, 0, bz] },
       ),
     );
   }
@@ -820,26 +856,59 @@ export function buildWeaponShop(): BuiltModel {
       model.add(
         material,
         place(place(shape, { pos: [0, 0.3, 0], rot: [180, 0, 0] }), {
-          pos: [bx + dx, 0.95, 2.55 + dz],
+          pos: [bx + dx, 0.95, bz + dz],
           rot: [lean, 0, lean],
         }),
       );
     }
   }
+
+  // An open box of coal against the side of the forge away from the house,
+  // by its front corner: a wooden box with no lid, heaped with dark lumps.
+  const cx: number = fx + 1.17;
+  const cz = 0.3;
+  const coalBox: Triple = [0.38, 0.42, 0.6];
+  const plank = 0.03;
+  for (const side of [-1, 1]) {
+    model.add(
+      'wood',
+      place(createBlock(plank, coalBox[1], coalBox[2]), {
+        pos: [cx + side * (coalBox[0] - plank) * 0.5, 0, cz],
+      }),
+    );
+    model.add(
+      'wood',
+      place(createBlock(coalBox[0] - 2 * plank, coalBox[1], plank), {
+        pos: [cx, 0, cz + side * (coalBox[2] - plank) * 0.5],
+      }),
+    );
+  }
   model.add(
-    'wood',
-    place(createBlock(0.7, 0.6, 0.7), {
-      pos: [fx + 0.55, 0, 1.5],
-      rot: [0, 18, 0],
-    }),
+    'coal',
+    place(
+      createBlock(
+        coalBox[0] - 2 * plank,
+        coalBox[1] - 0.06,
+        coalBox[2] - 2 * plank,
+      ),
+      { pos: [cx, 0, cz] },
+    ),
   );
-  model.add(
-    'timber',
-    place(createBlock(0.76, 0.1, 0.76), {
-      pos: [fx + 0.55, 0.6, 1.5],
-      rot: [0, 18, 0],
-    }),
-  );
+  for (let i = 0; i < 10; i++) {
+    const u: number = (i % 2) - 0.5;
+    const v: number = Math.floor(i / 2) / 4 - 0.5;
+    model.add(
+      'coal',
+      place(createBlob(0, 600 + i, 0.3), {
+        pos: [
+          cx + u * 0.15,
+          coalBox[1] - 0.06 + (i % 3) * 0.008,
+          cz + v * 0.44,
+        ],
+        scale: [0.07, 0.045, 0.06],
+      }),
+    );
+  }
   model.centreFootprint();
   return { model };
 }

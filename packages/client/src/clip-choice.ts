@@ -36,8 +36,18 @@ export interface ClipPlan {
   readonly playback: Playback;
 }
 
-/** The name of the clip every animated model plays by default. */
+/**
+ * The name of the clip of a model idling, which it plays when it lacks the
+ * clip for what it is doing, and while it stands in the village if it has
+ * no clip of work.
+ */
 export const IDLE_CLIP = 'Idle';
+
+/**
+ * The name of the clip of a model at work, which it plays in place of
+ * idling while it stands in the village.
+ */
+export const WORK_CLIP = 'Work';
 
 /**
  * How the clip of each action of a player or the monster is played.  The
@@ -74,4 +84,21 @@ export function chooseClip(
     return { name: IDLE_CLIP, playback: PLAYBACKS.Idle };
   }
   return null;
+}
+
+/**
+ * Chooses the clip a model plays while it stands in the village with
+ * nothing else to do.
+ *
+ * @param {readonly string[]} clipNames - The names of the clips of the model.
+ * @returns {ClipPlan | null} Its work in a loop, if it has a clip for that,
+ *   or else idling in a loop, or `null` if the model has nothing to play.
+ */
+export function chooseStandingClip(
+  clipNames: readonly string[],
+): ClipPlan | null {
+  if (clipNames.includes(WORK_CLIP)) {
+    return { name: WORK_CLIP, playback: 'loop' };
+  }
+  return chooseClip(IDLE_CLIP, clipNames);
 }

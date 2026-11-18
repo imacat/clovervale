@@ -39,7 +39,12 @@ import {
   placePoint,
   turnVector,
 } from '../src/index.ts';
-import type { GroundVector, Placement } from '../src/index.ts';
+import type {
+  CircleShape,
+  GroundVector,
+  Placement,
+  Shape,
+} from '../src/index.ts';
 
 /** The models a player can walk over or into the middle of. */
 const OPEN_FILES: readonly string[] = [
@@ -86,6 +91,30 @@ function findGate(): Gate {
     throw new Error('No fence with a gap runs out to the spawn stones.');
   }
   return { x: (left + right) / 2, z: fence.z, halfWidth: (right - left) / 2 };
+}
+
+/**
+ * Measures the gap between a round footprint and another footprint.
+ *
+ * @param {CircleShape} circle - The round footprint.
+ * @param {Shape} other - The other footprint.
+ * @returns {number} The gap, in metres, negative where they overlap.
+ */
+function measureGap(circle: CircleShape, other: Shape): number {
+  if (other.shape === 'circle') {
+    return (
+      Math.hypot(circle.x - other.x, circle.z - other.z) -
+      circle.radius -
+      other.radius
+    );
+  }
+  const local: GroundVector = turnVector(
+    { x: circle.x - other.x, z: circle.z - other.z },
+    findTurn(-other.yaw),
+  );
+  const outX: number = Math.max(Math.abs(local.x) - other.halfWidth, 0);
+  const outZ: number = Math.max(Math.abs(local.z) - other.halfDepth, 0);
+  return Math.hypot(outX, outZ) - circle.radius;
 }
 
 describe('VILLAGE_TERRAIN', () => {
@@ -176,6 +205,48 @@ describe('VILLAGE_TERRAIN', () => {
     }
   });
 
+  it('takes up the ground the anvil of the smithy stands on', () => {
+    const shop: Placement = findPlacement('weapon-shop.glb');
+    const isClear = (x: number, z: number): boolean =>
+      VILLAGE_TERRAIN.isClear(placePoint(shop, { x, z }));
+    // As the model of the shop has it, the stump of the anvil is an octagon
+    // centred at (3.08, 0.887), 0.34 m from its centre to its corners and
+    // 0.314 m to its sides, and the anvil on it runs along the Z axis from
+    // the tip of its horn at z = 0.367 to its heel at z = 1.227, between
+    // x = 2.95 and x = 3.21.  A player a little closer than touching either
+    // is in its way.
+    for (let degrees = 0; degrees < 360; degrees += 15) {
+      const angle: number = (degrees * Math.PI) / 180;
+      const reach: number = 0.314 + PLAYER_RADIUS - 0.01;
+      const x: number = 3.08 + reach * Math.sin(angle);
+      const z: number = 0.887 + reach * Math.cos(angle);
+      expect(isClear(x, z), String(degrees)).toBe(false);
+    }
+    for (let step = 0; step <= 20; step++) {
+      const z: number = 0.367 + (step * (1.227 - 0.367)) / 20;
+      expect(isClear(3.21 + PLAYER_RADIUS - 0.005, z), String(z)).toBe(false);
+      expect(isClear(2.95 - PLAYER_RADIUS + 0.005, z), String(z)).toBe(false);
+    }
+    // A player a little farther off, on the side away from the house or on
+    // the side of the plaza, is not.
+    const reach: number = 0.34 + PLAYER_RADIUS + 0.04;
+    expect(isClear(3.08 + reach, 0.887)).toBe(true);
+    expect(isClear(3.08, 0.887 + reach)).toBe(true);
+  });
+
+  it('takes up the ground the box of coal by the forge stands on', () => {
+    const shop: Placement = findPlacement('weapon-shop.glb');
+    const isClear = (x: number, z: number): boolean =>
+      VILLAGE_TERRAIN.isClear(placePoint(shop, { x, z }));
+    // As the model of the shop has it, the box stands between x = 3.6 and
+    // x = 3.98, and between z = -0.523 and z = 0.077.
+    for (let step = 0; step <= 10; step++) {
+      const z: number = -0.523 + (step * 0.6) / 10;
+      expect(isClear(3.98 + PLAYER_RADIUS - 0.005, z), String(z)).toBe(false);
+      expect(isClear(3.98 + PLAYER_RADIUS + 0.02, z), String(z)).toBe(true);
+    }
+  });
+
   it('leaves a way round the fountain between its rim and the stele', () => {
     const fountain: Placement = findPlacement('fountain.glb');
     const radius: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.05;
@@ -227,6 +298,110 @@ describe('VILLAGE_TERRAIN', () => {
     for (let index = 0; index < SPAWN_POINT_COUNT; index++) {
       expect(VILLAGE_TERRAIN.isClear(findSpawnPoint(index), 0.1)).toBe(true);
     }
+  });
+});
+
+describe('Emma the smith', () => {
+  it('takes up the ground she stands on, overlapping no other footprint', () => {
+    const emma: Placement = findPlacement('npc-emma.glb');
+    expect(VILLAGE_TERRAIN.isClear(emma)).toBe(false);
+    const own: CircleShape[] = VILLAGE_TERRAIN.shapes.filter(
+      (shape: Shape): shape is CircleShape =>
+        shape.shape === 'circle' && shape.x === emma.x && shape.z === emma.z,
+    );
+    expect(own).toHaveLength(1);
+    const [footprint] = own;
+    for (const shape of VILLAGE_TERRAIN.shapes) {
+      if (footprint !== undefined && shape !== footprint) {
+        expect(measureGap(footprint, shape)).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('faces away from the house, with the plaza on her right', () => {
+    const emma: Placement = findPlacement('npc-emma.glb');
+    const shop: Placement = findPlacement('weapon-shop.glb');
+    // The house stands along the -X axis of the shop from the forge.
+    const away: GroundVector = turnVector({ x: 1, z: 0 }, findTurn(shop.yaw));
+    const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(emma.yaw));
+    const right: GroundVector = turnVector(
+      { x: -1, z: 0 },
+      findTurn(emma.yaw),
+    );
+    expect(front.x * away.x + front.z * away.z).toBeGreaterThan(0.99);
+    const toPlaza: GroundVector = {
+      x: PLAZA_CENTRE.x - emma.x,
+      z: PLAZA_CENTRE.z - emma.z,
+    };
+    const ahead: number = front.x * toPlaza.x + front.z * toPlaza.z;
+    const aside: number = right.x * toPlaza.x + right.z * toPlaza.z;
+    expect(aside).toBeGreaterThan(Math.abs(ahead));
+  });
+
+  it('turns her front or side, not her back, to the camera along -Z', () => {
+    const emma: Placement = findPlacement('npc-emma.glb');
+    const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(emma.yaw));
+    expect(front.z).toBeGreaterThanOrEqual(0);
+  });
+
+  it('leaves no ground by the smithy to stand on that cannot be reached', () => {
+    // A square of points around the weapon shop, a tenth of a metre apart.
+    // From those on its edge, which open onto the rest of the village, a
+    // player can walk to every point it can stand on.
+    const shop: Placement = findPlacement('weapon-shop.glb');
+    const reach = 6;
+    const step = 0.1;
+    const count: number = Math.round((2 * reach) / step) + 1;
+    const findPoint = (index: number): GroundVector => ({
+      x: shop.x - reach + (index % count) * step,
+      z: shop.z - reach + Math.floor(index / count) * step,
+    });
+    const isClear: boolean[] = Array.from(
+      { length: count * count },
+      (_, index: number) => VILLAGE_TERRAIN.isClear(findPoint(index)),
+    );
+    const isReached: boolean[] = isClear.map(
+      (clear: boolean, index: number) =>
+        clear &&
+        (index % count === 0 ||
+          index % count === count - 1 ||
+          index < count ||
+          index >= count * (count - 1)),
+    );
+    const queue: number[] = [];
+    isReached.forEach((reached: boolean, index: number) => {
+      if (reached) {
+        queue.push(index);
+      }
+    });
+    // The queue grows as the walk goes on, and the loop takes in what is
+    // added to it.
+    for (const index of queue) {
+      const column: number = index % count;
+      const neighbours: number[] = [
+        column > 0 ? index - 1 : -1,
+        column < count - 1 ? index + 1 : -1,
+        index - count,
+        index + count,
+      ];
+      for (const other of neighbours) {
+        if (
+          isClear[other] === true &&
+          isReached[other] === false &&
+          VILLAGE_TERRAIN.isPathClear(findPoint(index), findPoint(other))
+        ) {
+          isReached[other] = true;
+          queue.push(other);
+        }
+      }
+    }
+    const stranded: GroundVector[] = [];
+    isClear.forEach((clear: boolean, index: number) => {
+      if (clear && isReached[index] !== true) {
+        stranded.push(findPoint(index));
+      }
+    });
+    expect(stranded).toEqual([]);
   });
 });
 

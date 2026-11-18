@@ -23,7 +23,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { chooseClip } from '../src/clip-choice.ts';
+import { chooseClip, chooseStandingClip } from '../src/clip-choice.ts';
 
 /** The names of the clips of a character. */
 const CHARACTER_CLIPS: readonly string[] = ['Idle', 'Walk', 'Slash', 'Die'];
@@ -91,5 +91,25 @@ describe('chooseClip', () => {
   it('plays nothing when the model cannot even idle', () => {
     expect(chooseClip('Walk', [])).toBeNull();
     expect(chooseClip('Idle', ['Spin'])).toBeNull();
+  });
+});
+
+describe('chooseStandingClip', () => {
+  it('loops the work of a model that has a clip for it', () => {
+    expect(chooseStandingClip(['Idle', 'Work'])).toEqual({
+      name: 'Work',
+      playback: 'loop',
+    });
+  });
+
+  it('loops idling for a model without work', () => {
+    expect(chooseStandingClip(CHARACTER_CLIPS)).toEqual({
+      name: 'Idle',
+      playback: 'loop',
+    });
+  });
+
+  it('plays nothing for a model that can neither work nor idle', () => {
+    expect(chooseStandingClip([])).toBeNull();
   });
 });

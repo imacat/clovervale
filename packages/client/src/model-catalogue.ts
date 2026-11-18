@@ -49,12 +49,16 @@ export const MONSTER_FILE = 'wild-dog.glb';
 /** The file name of the healing fountain. */
 export const FOUNTAIN_FILE = 'fountain.glb';
 
+/** The file name of the weapon shop, with the forge beside it. */
+export const WEAPON_SHOP_FILE = 'weapon-shop.glb';
+
 /** The kinds of the required models other than the characters. */
 const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
   [
     ['npc-nancy.glb', 'npc'],
+    ['npc-emma.glb', 'npc'],
     [MONSTER_FILE, 'monster'],
-    ['weapon-shop.glb', 'building'],
+    [WEAPON_SHOP_FILE, 'building'],
     [FOUNTAIN_FILE, 'building'],
   ],
 );

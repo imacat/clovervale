@@ -23,6 +23,7 @@
 
 import { buildCottage, buildFountain, buildWeaponShop } from './buildings.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
+import { buildNpcEmma } from './npc-emma.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import {
   buildBush,
@@ -60,6 +61,7 @@ export function listModels(): ModelEntry[] {
       }),
     ),
     { name: 'npc-nancy', build: buildNpcNancy },
+    { name: 'npc-emma', build: buildNpcEmma },
     { name: 'wild-dog', build: buildWildDog },
     { name: 'weapon-shop', build: buildWeaponShop },
     { name: 'fountain', build: buildFountain },

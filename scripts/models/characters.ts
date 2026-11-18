@@ -58,7 +58,8 @@ export type HairStyle =
   | 'long'
   | 'braid'
   | 'spiky'
-  | 'puffs';
+  | 'puffs'
+  | 'bun';
 
 /** The hair of a head, in model space. */
 export interface Hair {
@@ -583,6 +584,32 @@ export function createHair(style: HairStyle): Hair {
             pos: [-0.04, 0.03, -0.34],
             rot: [0, 0, -14],
           }),
+        ]),
+      };
+    }
+    case 'bun': {
+      const bun: Shape = place(createBlob(1, 50, 0.06), {
+        pos: [0, 0.23, -0.27],
+        scale: [0.15, 0.13, 0.13],
+      });
+      return {
+        hair: [
+          ...createHairCap([56, 60, 56, 100, 110, 116, 120, 122, 122], 0.02),
+          ...liftToHead([bun]),
+        ],
+        accent: liftToHead([
+          place(
+            createLathe(
+              [
+                [0.105, -0.03],
+                [0.125, -0.02],
+                [0.125, 0.02],
+                [0.105, 0.03],
+              ],
+              8,
+            ),
+            { pos: [0, 0.2, -0.235], rot: [-50, 0, 0] },
+          ),
         ]),
       };
     }

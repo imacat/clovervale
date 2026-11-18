@@ -22,7 +22,14 @@
  *   the ground they take up.
  */
 
-import { Terrain, findTurn, placeShape, turnVector } from './terrain.ts';
+import type { GroundVector } from './movement.ts';
+import {
+  Terrain,
+  findTurn,
+  placePoint,
+  placeShape,
+  turnVector,
+} from './terrain.ts';
 import type { Boundary, Pose, Shape } from './terrain.ts';
 import { PLAZA_CENTRE } from './village.ts';
 
@@ -35,11 +42,41 @@ export interface Placement extends Pose {
 /** A spot on the ground: its X and Z positions, and its yaw. */
 type Spot = readonly [x: number, z: number, yaw: number];
 
+/** The spot of the weapon shop, with the forge beside it. */
+const WEAPON_SHOP_SPOT: Spot = [12, -4.3344, -90];
+
+/**
+ * Where Emma the smith stands at the forge of the weapon shop, and which way
+ * she faces, as the model of the shop has it before it is placed: in front
+ * of the mouth of the forge, a step out from it, with her back to the house
+ * and the forge on her left, facing the anvil a step in front of her, with
+ * the plaza on her right.
+ */
+const SMITH_AT_ANVIL: Spot = [2.37, 0.777, 90];
+
+/**
+ * Finds the spot in the world of something placed on a model.
+ *
+ * @param {Spot} model - The spot of the model.
+ * @param {Spot} local - The spot of what is placed on it, as the model has
+ *   it before it is placed.
+ * @returns {Spot} The spot in the world.
+ */
+function placeSpot(model: Spot, local: Spot): Spot {
+  const [x, z, yaw] = model;
+  const point: GroundVector = placePoint({ x, z, yaw }, {
+    x: local[0],
+    z: local[1],
+  });
+  return [point.x, point.z, yaw + local[2]];
+}
+
 /** The spots of the models the village has a place for. */
 const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
   'fountain.glb': [[PLAZA_CENTRE.x, PLAZA_CENTRE.z, 0]],
-  'weapon-shop.glb': [[12, -4.5, -90]],
+  'weapon-shop.glb': [WEAPON_SHOP_SPOT],
   'npc-nancy.glb': [[3.2, -6.4, -25]],
+  'npc-emma.glb': [placeSpot(WEAPON_SHOP_SPOT, SMITH_AT_ANVIL)],
   'prop-spawn-stones.glb': [[11.4, 9, -30]],
   'prop-great-tree.glb': [[0, -14.5, 20]],
   'prop-healing-stele.glb': [[-2.1, -6.8, 20]],
@@ -189,13 +226,20 @@ export const FOUNTAIN_RIM_RADIUS = 1.6;
 const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   // The rim of the basin, inside the low step around it.
   'fountain.glb': [makeCircle(0, 0, FOUNTAIN_RIM_RADIUS)],
-  // The house, the forge beside it, and the stall in front.
+  // The house; the forge beside it; the anvil out in front of the forge,
+  // from the tip of its horn to its heel, and the stump it stands on; the
+  // box of coal against the side of the forge away from the house; and the
+  // stall in front of the house, with the barrel by its end.
   'weapon-shop.glb': [
-    makeBox(-3.6, 1.85, -2.95, 1.9),
-    makeBox(1.85, 3.85, -1.85, 1.35),
-    makeBox(-1.4, 2.5, 1.9, 3.05),
+    makeBox(-3.7656, 1.6844, -2.95, 1.9),
+    makeBox(1.6844, 3.57, -1.85, 0.13),
+    makeBox(2.95, 3.21, 0.367, 1.227),
+    makeCircle(3.08, 0.887, 0.34),
+    makeBox(3.6, 3.98, -0.523, 0.077),
+    makeBox(-1.5656, 1.8944, 1.9, 3.05),
   ],
   'npc-nancy.glb': [makeCircle(0, 0, 0.35)],
+  'npc-emma.glb': [makeCircle(0, 0, 0.3)],
   // The five standing stones, and not the burrow they stand round.
   'prop-spawn-stones.glb': Array.from({ length: 5 }, (_, index: number) => {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));

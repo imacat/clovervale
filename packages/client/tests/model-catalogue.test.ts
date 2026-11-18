@@ -23,6 +23,9 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { VILLAGE_PLACEMENTS } from '@clovervale/shared';
+import type { Placement } from '@clovervale/shared';
+
 import {
   REQUIRED_MODEL_FILES,
   classifyModel,
@@ -81,6 +84,16 @@ describe('planModels', () => {
     const plan = planModels(available);
     expect(plan.shown).toEqual([...available].sort());
     expect(plan.missing).toEqual(['character-03.glb', 'npc-nancy.glb']);
+  });
+
+  it('reports every NPC who stands in the way in the village', () => {
+    // The village keeps the ground an NPC stands on clear of players whether
+    // or not the model is there, so the model must not go missing unseen.
+    const npcs: string[] = VILLAGE_PLACEMENTS.map(
+      (placement: Placement) => placement.file,
+    ).filter((file: string) => file.startsWith('npc-'));
+    expect(npcs).toContain('npc-emma.glb');
+    expect(planModels([]).missing).toEqual(expect.arrayContaining(npcs));
   });
 
   it('does not miss the optional props', () => {

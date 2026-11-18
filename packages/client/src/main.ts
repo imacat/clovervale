@@ -52,6 +52,7 @@ import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
 import { EventSchedule } from './event-schedule.ts';
+import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
 import { HitMarkers } from './hit-markers.ts';
 import {
@@ -72,6 +73,7 @@ import type { LanguageCode, LanguageStorage } from './language.ts';
 import {
   FOUNTAIN_FILE,
   REQUIRED_MODEL_FILES,
+  WEAPON_SHOP_FILE,
   planModels,
 } from './model-catalogue.ts';
 import {
@@ -167,6 +169,8 @@ const actors: Actor[] = [];
 let models: readonly LoadedModel[] = [];
 /** The glow of the fountain, once its model has been loaded. */
 let fountainGlow: FountainGlow | null = null;
+/** The glow of the forge, once the model of the weapon shop has been loaded. */
+let forgeGlow: ForgeGlow | null = null;
 
 /** The latest snapshots from the server, to show the players from. */
 const timeline = new SnapshotTimeline();
@@ -205,6 +209,7 @@ const viewport: Viewport = showScene(
       actor.update(seconds);
     }
     fountainGlow?.update(seconds);
+    forgeGlow?.update(seconds);
     figures.update(seconds);
     monsterFigures.update(seconds);
     markers.update(seconds);
@@ -256,6 +261,12 @@ async function showModels(): Promise<void> {
   );
   if (fountain !== undefined) {
     fountainGlow = new FountainGlow(fountain.root);
+  }
+  const weaponShop: LoadedModel | undefined = models.find(
+    (model: LoadedModel) => model.file === WEAPON_SHOP_FILE,
+  );
+  if (weaponShop !== undefined) {
+    forgeGlow = new ForgeGlow(weaponShop.root);
   }
   const shownCount: number = models.length;
   describeModels = (): string =>
