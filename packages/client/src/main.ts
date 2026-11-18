@@ -103,6 +103,12 @@ const OWN_HIT_COLOUR = '#ff4b3e';
 const PLAYER_HIT_COLOUR = '#ff9a3d';
 /** The colour of the number of a hit on a monster. */
 const MONSTER_HIT_COLOUR = '#ffe14d';
+/**
+ * How high above the ground the number of a hit on a monster starts, in
+ * metres, just above the health bar of the dog, which is lower than a
+ * player.
+ */
+const MONSTER_HIT_HEIGHT = 1.8;
 /** The colour of the number of a heal on any player. */
 const HEAL_COLOUR = '#7cf5c0';
 /**
@@ -295,11 +301,14 @@ function showEvents(view: PlayersView): void {
       rememberShown(shownHeals, event);
       continue;
     }
-    let colour: string = MONSTER_HIT_COLOUR;
+    const text = `-${String(event.damage)}`;
     if (target.kind === 'player') {
-      colour = target.id === ownId ? OWN_HIT_COLOUR : PLAYER_HIT_COLOUR;
+      const colour: string =
+        target.id === ownId ? OWN_HIT_COLOUR : PLAYER_HIT_COLOUR;
+      markers.show(shown, text, colour);
+    } else {
+      markers.show(shown, text, MONSTER_HIT_COLOUR, MONSTER_HIT_HEIGHT);
     }
-    markers.show(shown, `-${String(event.damage)}`, colour);
     rememberShown(shownHits, event);
   }
 }

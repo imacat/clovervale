@@ -64,6 +64,8 @@ export interface LegOptions {
   readonly pitch?: number;
   /** The heading of the foot and the knee in degrees. */
   readonly yaw?: number;
+  /** Whether the knee points backwards, as the hock of a dog does. */
+  readonly isKneeBackward?: boolean;
 }
 
 /** How to bake a clip. */
@@ -269,7 +271,7 @@ export class Rig {
     pose: Pose,
     names: LegBones,
     target: Triple,
-    { pitch = 0, yaw = 0 }: LegOptions = {},
+    { pitch = 0, yaw = 0, isKneeBackward = false }: LegOptions = {},
   ): number {
     const upper: number = this.model.findBone(names[0]);
     const lower: number = this.model.findBone(names[1]);
@@ -300,7 +302,7 @@ export class Rig {
     const kneeDirection: Vector3 = direction
       .clone()
       .multiplyScalar(Math.cos(angle))
-      .addScaledVector(forward, Math.sin(angle));
+      .addScaledVector(forward, Math.sin(angle) * (isKneeBackward ? -1 : 1));
     const knee: Vector3 = hip.clone().addScaledVector(kneeDirection, a);
     const ankle: Vector3 = hip.clone().addScaledVector(direction, reach);
     const shinDirection: Vector3 = ankle.sub(knee).normalize();
