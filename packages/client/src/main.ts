@@ -539,6 +539,18 @@ function relabelPage(): void {
 }
 
 /**
+ * Pauses the music if the page is hidden, or resumes it as the panel has it
+ * set if the page is shown.
+ */
+function followPageVisibility(): void {
+  if (document.visibilityState === 'hidden') {
+    music.hide();
+  } else {
+    music.show(panel.music);
+  }
+}
+
+/**
  * Connects to the game server of the page, which the settings of the site
  * may name.
  *
@@ -606,3 +618,5 @@ for (const type of ['keydown', 'pointerdown']) {
     music.allow(panel.music);
   });
 }
+followPageVisibility();
+document.addEventListener('visibilitychange', followPageVisibility);

@@ -116,4 +116,36 @@ describe('the background music', () => {
     music.allow(on);
     expect(player.isPlaying).toBe(true);
   });
+
+  it('pauses while the page is hidden, and resumes once shown', () => {
+    music.allow(on);
+    music.hide();
+    expect(player.isPlaying).toBe(false);
+    music.update(on);
+    expect(player.isPlaying).toBe(false);
+    music.show(on);
+    expect(player.isPlaying).toBe(true);
+    expect(player.plays).toBe(2);
+  });
+
+  it('stays silent while the page is hidden, even once allowed', () => {
+    music.hide();
+    music.allow(on);
+    expect(player.plays).toBe(0);
+    music.show(on);
+    expect(player.isPlaying).toBe(true);
+  });
+
+  it('stays silent once shown, if off', () => {
+    music.allow(on);
+    music.hide();
+    music.show(off);
+    expect(player.isPlaying).toBe(false);
+  });
+
+  it('stays silent once shown, before it is allowed', () => {
+    music.hide();
+    music.show(on);
+    expect(player.plays).toBe(0);
+  });
 });

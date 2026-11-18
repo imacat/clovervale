@@ -19,7 +19,7 @@
 
 /**
  * @module client/background-music Playing the music of the village over
- *   and over, once the browser lets the page make sound.
+ *   and over while the page is shown, once the browser lets it make sound.
  */
 
 /**
@@ -58,12 +58,13 @@ export interface MusicPlayer {
 
 /**
  * The music of the village, which plays over and over as the owner has it
- * set, once the page is allowed to make sound.
+ * set while the page is shown, once the page is allowed to make sound.
  */
 export class BackgroundMusic {
   readonly #player: MusicPlayer;
   #isAllowed = false;
   #isPlaying = false;
+  #isHidden = false;
   #attempt = 0;
 
   /**
@@ -78,7 +79,8 @@ export class BackgroundMusic {
 
   /**
    * Records that the user has interacted with the page, so that the browser
-   * lets it make sound, and plays the music if the owner has it on.
+   * lets it make sound, and then plays or pauses the music, and sets its
+   * volume, as {@link update} does.
    *
    * @param {Readonly<MusicSettings>} settings - How the owner has the
    *   music played.
@@ -89,15 +91,45 @@ export class BackgroundMusic {
   }
 
   /**
+   * Records that the page is hidden, and pauses the music where it is until
+   * the page is shown again.
+   */
+  hide(): void {
+    this.#isHidden = true;
+    if (this.#isPlaying) {
+      this.#isPlaying = false;
+      this.#attempt += 1;
+      this.#player.pause();
+    }
+  }
+
+  /**
+   * Records that the page is shown, and then plays or pauses the music, and
+   * sets its volume, as {@link update} does.  Music paused when the page was
+   * hidden resumes from where it paused.
+   *
+   * @param {Readonly<MusicSettings>} settings - How the owner has the
+   *   music played.
+   */
+  show(settings: Readonly<MusicSettings>): void {
+    this.#isHidden = false;
+    this.update(settings);
+  }
+
+  /**
    * Plays or pauses the music, and sets its volume, as the owner has it
-   * set.  The music does not start before it is allowed, nor again after
-   * the browser has refused it, until it is allowed again.
+   * set.  The music does not start before it is allowed, nor while the page
+   * is hidden, nor again after the browser has refused it, until it is
+   * allowed again.
    *
    * @param {Readonly<MusicSettings>} settings - How the owner has the
    *   music played.
    */
   update(settings: Readonly<MusicSettings>): void {
     this.#player.volume = Math.min(Math.max(settings.volume, 0), 1);
+    if (this.#isHidden) {
+      return;
+    }
     if (settings.isEnabled && this.#isAllowed && !this.#isPlaying) {
       this.#isPlaying = true;
       this.#attempt += 1;
