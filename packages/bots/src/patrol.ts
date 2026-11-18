@@ -52,13 +52,13 @@ type Visit = readonly [name: string, file: string, local: GroundVector];
  * The places a bot patrols between, each where a player stands to visit
  * what stands there: in front of the door of the weapon shop, at the rim of
  * the fountain on the side of the spawn points of the players, in front of
- * the NPC, and by the stones that mark the spawn point of the monster, on
- * the side of the village.
+ * Nancy the villager, and by the stones that mark the spawn point of the
+ * monster, on the side of the village.
  */
 const VISITS: readonly Visit[] = [
   ['weapon shop', 'weapon-shop.glb', { x: -2.25, z: 3.4 }],
   ['fountain', 'fountain.glb', { x: 0, z: 2.6 }],
-  ['NPC', 'npc.glb', { x: 0, z: 1.2 }],
+  ['NPC', 'npc-nancy.glb', { x: 0, z: 1.2 }],
   ['spawn point', 'prop-spawn-stones.glb', { x: -1.5, z: -2.1 }],
 ];
 

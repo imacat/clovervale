@@ -33,10 +33,15 @@ describe('classifyModel', () => {
   it('knows the required models', () => {
     expect(classifyModel('character-01.glb')).toBe('character');
     expect(classifyModel('character-08.glb')).toBe('character');
-    expect(classifyModel('npc.glb')).toBe('npc');
+    expect(classifyModel('npc-nancy.glb')).toBe('npc');
     expect(classifyModel('wild-dog.glb')).toBe('monster');
     expect(classifyModel('weapon-shop.glb')).toBe('building');
     expect(classifyModel('fountain.glb')).toBe('building');
+  });
+
+  it('takes any properly named NPC', () => {
+    expect(classifyModel('npc-ada.glb')).toBe('npc');
+    expect(classifyModel('npc-old-tom.glb')).toBe('npc');
   });
 
   it('takes any properly named prop', () => {
@@ -46,6 +51,8 @@ describe('classifyModel', () => {
 
   it('rejects the files the game does not use', () => {
     expect(classifyModel('character-09.glb')).toBeNull();
+    expect(classifyModel('npc-.glb')).toBeNull();
+    expect(classifyModel('npc-Nancy.glb')).toBeNull();
     expect(classifyModel('prop-.glb')).toBeNull();
     expect(classifyModel('prop-Rock.glb')).toBeNull();
     expect(classifyModel('prop-rock.gltf')).toBeNull();
@@ -69,11 +76,11 @@ describe('planModels', () => {
 
   it('reports the required models that are not available', () => {
     const available: string[] = REQUIRED_MODEL_FILES.filter(
-      (file: string) => file !== 'npc.glb' && file !== 'character-03.glb',
+      (file: string) => file !== 'npc-nancy.glb' && file !== 'character-03.glb',
     );
     const plan = planModels(available);
     expect(plan.shown).toEqual([...available].sort());
-    expect(plan.missing).toEqual(['character-03.glb', 'npc.glb']);
+    expect(plan.missing).toEqual(['character-03.glb', 'npc-nancy.glb']);
   });
 
   it('does not miss the optional props', () => {

@@ -41,21 +41,21 @@ describe('listModelFiles', () => {
   });
 
   it('lists the model files in alphabetical order', () => {
-    for (const file of ['npc.glb', 'fountain.glb', 'prop-rock.glb']) {
+    for (const file of ['npc-nancy.glb', 'fountain.glb', 'prop-rock.glb']) {
       writeFileSync(path.join(directory, file), '');
     }
     expect(listModelFiles(directory)).toEqual([
       'fountain.glb',
-      'npc.glb',
+      'npc-nancy.glb',
       'prop-rock.glb',
     ]);
   });
 
   it('leaves out everything that is not a model file', () => {
-    writeFileSync(path.join(directory, 'npc.glb'), '');
+    writeFileSync(path.join(directory, 'npc-nancy.glb'), '');
     writeFileSync(path.join(directory, 'notes.txt'), '');
     mkdirSync(path.join(directory, 'old.glb'));
-    expect(listModelFiles(directory)).toEqual(['npc.glb']);
+    expect(listModelFiles(directory)).toEqual(['npc-nancy.glb']);
   });
 
   it('lists nothing in a directory that does not exist', () => {

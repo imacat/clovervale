@@ -85,6 +85,10 @@ describe('layoutVillage', () => {
     expect(layoutVillage([...CHARACTER_FILES, MONSTER_FILE])).toEqual([]);
   });
 
+  it('leaves out an NPC the village has no place for', () => {
+    expect(layoutVillage(['npc-ada.glb'])).toEqual([]);
+  });
+
   it('stands the buildings around the fountain, each facing it', () => {
     const placements: Placement[] = layoutVillage(PLAZA_FILES);
     const fountain: Placement = findOnly(placements, 'fountain.glb');
@@ -135,10 +139,10 @@ describe('layoutVillage', () => {
     }
   });
 
-  it('stands the NPC by the fountain', () => {
+  it('stands Nancy by the fountain', () => {
     const placements: Placement[] = layoutVillage(REQUIRED_MODEL_FILES);
     const fountain: Placement = findOnly(placements, 'fountain.glb');
-    const npc: Placement = findOnly(placements, 'npc.glb');
+    const npc: Placement = findOnly(placements, 'npc-nancy.glb');
     expect(measureDistance(npc, fountain)).toBeLessThan(5);
   });
 
@@ -151,7 +155,7 @@ describe('layoutVillage', () => {
     const stones: Placement = findOnly(placements, 'prop-spawn-stones.glb');
     for (const villager of placements) {
       const isVillager: boolean = [
-        'npc.glb',
+        'npc-nancy.glb',
         'weapon-shop.glb',
         'prop-cottage.glb',
       ].includes(villager.file);

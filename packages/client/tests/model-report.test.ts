@@ -31,7 +31,7 @@ describe('summariseModels', () => {
   });
 
   it('counts the problems too', () => {
-    const missing = { file: 'npc.glb', reason: 'missing' };
+    const missing = { file: 'npc-nancy.glb', reason: 'missing' };
     expect(summariseModels(11, [missing])).toBe('11 shown, 1 problem');
     expect(summariseModels(0, [missing, missing])).toBe('0 shown, 2 problems');
   });

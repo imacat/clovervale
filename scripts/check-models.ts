@@ -250,11 +250,13 @@ const CHARACTER_FILES: readonly string[] = Array.from(
 /** The file names of the models the game cannot do without. */
 const REQUIRED_FILES: readonly string[] = [
   ...CHARACTER_FILES,
-  'npc.glb',
+  'npc-nancy.glb',
   'wild-dog.glb',
   'weapon-shop.glb',
   'fountain.glb',
 ];
+/** The file names of the NPCs. */
+const NPC_PATTERN = /^npc-[a-z]+(-[a-z]+)*\.glb$/;
 /** The file names of the optional props. */
 const PROP_PATTERN = /^prop-[a-z]+(-[a-z]+)*\.glb$/;
 /** The shortest and the longest each clip may last, in seconds, by kind. */
@@ -682,7 +684,7 @@ function classifyModel(file: string): ModelKind {
   if (CHARACTER_FILES.includes(file)) {
     return 'character';
   }
-  if (file === 'npc.glb') {
+  if (NPC_PATTERN.test(file)) {
     return 'npc';
   }
   return file === 'wild-dog.glb' ? 'monster' : 'static';
@@ -943,7 +945,11 @@ async function checkModels(): Promise<boolean> {
     }
   }
   for (const file of files) {
-    if (!REQUIRED_FILES.includes(file) && !PROP_PATTERN.test(file)) {
+    if (
+      !REQUIRED_FILES.includes(file) &&
+      !NPC_PATTERN.test(file) &&
+      !PROP_PATTERN.test(file)
+    ) {
       problems.push(`${file} is not a name the game uses`);
     }
   }

@@ -18,7 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/npc The villager who stands in the town.
+ * @module scripts/models/npc-nancy Nancy, a villager who stands in the
+ *   town.
  */
 
 import type { Quaternion } from 'three';
@@ -46,14 +47,14 @@ import { Rig } from './rig.ts';
 import type { BuiltModel, Pose, PoseKey, PoseSample, PoseSpec } from './rig.ts';
 
 /**
- * Builds the villager: a woman in a long dress, an apron and a straw hat,
- * with a basket on her arm, who sways and waves.
+ * Builds Nancy, a villager: a woman in a long dress, an apron and a straw
+ * hat, with a basket on her arm, who sways and waves.
  *
  * @returns {BuiltModel} The animated model and the measurements taken while
  *   baking.
  */
-export function buildNpc(): BuiltModel {
-  const model = new Model('Npc');
+export function buildNpcNancy(): BuiltModel {
+  const model = new Model('NpcNancy');
   setFaceMaterials(model, SKINS.light);
   model.setMaterial('hair', '#8f3d24');
   model.setMaterial('dress', '#b5443f');

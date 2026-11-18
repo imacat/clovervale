@@ -52,7 +52,7 @@ export const FOUNTAIN_FILE = 'fountain.glb';
 /** The kinds of the required models other than the characters. */
 const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
   [
-    ['npc.glb', 'npc'],
+    ['npc-nancy.glb', 'npc'],
     [MONSTER_FILE, 'monster'],
     ['weapon-shop.glb', 'building'],
     [FOUNTAIN_FILE, 'building'],
@@ -64,6 +64,9 @@ export const REQUIRED_MODEL_FILES: readonly string[] = [
   ...CHARACTER_FILES,
   ...FIXED_KINDS.keys(),
 ];
+
+/** The file names of the NPCs. */
+const NPC_PATTERN = /^npc-[a-z0-9]+(?:-[a-z0-9]+)*\.glb$/;
 
 /** The file names of the optional props. */
 const PROP_PATTERN = /^prop-[a-z0-9]+(?:-[a-z0-9]+)*\.glb$/;
@@ -78,6 +81,9 @@ const PROP_PATTERN = /^prop-[a-z0-9]+(?:-[a-z0-9]+)*\.glb$/;
 export function classifyModel(file: string): ModelKind | null {
   if (CHARACTER_FILES.includes(file)) {
     return 'character';
+  }
+  if (NPC_PATTERN.test(file)) {
+    return 'npc';
   }
   if (PROP_PATTERN.test(file)) {
     return 'prop';
