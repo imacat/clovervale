@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vite';
 
+import { omitClientConfig } from './plugins/client-config.ts';
 import { listModels } from './plugins/model-index.ts';
 
 /** The style sheet of the panel, as the client imports it. */
@@ -42,7 +43,7 @@ export default defineConfig({
     // The package of the panel does not export its style sheet by name.
     alias: [{ find: PANEL_STYLE_IMPORT, replacement: panelStyleFile }],
   },
-  plugins: [listModels()],
+  plugins: [listModels(), omitClientConfig()],
   build: {
     // Three.js alone exceeds the default 500 kB warning threshold.
     chunkSizeWarningLimit: 1000,
