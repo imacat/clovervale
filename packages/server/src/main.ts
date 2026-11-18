@@ -48,19 +48,20 @@ async function runServer(args: string[]): Promise<void> {
     return;
   }
   const server: RunningServer = await startServer(target);
-  const place: string =
-    server.socketPath === null
-      ? `port ${String(server.port)}`
-      : `socket ${server.socketPath}`;
-  console.log(`Clovervale server listening on ${place}.`);
   const stop = (): void => {
     server.stop().catch((error: unknown) => {
       console.error(error);
       process.exitCode = 1;
     });
   };
+  // Be ready to stop before saying so, as a signal may follow at once.
   process.once('SIGTERM', stop);
   process.once('SIGINT', stop);
+  const place: string =
+    server.socketPath === null
+      ? `port ${String(server.port)}`
+      : `socket ${server.socketPath}`;
+  console.log(`Clovervale server listening on ${place}.`);
 }
 
 runServer(process.argv.slice(2)).catch((error: unknown) => {
