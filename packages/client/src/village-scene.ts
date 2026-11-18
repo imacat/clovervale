@@ -37,6 +37,7 @@ import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { Actor } from './actor.ts';
 import { CHARACTER_FILES, MONSTER_FILE } from './model-catalogue.ts';
 import type { LoadedModel } from './model-loader.ts';
+import { createMountains } from './mountains.ts';
 import type { Figure } from './player-figures.ts';
 import { layoutVillage } from './village-layout.ts';
 import type { Placement } from './village-layout.ts';
@@ -59,8 +60,16 @@ const SKY_COLOUR = '#bfe4f2';
 const GRASS_COLOUR = '#8cc65c';
 /** The colour of the bare earth. */
 const EARTH_COLOUR = '#d2995f';
-/** The radius of the ground, in metres. */
-const GROUND_RADIUS = 300;
+/** The radius of the ground, which reaches under every mountain, in metres. */
+const GROUND_RADIUS = 440;
+/** How far from the camera the fog starts, in metres. */
+const FOG_NEAR = 70;
+/**
+ * How far from the camera the fog hides everything, in metres: beyond the
+ * farthest mountain, so that the mountains pale with distance, but none is
+ * lost in it.
+ */
+const FOG_FAR = 760;
 /** Half the width of the square of ground that receives shadows, in metres. */
 const SHADOW_REACH = 34;
 
@@ -115,14 +124,15 @@ function createSun(): DirectionalLight {
 }
 
 /**
- * Creates the village without its models: the sky, the ground and the light.
+ * Creates the village without its models: the sky, the ground, the
+ * mountains around it and the light.
  *
  * @returns {Scene} The scene to add the models to.
  */
 export function createVillageScene(): Scene {
   const scene = new Scene();
   scene.background = new Color(SKY_COLOUR);
-  scene.fog = new Fog(SKY_COLOUR, 70, GROUND_RADIUS);
+  scene.fog = new Fog(SKY_COLOUR, FOG_NEAR, FOG_FAR);
   scene.add(new HemisphereLight('#ffffff', '#8aa868', 1.5));
   const sun: DirectionalLight = createSun();
   scene.add(sun, sun.target);
@@ -139,6 +149,7 @@ export function createVillageScene(): Scene {
     patch.rotation.z = (yaw * Math.PI) / 180;
     scene.add(patch);
   });
+  scene.add(createMountains());
   return scene;
 }
 

@@ -51,6 +51,14 @@ export interface Viewport {
   readonly follow: (focus: GroundVector) => void;
 }
 
+/**
+ * The farthest the camera can be from what it looks at, zoomed out, in
+ * metres.
+ */
+export const CAMERA_MAX_DISTANCE = 90;
+/** The farthest from the camera anything is drawn, in metres. */
+export const CAMERA_FAR = 600;
+
 /** The height above the ground the camera looks at, in metres. */
 const FOCUS_HEIGHT = 1.2;
 
@@ -77,13 +85,13 @@ export function showScene(
   renderer.shadowMap.type = PCFShadowMap;
   document.body.append(renderer.domElement);
 
-  const camera = new PerspectiveCamera(40, 1, 0.5, 600);
+  const camera = new PerspectiveCamera(40, 1, 0.5, CAMERA_FAR);
   camera.position.set(focus.x, 7.5, focus.z + 13);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(focus.x, FOCUS_HEIGHT, focus.z);
   controls.enableDamping = true;
   controls.minDistance = 2;
-  controls.maxDistance = 90;
+  controls.maxDistance = CAMERA_MAX_DISTANCE;
   // The camera stays on what it follows, and never looks up from below it.
   controls.enablePan = false;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
