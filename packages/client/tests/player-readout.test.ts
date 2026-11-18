@@ -34,6 +34,10 @@ import {
   describeSlash,
   describeSnapshot,
 } from '../src/player-readout.ts';
+import { Translator } from '../src/translator.ts';
+
+/** A translator of the text into English. */
+const EN = new Translator();
 
 /** Two players of a snapshot. */
 const PLAYERS: readonly PlayerState[] = [
@@ -46,9 +50,23 @@ const PLAYERS: readonly PlayerState[] = [
 /** A view that shows nobody, to show players with. */
 const EMPTY: PlayersView = { players: [], monsters: [], lag: 0, time: null };
 
+/**
+ * Makes a translator of the text into a language.
+ *
+ * @param {'zh-TW' | 'zh-CN' | 'ja'} code - The language.
+ * @returns {Promise<Translator>} The translator.
+ */
+async function createTranslator(
+  code: 'zh-TW' | 'zh-CN' | 'ja',
+): Promise<Translator> {
+  const translator = new Translator();
+  await translator.choose(code);
+  return translator;
+}
+
 describe('describeSnapshot', () => {
   it('tells nothing before the server has said anything', () => {
-    expect(describeSnapshot(null, null)).toEqual({
+    expect(describeSnapshot(EN, null, null)).toEqual({
       player: '–',
       players: '–',
       position: '–',
@@ -59,7 +77,7 @@ describe('describeSnapshot', () => {
   });
 
   it('tells the player of the page once the server has told it', () => {
-    expect(describeSnapshot(12, null)).toEqual({
+    expect(describeSnapshot(EN, 12, null)).toEqual({
       player: '#12',
       players: '–',
       position: '–',
@@ -70,7 +88,7 @@ describe('describeSnapshot', () => {
   });
 
   it('tells the snapshot values of the player of the page', () => {
-    expect(describeSnapshot(12, PLAYERS)).toEqual({
+    expect(describeSnapshot(EN, 12, PLAYERS)).toEqual({
       player: '#12, appearance 2',
       players: '2',
       position: '-4.26, 0.00',
@@ -78,7 +96,7 @@ describe('describeSnapshot', () => {
       action: 'Slash',
       health: `55 / ${String(PLAYER_HEALTH)}`,
     });
-    expect(describeSnapshot(3, PLAYERS)).toEqual({
+    expect(describeSnapshot(EN, 3, PLAYERS)).toEqual({
       player: '#3, appearance 1',
       players: '2',
       position: '0.80, -3.50',
@@ -91,14 +109,30 @@ describe('describeSnapshot', () => {
   it('reports the player of the page as dead while it is dying', () => {
     const dead: PlayerState = { id: 3, appearance: 1, x: 0.8, z: -3.5,
       yaw: 180, action: 'Die', actionCount: 1, health: 0 };
-    expect(describeSnapshot(3, [dead])).toMatchObject({
+    expect(describeSnapshot(EN, 3, [dead])).toMatchObject({
       action: 'Die',
       health: `0 / ${String(PLAYER_HEALTH)}, dead`,
     });
   });
 
+  it('tells it in the language of the page', async () => {
+    const dead: PlayerState = { id: 3, appearance: 1, x: 0.8, z: -3.5,
+      yaw: 180, action: 'Die', actionCount: 1, health: 0 };
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describeSnapshot(zhTw, 3, [dead])).toMatchObject({
+      player: '#3，外觀 1',
+      action: '死亡',
+      health: `0 / ${String(PLAYER_HEALTH)}，已死亡`,
+    });
+    const ja: Translator = await createTranslator('ja');
+    expect(describeSnapshot(ja, 12, PLAYERS)).toMatchObject({
+      player: '#12、外見 2',
+      action: '斬撃',
+    });
+  });
+
   it('counts the players even without the player of the page', () => {
-    expect(describeSnapshot(4, PLAYERS)).toEqual({
+    expect(describeSnapshot(EN, 4, PLAYERS)).toEqual({
       player: '#4',
       players: '2',
       position: '–',
@@ -111,7 +145,7 @@ describe('describeSnapshot', () => {
 
 describe('describeMonster', () => {
   it('tells nothing before the first snapshot', () => {
-    expect(describeMonster(null)).toEqual({
+    expect(describeMonster(EN, null)).toEqual({
       mode: '–',
       action: '–',
       health: '–',
@@ -130,7 +164,7 @@ describe('describeMonster', () => {
       health: 40,
       mode: 'chase',
     };
-    expect(describeMonster([monster])).toEqual({
+    expect(describeMonster(EN, [monster])).toEqual({
       mode: 'chase',
       action: 'Attack',
       health: `40 / ${String(MONSTER_HEALTH)}`,
@@ -138,8 +172,27 @@ describe('describeMonster', () => {
     });
   });
 
+  it('tells it in the language of the page', async () => {
+    const monster: MonsterState = {
+      id: 1,
+      x: 0,
+      z: 0,
+      yaw: 0,
+      action: 'Attack',
+      actionCount: 1,
+      health: 40,
+      mode: 'chase',
+    };
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describeMonster(zhCn, [monster])).toMatchObject({
+      mode: '追击',
+      action: '攻击',
+    });
+    expect(describeMonster(zhCn, [])).toMatchObject({ mode: '不在' });
+  });
+
   it('reports the monster as gone when the snapshot has none', () => {
-    expect(describeMonster([])).toMatchObject({ mode: 'gone' });
+    expect(describeMonster(EN, [])).toMatchObject({ mode: 'gone' });
   });
 });
 
@@ -191,14 +244,14 @@ describe('describeDisplay', () => {
 
 describe('describePrediction', () => {
   it('tells nothing while there is no prediction', () => {
-    expect(describePrediction(null)).toEqual({
+    expect(describePrediction(EN, null)).toEqual({
       predicted: '–',
       corrections: '–',
     });
   });
 
   it('tells where the player is predicted to be', () => {
-    const readout = describePrediction({
+    const readout = describePrediction(EN, {
       motion: { x: -4.256, z: -0.001 },
       correctionCount: 0,
       lastCorrection: null,
@@ -207,7 +260,7 @@ describe('describePrediction', () => {
   });
 
   it('tells the number of corrections and the size of the last', () => {
-    const readout = describePrediction({
+    const readout = describePrediction(EN, {
       motion: { x: 1, z: 2 },
       correctionCount: 3,
       lastCorrection: 0.0749,
@@ -217,20 +270,37 @@ describe('describePrediction', () => {
       corrections: '3, last 0.07 m',
     });
   });
+
+  it('tells the corrections in the language of the page', async () => {
+    const zhTw: Translator = await createTranslator('zh-TW');
+    const readout = describePrediction(zhTw, {
+      motion: { x: 1, z: 2 },
+      correctionCount: 3,
+      lastCorrection: 0.0749,
+    });
+    expect(readout.corrections).toBe('3 次，上次 0.07 m');
+  });
 });
 
 describe('describeSlash', () => {
   it('tells nothing before the first slash', () => {
-    expect(describeSlash(null)).toEqual({ result: '–', judgedBack: '–' });
+    expect(describeSlash(EN, null)).toEqual({ result: '–', judgedBack: '–' });
   });
 
   it('tells whether the slash hit, and how far back it was judged', () => {
-    expect(describeSlash({ step: 40, rewind: 312.5, isHit: true })).toEqual({
-      result: 'hit',
-      judgedBack: '313 ms',
-    });
-    expect(describeSlash({ step: 40, rewind: 0, isHit: false })).toEqual({
+    expect(
+      describeSlash(EN, { step: 40, rewind: 312.5, isHit: true }),
+    ).toEqual({ result: 'hit', judgedBack: '313 ms' });
+    expect(describeSlash(EN, { step: 40, rewind: 0, isHit: false })).toEqual({
       result: 'missed',
+      judgedBack: '0 ms',
+    });
+  });
+
+  it('tells the slash in the language of the page', async () => {
+    const ja: Translator = await createTranslator('ja');
+    expect(describeSlash(ja, { step: 40, rewind: 0, isHit: false })).toEqual({
+      result: 'ミス',
       judgedBack: '0 ms',
     });
   });

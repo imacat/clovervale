@@ -18,30 +18,27 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module shared/villagers The villagers a player can talk to, and what
- *   they say.
+ * @module shared/villagers The villagers a player can talk to.
  */
+
+/**
+ * The identifier of a villager, which never changes, for the client to
+ * find what the villager is called and what it says.
+ */
+export type VillagerId = 'nancy';
 
 /** A villager a player can talk to. */
 export interface Villager {
+  /** The identifier of the villager. */
+  readonly id: VillagerId;
   /**
    * The file name of the model of the villager, which the village has a
    * place for.
    */
   readonly file: string;
-  /** The name of the villager. */
-  readonly name: string;
-  /** What the villager says when a player talks to it. */
-  readonly line: string;
 }
 
 /** The villagers a player can talk to. */
 export const VILLAGERS: readonly Villager[] = [
-  {
-    file: 'npc-nancy.glb',
-    name: 'Nancy',
-    line:
-      'Wild dogs prowl outside the village, and no one dares to go out any ' +
-      'more. What are we to do?',
-  },
+  { id: 'nancy', file: 'npc-nancy.glb' },
 ];

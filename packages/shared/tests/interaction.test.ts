@@ -46,11 +46,6 @@ const REACH: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH;
 /** Where Nancy the villager stands. */
 const NANCY: Placement = findPlacement('npc-nancy.glb');
 
-/** What Nancy says when a player talks to her. */
-const NANCY_LINE =
-  'Wild dogs prowl outside the village, and no one dares to go out any ' +
-  'more. What are we to do?';
-
 /**
  * Makes the pose of a player some way south of Nancy.
  *
@@ -123,10 +118,10 @@ describe('findInteraction by Nancy', () => {
 });
 
 describe('findVillager', () => {
-  it('finds Nancy, with her name and her line, facing her', () => {
-    expect(findVillager(standByNancy(TALK_REACH - 0.1, 180))).toMatchObject({
-      name: 'Nancy',
-      line: NANCY_LINE,
+  it('finds Nancy, facing her', () => {
+    expect(findVillager(standByNancy(TALK_REACH - 0.1, 180))).toEqual({
+      id: 'nancy',
+      file: 'npc-nancy.glb',
     });
   });
 

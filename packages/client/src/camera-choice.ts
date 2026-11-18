@@ -23,6 +23,8 @@
 
 import type { PlayerState } from '@clovervale/shared';
 
+import type { Translator } from './translator.ts';
+
 /** A player the owner can have the camera follow. */
 export interface CameraChoice {
   /** What the owner reads of the choice. */
@@ -37,19 +39,27 @@ export interface CameraChoice {
 /**
  * Lists the players the owner can have the camera follow.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {number | null} ownId - The identifier of the player of the page,
  *   or `null` before the server has told it.
  * @param {(readonly PlayerState[]) | null} players - The players in the
  *   latest snapshot, or `null` before the first one.
- * @returns {CameraChoice[]} The player of the page first, and then every
- *   other player in the snapshot, by their identifiers.
+ * @returns {CameraChoice[]} The player of the page first, named in the
+ *   language of the page, and then every other player in the snapshot, by
+ *   their identifiers.
  */
 export function listCameraChoices(
+  translator: Translator,
   ownId: number | null,
   players: readonly PlayerState[] | null,
 ): CameraChoice[] {
   const own: CameraChoice = {
-    name: ownId === null ? 'Own player' : `Own player (#${String(ownId)})`,
+    name:
+      ownId === null
+        ? translator.translate('camera.own')
+        : translator.translate('camera.ownWithId', {
+            id: `#${String(ownId)}`,
+          }),
     playerId: null,
   };
   const others: CameraChoice[] = (players ?? [])

@@ -24,7 +24,7 @@
 import type { AnimationClip, Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { describeFailure } from './model-report.ts';
+import { reportFailure } from './model-report.ts';
 import type { ModelProblem } from './model-report.ts';
 
 /** A model that has been loaded. */
@@ -90,7 +90,7 @@ export async function loadModels(
         const gltf = await loader.loadAsync(baseUrl + file);
         models.push({ file, root: gltf.scene, clips: gltf.animations });
       } catch (error: unknown) {
-        problems.push({ file, reason: describeFailure(error) });
+        problems.push(reportFailure(file, error));
       }
     }),
   );

@@ -21,41 +21,86 @@
  * @module client/model-report Telling the owner how showing the models went.
  */
 
+import type { Translator } from './translator.ts';
+
 /** A model that cannot be shown, and why. */
-export interface ModelProblem {
-  /** The file name of the model. */
-  readonly file: string;
-  /** Why the model cannot be shown. */
-  readonly reason: string;
-}
+export type ModelProblem =
+  | {
+      /** The file name of the model. */
+      readonly file: string;
+      /** Why the model cannot be shown: it is missing. */
+      readonly reason: 'missing';
+    }
+  | {
+      /** The file name of the model. */
+      readonly file: string;
+      /** Why the model cannot be shown: it failed to load. */
+      readonly reason: 'failed';
+      /** What the failure tells of itself, which may be nothing. */
+      readonly detail: string;
+    };
 
 /**
- * Sums up how showing the models went, in a few words.
+ * Sums up how showing the models went, in a few words, in the language of
+ * the page.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {number} shownCount - The number of models that are shown.
  * @param {readonly ModelProblem[]} problems - The models that cannot be
  *   shown.
  * @returns {string} The summary.
  */
 export function summariseModels(
+  translator: Translator,
   shownCount: number,
   problems: readonly ModelProblem[],
 ): string {
-  const shown = `${String(shownCount)} shown`;
+  const shown = String(shownCount);
   if (problems.length === 0) {
-    return shown;
+    return translator.translate('models.shown', { shown });
   }
-  const noun: string = problems.length === 1 ? 'problem' : 'problems';
-  return `${shown}, ${String(problems.length)} ${noun}`;
+  const count = String(problems.length);
+  return problems.length === 1
+    ? translator.translate('models.shownWithProblem', {
+        shown,
+        problems: count,
+      })
+    : translator.translate('models.shownWithProblems', {
+        shown,
+        problems: count,
+      });
 }
 
 /**
- * Describes why something failed, for the owner to read.
+ * Reports a model that failed to load.
  *
+ * @param {string} file - The file name of the model.
  * @param {unknown} error - What was thrown when it failed.
- * @returns {string} The description.
+ * @returns {ModelProblem} The problem, with the message of the error, or
+ *   whatever else was thrown, as its detail.
  */
-export function describeFailure(error: unknown): string {
+export function reportFailure(file: string, error: unknown): ModelProblem {
   const detail: string = error instanceof Error ? error.message : String(error);
-  return detail.trim() === '' ? 'failed to load' : `failed to load: ${detail}`;
+  return { file, reason: 'failed', detail: detail.trim() };
+}
+
+/**
+ * Explains why a model cannot be shown, for the owner to read, in the
+ * language of the page.
+ *
+ * @param {Translator} translator - The translator of the text of the page.
+ * @param {ModelProblem} problem - The model that cannot be shown.
+ * @returns {string} The explanation.
+ */
+export function explainProblem(
+  translator: Translator,
+  problem: ModelProblem,
+): string {
+  if (problem.reason === 'missing') {
+    return translator.translate('model.missing');
+  }
+  const { detail } = problem;
+  return detail === ''
+    ? translator.translate('model.failed')
+    : translator.translate('model.failedWithDetail', { detail });
 }

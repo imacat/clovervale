@@ -1,0 +1,116 @@
+// The Clovervale project.
+// Copyright 2026 imacat.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Authors:
+//   imacat@mail.imacat.idv.tw (imacat), 2026/11/18
+// AI assistance: Claude Code (Anthropic)
+
+/**
+ * @module client/messages/ja The text of the page in Japanese.
+ */
+
+import type { MessageTable } from './en.ts';
+
+/** The text of the page in Japanese, by message. */
+export const JA_MESSAGES: MessageTable = {
+  title: 'クローバーヴェイル',
+
+  'server.connecting': '接続中',
+  'server.connected': '接続済み（プロトコル {version}）',
+  'server.incompatible': '非互換（プロトコル {version}）',
+  'server.misbehaving': '不正な応答',
+  'server.disconnected': '切断',
+
+  'models.loading': '読み込み中',
+  'models.shown': '{shown} 個表示',
+  'models.shownWithProblem': '{shown} 個表示、問題 {problems} 件',
+  'models.shownWithProblems': '{shown} 個表示、問題 {problems} 件',
+  'model.missing': 'ファイルなし',
+  'model.failed': '読み込み失敗',
+  'model.failedWithDetail': '読み込み失敗：{detail}',
+
+  'panel.server': 'サーバー',
+  'panel.models': 'モデル',
+  'panel.camera': 'カメラ対象',
+  'panel.predict': '予測',
+  'panel.netDelay': '通信遅延（ms）',
+  'panel.interpolate': '補間',
+  'panel.delay': '補間遅延（ms）',
+  'panel.compensate': 'ラグ補償',
+  'panel.obstacles': '障害物を表示',
+  'panel.music': '音楽',
+  'panel.volume': '音楽の音量',
+  'panel.language': '言語',
+  'panel.snapshot': '最新スナップショット',
+  'panel.player': 'プレイヤー',
+  'panel.players': 'プレイヤー数',
+  'panel.position': '位置',
+  'panel.yaw': 'ヨー角',
+  'panel.action': 'アクション',
+  'panel.health': '体力',
+  'panel.monster': 'モンスター',
+  'panel.monsterMode': 'モンスター状態',
+  'panel.monsterAction': 'モンスターのアクション',
+  'panel.monsterHealth': 'モンスターの体力',
+  'panel.monsterAt': 'モンスターの位置',
+  'panel.prediction': '予測',
+  'panel.predicted': '予測位置',
+  'panel.corrections': '補正回数',
+  'panel.spaceKey': 'スペースキー',
+  'panel.displayed': '表示',
+  'panel.drawnAt': '描画位置',
+  'panel.behind': '遅れ',
+  'panel.lastSlash': '直前の斬撃',
+  'panel.result': '結果',
+  'panel.judgedBack': '巻き戻し判定',
+  'panel.modelProblems': 'モデルの問題',
+
+  'camera.own': '自キャラ',
+  'camera.ownWithId': '自キャラ（{id}）',
+
+  'readout.player': '{id}、外見 {appearance}',
+  'readout.dead': '{health}、死亡',
+  'readout.corrections': '{count} 回、直近 {size} m',
+  'action.Idle': '待機',
+  'action.Walk': '歩行',
+  'action.Slash': '斬撃',
+  'action.Drink': '水飲み',
+  'action.Talk': '会話',
+  'action.Die': '死亡',
+  'monsterAction.Idle': '待機',
+  'monsterAction.Walk': '歩行',
+  'monsterAction.Attack': '攻撃',
+  'monsterAction.Die': '死亡',
+  'monsterMode.idle': '待機',
+  'monsterMode.wander': '徘徊',
+  'monsterMode.chase': '追跡',
+  'monsterMode.return': '帰還',
+  'monsterMode.dead': '死亡',
+  'monster.gone': '不在',
+  'slash.hit': '命中',
+  'slash.missed': 'ミス',
+
+  'prompt.drink': 'スペースキーで噴水の水を飲む',
+  'prompt.talk': 'スペースキーで{name}と話す',
+  'spaceKey.slash': '斬る',
+  'spaceKey.drink': '噴水の水を飲む',
+  'spaceKey.talk': '{name}と話す',
+  'spaceKey.nothing': 'なし',
+
+  'villager.nancy.name': 'ナンシー',
+  'villager.nancy.line':
+    '村の入り口に野犬が出るようになって、村のみんな外に出られなく' +
+    'なっちゃったの。どうしよう……',
+};

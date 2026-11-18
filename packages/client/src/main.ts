@@ -41,6 +41,7 @@ import type {
   PlayerMotion,
   PlayerState,
   ServerMessage,
+  SlashJudgement,
   StampedInput,
   Villager,
 } from '@clovervale/shared';
@@ -62,6 +63,13 @@ import type { Prompt } from './interaction-prompt.ts';
 import { SnapshotTimeline } from './interpolation.ts';
 import type { PlayersView } from './interpolation.ts';
 import {
+  chooseLanguage,
+  findLanguageStorage,
+  readSavedLanguage,
+  saveLanguage,
+} from './language.ts';
+import type { LanguageCode, LanguageStorage } from './language.ts';
+import {
   FOUNTAIN_FILE,
   REQUIRED_MODEL_FILES,
   planModels,
@@ -72,7 +80,7 @@ import {
   loadModels,
 } from './model-loader.ts';
 import type { LoadedModel } from './model-loader.ts';
-import { describeFailure, summariseModels } from './model-report.ts';
+import { reportFailure, summariseModels } from './model-report.ts';
 import type { ModelProblem } from './model-report.ts';
 import { MonsterFigures } from './monster-figures.ts';
 import { DelayLine } from './network-delay.ts';
@@ -94,6 +102,7 @@ import { resolveServerUrl } from './server-url.ts';
 import { SpeechBubble, findHeadTop } from './speech-bubble.ts';
 import './style.css';
 import { TalkWatch } from './talk-watch.ts';
+import { Translator } from './translator.ts';
 import {
   createMonsterFigure,
   createPlayerFigure,
@@ -128,6 +137,30 @@ const HEAL_COLOUR = '#7cf5c0';
  */
 const SHOWN_HIT_LIMIT = 100;
 
+/** Where the browser lets the page remember the language chosen. */
+const languageStorage: LanguageStorage | null = findLanguageStorage();
+/** The translator of the text of the page into the language it speaks. */
+const translator = new Translator();
+// The page speaks English if the language chosen cannot be loaded.
+await translator.choose(
+  chooseLanguage(readSavedLanguage(languageStorage), navigator.languages),
+);
+
+/**
+ * Words how the connection to the server stands.
+ *
+ * @returns {string} How it stands, in the language of the page.
+ */
+let describeServer = (): string => translator.translate('server.connecting');
+/**
+ * Words how showing the models went.
+ *
+ * @returns {string} How it went, in the language of the page.
+ */
+let describeModels = (): string => translator.translate('models.loading');
+/** How the server judged the latest slash of the player of the page. */
+let lastSlash: SlashJudgement | null = null;
+
 /** The models that stand in the village whoever is connected. */
 const actors: Actor[] = [];
 /** The models that have been loaded so far. */
@@ -144,7 +177,7 @@ const shownHits: HitEvent[] = [];
 /** The latest heals that have been shown, the latest last. */
 const shownHeals: HealEvent[] = [];
 
-const panel: Panel = createPanel();
+const panel: Panel = createPanel(translator, switchLanguage);
 const music = new BackgroundMusic(new Audio(MUSIC_URL));
 const prompt: Prompt = createPrompt(document.body);
 const scene = createVillageScene();
@@ -157,7 +190,7 @@ const monsterFigures = new MonsterFigures(scene, () =>
   createMonsterFigure(models),
 );
 const markers = new HitMarkers(scene);
-const speech = new SpeechBubble(scene);
+const speech = new SpeechBubble(scene, translator);
 /** What notices each talk of the player of the page to a villager. */
 const talks = new TalkWatch();
 const viewport: Viewport = showScene(
@@ -208,7 +241,7 @@ async function showModels(): Promise<void> {
   } catch (error: unknown) {
     // Without the list, the required models may still be there.
     available = REQUIRED_MODEL_FILES;
-    problems.push({ file: MODEL_INDEX_FILE, reason: describeFailure(error) });
+    problems.push(reportFailure(MODEL_INDEX_FILE, error));
   }
   const plan = planModels(available);
   for (const file of plan.missing) {
@@ -224,7 +257,10 @@ async function showModels(): Promise<void> {
   if (fountain !== undefined) {
     fountainGlow = new FountainGlow(fountain.root);
   }
-  panel.state.models = summariseModels(models.length, problems);
+  const shownCount: number = models.length;
+  describeModels = (): string =>
+    summariseModels(translator, shownCount, problems);
+  panel.state.models = describeModels();
   panel.listProblems(problems);
 }
 
@@ -387,10 +423,10 @@ function showPlayers(): void {
   monsterFigures.showMonsters(view.monsters);
   showEvents(view);
   panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
-  panel.showPrediction(describePrediction(prediction));
+  panel.showPrediction(describePrediction(translator, prediction));
   const predicted: PlayerMotion | null = prediction?.motion ?? null;
-  prompt.show(describePrompt(predicted));
-  panel.showInteraction(describeSpaceKey(predicted));
+  prompt.show(describePrompt(translator, predicted));
+  panel.showInteraction(describeSpaceKey(translator, predicted));
   const villager: Villager | null = talks.noticeTalk(predicted);
   if (villager !== null) {
     const model: LoadedModel | undefined = models.find(
@@ -417,7 +453,7 @@ function receiveMessage(data: string): void {
   try {
     message = decodeServerMessage(data);
   } catch {
-    panel.state.server = 'misbehaving';
+    showServer(() => translator.translate('server.misbehaving'));
     return;
   }
   if (message.type === 'snapshot') {
@@ -428,15 +464,18 @@ function receiveMessage(data: string): void {
         panel.camera.followedId,
         message.players,
       );
-      panel.offerCameraChoices(listCameraChoices(ownId, message.players));
+      panel.offerCameraChoices(
+        listCameraChoices(translator, ownId, message.players),
+      );
       if (prediction === null) {
         prediction = new PlayerPrediction(message.own.motion, now);
       } else {
         prediction.reconcile(message.own, now);
       }
-      panel.showReadout(describeSnapshot(ownId, message.players));
-      panel.showMonster(describeMonster(message.monsters));
-      panel.showSlash(describeSlash(message.slash));
+      panel.showReadout(describeSnapshot(translator, ownId, message.players));
+      panel.showMonster(describeMonster(translator, message.monsters));
+      lastSlash = message.slash;
+      panel.showSlash(describeSlash(translator, lastSlash));
     }
     return;
   }
@@ -448,12 +487,55 @@ function receiveMessage(data: string): void {
   }
   const version = String(message.protocolVersion);
   if (message.protocolVersion !== PROTOCOL_VERSION) {
-    panel.state.server = `incompatible (protocol ${version})`;
+    showServer(() => translator.translate('server.incompatible', { version }));
     return;
   }
   ownId = message.playerId;
-  panel.state.server = `connected (protocol ${version})`;
-  panel.showReadout(describeSnapshot(ownId, null));
+  showServer(() => translator.translate('server.connected', { version }));
+  panel.showReadout(describeSnapshot(translator, ownId, null));
+}
+
+/**
+ * Shows how the connection to the server stands, in the language of the
+ * page, now and in each language the page comes to speak.
+ *
+ * @param {() => string} describe - Words how it stands.
+ */
+function showServer(describe: () => string): void {
+  describeServer = describe;
+  panel.state.server = describe();
+}
+
+/**
+ * Has the page speak a language the owner chooses, and remembers the
+ * choice, once the page speaks it.
+ *
+ * @param {LanguageCode} code - The language.
+ * @returns {Promise<void>} A promise settled once the page speaks it, or
+ *   once it cannot.
+ */
+async function switchLanguage(code: LanguageCode): Promise<void> {
+  if (await translator.choose(code)) {
+    saveLanguage(languageStorage, code);
+  }
+}
+
+/**
+ * Words everything the page shows in the language it speaks now, outside
+ * the names in the panel, which the panel words itself, and what the page
+ * words afresh at every frame.
+ */
+function relabelPage(): void {
+  document.documentElement.lang = translator.language;
+  document.title = translator.translate('title');
+  panel.state.server = describeServer();
+  panel.state.models = describeModels();
+  const players: readonly PlayerState[] | null = timeline.latest;
+  panel.showReadout(describeSnapshot(translator, ownId, players));
+  panel.showMonster(describeMonster(translator, timeline.latestMonsters));
+  panel.showSlash(describeSlash(translator, lastSlash));
+  panel.offerCameraChoices(listCameraChoices(translator, ownId, players));
+  speech.relabel();
 }
 
 /**
@@ -477,18 +559,22 @@ async function connectToServer(): Promise<void> {
     outgoing.clear();
     ownId = null;
     prediction = null;
-    panel.state.server = 'disconnected';
+    showServer(() => translator.translate('server.disconnected'));
     timeline.clear();
     schedule.clear();
-    panel.showMonster(describeMonster(null));
-    panel.showSlash(describeSlash(null));
+    lastSlash = null;
+    panel.showMonster(describeMonster(translator, null));
+    panel.showSlash(describeSlash(translator, null));
     panel.camera.followedId = null;
-    panel.offerCameraChoices(listCameraChoices(null, null));
-    panel.showReadout(describeSnapshot(null, null));
+    panel.offerCameraChoices(listCameraChoices(translator, null, null));
+    panel.showReadout(describeSnapshot(translator, null, null));
   });
 }
 
 void connectToServer();
+
+relabelPage();
+translator.addListener(relabelPage);
 
 window.addEventListener('keydown', (event: KeyboardEvent) => {
   const command: KeyCommand | null = findKeyCommand(event.code);

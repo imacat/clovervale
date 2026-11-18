@@ -27,6 +27,10 @@ import { describe, expect, it } from 'vitest';
 import type { PlayerState } from '@clovervale/shared';
 
 import { keepFollowedPlayer, listCameraChoices } from '../src/camera-choice.ts';
+import { Translator } from '../src/translator.ts';
+
+/** A translator of the text into English. */
+const EN = new Translator();
 
 /**
  * Makes a player of a snapshot.
@@ -52,13 +56,13 @@ const PLAYERS: readonly PlayerState[] = [12, 3, 7].map(makePlayer);
 
 describe('listCameraChoices', () => {
   it('offers only the player of the page before the server tells', () => {
-    expect(listCameraChoices(null, null)).toEqual([
+    expect(listCameraChoices(EN, null, null)).toEqual([
       { name: 'Own player', playerId: null },
     ]);
   });
 
   it('offers the player of the page first, and then the others', () => {
-    expect(listCameraChoices(7, PLAYERS)).toEqual([
+    expect(listCameraChoices(EN, 7, PLAYERS)).toEqual([
       { name: 'Own player (#7)', playerId: null },
       { name: '#3', playerId: 3 },
       { name: '#12', playerId: 12 },
@@ -66,12 +70,24 @@ describe('listCameraChoices', () => {
   });
 
   it('offers every player before the player of the page is there', () => {
-    expect(listCameraChoices(20, PLAYERS)).toEqual([
+    expect(listCameraChoices(EN, 20, PLAYERS)).toEqual([
       { name: 'Own player (#20)', playerId: null },
       { name: '#3', playerId: 3 },
       { name: '#7', playerId: 7 },
       { name: '#12', playerId: 12 },
     ]);
+  });
+
+  it('names the player of the page in the language of the page', async () => {
+    const ja = new Translator();
+    await ja.choose('ja');
+    expect(listCameraChoices(ja, null, null)).toEqual([
+      { name: '自キャラ', playerId: null },
+    ]);
+    expect(listCameraChoices(ja, 7, PLAYERS)[0]).toEqual({
+      name: '自キャラ（#7）',
+      playerId: null,
+    });
   });
 });
 

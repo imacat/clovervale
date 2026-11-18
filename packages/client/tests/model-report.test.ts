@@ -23,32 +23,89 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { describeFailure, summariseModels } from '../src/model-report.ts';
+import {
+  explainProblem,
+  reportFailure,
+  summariseModels,
+} from '../src/model-report.ts';
+import type { ModelProblem } from '../src/model-report.ts';
+import { Translator } from '../src/translator.ts';
+
+/** A translator of the text into English. */
+const EN = new Translator();
+
+/** A model that is missing. */
+const MISSING: ModelProblem = { file: 'npc-nancy.glb', reason: 'missing' };
+
+/**
+ * Makes a translator of the text into a language.
+ *
+ * @param {'zh-TW' | 'zh-CN' | 'ja'} code - The language.
+ * @returns {Promise<Translator>} The translator.
+ */
+async function createTranslator(
+  code: 'zh-TW' | 'zh-CN' | 'ja',
+): Promise<Translator> {
+  const translator = new Translator();
+  await translator.choose(code);
+  return translator;
+}
 
 describe('summariseModels', () => {
   it('counts the models when all of them are shown', () => {
-    expect(summariseModels(20, [])).toBe('20 shown');
+    expect(summariseModels(EN, 20, [])).toBe('20 shown');
   });
 
   it('counts the problems too', () => {
-    const missing = { file: 'npc-nancy.glb', reason: 'missing' };
-    expect(summariseModels(11, [missing])).toBe('11 shown, 1 problem');
-    expect(summariseModels(0, [missing, missing])).toBe('0 shown, 2 problems');
+    expect(summariseModels(EN, 11, [MISSING])).toBe('11 shown, 1 problem');
+    expect(summariseModels(EN, 0, [MISSING, MISSING])).toBe(
+      '0 shown, 2 problems',
+    );
+  });
+
+  it('counts them in the language of the page', async () => {
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(summariseModels(zhTw, 20, [])).toBe('已顯示 20 個');
+    expect(summariseModels(zhTw, 11, [MISSING])).toBe(
+      '已顯示 11 個，1 個問題',
+    );
   });
 });
 
-describe('describeFailure', () => {
+describe('explainProblem', () => {
+  it('tells that a model is missing', () => {
+    expect(explainProblem(EN, MISSING)).toBe('missing');
+  });
+
   it('gives the message of an error', () => {
-    expect(describeFailure(new Error('the file is cut short'))).toBe(
+    const problem: ModelProblem = reportFailure(
+      'fountain.glb',
+      new Error('the file is cut short'),
+    );
+    expect(problem.file).toBe('fountain.glb');
+    expect(explainProblem(EN, problem)).toBe(
       'failed to load: the file is cut short',
     );
   });
 
   it('gives whatever else was thrown', () => {
-    expect(describeFailure('404')).toBe('failed to load: 404');
+    const problem: ModelProblem = reportFailure('fountain.glb', '404');
+    expect(explainProblem(EN, problem)).toBe('failed to load: 404');
   });
 
   it('does without a reason when there is none', () => {
-    expect(describeFailure(new Error(''))).toBe('failed to load');
+    const problem: ModelProblem = reportFailure(
+      'fountain.glb',
+      new Error(''),
+    );
+    expect(explainProblem(EN, problem)).toBe('failed to load');
+  });
+
+  it('tells it in the language of the page', async () => {
+    const ja: Translator = await createTranslator('ja');
+    expect(explainProblem(ja, MISSING)).toBe('ファイルなし');
+    expect(explainProblem(ja, reportFailure('fountain.glb', '404'))).toBe(
+      '読み込み失敗：404',
+    );
   });
 });

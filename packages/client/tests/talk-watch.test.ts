@@ -75,7 +75,7 @@ describe('TalkWatch', () => {
     const watch = new TalkWatch();
     expect(watch.noticeTalk(BY_NANCY)).toBeNull();
     const talking: PlayerMotion = interact(BY_NANCY);
-    expect(watch.noticeTalk(talking)?.name).toBe('Nancy');
+    expect(watch.noticeTalk(talking)?.id).toBe('nancy');
     expect(watch.noticeTalk(talking)).toBeNull();
     expect(watch.noticeTalk(stepMotion(talking))).toBeNull();
   });
@@ -89,7 +89,7 @@ describe('TalkWatch', () => {
     expect(watch.noticeTalk(over)).toBeNull();
     const second: PlayerMotion = interact(over);
     expect(second.action).toBe('Talk');
-    expect(watch.noticeTalk(second)?.name).toBe('Nancy');
+    expect(watch.noticeTalk(second)?.id).toBe('nancy');
   });
 
   it('notices no slash, and nothing without a player', () => {

@@ -30,6 +30,7 @@ import type {
 } from '@clovervale/shared';
 
 import type { PlayersView } from './interpolation.ts';
+import type { Translator } from './translator.ts';
 
 /** What the owner reads about the player of the page and the snapshots. */
 export interface PlayerReadout {
@@ -107,8 +108,10 @@ export interface PredictionSummary {
 const UNKNOWN = '–';
 
 /**
- * Describes the player of the page and the latest snapshot.
+ * Describes the player of the page and the latest snapshot, in the
+ * language of the page.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {number | null} ownId - The identifier of the player of the page,
  *   or `null` before the server has told it.
  * @param {(readonly PlayerState[]) | null} players - The players in the latest
@@ -116,6 +119,7 @@ const UNKNOWN = '–';
  * @returns {PlayerReadout} What the owner reads.
  */
 export function describeSnapshot(
+  translator: Translator,
   ownId: number | null,
   players: readonly PlayerState[] | null,
 ): PlayerReadout {
@@ -135,25 +139,32 @@ export function describeSnapshot(
     };
   }
   const health = `${String(own.health)} / ${String(PLAYER_HEALTH)}`;
+  const appearance = String(own.appearance);
   return {
-    player: `${id}, appearance ${String(own.appearance)}`,
+    player: translator.translate('readout.player', { id, appearance }),
     players: count,
     position: `${formatNumber(own.x, 2)}, ${formatNumber(own.z, 2)}`,
     yaw: `${formatNumber(own.yaw, 1)}°`,
-    action: own.action,
-    health: own.action === 'Die' ? `${health}, dead` : health,
+    action: translator.translate(`action.${own.action}`),
+    health:
+      own.action === 'Die'
+        ? translator.translate('readout.dead', { health })
+        : health,
   };
 }
 
 /**
- * Describes the monster in the latest snapshot.
+ * Describes the monster in the latest snapshot, in the language of the
+ * page.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {(readonly MonsterState[]) | null} monsters - The monsters in the
  *   latest snapshot, or `null` before the first one.
  * @returns {MonsterReadout} What the owner reads, which reports the
  *   monster as gone when the snapshot has none.
  */
 export function describeMonster(
+  translator: Translator,
   monsters: readonly MonsterState[] | null,
 ): MonsterReadout {
   if (monsters === null) {
@@ -167,15 +178,15 @@ export function describeMonster(
   const [monster] = monsters;
   if (monster === undefined) {
     return {
-      mode: 'gone',
+      mode: translator.translate('monster.gone'),
       action: UNKNOWN,
       health: UNKNOWN,
       position: UNKNOWN,
     };
   }
   return {
-    mode: monster.mode,
-    action: monster.action,
+    mode: translator.translate(`monsterMode.${monster.mode}`),
+    action: translator.translate(`monsterAction.${monster.action}`),
     health: `${String(monster.health)} / ${String(MONSTER_HEALTH)}`,
     position: `${formatNumber(monster.x, 2)}, ${formatNumber(monster.z, 2)}`,
   };
@@ -216,13 +227,16 @@ export function describeDisplay(
 }
 
 /**
- * Describes the prediction of the player of the page.
+ * Describes the prediction of the player of the page, in the language of
+ * the page.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {PredictionSummary | null} prediction - The prediction, or `null`
  *   while there is none.
  * @returns {PredictionReadout} What the owner reads.
  */
 export function describePrediction(
+  translator: Translator,
   prediction: PredictionSummary | null,
 ): PredictionReadout {
   if (prediction === null) {
@@ -235,24 +249,31 @@ export function describePrediction(
   if (lastCorrection === null) {
     return { predicted, corrections: count };
   }
-  const size = `${formatNumber(lastCorrection, 2)} m`;
-  return { predicted, corrections: `${count}, last ${size}` };
+  const size: string = formatNumber(lastCorrection, 2);
+  return {
+    predicted,
+    corrections: translator.translate('readout.corrections', { count, size }),
+  };
 }
 
 /**
  * Describes the latest slash of the player of the page, as the server
- * judged it.
+ * judged it, in the language of the page.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {SlashJudgement | null} slash - How the slash was judged, or
  *   `null` before the first slash.
  * @returns {SlashReadout} What the owner reads.
  */
-export function describeSlash(slash: SlashJudgement | null): SlashReadout {
+export function describeSlash(
+  translator: Translator,
+  slash: SlashJudgement | null,
+): SlashReadout {
   if (slash === null) {
     return { result: UNKNOWN, judgedBack: UNKNOWN };
   }
   return {
-    result: slash.isHit ? 'hit' : 'missed',
+    result: translator.translate(slash.isHit ? 'slash.hit' : 'slash.missed'),
     judgedBack: `${formatNumber(slash.rewind, 0)} ms`,
   };
 }

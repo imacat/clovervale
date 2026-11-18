@@ -23,17 +23,10 @@
  */
 
 import { canInteract, findInteraction, findVillager } from '@clovervale/shared';
-import type { Interaction, PlayerMotion, Villager } from '@clovervale/shared';
+import type { PlayerMotion, Villager } from '@clovervale/shared';
 
-/**
- * What each interaction is called, as the person at the page is told; a
- * talk is followed by the name of the villager to talk to.
- */
-const INTERACTION_NAMES: Readonly<Record<Interaction, string>> = {
-  Slash: 'slash',
-  Drink: 'drink from the fountain',
-  Talk: 'talk to',
-};
+import type { Translator } from './translator.ts';
+import { describeVillager } from './villager-words.ts';
 
 /** What stands for a value that is not known yet. */
 const UNKNOWN = '–';
@@ -51,52 +44,60 @@ export interface Prompt {
 /**
  * Describes what the space bar makes the player of the page do now.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {PlayerMotion | null} motion - The motion of the player as
  *   predicted, or `null` while there is none.
- * @returns {string} What the player does, `nothing` while it cannot
- *   interact, as while it is dead, or `–` while there is no player.
+ * @returns {string} What the player does, that it does nothing while it
+ *   cannot interact, as while it is dead, or `–` while there is no player,
+ *   in the language of the page.
  */
-export function describeSpaceKey(motion: PlayerMotion | null): string {
+export function describeSpaceKey(
+  translator: Translator,
+  motion: PlayerMotion | null,
+): string {
   if (motion === null) {
     return UNKNOWN;
   }
   if (!canInteract(motion)) {
-    return 'nothing';
+    return translator.translate('spaceKey.nothing');
   }
-  return nameInteraction(motion);
+  const villager: Villager | null = findVillager(motion);
+  if (villager !== null) {
+    const { name } = describeVillager(translator, villager);
+    return translator.translate('spaceKey.talk', { name });
+  }
+  return findInteraction(motion) === 'Drink'
+    ? translator.translate('spaceKey.drink')
+    : translator.translate('spaceKey.slash');
 }
 
 /**
  * Words the prompt that tells what the space bar makes the player of the
  * page do now, unless that is only a slash.
  *
+ * @param {Translator} translator - The translator of the text of the page.
  * @param {PlayerMotion | null} motion - The motion of the player as
  *   predicted, or `null` while there is none.
- * @returns {string | null} The prompt, or `null` while the space bar makes
- *   the player slash or do nothing, or there is no player.
+ * @returns {string | null} The prompt, in the language of the page, or
+ *   `null` while the space bar makes the player slash or do nothing, or
+ *   there is no player.
  */
-export function describePrompt(motion: PlayerMotion | null): string | null {
+export function describePrompt(
+  translator: Translator,
+  motion: PlayerMotion | null,
+): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;
   }
-  if (findInteraction(motion) === 'Slash') {
-    return null;
-  }
-  return `Press Space to ${nameInteraction(motion)}`;
-}
-
-/**
- * Names what the space bar makes a player do, standing as it does, as the
- * person at the page is told.
- *
- * @param {PlayerMotion} motion - The motion of the player.
- * @returns {string} What it does, with the name of the villager it talks
- *   to, if it talks.
- */
-function nameInteraction(motion: PlayerMotion): string {
-  const name: string = INTERACTION_NAMES[findInteraction(motion)];
   const villager: Villager | null = findVillager(motion);
-  return villager === null ? name : `${name} ${villager.name}`;
+  if (villager !== null) {
+    const { name } = describeVillager(translator, villager);
+    return translator.translate('prompt.talk', { name });
+  }
+  if (findInteraction(motion) === 'Drink') {
+    return translator.translate('prompt.drink');
+  }
+  return null;
 }
 
 /**

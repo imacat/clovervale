@@ -41,6 +41,10 @@ import {
   describePrompt,
   describeSpaceKey,
 } from '../src/interaction-prompt.ts';
+import { Translator } from '../src/translator.ts';
+
+/** A translator of the text into English. */
+const EN = new Translator();
 
 /** A player against the rim of the fountain, facing it. */
 const BY_FOUNTAIN: PlayerMotion = createMotion(
@@ -63,15 +67,39 @@ const BY_NANCY: PlayerMotion = createMotion(
   180,
 );
 
+/**
+ * Makes a translator of the text into a language.
+ *
+ * @param {'zh-TW' | 'zh-CN' | 'ja'} code - The language.
+ * @returns {Promise<Translator>} The translator.
+ */
+async function createTranslator(
+  code: 'zh-TW' | 'zh-CN' | 'ja',
+): Promise<Translator> {
+  const translator = new Translator();
+  await translator.choose(code);
+  return translator;
+}
+
 describe('describePrompt', () => {
   it('tells a player by the fountain, facing it, that it can drink', () => {
-    expect(describePrompt(BY_FOUNTAIN)).toBe(
+    expect(describePrompt(EN, BY_FOUNTAIN)).toBe(
       'Press Space to drink from the fountain',
     );
   });
 
   it('tells a player by Nancy, facing her, that it can talk to her', () => {
-    expect(describePrompt(BY_NANCY)).toBe('Press Space to talk to Nancy');
+    expect(describePrompt(EN, BY_NANCY)).toBe('Press Space to talk to Nancy');
+  });
+
+  it('tells it in the language of the page, in its word order', async () => {
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describePrompt(zhTw, BY_NANCY)).toBe('按空白鍵與南茜交談');
+    expect(describePrompt(zhTw, BY_FOUNTAIN)).toBe('按空白鍵喝噴泉的水');
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describePrompt(zhCn, BY_NANCY)).toBe('按空格键与南茜交谈');
+    const ja: Translator = await createTranslator('ja');
+    expect(describePrompt(ja, BY_NANCY)).toBe('スペースキーでナンシーと話す');
   });
 
   it('tells nothing while the player talks already', () => {
@@ -79,11 +107,11 @@ describe('describePrompt', () => {
       applyInput(BY_NANCY, { type: 'interact' }),
     );
     expect(talking.action).toBe('Talk');
-    expect(describePrompt(talking)).toBeNull();
+    expect(describePrompt(EN, talking)).toBeNull();
   });
 
   it('tells nothing while the space bar makes the player slash', () => {
-    expect(describePrompt(FACING_AWAY)).toBeNull();
+    expect(describePrompt(EN, FACING_AWAY)).toBeNull();
   });
 
   it('tells nothing while the player drinks already', () => {
@@ -91,27 +119,36 @@ describe('describePrompt', () => {
       applyInput(BY_FOUNTAIN, { type: 'interact' }),
     );
     expect(drinking.action).toBe('Drink');
-    expect(describePrompt(drinking)).toBeNull();
+    expect(describePrompt(EN, drinking)).toBeNull();
   });
 
   it('tells nothing to a dead player, or without a player', () => {
-    expect(describePrompt(killMotion(BY_FOUNTAIN))).toBeNull();
-    expect(describePrompt(null)).toBeNull();
+    expect(describePrompt(EN, killMotion(BY_FOUNTAIN))).toBeNull();
+    expect(describePrompt(EN, null)).toBeNull();
   });
 });
 
 describe('describeSpaceKey', () => {
   it('tells what the space bar makes the player do', () => {
-    expect(describeSpaceKey(BY_FOUNTAIN)).toBe('drink from the fountain');
-    expect(describeSpaceKey(FACING_AWAY)).toBe('slash');
-    expect(describeSpaceKey(BY_NANCY)).toBe('talk to Nancy');
+    expect(describeSpaceKey(EN, BY_FOUNTAIN)).toBe('drink from the fountain');
+    expect(describeSpaceKey(EN, FACING_AWAY)).toBe('slash');
+    expect(describeSpaceKey(EN, BY_NANCY)).toBe('talk to Nancy');
+  });
+
+  it('tells it in the language of the page', async () => {
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describeSpaceKey(zhTw, BY_NANCY)).toBe('與南茜交談');
+    expect(describeSpaceKey(zhTw, FACING_AWAY)).toBe('揮砍');
+    expect(describeSpaceKey(zhTw, killMotion(BY_FOUNTAIN))).toBe('無');
+    const ja: Translator = await createTranslator('ja');
+    expect(describeSpaceKey(ja, BY_NANCY)).toBe('ナンシーと話す');
   });
 
   it('tells that it does nothing while the player cannot interact', () => {
-    expect(describeSpaceKey(killMotion(BY_FOUNTAIN))).toBe('nothing');
+    expect(describeSpaceKey(EN, killMotion(BY_FOUNTAIN))).toBe('nothing');
   });
 
   it('tells nothing is known without a player', () => {
-    expect(describeSpaceKey(null)).toBe('–');
+    expect(describeSpaceKey(EN, null)).toBe('–');
   });
 });

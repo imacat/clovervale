@@ -242,6 +242,24 @@ interface TalkLook {
   readonly judgedBack: string;
 }
 
+/** What a page shows in words, in the language it speaks. */
+interface LanguageLook {
+  /** The language of the page, as its document tells. */
+  readonly lang: string;
+  /** The title of the page. */
+  readonly title: string;
+  /** The titles of the panel and of its folders, in order. */
+  readonly titles: readonly string[];
+  /** The values the panel displays, by their names. */
+  readonly panel: Readonly<Record<string, string>>;
+  /** The languages the language control of the panel offers. */
+  readonly offered: readonly string[];
+  /** The prompt the page shows, or `null` if it shows none. */
+  readonly prompt: string | null;
+  /** The bubble the page shows, or `null` if it shows none. */
+  readonly speech: SpeechView | null;
+}
+
 /** The pixels of an image. */
 interface Pixels {
   /** The width of the image, in pixels. */
@@ -396,6 +414,43 @@ const TALK_PROMPT = 'Press Space to talk to Nancy';
 const NANCY_LINE =
   'Wild dogs prowl outside the village, and no one dares to go out any ' +
   'more. What are we to do?';
+/** The language the pages speak unless told otherwise. */
+const PAGE_LANGUAGE = 'en';
+/** The name of the language control of the panel in English. */
+const LANGUAGE_CONTROL = 'Language';
+/** The languages the language control offers, by their own names. */
+const LANGUAGE_NAMES: readonly string[] = [
+  'English',
+  '正體中文',
+  '简体中文',
+  '日本語',
+];
+/** The name of Traditional Chinese, as the language control offers it. */
+const ZH_TW_NAME = '正體中文';
+/** The name of English, as the language control offers it. */
+const EN_NAME = 'English';
+/** The name of the language control of the panel in Traditional Chinese. */
+const ZH_TW_LANGUAGE_CONTROL = '語言';
+/** The title of the page and of the panel in Traditional Chinese. */
+const ZH_TW_TITLE = '四葉谷';
+/** The title of the folder of the latest snapshot in the panel. */
+const SNAPSHOT_FOLDER = 'Latest snapshot';
+/** That title in Traditional Chinese. */
+const ZH_TW_SNAPSHOT_FOLDER = '最新快照';
+/** The name of the space bar readout of the panel in Traditional Chinese. */
+const ZH_TW_SPACE_KEY = '空白鍵';
+/** What that readout tells by Nancy, facing her, in Traditional Chinese. */
+const ZH_TW_TALK_KEY = '與南茜交談';
+/** The prompt by Nancy, facing her, in Traditional Chinese. */
+const ZH_TW_TALK_PROMPT = '按空白鍵與南茜交談';
+/** The name of the server status of the panel in Traditional Chinese. */
+const ZH_TW_SERVER = '伺服器';
+/** The start of the status of a connected page in Traditional Chinese. */
+const ZH_TW_CONNECTED = '已連線';
+/** The name of Nancy in Traditional Chinese. */
+const ZH_TW_NANCY = '南茜';
+/** What Nancy says in Traditional Chinese. */
+const ZH_TW_NANCY_LINE = '村口有野狗出沒，村裏的人都無法外出了，怎麼辦？';
 /**
  * The furthest the foot of the bubble of what Nancy says may be from where
  * she stands along the ground, in metres.
@@ -459,6 +514,36 @@ const PANEL_ACTION_EXPRESSION = `(() => {
     }
   }
   return '';
+})()`;
+
+/** Reads what a page shows in words, as JSON. */
+const LANGUAGE_LOOK_EXPRESSION = `(() => {
+  const panel = {};
+  for (const input of document.querySelectorAll('input[aria-labelledby]')) {
+    const labelId = input.getAttribute('aria-labelledby');
+    const label = document.getElementById(labelId)?.textContent;
+    if (label) {
+      panel[label] = input.value;
+    }
+  }
+  let offered = [];
+  for (const select of document.querySelectorAll('select')) {
+    const texts = [...select.options].map((option) => option.text);
+    if (texts.includes('English')) {
+      offered = texts;
+    }
+  }
+  const prompt = document.querySelector('.interaction-prompt');
+  return JSON.stringify({
+    lang: document.documentElement.lang,
+    title: document.title,
+    titles: [...document.querySelectorAll('.lil-title')]
+      .map((title) => title.textContent),
+    panel,
+    offered,
+    prompt: prompt === null || prompt.hidden ? null : prompt.textContent,
+    speech: window.clovervale.describeSpeech(),
+  });
 })()`;
 
 /**
@@ -540,6 +625,34 @@ function createCameraExpression(choice: string | null): string {
       focus: window.clovervale.describeCamera(),
       figures: window.clovervale.describeFigures(),
     });
+  })()`;
+}
+
+/**
+ * Makes the expression that chooses a language in the language control of
+ * the panel, and gives the language chosen afterwards, or `missing`.
+ *
+ * @param {string} control - The name of the language control, in the
+ *   language the page speaks.
+ * @param {string} choice - The name of the language to choose.
+ * @returns {string} The expression.
+ */
+function createLanguageExpression(control: string, choice: string): string {
+  return `(() => {
+    const control = ${JSON.stringify(control)};
+    for (const select of document.querySelectorAll('select')) {
+      const labelId = select.getAttribute('aria-labelledby');
+      if (document.getElementById(labelId)?.textContent === control) {
+        const offered = [...select.options].map((option) => option.text);
+        const index = offered.indexOf(${JSON.stringify(choice)});
+        if (index >= 0) {
+          select.selectedIndex = index;
+          select.dispatchEvent(new Event('change'));
+        }
+        return select.selectedOptions[0]?.text ?? 'missing';
+      }
+    }
+    return 'missing';
   })()`;
 }
 
@@ -904,7 +1017,9 @@ async function startFirefox(): Promise<string> {
   });
   writeFileSync(
     path.join(profileDir, 'user.js'),
-    'user_pref("media.volume_scale", "0.0");\n',
+    'user_pref("media.volume_scale", "0.0");\n' +
+      // The pages speak English, whatever language the system has.
+      `user_pref("intl.accept_languages", "${PAGE_LANGUAGE}");\n`,
   );
   const args: string[] = [
     '--headless',
@@ -2746,6 +2861,172 @@ async function checkTalk(
 }
 
 /**
+ * Reads what a page shows in words.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<LanguageLook>} What the page shows.
+ */
+async function readLanguageLook(
+  session: BidiSession,
+  context: string,
+): Promise<LanguageLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, LANGUAGE_LOOK_EXPRESSION),
+  ) as LanguageLook;
+}
+
+/**
+ * Describes what a page shows in words, for the error messages.
+ *
+ * @param {LanguageLook} look - What the page shows.
+ * @returns {string} The description.
+ */
+function describeLanguageLook(look: LanguageLook): string {
+  const panel: string = Object.entries(look.panel)
+    .map(([name, value]: [string, string]) => `${name}: "${value}"`)
+    .join(', ');
+  const prompt: string =
+    look.prompt === null ? 'no prompt' : `the prompt "${look.prompt}"`;
+  const bubble: string =
+    look.speech === null
+      ? 'no bubble'
+      : `a bubble of ${look.speech.name} saying "${look.speech.line}"`;
+  return (
+    `the language "${look.lang}", the title "${look.title}", the panel ` +
+    `titles "${look.titles.join('", "')}", the languages ` +
+    `"${look.offered.join('", "')}" offered, ${prompt}, ${bubble}, and ` +
+    `the panel values ${panel}`
+  );
+}
+
+/**
+ * Chooses a language in the language control of the panel of a page.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {string} control - The name of the language control, in the
+ *   language the page speaks.
+ * @param {string} choice - The name of the language to choose.
+ * @returns {Promise<void>} A promise settled once it is chosen.
+ * @throws {Error} If the panel has no such control, or it does not offer
+ *   the language.
+ */
+async function chooseLanguage(
+  session: BidiSession,
+  context: string,
+  control: string,
+  choice: string,
+): Promise<void> {
+  const chosen: string = await evaluateInPage(
+    session,
+    context,
+    createLanguageExpression(control, choice),
+  );
+  if (chosen !== choice) {
+    throw new Error(
+      `With "${choice}" chosen in the "${control}" control of its panel, ` +
+        `the first page has "${chosen}" chosen.`,
+    );
+  }
+}
+
+/**
+ * Checks that a page speaks English at first, and that once Traditional
+ * Chinese is chosen in its panel, it words its panel, its title and its
+ * prompt in it at once, and that Nancy speaks it when the player talks to
+ * her, and that once English is chosen again, it words them all in English
+ * again at once, the bubble too while it is shown.
+ *
+ * The player stands by Nancy, facing her, as {@link checkTalk} leaves it.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page does not word its text so.
+ */
+async function checkLanguage(
+  session: BidiSession,
+  context: string,
+): Promise<void> {
+  const look = (): Promise<LanguageLook> => readLanguageLook(session, context);
+  const isEnglish = (seen: LanguageLook): boolean =>
+    seen.lang === PAGE_LANGUAGE &&
+    seen.title === 'Clovervale' &&
+    seen.titles[0] === 'Clovervale' &&
+    seen.titles.includes(SNAPSHOT_FOLDER) &&
+    (seen.panel.Server ?? '').startsWith('connected') &&
+    seen.panel['Space key'] === TALK_KEY &&
+    seen.prompt === TALK_PROMPT &&
+    (seen.speech === null ||
+      (seen.speech.name === 'Nancy' && seen.speech.line === NANCY_LINE));
+  const before: LanguageLook = await look();
+  if (
+    !isEnglish(before) ||
+    before.offered.join('\n') !== LANGUAGE_NAMES.join('\n')
+  ) {
+    throw new Error(
+      `Standing by Nancy and pinned to English, the first page tells ` +
+        `${describeLanguageLook(before)}.`,
+    );
+  }
+
+  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
+  const isChinese = (seen: LanguageLook): boolean =>
+    seen.lang === 'zh-TW' &&
+    seen.title === ZH_TW_TITLE &&
+    seen.titles[0] === ZH_TW_TITLE &&
+    seen.titles.includes(ZH_TW_SNAPSHOT_FOLDER) &&
+    (seen.panel[ZH_TW_SERVER] ?? '').startsWith(ZH_TW_CONNECTED) &&
+    seen.panel[ZH_TW_SPACE_KEY] === ZH_TW_TALK_KEY &&
+    seen.prompt === ZH_TW_TALK_PROMPT;
+  await waitFor(
+    look,
+    isChinese,
+    ACTION_TIMEOUT,
+    (seen: LanguageLook) =>
+      `With "${ZH_TW_NAME}" chosen in its panel by Nancy, the first page ` +
+      `tells ${describeLanguageLook(seen)}.`,
+  );
+  await sendKey(session, context, 'keyDown', ' ');
+  await sendKey(session, context, 'keyUp', ' ');
+  await waitFor(
+    look,
+    (seen: LanguageLook) =>
+      seen.speech?.name === ZH_TW_NANCY &&
+      seen.speech.line === ZH_TW_NANCY_LINE,
+    ACTION_TIMEOUT,
+    (seen: LanguageLook) =>
+      `Standing by Nancy, with the space bar pressed in "${ZH_TW_NAME}", ` +
+      `the first page tells ${describeLanguageLook(seen)}.`,
+  );
+
+  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
+  const after: LanguageLook = await waitFor(
+    look,
+    isEnglish,
+    ACTION_TIMEOUT,
+    (seen: LanguageLook) =>
+      `With "${EN_NAME}" chosen in its panel again, the first page tells ` +
+      `${describeLanguageLook(seen)}.`,
+  );
+  if (after.speech === null) {
+    throw new Error(
+      `With "${EN_NAME}" chosen in its panel while Nancy speaks, the first ` +
+        `page tells ${describeLanguageLook(after)}.`,
+    );
+  }
+  await waitFor(
+    look,
+    (seen: LanguageLook) => seen.speech === null,
+    SPEECH_TIMEOUT,
+    (seen: LanguageLook) =>
+      `A while after its player talked to Nancy again, the first page ` +
+      `tells ${describeLanguageLook(seen)}.`,
+  );
+}
+
+/**
  * Reads where a page has its camera, after choosing a player in the camera
  * control of its panel, if told to.
  *
@@ -2880,7 +3161,8 @@ async function checkCamera(
  * fountain gets health back in both pages, each of which shows the heal
  * once, without a correction behind a slow connection, that a player that
  * talks to Nancy sees what she says above her head in its own page alone,
- * for a while, without a slash or a correction, and that the camera
+ * for a while, without a slash or a correction, that a page words its
+ * text in the language chosen in its panel at once, and that the camera
  * of a page follows the player of the other page when its panel is set
  * to, until that player leaves.
  *
@@ -2954,6 +3236,7 @@ async function checkClient(): Promise<void> {
     await checkMonster(session, first, second, id);
     await checkFountain(session, first, second, id);
     await checkTalk(session, first, second, id);
+    await checkLanguage(session, first);
     const other: PageState = await readPageState(session, second);
     const otherId = Number(/^#(\d+)/.exec(other.panel.Player ?? '')?.[1]);
     await checkCamera(session, first, id, second, otherId);
@@ -2982,7 +3265,8 @@ try {
       'each other what their players do, predict their own, have their ' +
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, hear what ' +
-      'Nancy says, and have the camera follow another player.',
+      'Nancy says, speak the language chosen, and have the camera follow ' +
+      'another player.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);

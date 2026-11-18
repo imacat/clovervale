@@ -155,4 +155,4 @@ export {
   findSpawnPoint,
 } from './village.ts';
 export { VILLAGERS } from './villagers.ts';
-export type { Villager } from './villagers.ts';
+export type { Villager, VillagerId } from './villagers.ts';

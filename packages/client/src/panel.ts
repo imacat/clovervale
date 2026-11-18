@@ -22,12 +22,17 @@
  */
 
 import GUI from 'lil-gui';
+import type { Controller } from 'lil-gui';
 
 import { DEFAULT_MUSIC_VOLUME } from './background-music.ts';
 import type { MusicSettings } from './background-music.ts';
 import type { CameraChoice } from './camera-choice.ts';
 import { describeSpaceKey } from './interaction-prompt.ts';
 import { DEFAULT_DELAY, MAX_DELAY } from './interpolation.ts';
+import { LANGUAGES } from './language.ts';
+import type { Language, LanguageCode } from './language.ts';
+import type { PlainMessageId } from './messages/en.ts';
+import { explainProblem } from './model-report.ts';
 import type { ModelProblem } from './model-report.ts';
 import { MAX_NETWORK_DELAY } from './network-delay.ts';
 import {
@@ -44,6 +49,7 @@ import type {
   PredictionReadout,
   SlashReadout,
 } from './player-readout.ts';
+import type { Translator } from './translator.ts';
 
 /** What the panel shows of the client itself. */
 export interface PanelState {
@@ -189,39 +195,42 @@ export interface Panel {
 }
 
 /** The names of the values of the readout, in the order they are shown. */
-const READOUT_NAMES: readonly [keyof PlayerReadout, string][] = [
-  ['player', 'Player'],
-  ['players', 'Players'],
-  ['position', 'Position'],
-  ['yaw', 'Yaw'],
-  ['action', 'Action'],
-  ['health', 'Health'],
+const READOUT_NAMES: readonly [keyof PlayerReadout, PlainMessageId][] = [
+  ['player', 'panel.player'],
+  ['players', 'panel.players'],
+  ['position', 'panel.position'],
+  ['yaw', 'panel.yaw'],
+  ['action', 'panel.action'],
+  ['health', 'panel.health'],
 ];
 
 /** The names of the values of the monster, in the order they are shown. */
-const MONSTER_NAMES: readonly [keyof MonsterReadout, string][] = [
-  ['mode', 'Monster'],
-  ['action', 'Monster action'],
-  ['health', 'Monster health'],
-  ['position', 'Monster at'],
+const MONSTER_NAMES: readonly [keyof MonsterReadout, PlainMessageId][] = [
+  ['mode', 'panel.monsterMode'],
+  ['action', 'panel.monsterAction'],
+  ['health', 'panel.monsterHealth'],
+  ['position', 'panel.monsterAt'],
 ];
 
 /** The names of the values of the prediction, in the order shown. */
-const PREDICTION_NAMES: readonly [keyof PredictionReadout, string][] = [
-  ['predicted', 'Predicted'],
-  ['corrections', 'Corrections'],
+const PREDICTION_NAMES: readonly [
+  keyof PredictionReadout,
+  PlainMessageId,
+][] = [
+  ['predicted', 'panel.predicted'],
+  ['corrections', 'panel.corrections'],
 ];
 
 /** The names of the values of the display, in the order they are shown. */
-const DISPLAY_NAMES: readonly [keyof DisplayReadout, string][] = [
-  ['drawnAt', 'Drawn at'],
-  ['behind', 'Behind'],
+const DISPLAY_NAMES: readonly [keyof DisplayReadout, PlainMessageId][] = [
+  ['drawnAt', 'panel.drawnAt'],
+  ['behind', 'panel.behind'],
 ];
 
 /** The names of the values of the latest slash, in the order shown. */
-const SLASH_NAMES: readonly [keyof SlashReadout, string][] = [
-  ['result', 'Result'],
-  ['judgedBack', 'Judged back'],
+const SLASH_NAMES: readonly [keyof SlashReadout, PlainMessageId][] = [
+  ['result', 'panel.result'],
+  ['judgedBack', 'panel.judgedBack'],
 ];
 
 /** The step of the delays the owner sets, in milliseconds. */
@@ -230,16 +239,28 @@ const DELAY_STEP = 10;
 const VOLUME_STEP = 0.05;
 
 /**
- * Creates the settings panel, which starts with nothing synchronised yet,
- * with the player of the page to be shown as predicted, the other players
- * smoothly, by the default delay, no message held back, the slashes judged
- * on the world as the page showed it, the camera on the player of the page,
- * no outlines of the obstacles, and the music on at its default volume.
+ * Creates the settings panel, in the language of the page, which starts
+ * with nothing synchronised yet, with the player of the page to be shown
+ * as predicted, the other players smoothly, by the default delay, no
+ * message held back, the slashes judged on the world as the page showed
+ * it, the camera on the player of the page, no outlines of the obstacles,
+ * and the music on at its default volume.  The panel names everything in
+ * it again in each language the page comes to speak.
  *
+ * @param {Translator} translator - The translator of the text of the page.
+ * @param {(code: LanguageCode) => Promise<void>} chooseLanguage - Has the
+ *   page speak the language the owner chooses in the panel, settled once
+ *   it does, or once it cannot.
  * @returns {Panel} The panel.
  */
-export function createPanel(): Panel {
-  const state: PanelState = { server: 'connecting', models: 'loading' };
+export function createPanel(
+  translator: Translator,
+  chooseLanguage: (code: LanguageCode) => Promise<void>,
+): Panel {
+  const state: PanelState = {
+    server: translator.translate('server.connecting'),
+    models: translator.translate('models.loading'),
+  };
   const interpolation: InterpolationSettings = {
     isEnabled: true,
     delay: DEFAULT_DELAY,
@@ -254,16 +275,16 @@ export function createPanel(): Panel {
     volume: DEFAULT_MUSIC_VOLUME,
   };
   const predicted: Record<keyof PredictionReadout, string> = {
-    ...describePrediction(null),
+    ...describePrediction(translator, null),
   };
   const spaceKey: { interaction: string } = {
-    interaction: describeSpaceKey(null),
+    interaction: describeSpaceKey(translator, null),
   };
   const slash: Record<keyof SlashReadout, string> = {
-    ...describeSlash(null),
+    ...describeSlash(translator, null),
   };
   const shown: Record<keyof PlayerReadout, string> = {
-    ...describeSnapshot(null, null),
+    ...describeSnapshot(translator, null, null),
   };
   const display: Record<keyof DisplayReadout, string> = {
     ...describeDisplay(null, null, {
@@ -274,59 +295,116 @@ export function createPanel(): Panel {
     }),
   };
   const monster: Record<keyof MonsterReadout, string> = {
-    ...describeMonster(null),
+    ...describeMonster(translator, null),
+  };
+  const languageChoice: { code: LanguageCode } = {
+    code: translator.language,
+  };
+  /** What names everything in the panel again in another language. */
+  const relabels: (() => void)[] = [];
+  const name = <T extends Controller>(control: T, id: PlainMessageId): T => {
+    const relabel = (): void => {
+      control.name(translator.translate(id));
+    };
+    relabel();
+    relabels.push(relabel);
+    return control;
+  };
+  const addFolder = (parent: GUI, id: PlainMessageId): GUI => {
+    const folder: GUI = parent.addFolder(translator.translate(id));
+    relabels.push(() => {
+      folder.title(translator.translate(id));
+    });
+    return folder;
   };
   // The style sheet of the panel is part of the style sheet of the client.
-  const gui = new GUI({ title: 'Clovervale', injectStyles: false });
-  gui.add(state, 'server').name('Server').disable().listen();
-  gui.add(state, 'models').name('Models').disable().listen();
-  const cameraControl = gui
-    .add(camera, 'followedId', { 'Own player': null })
-    .name('Camera on')
-    .listen();
-  gui.add(prediction, 'isEnabled').name('Predict');
-  gui
-    .add(network, 'delay', 0, MAX_NETWORK_DELAY, DELAY_STEP)
-    .name('Net delay (ms)');
-  gui.add(interpolation, 'isEnabled').name('Interpolate');
-  gui
-    .add(interpolation, 'delay', 0, MAX_DELAY, DELAY_STEP)
-    .name('Delay (ms)');
-  gui.add(compensation, 'isEnabled').name('Compensate lag');
-  gui.add(obstacles, 'isShown').name('Show obstacles');
-  gui.add(music, 'isEnabled').name('Music');
-  gui.add(music, 'volume', 0, 1, VOLUME_STEP).name('Music volume');
+  const gui = new GUI({
+    title: translator.translate('title'),
+    injectStyles: false,
+  });
+  relabels.push(() => {
+    gui.title(translator.translate('title'));
+  });
+  name(gui.add(state, 'server'), 'panel.server').disable().listen();
+  name(gui.add(state, 'models'), 'panel.models').disable().listen();
+  const cameraControl = name(
+    gui.add(camera, 'followedId', {
+      [translator.translate('camera.own')]: null,
+    }),
+    'panel.camera',
+  ).listen();
+  name(gui.add(prediction, 'isEnabled'), 'panel.predict');
+  name(
+    gui.add(network, 'delay', 0, MAX_NETWORK_DELAY, DELAY_STEP),
+    'panel.netDelay',
+  );
+  name(gui.add(interpolation, 'isEnabled'), 'panel.interpolate');
+  name(
+    gui.add(interpolation, 'delay', 0, MAX_DELAY, DELAY_STEP),
+    'panel.delay',
+  );
+  name(gui.add(compensation, 'isEnabled'), 'panel.compensate');
+  name(gui.add(obstacles, 'isShown'), 'panel.obstacles');
+  name(gui.add(music, 'isEnabled'), 'panel.music');
+  name(gui.add(music, 'volume', 0, 1, VOLUME_STEP), 'panel.volume');
+  const languageControl = name(
+    gui.add(
+      languageChoice,
+      'code',
+      Object.fromEntries(
+        LANGUAGES.map((language: Language) => [language.name, language.code]),
+      ),
+    ),
+    'panel.language',
+  );
+  const showLanguage = (): void => {
+    languageChoice.code = translator.language;
+    languageControl.updateDisplay();
+  };
+  languageControl.onChange((value: unknown) => {
+    const chosen: Language | undefined = LANGUAGES.find(
+      (language: Language) => language.code === value,
+    );
+    if (chosen !== undefined) {
+      // The choice goes back to the language spoken if it cannot be had.
+      void chooseLanguage(chosen.code).finally(showLanguage);
+    }
+  });
   // The panel keeps the keys from the game while a control of it is in use.
   gui.onFinishChange(() => {
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
   });
-  const folder: GUI = gui.addFolder('Latest snapshot');
-  for (const [key, name] of READOUT_NAMES) {
-    folder.add(shown, key).name(name).disable().listen();
+  const folder: GUI = addFolder(gui, 'panel.snapshot');
+  for (const [key, id] of READOUT_NAMES) {
+    name(folder.add(shown, key), id).disable().listen();
   }
-  const monsterFolder: GUI = gui.addFolder('Monster');
-  for (const [key, name] of MONSTER_NAMES) {
-    monsterFolder.add(monster, key).name(name).disable().listen();
+  const monsterFolder: GUI = addFolder(gui, 'panel.monster');
+  for (const [key, id] of MONSTER_NAMES) {
+    name(monsterFolder.add(monster, key), id).disable().listen();
   }
-  const predictionFolder: GUI = gui.addFolder('Prediction');
-  for (const [key, name] of PREDICTION_NAMES) {
-    predictionFolder.add(predicted, key).name(name).disable().listen();
+  const predictionFolder: GUI = addFolder(gui, 'panel.prediction');
+  for (const [key, id] of PREDICTION_NAMES) {
+    name(predictionFolder.add(predicted, key), id).disable().listen();
   }
-  predictionFolder
-    .add(spaceKey, 'interaction')
-    .name('Space key')
+  name(predictionFolder.add(spaceKey, 'interaction'), 'panel.spaceKey')
     .disable()
     .listen();
-  const displayFolder: GUI = gui.addFolder('Displayed');
-  for (const [key, name] of DISPLAY_NAMES) {
-    displayFolder.add(display, key).name(name).disable().listen();
+  const displayFolder: GUI = addFolder(gui, 'panel.displayed');
+  for (const [key, id] of DISPLAY_NAMES) {
+    name(displayFolder.add(display, key), id).disable().listen();
   }
-  const slashFolder: GUI = gui.addFolder('Last slash');
-  for (const [key, name] of SLASH_NAMES) {
-    slashFolder.add(slash, key).name(name).disable().listen();
+  const slashFolder: GUI = addFolder(gui, 'panel.lastSlash');
+  for (const [key, id] of SLASH_NAMES) {
+    name(slashFolder.add(slash, key), id).disable().listen();
   }
+  translator.addListener(() => {
+    for (const relabel of relabels) {
+      relabel();
+    }
+    showLanguage();
+  });
 
   const showReadout = (readout: PlayerReadout): void => {
     Object.assign(shown, readout);
@@ -364,11 +442,21 @@ export function createPanel(): Panel {
     if (problems.length === 0) {
       return;
     }
-    const folder: GUI = gui.addFolder('Model problems');
+    const folder: GUI = addFolder(gui, 'panel.modelProblems');
     for (const problem of problems) {
-      const entry = folder.add(problem, 'reason').name(problem.file).disable();
-      // The panel is too narrow for a long reason.
-      entry.domElement.title = `${problem.file}: ${problem.reason}`;
+      const shownProblem: { reason: string } = { reason: '' };
+      const entry = folder
+        .add(shownProblem, 'reason')
+        .name(problem.file)
+        .disable();
+      const relabel = (): void => {
+        shownProblem.reason = explainProblem(translator, problem);
+        entry.updateDisplay();
+        // The panel is too narrow for a long reason.
+        entry.domElement.title = `${problem.file}: ${shownProblem.reason}`;
+      };
+      relabel();
+      relabels.push(relabel);
     }
   };
   return {
