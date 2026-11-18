@@ -23,7 +23,13 @@
 
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -356,6 +362,7 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
   '.html': 'text/html',
   '.js': 'text/javascript',
   '.json': 'application/json',
+  '.mp3': 'audio/mpeg',
 };
 
 /** Reads the size of the view and what the client tells of itself. */
@@ -785,7 +792,8 @@ function startClientServer(): Promise<number> {
 }
 
 /**
- * Starts headless Firefox with a temporary profile and a free BiDi port.
+ * Starts headless Firefox with a temporary profile and a free BiDi port,
+ * silenced, so that the music of the page is not heard.
  *
  * @returns {Promise<string>} The WebSocket URL of its WebDriver BiDi server.
  */
@@ -796,6 +804,10 @@ async function startFirefox(): Promise<string> {
   cleanups.push(() => {
     rmSync(profileDir, { recursive: true, force: true, maxRetries: 5 });
   });
+  writeFileSync(
+    path.join(profileDir, 'user.js'),
+    'user_pref("media.volume_scale", "0.0");\n',
+  );
   const args: string[] = [
     '--headless',
     '--no-remote',

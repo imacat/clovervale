@@ -110,5 +110,10 @@ Copyright 2026 imacat.
 
 Licensed under the Apache License, Version 2.0.  See [LICENSE](LICENSE).
 
+The exception is the music, "Embers on the Flagstone" by Kaazoom, from
+[Pixabay], which is under the [Pixabay Content License].
+
 [Node.js]: https://nodejs.org/
 [Firefox]: https://www.mozilla.org/firefox/
+[Pixabay]: https://pixabay.com/
+[Pixabay Content License]: https://pixabay.com/service/license-summary/

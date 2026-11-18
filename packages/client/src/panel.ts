@@ -23,6 +23,8 @@
 
 import GUI from 'lil-gui';
 
+import { DEFAULT_MUSIC_VOLUME } from './background-music.ts';
+import type { MusicSettings } from './background-music.ts';
 import type { CameraChoice } from './camera-choice.ts';
 import { describeSpaceKey } from './interaction-prompt.ts';
 import { DEFAULT_DELAY, MAX_DELAY } from './interpolation.ts';
@@ -127,6 +129,8 @@ export interface Panel {
    * when the player it follows is gone.
    */
   readonly camera: CameraSettings;
+  /** How the owner has the music played, as set now. */
+  readonly music: Readonly<MusicSettings>;
   /**
    * Offers the owner the players the camera can follow.
    *
@@ -222,13 +226,15 @@ const SLASH_NAMES: readonly [keyof SlashReadout, string][] = [
 
 /** The step of the delays the owner sets, in milliseconds. */
 const DELAY_STEP = 10;
+/** The step of the volume of the music the owner sets. */
+const VOLUME_STEP = 0.05;
 
 /**
  * Creates the settings panel, which starts with nothing synchronised yet,
  * with the player of the page to be shown as predicted, the other players
  * smoothly, by the default delay, no message held back, the slashes judged
  * on the world as the page showed it, the camera on the player of the page,
- * and no outlines of the obstacles.
+ * no outlines of the obstacles, and the music on at its default volume.
  *
  * @returns {Panel} The panel.
  */
@@ -243,6 +249,10 @@ export function createPanel(): Panel {
   const compensation: CompensationSettings = { isEnabled: true };
   const obstacles: ObstacleSettings = { isShown: false };
   const camera: CameraSettings = { followedId: null };
+  const music: MusicSettings = {
+    isEnabled: true,
+    volume: DEFAULT_MUSIC_VOLUME,
+  };
   const predicted: Record<keyof PredictionReadout, string> = {
     ...describePrediction(null),
   };
@@ -284,6 +294,8 @@ export function createPanel(): Panel {
     .name('Delay (ms)');
   gui.add(compensation, 'isEnabled').name('Compensate lag');
   gui.add(obstacles, 'isShown').name('Show obstacles');
+  gui.add(music, 'isEnabled').name('Music');
+  gui.add(music, 'volume', 0, 1, VOLUME_STEP).name('Music volume');
   // The panel keeps the keys from the game while a control of it is in use.
   gui.onFinishChange(() => {
     if (document.activeElement instanceof HTMLElement) {
@@ -367,6 +379,7 @@ export function createPanel(): Panel {
     compensation,
     obstacles,
     camera,
+    music,
     offerCameraChoices,
     showReadout,
     showMonster,

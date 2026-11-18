@@ -45,6 +45,7 @@ import type {
 } from '@clovervale/shared';
 
 import type { Actor } from './actor.ts';
+import { BackgroundMusic, MUSIC_FILE } from './background-music.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
@@ -96,6 +97,8 @@ import type { Viewport } from './viewport.ts';
 
 /** The URL of the directory of the models, relative to the page. */
 const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
+/** The URL of the music of the village, relative to the page. */
+const MUSIC_URL = `${import.meta.env.BASE_URL}music/${MUSIC_FILE}`;
 
 /** The colour of the number of a hit on the player of the page. */
 const OWN_HIT_COLOUR = '#ff4b3e';
@@ -132,6 +135,7 @@ const shownHits: HitEvent[] = [];
 const shownHeals: HealEvent[] = [];
 
 const panel: Panel = createPanel();
+const music = new BackgroundMusic(new Audio(MUSIC_URL));
 const prompt: Prompt = createPrompt(document.body);
 const scene = createVillageScene();
 const outlines = createObstacleOutlines(VILLAGE_TERRAIN);
@@ -150,6 +154,7 @@ const viewport: Viewport = showScene(
     sendMove();
     showPlayers();
     outlines.visible = panel.obstacles.isShown;
+    music.update(panel.music);
     for (const actor of actors) {
       actor.update(seconds);
     }
@@ -477,3 +482,10 @@ window.addEventListener('blur', () => {
   moveKeys.releaseAllKeys();
   sendMove();
 });
+// The browser lets the page make sound only once the user has pressed
+// something on it.
+for (const type of ['keydown', 'pointerdown']) {
+  window.addEventListener(type, () => {
+    music.allow(panel.music);
+  });
+}
