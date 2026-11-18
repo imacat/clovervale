@@ -26,8 +26,8 @@ import { VARIANTS, buildCharacter } from './characters.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import {
   buildBush,
+  buildClover,
   buildFence,
-  buildFlowers,
   buildGreatTree,
   buildHealingStele,
   buildPineTree,
@@ -68,7 +68,7 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-bush', build: buildBush },
     { name: 'prop-rock', build: buildRock },
     { name: 'prop-fence', build: buildFence },
-    { name: 'prop-flowers', build: buildFlowers },
+    { name: 'prop-clover', build: buildClover },
     { name: 'prop-spawn-stones', build: buildSpawnStones },
     { name: 'prop-healing-stele', build: buildHealingStele },
   ];

@@ -273,60 +273,104 @@ export function buildFence(): BuiltModel {
   return { model };
 }
 
+/** The number of sprigs in a patch of clover. */
+const CLOVER_SPRIG_COUNT = 10;
+
 /**
- * Builds a patch of wild flowers.
+ * The number of four-leaved sprigs in a patch of clover.  The rest are
+ * three-leaved.
+ */
+const FOUR_LEAVED_SPRIG_COUNT = 4;
+
+/** The seed of the shuffle that hands out the kinds of clover sprigs. */
+const CLOVER_SHUFFLE_SEED = 9;
+
+/**
+ * The outline of a clover leaflet, from where it joins the stem to its
+ * notched tip along +Y, in metres.
+ */
+const LEAFLET_OUTLINE: readonly Pair[] = [
+  [0, 0],
+  [0.046, 0.06],
+  [0.026, 0.1],
+  [0, 0.085],
+  [-0.026, 0.1],
+  [-0.046, 0.06],
+];
+
+/** The materials of the leaves of clover, from sprig to sprig. */
+const CLOVER_LEAVES: readonly string[] = ['leafA', 'leafB', 'leafC'];
+
+/**
+ * Counts the leaflets of each sprig in a patch of clover, handing out the
+ * four-leaved and the three-leaved kinds in a shuffled order of the sprigs.
+ * The counts are the same every time.
+ *
+ * @returns {number[]} The number of leaflets of each sprig, by its number.
+ */
+function countCloverLeaflets(): number[] {
+  const random: () => number = createRandom(CLOVER_SHUFFLE_SEED);
+  const order: number[] = Array.from(
+    { length: CLOVER_SPRIG_COUNT },
+    (_, i: number) => i,
+  );
+  for (let i = order.length - 1; i > 0; i--) {
+    const j: number = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [getItem(order, j), getItem(order, i)];
+  }
+  const counts: number[] = [];
+  order.forEach((sprig: number, rank: number) => {
+    counts[sprig] = rank < FOUR_LEAVED_SPRIG_COUNT ? 4 : 3;
+  });
+  return counts;
+}
+
+/**
+ * Builds a low patch of clover, mostly three-leaved with some four-leaved
+ * sprigs among them.
  *
  * @returns {BuiltModel} The model.
  */
-export function buildFlowers(): BuiltModel {
-  const model = new Model('Flowers');
-  model.setMaterial('stem', '#5fa646');
-  model.setMaterial('white', '#ffffff');
-  model.setMaterial('yellow', '#f7d23e');
-  model.setMaterial('red', '#e2463c');
-  model.setMaterial('violet', '#9b6fe0');
-  model.setMaterial('blue', '#5fa8ec');
+export function buildClover(): BuiltModel {
+  const model = new Model('Clover');
+  model.setMaterial('stem', '#6aa84a');
+  model.setMaterial('leafA', '#3f8a3a');
+  model.setMaterial('leafB', '#4c9a40');
+  model.setMaterial('leafC', '#5aa746');
   const random: () => number = createRandom(7);
-  const colours: string[] = ['white', 'yellow', 'red', 'violet', 'blue'];
-  for (let i = 0; i < 11; i++) {
+  const leaflet: Shape = createExtrusion(LEAFLET_OUTLINE, 0.006);
+  const leafletCounts: number[] = countCloverLeaflets();
+  for (let i = 0; i < CLOVER_SPRIG_COUNT; i++) {
     const angle: number = i * 2.4;
-    const reach: number = 0.12 + 0.62 * Math.sqrt(i / 11);
+    const reach: number = 0.06 + 0.56 * Math.sqrt(i / CLOVER_SPRIG_COUNT);
+    const leafletCount: number = getItem(leafletCounts, i);
     const x: number = reach * Math.cos(angle);
     const z: number = reach * Math.sin(angle);
-    const height: number = 0.22 + random() * 0.2;
-    const colour: string = getItem(colours, i % colours.length);
+    const height: number = 0.05 + random() * 0.07;
+    const turn: number = random() * 360;
     model.add(
       'stem',
-      place(createCone(0.022, 0.014, height, 3), { pos: [x, 0, z] }),
-    );
-    model.add(
-      'stem',
-      place(createEllipsoid([0.07, 0.012, 0.035], 0), {
-        pos: [x + 0.05, height * 0.4, z],
-        rot: [0, i * 50, 25],
-      }),
-    );
-    model.add(
-      colour,
       place(
         createLathe(
           [
             [0, 0],
-            [0.075, 0.035],
-            [0.06, 0.06],
-            [0, 0.04],
+            [0.008, 0],
+            [0, height],
           ],
-          5,
+          3,
         ),
-        { pos: [x, height, z], rot: [12, i * 40, 8] },
+        { pos: [x, 0, z] },
       ),
     );
-    model.add(
-      colour === 'yellow' ? 'white' : 'yellow',
-      place(createEllipsoid([0.028, 0.02, 0.028], 0), {
-        pos: [x, height + 0.05, z],
-      }),
-    );
+    for (let j = 0; j < leafletCount; j++) {
+      model.add(
+        getItem(CLOVER_LEAVES, i % CLOVER_LEAVES.length),
+        place(place(leaflet, { rot: [-75 - random() * 10, 0, 0] }), {
+          pos: [x, height, z],
+          rot: [0, turn + (j * 360) / leafletCount, 0],
+        }),
+      );
+    }
   }
   model.centreFootprint();
   return { model };

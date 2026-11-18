@@ -87,7 +87,7 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [-15, -10.5, 190],
     [15, -10.5, 260],
   ],
-  'prop-flowers.glb': [
+  'prop-clover.glb': [
     [-3.6, 3.4, 0],
     [-3.4, 6.4, 50],
     [-5.6, 9.2, 100],
@@ -182,7 +182,7 @@ export const FOUNTAIN_RIM_RADIUS = 1.6;
 
 /**
  * The ground each model takes up where nobody can walk, as the model has it
- * before it is placed.  The flowers, which anyone can step over, take up
+ * before it is placed.  The clover, which anyone can step over, takes up
  * none.
  */
 const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {

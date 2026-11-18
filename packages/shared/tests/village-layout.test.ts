@@ -39,7 +39,7 @@ import type { Placement } from '../src/index.ts';
 
 /** The models a player can walk over or into the middle of. */
 const OPEN_FILES: readonly string[] = [
-  'prop-flowers.glb',
+  'prop-clover.glb',
   'prop-spawn-stones.glb',
 ];
 
@@ -52,9 +52,9 @@ describe('VILLAGE_TERRAIN', () => {
     }
   });
 
-  it('lets players walk over the flowers', () => {
+  it('lets players walk over the clover', () => {
     for (const placement of VILLAGE_PLACEMENTS) {
-      if (placement.file === 'prop-flowers.glb') {
+      if (placement.file === 'prop-clover.glb') {
         const isOverlapped: boolean = VILLAGE_PLACEMENTS.some(
           (other: Placement) =>
             other !== placement &&
