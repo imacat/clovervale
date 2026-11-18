@@ -823,6 +823,12 @@ async function checkModel(file: string): Promise<ModelResult> {
     if (file === 'fountain.glb') {
       check(size.x <= 4 && size.z <= 4, 'fountain too wide');
     }
+    if (file === 'prop-village-sign.glb') {
+      // The whole sign, to the top of the stake above its board, stands
+      // about as tall as a person: no shorter than a character, and at
+      // most a little taller, so that it does not tower over the players.
+      check(height >= 1.5 && height <= 1.9, `height ${String(height)}`);
+    }
   }
   if (measured.feet !== null) {
     const centre: Vector3 = measured.feet.getCenter(new Vector3());

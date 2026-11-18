@@ -812,3 +812,193 @@ export function buildHealingStele(): BuiltModel {
   model.centreFootprint();
   return { model };
 }
+
+/** The number of points along the outline of a clover leaflet on the sign. */
+const HEART_POINTS = 20;
+
+/**
+ * Creates the outline of a heart-shaped leaflet, from its point at the
+ * origin to its notched end along +Y.
+ *
+ * @param {number} length - About how far the leaflet reaches from its
+ *   point.  It falls about 1% short of this.
+ * @returns {Pair[]} The outline.
+ */
+function createHeartOutline(length: number): Pair[] {
+  // The curve below reaches about 28.9 from its point along +Y.  Dividing
+  // by a little more than that leaves the leaflet about 1% short of
+  // `length`.
+  const scale: number = length / 29.2;
+  return Array.from({ length: HEART_POINTS }, (_, i: number): Pair => {
+    const t: number = (2 * Math.PI * i) / HEART_POINTS + Math.PI;
+    const x: number = 16 * Math.sin(t) ** 3;
+    const y: number =
+      13 * Math.cos(t) -
+      5 * Math.cos(2 * t) -
+      2 * Math.cos(3 * t) -
+      Math.cos(4 * t);
+    return [x * scale, (y + 17) * scale];
+  });
+}
+
+/**
+ * Creates a four-leaved clover in the XY plane around the origin, extruded
+ * along Z: four heart-shaped leaflets turned out on the diagonals, and a
+ * short stalk that curves down from their middle.
+ *
+ * @param {number} length - How far each leaflet reaches from the middle.
+ * @param {number} depth - The thickness of the leaflets along Z.
+ * @returns {[Shape, Shape]} The leaflets and the stalk.  The stalk is
+ *   thinner, so that the leaflets stand out in front of where it meets
+ *   them when both lie on the same face.
+ */
+function createFourLeafClover(length: number, depth: number): [Shape, Shape] {
+  const leaflet: Shape = createExtrusion(createHeartOutline(length), depth);
+  const leaflets: Shape = [45, 135, 225, 315].flatMap((turn: number) =>
+    place(leaflet, { rot: [0, 0, turn] }),
+  );
+  // The stalk, as points along its middle and its half width at each.
+  const spine: readonly Pair[] = [
+    [0, 0],
+    [0.004, -0.3],
+    [0.03, -0.6],
+    [0.08, -0.85],
+    [0.14, -1.05],
+  ];
+  const halfWidth: number = length * 0.07;
+  const sides: Pair[][] = [1, -1].map((side: number) =>
+    spine.map(([x, y]: Pair, i: number): Pair => {
+      const [nx, ny]: Pair = getItem(spine, Math.min(i + 1, spine.length - 1));
+      const [px, py]: Pair = getItem(spine, Math.max(i - 1, 0));
+      const [dx, dy]: Pair = [nx - px, ny - py];
+      const norm: number = Math.hypot(dx, dy);
+      const width: number = halfWidth * (1 - (0.4 * i) / spine.length);
+      return [
+        x * length + (side * width * -dy) / norm,
+        y * length + (side * width * dx) / norm,
+      ];
+    }),
+  );
+  const stalk: Shape = createExtrusion(
+    [...getItem(sides, 0), ...[...getItem(sides, 1)].reverse()],
+    depth / 2,
+  );
+  return [leaflets, stalk];
+}
+
+/**
+ * The rough-hewn outline of the board of the village sign, with its ends
+ * chipped and cut at a slant, in metres from its middle.
+ */
+const SIGN_BOARD_OUTLINE: readonly Pair[] = [
+  [-0.5, 0.2],
+  [-0.2, 0.24],
+  [0.15, 0.232],
+  [0.47, 0.25],
+  [0.51, 0.12],
+  [0.44, 0.075],
+  [0.5, 0.02],
+  [0.49, -0.19],
+  [0.41, -0.24],
+  [0.05, -0.228],
+  [-0.3, -0.245],
+  [-0.44, -0.225],
+  [-0.48, -0.17],
+  [-0.53, 0.06],
+];
+
+/**
+ * The grain worn into the face of the board of the village sign, each line
+ * as its outline, in metres from the middle of the board.
+ */
+const SIGN_BOARD_GRAIN: readonly (readonly Pair[])[] = [
+  [
+    [-0.46, 0.14],
+    [-0.34, 0.152],
+    [-0.24, 0.148],
+    [-0.34, 0.14],
+  ],
+  [
+    [0.23, -0.16],
+    [0.33, -0.168],
+    [0.45, -0.162],
+    [0.33, -0.158],
+  ],
+];
+
+/**
+ * Builds the sign that stands at the gate of the village: a rough-hewn
+ * board, near the eye level of a player, nailed a little crooked across the
+ * front of a crooked stake that sticks out above it, with the stub of a
+ * branch lower down.  The front of the board, which faces +Z, bears a green
+ * four-leaved clover.
+ *
+ * @returns {BuiltModel} The model.
+ */
+export function buildVillageSign(): BuiltModel {
+  const model = new Model('VillageSign');
+  model.setMaterial('post', '#7a4a2a');
+  model.setMaterial('board', '#d9a568');
+  model.setMaterial('grain', '#b07a44');
+  model.setMaterial('nail', '#4a3c34');
+  model.setMaterial('leaf', '#3f9a3a');
+  model.setMaterial('stalk', '#2f7a2e');
+  model.add(
+    'post',
+    createTube(
+      [
+        [0, 0, 0],
+        [0.018, 0.6, 0.006],
+        [-0.01, 1.2, -0.01],
+        [0.012, 1.8, 0],
+      ],
+      [0.07, 0.062, 0.056, 0.05],
+      6,
+    ),
+  );
+  // The stub of a branch, cut off short.
+  model.add(
+    'post',
+    createTube(
+      [
+        [0.01, 0.78, 0],
+        [0.1, 0.86, 0.01],
+        [0.17, 0.94, 0.016],
+      ],
+      [0.034, 0.027, 0.021],
+      5,
+    ),
+  );
+  const boardDepth = 0.045;
+  const paintDepth = 0.008;
+  // Whatever lies on the board lies flat on its front, its back against it.
+  const placeOnFront = (shape: Shape, depth: number, x = 0, y = 0): Shape =>
+    place(shape, { pos: [x, y, (boardDepth + depth) / 2] });
+  const [leaflets, stalk] = createFourLeafClover(0.19, paintDepth);
+  const nail: Shape = createBox(0.022, 0.022, paintDepth);
+  const board: readonly (readonly [string, Shape])[] = [
+    ['board', createExtrusion(SIGN_BOARD_OUTLINE, boardDepth)],
+    ...SIGN_BOARD_GRAIN.map(
+      (line: readonly Pair[]): [string, Shape] => [
+        'grain',
+        placeOnFront(createExtrusion(line, paintDepth / 2), paintDepth / 2),
+      ],
+    ),
+    ['nail', placeOnFront(nail, paintDepth, 0.005, 0.205)],
+    ['nail', placeOnFront(nail, paintDepth, -0.03, -0.205)],
+    ['leaf', placeOnFront(leaflets, paintDepth, 0, 0.015)],
+    ['stalk', placeOnFront(stalk, paintDepth / 2, 0, 0.015)],
+  ];
+  for (const [material, shape] of board) {
+    model.add(
+      material,
+      place(shape, {
+        pos: [0, 1.38, 0.056 + boardDepth / 2],
+        rot: [0, 0, -3],
+      }),
+    );
+  }
+  flattenUnderside(model);
+  model.centreFootprint();
+  return { model };
+}

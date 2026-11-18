@@ -28,20 +28,64 @@ import {
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
   PLAYER_RADIUS,
+  PLAZA_CENTRE,
   SPAWN_POINT_COUNT,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
   findInteraction,
   findPlacement,
   findSpawnPoint,
+  findTurn,
+  turnVector,
 } from '../src/index.ts';
-import type { Placement } from '../src/index.ts';
+import type { GroundVector, Placement } from '../src/index.ts';
 
 /** The models a player can walk over or into the middle of. */
 const OPEN_FILES: readonly string[] = [
   'prop-clover.glb',
   'prop-spawn-stones.glb',
 ];
+
+/** A gap in a fence that the way goes through. */
+interface Gate extends GroundVector {
+  /** Half the width of the gap, in metres. */
+  readonly halfWidth: number;
+}
+
+/**
+ * Finds the gate of the village on the way out to the spawn stones: the gap
+ * across from the plaza in the fence that runs between the plaza and the
+ * spawn stones.
+ *
+ * @returns {Gate} The gap.
+ * @throws {Error} If no fence with a gap runs between the plaza and the
+ *   spawn stones.
+ */
+function findGate(): Gate {
+  const stones: Placement = findPlacement('prop-spawn-stones.glb');
+  const fences: Placement[] = VILLAGE_PLACEMENTS.filter(
+    (placement: Placement) =>
+      placement.file === 'prop-fence.glb' &&
+      placement.yaw === 0 &&
+      placement.z > PLAZA_CENTRE.z &&
+      placement.z < stones.z,
+  );
+  const left: number = Math.max(
+    ...fences
+      .filter((fence: Placement) => fence.x < PLAZA_CENTRE.x)
+      .map((fence: Placement) => fence.x + 1),
+  );
+  const right: number = Math.min(
+    ...fences
+      .filter((fence: Placement) => fence.x > PLAZA_CENTRE.x)
+      .map((fence: Placement) => fence.x - 1),
+  );
+  const [fence] = fences;
+  if (fence === undefined || !(left < right)) {
+    throw new Error('No fence with a gap runs out to the spawn stones.');
+  }
+  return { x: (left + right) / 2, z: fence.z, halfWidth: (right - left) / 2 };
+}
 
 describe('VILLAGE_TERRAIN', () => {
   it('stands in the way where the scenery stands', () => {
@@ -104,6 +148,38 @@ describe('VILLAGE_TERRAIN', () => {
     };
     expect(VILLAGE_TERRAIN.isClear(front)).toBe(true);
     expect(findInteraction(front)).toBe('Drink');
+  });
+
+  it('stands the village sign outside the gate, beside the way', () => {
+    const gate: Gate = findGate();
+    const stones: Placement = findPlacement('prop-spawn-stones.glb');
+    const sign: Placement = findPlacement('prop-village-sign.glb');
+    // Just outside the gap in the fence, on the side of the way away from
+    // the stones.
+    expect(Math.abs(sign.x - gate.x)).toBeLessThan(gate.halfWidth);
+    expect(sign.z).toBeGreaterThan(gate.z);
+    expect(sign.z).toBeLessThan(gate.z + 3);
+    expect(Math.sign(sign.x - gate.x)).toBe(-Math.sign(stones.x - gate.x));
+    // Its board faces someone walking back in through the gate.
+    const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(sign.yaw));
+    expect(front.z).toBeGreaterThan(0.99);
+    expect(VILLAGE_TERRAIN.isClear(sign)).toBe(false);
+    // The way through the gate stays open.
+    expect(
+      VILLAGE_TERRAIN.isPathClear(
+        { x: gate.x, z: gate.z + 8 },
+        { x: gate.x, z: gate.z - 1 },
+        1,
+      ),
+    ).toBe(true);
+    for (const placement of VILLAGE_PLACEMENTS) {
+      if (placement !== sign) {
+        expect(
+          Math.hypot(placement.x - sign.x, placement.z - sign.z),
+          placement.file,
+        ).toBeGreaterThan(1.5);
+      }
+    }
   });
 
   it('keeps every spawn point clear', () => {

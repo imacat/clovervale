@@ -33,6 +33,7 @@ import {
   buildPineTree,
   buildRock,
   buildSpawnStones,
+  buildVillageSign,
 } from './props.ts';
 import type { BuiltModel } from './rig.ts';
 import { buildWildDog } from './wild-dog.ts';
@@ -71,5 +72,6 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-clover', build: buildClover },
     { name: 'prop-spawn-stones', build: buildSpawnStones },
     { name: 'prop-healing-stele', build: buildHealingStele },
+    { name: 'prop-village-sign', build: buildVillageSign },
   ];
 }
