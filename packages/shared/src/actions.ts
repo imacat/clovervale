@@ -23,13 +23,28 @@
  */
 
 /** What a player can be doing. */
-export const ACTION_STATES = ['Idle', 'Walk', 'Slash', 'Die'] as const;
+export const ACTION_STATES = [
+  'Idle',
+  'Walk',
+  'Slash',
+  'Drink',
+  'Die',
+] as const;
 
 /** What a player is doing. */
 export type ActionState = (typeof ACTION_STATES)[number];
 
+/**
+ * What a player can do when it interacts with the world: slash, or drink
+ * from the fountain.
+ */
+export type Interaction = Extract<ActionState, 'Slash' | 'Drink'>;
+
 /** How long a slash lasts, in seconds. */
 export const SLASH_DURATION = 0.6;
+
+/** How long a drink from the fountain lasts, in seconds. */
+export const DRINK_DURATION = 1;
 
 /** What the monster can be doing. */
 export const MONSTER_ACTIONS = ['Idle', 'Walk', 'Attack', 'Die'] as const;

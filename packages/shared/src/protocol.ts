@@ -32,7 +32,7 @@ import type {
 } from './player-motion.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -134,11 +134,28 @@ export interface HitEvent {
   readonly damage: number;
 }
 
+/** That something got health back, once. */
+export interface HealEvent {
+  /** The event discriminator. */
+  readonly type: 'heal';
+  /**
+   * The number of the event among the events of the server, which goes up
+   * with every event, from 1.
+   */
+  readonly id: number;
+  /** The simulation step at which it happened. */
+  readonly step: number;
+  /** Who got health back. */
+  readonly target: EntityRef;
+  /** How much health the target got back. */
+  readonly amount: number;
+}
+
 /**
  * Anything that happens once, at one moment, unlike the state that the
  * snapshots tell again and again.
  */
-export type GameEvent = HitEvent;
+export type GameEvent = HitEvent | HealEvent;
 
 /** How the server judged a slash of a player. */
 export interface SlashJudgement {
@@ -385,7 +402,7 @@ export function decodeServerMessage(data: string): ServerMessage {
             actionCount: motion.actionCount,
             direction: { x: motion.direction.x, z: motion.direction.z },
             isInteracting: motion.isInteracting,
-            slashSteps: motion.slashSteps,
+            actionSteps: motion.actionSteps,
           },
         },
         slash:
@@ -397,18 +414,8 @@ export function decodeServerMessage(data: string): ServerMessage {
   }
   if (value.type === 'events' && Array.isArray(value.events)) {
     const events: unknown[] = value.events;
-    if (events.every(isHitEvent)) {
-      return {
-        type: 'events',
-        events: events.map((event: HitEvent) => ({
-          type: 'hit',
-          id: event.id,
-          step: event.step,
-          attacker: { kind: event.attacker.kind, id: event.attacker.id },
-          target: { kind: event.target.kind, id: event.target.id },
-          damage: event.damage,
-        })),
-      };
+    if (events.every(isGameEvent)) {
+      return { type: 'events', events: events.map(copyEvent) };
     }
   }
   throw new Error('The server message is malformed.');
@@ -539,7 +546,7 @@ function isPlayerMotion(value: unknown): value is PlayerMotion {
     isCount(value.actionCount) &&
     isGroundVector(value.direction) &&
     typeof value.isInteracting === 'boolean' &&
-    isCount(value.slashSteps)
+    isCount(value.actionSteps)
   );
 }
 
@@ -645,4 +652,54 @@ function isHitEvent(value: unknown): value is HitEvent {
     isEntityRef(value.target) &&
     isCount(value.damage)
   );
+}
+
+/**
+ * Checks whether a decoded value is a heal.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is a heal.
+ */
+function isHealEvent(value: unknown): value is HealEvent {
+  return (
+    isRecord(value) &&
+    value.type === 'heal' &&
+    isCount(value.id) &&
+    isCount(value.step) &&
+    isEntityRef(value.target) &&
+    isCount(value.amount)
+  );
+}
+
+/**
+ * Checks whether a decoded value is an event.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is a hit or a heal.
+ */
+function isGameEvent(value: unknown): value is GameEvent {
+  return isHitEvent(value) || isHealEvent(value);
+}
+
+/**
+ * Copies a decoded event, without anything else it may carry.
+ *
+ * @param {GameEvent} event - The event.
+ * @returns {GameEvent} The copy.
+ */
+function copyEvent(event: GameEvent): GameEvent {
+  const { id, step } = event;
+  const target: EntityRef = { kind: event.target.kind, id: event.target.id };
+  if (event.type === 'heal') {
+    return { type: 'heal', id, step, target, amount: event.amount };
+  }
+  const { kind, id: attackerId } = event.attacker;
+  return {
+    type: 'hit',
+    id,
+    step,
+    attacker: { kind, id: attackerId },
+    target,
+    damage: event.damage,
+  };
 }

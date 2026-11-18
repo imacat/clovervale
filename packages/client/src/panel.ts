@@ -24,6 +24,7 @@
 import GUI from 'lil-gui';
 
 import type { CameraChoice } from './camera-choice.ts';
+import { describeSpaceKey } from './interaction-prompt.ts';
 import { DEFAULT_DELAY, MAX_DELAY } from './interpolation.ts';
 import type { ModelProblem } from './model-report.ts';
 import { MAX_NETWORK_DELAY } from './network-delay.ts';
@@ -161,6 +162,13 @@ export interface Panel {
    */
   readonly showPrediction: (readout: PredictionReadout) => void;
   /**
+   * Shows what the space bar makes the player of the page do now, as
+   * predicted, for the owner to see.
+   *
+   * @param {string} interaction - What it makes the player do.
+   */
+  readonly showInteraction: (interaction: string) => void;
+  /**
    * Shows how the server judged the latest slash of the player of the page,
    * for the owner to compare with what was shown.
    *
@@ -238,6 +246,9 @@ export function createPanel(): Panel {
   const predicted: Record<keyof PredictionReadout, string> = {
     ...describePrediction(null),
   };
+  const spaceKey: { interaction: string } = {
+    interaction: describeSpaceKey(null),
+  };
   const slash: Record<keyof SlashReadout, string> = {
     ...describeSlash(null),
   };
@@ -291,6 +302,11 @@ export function createPanel(): Panel {
   for (const [key, name] of PREDICTION_NAMES) {
     predictionFolder.add(predicted, key).name(name).disable().listen();
   }
+  predictionFolder
+    .add(spaceKey, 'interaction')
+    .name('Space key')
+    .disable()
+    .listen();
   const displayFolder: GUI = gui.addFolder('Displayed');
   for (const [key, name] of DISPLAY_NAMES) {
     displayFolder.add(display, key).name(name).disable().listen();
@@ -311,6 +327,9 @@ export function createPanel(): Panel {
   };
   const showPrediction = (readout: PredictionReadout): void => {
     Object.assign(predicted, readout);
+  };
+  const showInteraction = (interaction: string): void => {
+    spaceKey.interaction = interaction;
   };
   const showSlash = (readout: SlashReadout): void => {
     Object.assign(slash, readout);
@@ -353,6 +372,7 @@ export function createPanel(): Panel {
     showMonster,
     showDisplay,
     showPrediction,
+    showInteraction,
     showSlash,
     listProblems,
   };

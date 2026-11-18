@@ -326,6 +326,29 @@ const SLASHES: readonly TimedInput[] = [
   { time: 3352, input: INTERACT },
 ];
 
+/**
+ * A walk to the fountain and into its rim, a drink there with moves and
+ * another interaction during it, a slash right by it facing away, and
+ * another drink.
+ */
+const FOUNTAIN_VISIT: readonly TimedInput[] = [
+  { time: 300, input: steer(-1, 0) },
+  { time: 1633, input: steer(0, -1) },
+  { time: 4300, input: STOP },
+  { time: 4400, input: INTERACT },
+  { time: 4700, input: INTERACT },
+  { time: 4800, input: steer(1, 0) },
+  { time: 5600, input: STOP },
+  { time: 5650, input: steer(0, 1) },
+  { time: 5700, input: STOP },
+  { time: 5750, input: INTERACT },
+  { time: 6500, input: steer(0, -1) },
+  { time: 6800, input: STOP },
+  { time: 6850, input: INTERACT },
+  { time: 6860, input: steer(-1, 0) },
+  { time: 7000, input: STOP },
+];
+
 describe('the prediction of the player of the page', () => {
   it('starts as the server tells, with nothing to correct', () => {
     const prediction = new PlayerPrediction(START, 1000);
@@ -401,6 +424,37 @@ describe('the prediction of the player of the page', () => {
     expect(prediction.motion.action).toBe('Walk');
   });
 
+  it('drinks at the fountain, and slashes by it facing away', () => {
+    const prediction = new PlayerPrediction(START, 0);
+    const pending: TimedInput[] = [...FOUNTAIN_VISIT];
+    const actions: string[] = [];
+    for (let time = 0; time <= 9000; time++) {
+      while ((pending[0]?.time ?? Infinity) <= time) {
+        prediction.issueInput(pending.shift()?.input ?? STOP, time);
+      }
+      prediction.advance(time);
+      if (actions.at(-1) !== prediction.motion.action) {
+        actions.push(prediction.motion.action);
+      }
+    }
+    expect(actions).toEqual([
+      'Idle',
+      'Walk',
+      'Idle',
+      'Drink',
+      'Walk',
+      'Idle',
+      'Walk',
+      'Idle',
+      'Slash',
+      'Idle',
+      'Walk',
+      'Idle',
+      'Drink',
+      'Idle',
+    ]);
+  });
+
   it('tells when the latest input shows', () => {
     const prediction = new PlayerPrediction(START, 0);
     expect(prediction.inputStepTime).toBeNull();
@@ -461,6 +515,7 @@ describe('a prediction set right by the server', () => {
   it.each([
     ['a walk with turns in quick succession', QUICK_TURNS, 2600],
     ['slashes mixed with moves', SLASHES, 5000],
+    ['drinks at the fountain and a slash by it', FOUNTAIN_VISIT, 9000],
   ])(
     'never needs a correction over a steady link, for %s',
     (_: string, inputs: readonly TimedInput[], duration: number) => {
@@ -705,7 +760,7 @@ describe('placeOwnPlayer', () => {
     ...createMotion({ x: 1, z: 2 }, -90),
     action: 'Slash',
     actionCount: 7,
-    slashSteps: 4,
+    actionSteps: 4,
   };
   const placed: PlayerState = { id: 4, appearance: 2, x: 1, z: 2, yaw: -90,
     action: 'Slash', actionCount: 7, health: 70 };

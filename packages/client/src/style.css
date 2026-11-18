@@ -33,3 +33,18 @@ body {
 canvas {
   display: block;
 }
+
+/* What the space bar does, when it does more than slash. */
+.interaction-prompt {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 45%);
+  color: #f0f4e8;
+  font: 14px sans-serif;
+  pointer-events: none;
+  user-select: none;
+}

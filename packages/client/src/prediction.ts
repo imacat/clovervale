@@ -313,6 +313,6 @@ function isSameMotion(a: PlayerMotion, b: PlayerMotion): boolean {
     a.direction.x === b.direction.x &&
     a.direction.z === b.direction.z &&
     a.isInteracting === b.isInteracting &&
-    a.slashSteps === b.slashSteps
+    a.actionSteps === b.actionSteps
   );
 }

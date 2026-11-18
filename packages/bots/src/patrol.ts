@@ -22,6 +22,10 @@
  */
 
 import {
+  FOUNTAIN_REACH,
+  FOUNTAIN_RIM_RADIUS,
+  PLAYER_RADIUS,
+  PLAZA_CENTRE,
   SIMULATION_RATE,
   WALK_SPEED,
   findPlacement,
@@ -122,6 +126,55 @@ export function planRoute(
     }
   }
   return legs;
+}
+
+/**
+ * Where a bot stands to drink from the fountain: halfway into the reach of
+ * the fountain, on the side of the spawn points of the players.
+ */
+export const DRINKING_SPOT: GroundVector = {
+  x: PLAZA_CENTRE.x,
+  z: PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH / 2,
+};
+
+/**
+ * The point from which a bot makes its last walk to {@link DRINKING_SPOT},
+ * straight towards the fountain, so that it faces the fountain there.
+ */
+const DRINKING_APPROACH: GroundVector = {
+  x: DRINKING_SPOT.x,
+  z: DRINKING_SPOT.z + 1,
+};
+
+/**
+ * Finds the way from one point to another, as points to walk to one
+ * straight walk after another, or `null` if there is none.
+ */
+export type PathFinder = (
+  from: GroundVector,
+  to: GroundVector,
+) => GroundVector[] | null;
+
+/**
+ * Plans a walk to the spot where a bot drinks from the fountain.
+ *
+ * @param {GroundVector} from - Where the walk starts.
+ * @param {PathFinder} findPath - Finds the way from one point to another, as
+ *   points to walk to one straight walk after another, or `null` if there is
+ *   none.
+ * @returns {Leg[] | null} The straight walks, which end within half a step
+ *   of {@link DRINKING_SPOT}, facing the fountain, or `null` if there is no
+ *   way there.
+ */
+export function planDrinkingWalk(
+  from: GroundVector,
+  findPath: PathFinder,
+): Leg[] | null {
+  const path: GroundVector[] | null = findPath(from, DRINKING_APPROACH);
+  if (path === null) {
+    return null;
+  }
+  return planRoute(from, [...path, DRINKING_SPOT]);
 }
 
 /** The number of simulation steps a bot walks for to get out of a fix. */

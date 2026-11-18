@@ -36,6 +36,7 @@ import {
   encodeServerMessage,
 } from '../src/index.ts';
 import type {
+  HealEvent,
   HitEvent,
   InputProgress,
   MonsterState,
@@ -77,6 +78,15 @@ const HIT: HitEvent = {
   damage: 20,
 };
 
+/** A heal to put in events messages. */
+const HEAL: HealEvent = {
+  type: 'heal',
+  id: 5,
+  step: 42,
+  target: { kind: 'player', id: 7 },
+  amount: 30,
+};
+
 /** How far the player of a peer has got, to put in snapshots. */
 const OWN: InputProgress = {
   sequence: 12,
@@ -89,7 +99,7 @@ const OWN: InputProgress = {
     actionCount: 4,
     direction: { x: -1, z: 0 },
     isInteracting: false,
-    slashSteps: 0,
+    actionSteps: 0,
   },
 };
 
@@ -168,10 +178,10 @@ describe('the server message codec', () => {
       target: HIT.attacker,
       damage: 15,
     };
-    const message = createEventsMessage([HIT, back]);
+    const message = createEventsMessage([HIT, back, HEAL]);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'events',
-      events: [HIT, back],
+      events: [HIT, back, HEAL],
     });
   });
 
@@ -181,7 +191,7 @@ describe('the server message codec', () => {
   });
 
   it.each([
-    ['a known type', { type: 'heal' }],
+    ['a known type', { type: 'miss' }],
     ['a number', { id: -1 }],
     ['a step', { step: 1.5 }],
     ['an attacker', { attacker: null }],
@@ -191,6 +201,19 @@ describe('the server message codec', () => {
     const data = JSON.stringify({
       type: 'events',
       events: [HIT, { ...HIT, ...flaw }],
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['a number', { id: -1 }],
+    ['a step', { step: 1.5 }],
+    ['a known kind of target', { target: { kind: 'tree', id: 1 } }],
+    ['an amount of health', { amount: -30 }],
+  ])('rejects an events message with a heal without %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'events',
+      events: [HEAL, { ...HEAL, ...flaw }],
     });
     expect(() => decodeServerMessage(data)).toThrow();
   });
@@ -316,8 +339,8 @@ describe('the server message codec', () => {
       { own: { ...OWN, motion: { ...OWN.motion, direction: { x: 1 } } } },
     ],
     [
-      'a number of slash steps',
-      { own: { ...OWN, motion: { ...OWN.motion, slashSteps: null } } },
+      'a number of action steps',
+      { own: { ...OWN, motion: { ...OWN.motion, actionSteps: null } } },
     ],
   ])('rejects a snapshot that tells the peer without %s', (_, flaw) => {
     const data = JSON.stringify({

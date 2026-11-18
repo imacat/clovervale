@@ -59,6 +59,17 @@ describe('chooseClip', () => {
     });
   });
 
+  it('loops the clip of a drink, which the characters lack', () => {
+    expect(chooseClip('Drink', [...CHARACTER_CLIPS, 'Drink'])).toEqual({
+      name: 'Drink',
+      playback: 'loop',
+    });
+    expect(chooseClip('Drink', CHARACTER_CLIPS)).toEqual({
+      name: 'Idle',
+      playback: 'loop',
+    });
+  });
+
   it('idles when the model lacks the clip', () => {
     expect(chooseClip('Slash', ['Idle', 'Talk'])).toEqual({
       name: 'Idle',

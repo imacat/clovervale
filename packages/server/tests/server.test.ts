@@ -457,7 +457,7 @@ describe('the game server', () => {
       actionCount,
       direction: { x: 0, z: 0 },
       isInteracting: false,
-      slashSteps: 0,
+      actionSteps: 0,
     });
     // The stop waited for the four steps it told.
     expect(x - findPlayer(still, moverId).x).toBeCloseTo(

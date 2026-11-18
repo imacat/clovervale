@@ -174,13 +174,19 @@ function makeBox(
 }
 
 /**
+ * The radius of the rim of the basin of the fountain, inside the low step
+ * around it, in metres.
+ */
+export const FOUNTAIN_RIM_RADIUS = 1.6;
+
+/**
  * The ground each model takes up where nobody can walk, as the model has it
  * before it is placed.  The flowers, which anyone can step over, take up
  * none.
  */
 const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   // The rim of the basin, inside the low step around it.
-  'fountain.glb': [makeCircle(0, 0, 1.6)],
+  'fountain.glb': [makeCircle(0, 0, FOUNTAIN_RIM_RADIUS)],
   // The house, the forge beside it, and the stall in front.
   'weapon-shop.glb': [
     makeBox(-3.6, 1.85, -2.95, 1.9),

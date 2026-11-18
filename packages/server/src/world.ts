@@ -26,6 +26,7 @@ import {
   APPEARANCE_COUNT,
   AuthoritativePlayer,
   DEATH_DURATION,
+  FOUNTAIN_HEALING,
   PLAYER_HEALTH,
   SIMULATION_RATE,
   SLASH_DAMAGE,
@@ -172,10 +173,12 @@ export class World {
    * Receives an input of a player from its peer.
    *
    * A move changes the way the player wants to move, and an interaction
-   * makes it slash, unless it is slashing already or dead.  Either shows
-   * from the step at which the input comes into effect: no sooner than the
-   * next one, and no sooner than the player has taken as many steps since
-   * its previous input came into effect as the input tells.
+   * makes it slash or drink from the fountain, as the rules tell from where
+   * it stands and which way it faces then, unless it is doing either
+   * already or dead.  Either shows from the step at which the input comes
+   * into effect: no sooner than the next one, and no sooner than the player
+   * has taken as many steps since its previous input came into effect as
+   * the input tells.
    *
    * @param {number} id - The identifier of the player.
    * @param {StampedInput} input - The input.
@@ -191,9 +194,16 @@ export class World {
   /**
    * Moves the world one step of the simulation forward.
    *
-   * A player that slashes stands still, without turning, for as long as a
-   * slash lasts.  Any other player that wants to move walks that way, facing
-   * it, and idles otherwise.  The monster goes about its business.
+   * A player that slashes or drinks from the fountain stands still,
+   * without turning, for as long as that lasts.  Any other player that
+   * wants to move walks that way, facing it, and idles otherwise.  The
+   * monster goes about its business.
+   *
+   * A drink that starts at the step gives the player back
+   * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
+   * full health if that is less, which is an event unless it is none.  A
+   * drink is never judged on the world as its peer showed it, so the time
+   * its interaction names, if any, does not matter.
    *
    * Then the strikes are judged.  A slash that starts at the step hits the
    * monster if the monster is alive, and was alive, in front of the player
@@ -211,7 +221,7 @@ export class World {
    * is an event.
    *
    * A player with no health left dies, and lies where it fell for
-   * {@link DEATH_DURATION} seconds, neither moving, turning nor slashing,
+   * {@link DEATH_DURATION} seconds, neither moving, turning nor interacting,
    * neither hurt nor chased by the monster, though its inputs still change
    * the way it wants to move.  Then it comes back at a spawn point, at full
    * health, idling but wanting to move the way it does by then.
@@ -223,10 +233,11 @@ export class World {
       const before: PlayerMotion = player.mover.motion;
       const applied: StampedInput[] = player.mover.step();
       const after: PlayerMotion = player.mover.motion;
-      if (
-        after.action === 'Slash' &&
-        after.actionCount !== before.actionCount
-      ) {
+      const isStarted: boolean = after.actionCount !== before.actionCount;
+      if (isStarted && after.action === 'Drink') {
+        this.#healPlayer(player, FOUNTAIN_HEALING);
+      }
+      if (isStarted && after.action === 'Slash') {
         const interaction: StampedInput | undefined = applied.findLast(
           (input: StampedInput) => input.type === 'interact',
         );
@@ -420,6 +431,28 @@ export class World {
       player.mover.kill();
       player.deathSteps = DEATH_STEPS;
     }
+  }
+
+  /**
+   * Gives a player health back, as much as it lacks of its full health at
+   * most, and records it as an event unless it is none.
+   *
+   * @param {Player} player - The player.
+   * @param {number} amount - The health to give back.
+   */
+  #healPlayer(player: Player, amount: number): void {
+    const gained: number = Math.min(amount, PLAYER_HEALTH - player.health);
+    if (gained <= 0) {
+      return;
+    }
+    player.health += gained;
+    this.#events.push({
+      type: 'heal',
+      id: ++this.#lastEventId,
+      step: this.#stepCount,
+      target: { kind: 'player', id: player.id },
+      amount: gained,
+    });
   }
 
   /**

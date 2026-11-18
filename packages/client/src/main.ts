@@ -34,6 +34,8 @@ import type {
   EntityRef,
   GameEvent,
   GroundVector,
+  HealEvent,
+  HitEvent,
   MonsterState,
   PlayerInput,
   PlayerMotion,
@@ -48,6 +50,12 @@ import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
 import { EventSchedule } from './event-schedule.ts';
 import { HitMarkers } from './hit-markers.ts';
+import {
+  createPrompt,
+  describePrompt,
+  describeSpaceKey,
+} from './interaction-prompt.ts';
+import type { Prompt } from './interaction-prompt.ts';
 import { SnapshotTimeline } from './interpolation.ts';
 import type { PlayersView } from './interpolation.ts';
 import { REQUIRED_MODEL_FILES, planModels } from './model-catalogue.ts';
@@ -95,7 +103,12 @@ const OWN_HIT_COLOUR = '#ff4b3e';
 const PLAYER_HIT_COLOUR = '#ff9a3d';
 /** The colour of the number of a hit on a monster. */
 const MONSTER_HIT_COLOUR = '#ffe14d';
-/** The most hits that are remembered as shown, for looking at. */
+/** The colour of the number of a heal on any player. */
+const HEAL_COLOUR = '#7cf5c0';
+/**
+ * The most hits, and the most heals, that are remembered as shown, for
+ * looking at.
+ */
 const SHOWN_HIT_LIMIT = 100;
 
 /** The models that stand in the village whoever is connected. */
@@ -108,9 +121,12 @@ const timeline = new SnapshotTimeline();
 /** The events from the server that are yet to be shown. */
 const schedule = new EventSchedule();
 /** The latest hits that have been shown, the latest last. */
-const shownHits: GameEvent[] = [];
+const shownHits: HitEvent[] = [];
+/** The latest heals that have been shown, the latest last. */
+const shownHeals: HealEvent[] = [];
 
 const panel: Panel = createPanel();
+const prompt: Prompt = createPrompt(document.body);
 const scene = createVillageScene();
 const outlines = createObstacleOutlines(VILLAGE_TERRAIN);
 scene.add(outlines);
@@ -147,6 +163,7 @@ Object.defineProperty(window, 'clovervale', {
     listLatestPlayers: () => timeline.latest ?? [],
     listLatestMonsters: () => timeline.latestMonsters ?? [],
     listShownHits: () => [...shownHits],
+    listShownHeals: () => [...shownHeals],
   },
 });
 
@@ -253,14 +270,15 @@ function sendMove(): void {
 }
 
 /**
- * Shows the hits whose moment has come in what is shown, each once, with a
- * number that floats up from whoever was hit, where it is shown.  A hit on
- * whoever is not shown is not shown either.
+ * Shows the hits and the heals whose moment has come in what is shown, each
+ * once, with a number that floats up from whoever was hit or healed, where
+ * it is shown.  A hit or a heal of whoever is not shown is not shown
+ * either.
  *
  * @param {PlayersView} view - The players and the monsters as they are
  *   shown.
  */
-function showHits(view: PlayersView): void {
+function showEvents(view: PlayersView): void {
   for (const event of schedule.takeDue(view.time)) {
     const { target }: { target: EntityRef } = event;
     const shown: GroundVector | undefined =
@@ -272,15 +290,33 @@ function showHits(view: PlayersView): void {
     if (shown === undefined) {
       continue;
     }
+    if (event.type === 'heal') {
+      markers.show(shown, `+${String(event.amount)}`, HEAL_COLOUR);
+      rememberShown(shownHeals, event);
+      continue;
+    }
     let colour: string = MONSTER_HIT_COLOUR;
     if (target.kind === 'player') {
       colour = target.id === ownId ? OWN_HIT_COLOUR : PLAYER_HIT_COLOUR;
     }
-    markers.show(shown, event.damage, colour);
-    shownHits.push(event);
-    if (shownHits.length > SHOWN_HIT_LIMIT) {
-      shownHits.shift();
-    }
+    markers.show(shown, `-${String(event.damage)}`, colour);
+    rememberShown(shownHits, event);
+  }
+}
+
+/**
+ * Remembers an event as shown, forgetting the earliest of its kind once
+ * there are too many to remember.
+ *
+ * @param {T[]} shown - The events of its kind shown so far, the latest
+ *   last.
+ * @param {T} event - The event.
+ * @template T
+ */
+function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
+  shown.push(event);
+  if (shown.length > SHOWN_HIT_LIMIT) {
+    shown.shift();
   }
 }
 
@@ -311,9 +347,12 @@ function showPlayers(): void {
   }
   figures.showPlayers(view.players);
   monsterFigures.showMonsters(view.monsters);
-  showHits(view);
+  showEvents(view);
   panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
   panel.showPrediction(describePrediction(prediction));
+  const predicted: PlayerMotion | null = prediction?.motion ?? null;
+  prompt.show(describePrompt(predicted));
+  panel.showInteraction(describeSpaceKey(predicted));
   const followedId: number | null = panel.camera.followedId ?? ownId;
   const followed: PlayerState | undefined = view.players.find(
     (player: PlayerState) => player.id === followedId,
@@ -416,8 +455,8 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     moveKeys.pressKey(event.code);
     sendMove();
   } else if (!event.repeat && prediction?.motion.action !== 'Die') {
-    // A dead player cannot slash, and is not to slash once it is back for
-    // a key pressed while it was dead.
+    // A dead player cannot interact, and is not to once it is back for a
+    // key pressed while it was dead.
     sendInput({ type: 'interact' });
   }
 });

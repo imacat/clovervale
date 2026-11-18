@@ -1,0 +1,104 @@
+// The Clovervale project.
+// Copyright 2026 imacat.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Authors:
+//   imacat@mail.imacat.idv.tw (imacat), 2026/11/18
+// AI assistance: Claude Code (Anthropic)
+
+/**
+ * @module client/interaction-prompt Telling the person at the page what the
+ *   space bar makes its player do.
+ */
+
+import { canInteract, findInteraction } from '@clovervale/shared';
+import type { Interaction, PlayerMotion } from '@clovervale/shared';
+
+/** What each interaction is called, as the person at the page is told. */
+const INTERACTION_NAMES: Readonly<Record<Interaction, string>> = {
+  Slash: 'slash',
+  Drink: 'drink from the fountain',
+};
+
+/** What stands for a value that is not known yet. */
+const UNKNOWN = '–';
+
+/** A prompt on the page. */
+export interface Prompt {
+  /**
+   * Shows the prompt with a text, or hides it.
+   *
+   * @param {string | null} text - The text, or `null` to hide the prompt.
+   */
+  readonly show: (text: string | null) => void;
+}
+
+/**
+ * Describes what the space bar makes the player of the page do now.
+ *
+ * @param {PlayerMotion | null} motion - The motion of the player as
+ *   predicted, or `null` while there is none.
+ * @returns {string} What the player does, `nothing` while it cannot
+ *   interact, as while it is dead, or `–` while there is no player.
+ */
+export function describeSpaceKey(motion: PlayerMotion | null): string {
+  if (motion === null) {
+    return UNKNOWN;
+  }
+  if (!canInteract(motion)) {
+    return 'nothing';
+  }
+  return INTERACTION_NAMES[findInteraction(motion)];
+}
+
+/**
+ * Words the prompt that tells what the space bar makes the player of the
+ * page do now, unless that is only a slash.
+ *
+ * @param {PlayerMotion | null} motion - The motion of the player as
+ *   predicted, or `null` while there is none.
+ * @returns {string | null} The prompt, or `null` while the space bar makes
+ *   the player slash or do nothing, or there is no player.
+ */
+export function describePrompt(motion: PlayerMotion | null): string | null {
+  if (motion === null || !canInteract(motion)) {
+    return null;
+  }
+  const interaction: Interaction = findInteraction(motion);
+  if (interaction === 'Slash') {
+    return null;
+  }
+  return `Press Space to ${INTERACTION_NAMES[interaction]}`;
+}
+
+/**
+ * Creates a prompt at the foot of the page, which starts hidden.
+ *
+ * @param {HTMLElement} parent - What the prompt is added to.
+ * @returns {Prompt} The prompt.
+ */
+export function createPrompt(parent: HTMLElement): Prompt {
+  const element: HTMLDivElement = document.createElement('div');
+  element.className = 'interaction-prompt';
+  element.hidden = true;
+  parent.append(element);
+  return {
+    show: (text: string | null): void => {
+      element.hidden = text === null;
+      if (text !== null && element.textContent !== text) {
+        element.textContent = text;
+      }
+    },
+  };
+}

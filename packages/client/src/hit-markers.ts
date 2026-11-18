@@ -18,7 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/hit-markers Numbers that float up from whatever is hit.
+ * @module client/hit-markers Numbers that float up from whatever is hit or
+ *   healed.
  */
 
 import { CanvasTexture, SRGBColorSpace, Sprite, SpriteMaterial } from 'three';
@@ -49,7 +50,7 @@ interface Marker {
   age: number;
 }
 
-/** The numbers that float up from whatever is hit. */
+/** The numbers that float up from whatever is hit or healed. */
 export class HitMarkers {
   readonly #parent: Object3D;
   readonly #markers: Marker[] = [];
@@ -64,13 +65,13 @@ export class HitMarkers {
   }
 
   /**
-   * Floats a number up from where something was hit, fading away.
+   * Floats a number up from where something was hit or healed, fading away.
    *
-   * @param {GroundVector} position - Where the one hit stands.
-   * @param {number} damage - The health it lost.
+   * @param {GroundVector} position - Where the one hit or healed stands.
+   * @param {string} text - The number, with its sign.
    * @param {string} colour - The colour of the number.
    */
-  show(position: GroundVector, damage: number, colour: string): void {
+  show(position: GroundVector, text: string, colour: string): void {
     const canvas: HTMLCanvasElement = document.createElement('canvas');
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
@@ -82,7 +83,6 @@ export class HitMarkers {
       context.lineWidth = 6;
       context.strokeStyle = '#000000';
       context.fillStyle = colour;
-      const text = `-${String(damage)}`;
       context.strokeText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
       context.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }

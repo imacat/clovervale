@@ -25,7 +25,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { startServer } from '@clovervale/server';
 import type { RunningServer } from '@clovervale/server';
-import { decodeServerMessage, findSpawnPoint } from '@clovervale/shared';
+import {
+  PLAYER_HEALTH,
+  decodeServerMessage,
+  findSpawnPoint,
+} from '@clovervale/shared';
 import type {
   GroundVector,
   PlayerState,
@@ -268,6 +272,36 @@ describe('startBot', () => {
       expect(count).toBe(3);
     },
     TEST_TIMEOUT,
+  );
+
+  it(
+    'drinks from the fountain when its health is low, then patrols on',
+    async () => {
+      const bot: RunningBot = await startTestBot({
+        ...PATROL,
+        thirstyHealth: PLAYER_HEALTH,
+      });
+      const watcher: Watcher = watchServer(url);
+      cleanups.push(watcher.close);
+      const [first] = POINTS as [GroundVector];
+      const findBot = (): PlayerState | undefined =>
+        findPlayer(watcher.snapshots.at(-1), bot.playerId);
+
+      await waitUntil(() => findBot()?.action === 'Drink');
+      await waitUntil(() => isIdleAt(findBot(), first));
+      const drinks: number = new Set(
+        watcher.snapshots
+          .map((players: readonly PlayerState[]) =>
+            findPlayer(players, bot.playerId),
+          )
+          .filter(
+            (player: PlayerState | undefined) => player?.action === 'Drink',
+          )
+          .map((player: PlayerState | undefined) => player?.actionCount),
+      ).size;
+      expect(drinks).toBe(1);
+    },
+    TEST_TIMEOUT * 2,
   );
 
   it('leaves the village when stopped', async () => {

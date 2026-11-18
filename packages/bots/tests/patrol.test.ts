@@ -28,6 +28,7 @@ import {
   VILLAGE_TERRAIN,
   applyInput,
   createMotion,
+  findInteraction,
   findSpawnPoint,
   findVillagePath,
   stepMotion,
@@ -35,10 +36,12 @@ import {
 import type { GroundVector, PlayerMotion } from '@clovervale/shared';
 
 import {
+  DRINKING_SPOT,
   ESCAPE_STEPS,
   POINTS_OF_INTEREST,
   STEP_DISTANCE,
   chooseNextPoint,
+  planDrinkingWalk,
   planEscape,
   planLeg,
   planRoute,
@@ -137,6 +140,38 @@ describe('planRoute', () => {
     const from: GroundVector = { x: 1, z: 2 };
     const legs = planRoute(from, [{ x: 1.01, z: 2 }, { x: 1.01, z: 3 }]);
     expect(legs).toHaveLength(1);
+  });
+});
+
+describe('planDrinkingWalk', () => {
+  it('walks to the fountain, facing it, from everywhere a bot goes', () => {
+    const starts: GroundVector[] = [
+      ...POINTS_OF_INTEREST.map(({ position }) => position),
+      findSpawnPoint(0),
+      DRINKING_SPOT,
+    ];
+    for (const start of starts) {
+      const legs: Leg[] | null = planDrinkingWalk(start, findVillagePath);
+      expect(legs).not.toBeNull();
+      let motion: PlayerMotion = createMotion(start, 0);
+      for (const leg of legs ?? []) {
+        motion = applyInput(motion, { type: 'move', direction: leg.direction });
+        for (let step = 0; step < leg.steps; step++) {
+          motion = stepMotion(motion);
+        }
+      }
+      motion = stepMotion(
+        applyInput(motion, { type: 'move', direction: { x: 0, z: 0 } }),
+      );
+      expect(measureDistance(motion, DRINKING_SPOT)).toBeLessThanOrEqual(
+        STEP_DISTANCE / 2 + 1e-9,
+      );
+      expect(findInteraction(motion)).toBe('Drink');
+    }
+  });
+
+  it('finds no walk where there is no way', () => {
+    expect(planDrinkingWalk({ x: 0, z: 0 }, () => null)).toBeNull();
   });
 });
 

@@ -155,7 +155,7 @@ export class AuthoritativePlayer {
    * the motion of the player as the server tells it.
    *
    * The player stops whatever it is doing and lies there, neither moving,
-   * turning nor slashing, until it is moved somewhere else.  The inputs
+   * turning nor interacting, until it is moved somewhere else.  The inputs
    * that are waiting for their turn still come into effect when it comes,
    * but only to change the way the player wants to move.
    */

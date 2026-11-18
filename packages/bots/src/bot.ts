@@ -24,17 +24,21 @@
 
 import {
   INPUT_WAIT_LIMIT,
+  PLAYER_HEALTH,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
+  createInteractMessage,
   createMoveMessage,
   decodeServerMessage,
   encodeClientMessage,
+  findInteraction,
   findVillagePath,
   isResting,
 } from '@clovervale/shared';
 import type {
   GroundVector,
   InputProgress,
+  PlayerState,
   ServerMessage,
 } from '@clovervale/shared';
 
@@ -42,6 +46,7 @@ import {
   POINTS_OF_INTEREST,
   STEP_DISTANCE,
   chooseNextPoint,
+  planDrinkingWalk,
   planEscape,
   planRoute,
 } from './patrol.ts';
@@ -66,7 +71,18 @@ export interface PatrolSettings {
     from: GroundVector,
     to: GroundVector,
   ) => GroundVector[] | null;
+  /**
+   * The health at or below which the bot goes to drink from the fountain
+   * before it patrols on.  {@link THIRSTY_HEALTH} by default.
+   */
+  readonly thirstyHealth?: number;
 }
+
+/**
+ * The health at or below which a bot goes to drink from the fountain unless
+ * told otherwise: half its full health.
+ */
+export const THIRSTY_HEALTH: number = PLAYER_HEALTH / 2;
 
 /**
  * How a bot patrols unless told otherwise: between the points of interest
@@ -79,6 +95,9 @@ export const DEFAULT_PATROL: PatrolSettings = {
   maxPause: 3000,
   drawRandom: Math.random,
 };
+
+/** How far a bot has got with a visit to the fountain. */
+type FountainVisit = 'none' | 'walking' | 'drinking';
 
 /** A bot connected to a game server. */
 export interface RunningBot {
@@ -125,6 +144,12 @@ const ATTEMPT_LIMIT = 5;
  * player that dies gives up the rest of its walk, and sets out again from
  * where it comes back.
  *
+ * A player whose health has fallen to the thirsty health of the patrol
+ * walks to the fountain instead, once it has come to rest, and drinks from
+ * it again and again until it is at full health, then patrols on to
+ * another point.  It gives up on the fountain as it does on a point it
+ * does not get to, and on dying.
+ *
  * @param {string} url - The WebSocket URL of the server.
  * @param {PatrolSettings} [patrol] - How the bot patrols, or between the
  *   points of interest of the village by default.
@@ -154,8 +179,10 @@ export function startBot(
     let attempts = 0;
     let isStaying = false;
     let readyTime = 0;
+    let visit: FountainVisit = 'none';
     const timers = new Set<NodeJS.Timeout>();
     const findPath = patrol.findPath ?? findVillagePath;
+    const thirstyHealth: number = patrol.thirstyHealth ?? THIRSTY_HEALTH;
     const sendMove = (after: number, direction: GroundVector): void => {
       if (socket.readyState === WebSocket.OPEN) {
         const stamp = { sequence: ++sequence, after };
@@ -198,6 +225,16 @@ export function startBot(
         path === null ? [planEscape(patrol.drawRandom)] : planRoute(from, path),
       );
     };
+    const drink = (): void => {
+      if (socket.readyState === WebSocket.OPEN) {
+        const stamp = { sequence: ++sequence, after: 0 };
+        socket.send(encodeClientMessage(createInteractMessage(stamp)));
+      }
+    };
+    const setOutToDrink = (from: GroundVector): void => {
+      attempts++;
+      walk(planDrinkingWalk(from, findPath) ?? [planEscape(patrol.drawRandom)]);
+    };
     const stopWalking = (): void => {
       if (timers.size === 0) {
         return;
@@ -208,11 +245,46 @@ export function startBot(
       timers.clear();
       sendMove(0, STOP);
     };
-    const patrolOn = (own: InputProgress): void => {
+    /**
+     * Has the player of the bot visit the fountain, if it is to.
+     *
+     * @param {InputProgress} own - How far the player has got with the
+     *   inputs of the bot, now that it is ready for the next one.
+     * @param {number} health - The health of the player.
+     * @returns {boolean} Whether the player is still on its visit.
+     */
+    const visitFountain = (own: InputProgress, health: number): boolean => {
+      if (visit === 'none' && health <= thirstyHealth) {
+        visit = 'walking';
+        attempts = 0;
+      }
+      if (visit === 'walking') {
+        if (findInteraction(own.motion) === 'Drink') {
+          visit = 'drinking';
+          drink();
+          return true;
+        }
+        if (attempts < ATTEMPT_LIMIT) {
+          setOutToDrink(own.motion);
+          return true;
+        }
+      }
+      if (visit === 'drinking' && health < PLAYER_HEALTH) {
+        drink();
+        return true;
+      }
+      if (visit !== 'none') {
+        visit = 'none';
+        isStaying = true;
+      }
+      return false;
+    };
+    const patrolOn = (own: InputProgress, health: number): void => {
       if (own.motion.action === 'Die') {
         // The player comes back elsewhere, where the rest of the walk would
         // lead it astray, so it is to rest by then and set out afresh.
         stopWalking();
+        visit = 'none';
         return;
       }
       const now: number = performance.now();
@@ -221,7 +293,7 @@ export function startBot(
         own.sequence === sequence &&
         isResting(own.motion) &&
         now >= readyTime;
-      if (!isReady) {
+      if (!isReady || visitFountain(own, health)) {
         return;
       }
       if (target !== null && !isStaying) {
@@ -256,11 +328,15 @@ export function startBot(
       }
       if (message.type === 'snapshot') {
         if (playerId !== null && !isStopping) {
-          patrolOn(message.own);
+          const own: PlayerState | undefined = message.players.find(
+            (player: PlayerState) => player.id === playerId,
+          );
+          patrolOn(message.own, own?.health ?? PLAYER_HEALTH);
         }
         return;
       }
-      // A bot does not fight, so what happens does not concern it.
+      // A bot does not fight, and learns its health from the snapshots, so
+      // what happens does not concern it.
       if (message.type === 'events') {
         return;
       }

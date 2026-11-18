@@ -26,6 +26,8 @@ import { describe, expect, it } from 'vitest';
 import {
   APPEARANCE_COUNT,
   DEATH_DURATION,
+  DRINK_STEPS,
+  FOUNTAIN_HEALING,
   MONSTER_HEALTH,
   PLAYER_HEALTH,
   PLAZA_CENTRE,
@@ -285,6 +287,37 @@ function turnPlayer(world: World, id: number, point: GroundVector): void {
   world.step();
   steerPlayer(world, id, { x: 0, z: 0 });
   world.step();
+}
+
+/** Where a player stands by the fountain, which it is within reach of. */
+const BY_FOUNTAIN: GroundVector = {
+  x: PLAZA_CENTRE.x,
+  z: PLAZA_CENTRE.z + 2.1,
+};
+
+/**
+ * Walks a player of a world near the home of the monster, waits there
+ * until the monster has hurt it enough, and walks it to the fountain,
+ * facing it.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {number} health - The most health the player is to be left with.
+ * @returns {PlayerState} The player as it stands by the fountain.
+ * @throws {Error} If the monster does not hurt the player enough.
+ */
+function hurtPlayer(world: World, id: number, health: number): PlayerState {
+  meetMonster(world, id);
+  for (let step = 0; findPlayer(world, id).health > health; step++) {
+    if (step > 30 * SIMULATION_RATE) {
+      throw new Error(`Player ${String(id)} is not hurt enough.`);
+    }
+    world.step();
+  }
+  walkPlayer(world, id, BY_FOUNTAIN);
+  turnPlayer(world, id, PLAZA_CENTRE);
+  world.takeEvents();
+  return findPlayer(world, id);
 }
 
 /** The monster at a moment. */
@@ -611,6 +644,107 @@ describe('a player who interacts', () => {
   });
 });
 
+describe('a player who interacts by the fountain', () => {
+  it('drinks from the next step, for as long as a drink lasts', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    walkPlayer(world, id, BY_FOUNTAIN);
+    turnPlayer(world, id, PLAZA_CENTRE);
+    const before: PlayerState = findPlayer(world, id);
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id)).toMatchObject({
+      x: before.x,
+      z: before.z,
+      action: 'Drink',
+      actionCount: before.actionCount + 1,
+    });
+    stepTimes(world, DRINK_STEPS - 1);
+    expect(findPlayer(world, id).action).toBe('Drink');
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Idle');
+  });
+
+  it('gets health back at once as the drink starts, as an event', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    const hurt: PlayerState = hurtPlayer(
+      world,
+      id,
+      PLAYER_HEALTH - FOUNTAIN_HEALING,
+    );
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id).health).toBe(hurt.health + FOUNTAIN_HEALING);
+    expect(world.takeEvents()).toEqual([
+      expect.objectContaining({
+        type: 'heal',
+        target: { kind: 'player', id },
+        amount: FOUNTAIN_HEALING,
+      }),
+    ]);
+    stepTimes(world, DRINK_STEPS);
+    expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('gets no more health back than it lacks', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    const hurt: PlayerState = hurtPlayer(world, id, PLAYER_HEALTH - 1);
+    const lacking: number = PLAYER_HEALTH - hurt.health;
+    interactPlayer(world, id);
+    stepTimes(world, DRINK_STEPS + 1);
+    interactPlayer(world, id);
+    stepTimes(world, DRINK_STEPS + 1);
+    const healed: number = world
+      .takeEvents()
+      .reduce(
+        (total: number, event: GameEvent) =>
+          total + (event.type === 'heal' ? event.amount : 0),
+        0,
+      );
+    expect(healed).toBe(lacking);
+    expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
+  });
+
+  it('drinks at full health without getting any back', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    walkPlayer(world, id, BY_FOUNTAIN);
+    turnPlayer(world, id, PLAZA_CENTRE);
+    world.takeEvents();
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id)).toMatchObject({
+      action: 'Drink',
+      health: PLAYER_HEALTH,
+    });
+    expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('is not judged as a slash, whatever time it names', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    walkPlayer(world, id, BY_FOUNTAIN);
+    turnPlayer(world, id, PLAZA_CENTRE);
+    interactPlayer(world, id, world.time - 200);
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Drink');
+    expect(world.findSlash(id)).toBeNull();
+  });
+
+  it('slashes facing away from the fountain', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    walkPlayer(world, id, BY_FOUNTAIN);
+    turnPlayer(world, id, { x: BY_FOUNTAIN.x, z: BY_FOUNTAIN.z + 1 });
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Slash');
+    expect(world.findSlash(id)).toMatchObject({ isHit: false });
+  });
+});
+
 describe('the action count of a player', () => {
   it('goes up whenever the player starts an action', () => {
     const world = new World();
@@ -704,7 +838,7 @@ describe('the inputs of a player', () => {
         actionCount: player.actionCount,
         direction: { x: 0, z: 1 },
         isInteracting: false,
-        slashSteps: 0,
+        actionSteps: 0,
       },
     });
   });
@@ -929,7 +1063,11 @@ describe('the attack of the monster', () => {
       });
     }
     expect(
-      hits.reduce((total: number, hit: GameEvent) => total + hit.damage, 0),
+      hits.reduce(
+        (total: number, hit: GameEvent) =>
+          total + (hit.type === 'hit' ? hit.damage : 0),
+        0,
+      ),
     ).toBe(health);
     expect(findPlayer(world, id).action).toBe('Die');
   });
@@ -976,7 +1114,10 @@ describe('a dead player', () => {
     expect(
       world
         .takeEvents()
-        .filter((event: GameEvent) => event.attacker.kind === 'player'),
+        .filter(
+          (event: GameEvent) =>
+            event.type === 'hit' && event.attacker.kind === 'player',
+        ),
     ).toEqual([]);
   });
 

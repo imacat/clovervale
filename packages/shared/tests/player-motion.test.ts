@@ -25,13 +25,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DRINK_DURATION,
+  DRINK_STEPS,
+  FOUNTAIN_RIM_RADIUS,
   PLAYER_RADIUS,
+  PLAZA_CENTRE,
   SIMULATION_RATE,
   SLASH_DURATION,
   SLASH_STEPS,
   VILLAGE_BOUNDARY,
   WALK_SPEED,
   applyInput,
+  canInteract,
   createMotion,
   findPlacement,
   isResting,
@@ -42,6 +47,15 @@ import type { PlayerInput, PlayerMotion } from '../src/index.ts';
 
 /** The input that makes a player interact. */
 const INTERACT: PlayerInput = { type: 'interact' };
+
+/** Where a player stands against the rim of the fountain, facing it. */
+const BY_FOUNTAIN: PlayerMotion = createMotion(
+  {
+    x: PLAZA_CENTRE.x,
+    z: PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.1,
+  },
+  180,
+);
 
 /**
  * Makes the input that steers a player.
@@ -198,6 +212,81 @@ describe('a player who interacts', () => {
     const again: PlayerMotion = stepMotion(applyInput(over, INTERACT));
     expect(again.action).toBe('Slash');
     expect(again.actionCount).toBe(3);
+  });
+});
+
+describe('a player who interacts by the fountain', () => {
+  it('drinks from the next step, for as long as a drink lasts', () => {
+    expect(DRINK_STEPS / SIMULATION_RATE).toBeCloseTo(DRINK_DURATION);
+    const asked: PlayerMotion = applyInput(BY_FOUNTAIN, INTERACT);
+    expect(asked.action).toBe('Idle');
+    const drinking: PlayerMotion = stepMotion(asked);
+    expect(drinking.action).toBe('Drink');
+    expect(drinking.actionCount).toBe(1);
+    expect(canInteract(drinking)).toBe(false);
+    expect(stepTimes(drinking, DRINK_STEPS - 1).action).toBe('Drink');
+    const over: PlayerMotion = stepTimes(drinking, DRINK_STEPS);
+    expect(over.action).toBe('Idle');
+    expect(canInteract(over)).toBe(true);
+    expect(isResting(over)).toBe(true);
+  });
+
+  it('carries on with its drink alone when asked again during it', () => {
+    const drinking: PlayerMotion = stepTimes(
+      applyInput(BY_FOUNTAIN, INTERACT),
+      DRINK_STEPS / 2,
+    );
+    const again: PlayerMotion = applyInput(drinking, INTERACT);
+    expect(again).toEqual(drinking);
+    const over: PlayerMotion = stepTimes(again, DRINK_STEPS / 2 + 1);
+    expect(over.action).toBe('Idle');
+    expect(stepTimes(over, DRINK_STEPS).action).toBe('Idle');
+  });
+
+  it('stands still without turning while it drinks', () => {
+    const drinking: PlayerMotion = stepTimes(
+      applyInput(applyInput(BY_FOUNTAIN, INTERACT), steer(1, 0)),
+      DRINK_STEPS,
+    );
+    expect(drinking).toMatchObject({
+      x: BY_FOUNTAIN.x,
+      z: BY_FOUNTAIN.z,
+      yaw: BY_FOUNTAIN.yaw,
+      action: 'Drink',
+    });
+    const walking: PlayerMotion = stepMotion(drinking);
+    expect(walking.action).toBe('Walk');
+    expect(walking.x).toBeGreaterThan(BY_FOUNTAIN.x);
+  });
+
+  it('slashes facing away from the fountain', () => {
+    const away: PlayerMotion = { ...BY_FOUNTAIN, yaw: 0 };
+    expect(stepMotion(applyInput(away, INTERACT)).action).toBe('Slash');
+  });
+
+  it('does not drink while it slashes', () => {
+    const away: PlayerMotion = { ...BY_FOUNTAIN, yaw: 0 };
+    const slashing: PlayerMotion = stepMotion(applyInput(away, INTERACT));
+    const turned: PlayerMotion = { ...slashing, yaw: 180 };
+    expect(canInteract(turned)).toBe(false);
+    expect(applyInput(turned, INTERACT)).toEqual(turned);
+  });
+
+  it('does not drink once dead, then or later', () => {
+    const dead: PlayerMotion = killMotion(BY_FOUNTAIN);
+    expect(canInteract(dead)).toBe(false);
+    const asked: PlayerMotion = applyInput(dead, INTERACT);
+    expect(asked).toEqual(dead);
+    expect(stepTimes(asked, SIMULATION_RATE)).toEqual(dead);
+  });
+
+  it('stops drinking when it dies', () => {
+    const drinking: PlayerMotion = stepMotion(
+      applyInput(BY_FOUNTAIN, INTERACT),
+    );
+    const dead: PlayerMotion = stepTimes(killMotion(drinking), DRINK_STEPS);
+    expect(dead.action).toBe('Die');
+    expect(dead.actionCount).toBe(drinking.actionCount + 1);
   });
 });
 

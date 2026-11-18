@@ -23,10 +23,11 @@
 
 export {
   ACTION_STATES,
+  DRINK_DURATION,
   MONSTER_ACTIONS,
   SLASH_DURATION,
 } from './actions.ts';
-export type { ActionState, MonsterAction } from './actions.ts';
+export type { ActionState, Interaction, MonsterAction } from './actions.ts';
 export {
   AuthoritativePlayer,
   INPUT_WAIT_LIMIT,
@@ -46,6 +47,12 @@ export {
   STRIKE_HALF_ANGLE,
   isWithinStrike,
 } from './combat.ts';
+export {
+  FOUNTAIN_HEALING,
+  FOUNTAIN_REACH,
+  INTERACTION_HALF_ANGLE,
+  findInteraction,
+} from './interaction.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
 export type { Placed } from './interpolation.ts';
 export {
@@ -62,8 +69,10 @@ export {
   placeWaypoints,
 } from './navigation.ts';
 export {
+  DRINK_STEPS,
   SLASH_STEPS,
   applyInput,
+  canInteract,
   createMotion,
   isResting,
   killMotion,
@@ -98,6 +107,7 @@ export type {
   EntityRef,
   EventsMessage,
   GameEvent,
+  HealEvent,
   HitEvent,
   InteractMessage,
   MonsterMode,
@@ -126,6 +136,7 @@ export type {
   Turn,
 } from './terrain.ts';
 export {
+  FOUNTAIN_RIM_RADIUS,
   VILLAGE_BOUNDARY,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
