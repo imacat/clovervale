@@ -38,6 +38,12 @@ export const SPAWN_SPACING = 1.6;
 /** The number of spawn points in a row. */
 const SPAWN_ROW_LENGTH = 8;
 
+/** The number of rows of spawn points. */
+const SPAWN_ROW_COUNT = 4;
+
+/** The number of spawn points, all clear of the obstacles. */
+export const SPAWN_POINT_COUNT: number = SPAWN_ROW_LENGTH * SPAWN_ROW_COUNT;
+
 /** The distance of the first row of spawn points from the fountain. */
 const SPAWN_DISTANCE = 5;
 
@@ -47,7 +53,8 @@ const SPAWN_DISTANCE = 5;
  * The points lie in rows on the plaza in front of the fountain.  Each row
  * fills from its middle outwards, and the rows fill away from the fountain.
  *
- * @param {number} index - The number of the point, from zero.
+ * @param {number} index - The number of the point, from zero and below
+ *   {@link SPAWN_POINT_COUNT}.
  * @returns {GroundVector} The point.
  */
 export function findSpawnPoint(index: number): GroundVector {

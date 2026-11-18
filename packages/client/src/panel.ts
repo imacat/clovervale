@@ -75,6 +75,15 @@ export interface NetworkSettings {
   delay: number;
 }
 
+/** What the owner has drawn to see what the rules of the game use. */
+export interface ObstacleSettings {
+  /**
+   * Whether the outlines of the obstacles and of the boundary of the
+   * village are drawn on the ground.
+   */
+  isShown: boolean;
+}
+
 /** Where the owner has the camera. */
 export interface CameraSettings {
   /**
@@ -94,6 +103,8 @@ export interface Panel {
   readonly prediction: Readonly<PredictionSettings>;
   /** The connection the page pretends to have, as set now. */
   readonly network: Readonly<NetworkSettings>;
+  /** What the owner has drawn of the obstacles, as set now. */
+  readonly obstacles: Readonly<ObstacleSettings>;
   /**
    * Where the owner has the camera, as set now, which the page changes
    * when the player it follows is gone.
@@ -162,8 +173,8 @@ const DELAY_STEP = 10;
 /**
  * Creates the settings panel, which starts with nothing synchronised yet,
  * with the player of the page to be shown as predicted, the other players
- * smoothly, by the default delay, no message held back, and the camera on
- * the player of the page.
+ * smoothly, by the default delay, no message held back, the camera on the
+ * player of the page, and no outlines of the obstacles.
  *
  * @returns {Panel} The panel.
  */
@@ -175,6 +186,7 @@ export function createPanel(): Panel {
   };
   const prediction: PredictionSettings = { isEnabled: true };
   const network: NetworkSettings = { delay: 0 };
+  const obstacles: ObstacleSettings = { isShown: false };
   const camera: CameraSettings = { followedId: null };
   const predicted: Record<keyof PredictionReadout, string> = {
     ...describePrediction(null),
@@ -201,6 +213,7 @@ export function createPanel(): Panel {
   gui
     .add(interpolation, 'delay', 0, MAX_DELAY, DELAY_STEP)
     .name('Delay (ms)');
+  gui.add(obstacles, 'isShown').name('Show obstacles');
   // The panel keeps the keys from the game while a control of it is in use.
   gui.onFinishChange(() => {
     if (document.activeElement instanceof HTMLElement) {
@@ -259,6 +272,7 @@ export function createPanel(): Panel {
     interpolation,
     prediction,
     network,
+    obstacles,
     camera,
     offerCameraChoices,
     showReadout,

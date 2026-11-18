@@ -32,7 +32,7 @@ import type {
 } from './player-motion.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;

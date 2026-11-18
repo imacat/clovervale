@@ -26,6 +26,7 @@ import { SLASH_DURATION } from './actions.ts';
 import type { ActionState } from './actions.ts';
 import { SIMULATION_RATE, findYaw, movePosition } from './movement.ts';
 import type { GroundVector } from './movement.ts';
+import { VILLAGE_TERRAIN } from './village-layout.ts';
 
 /** How long one step of the simulation lasts, in seconds. */
 const STEP_SECONDS: number = 1 / SIMULATION_RATE;
@@ -134,7 +135,10 @@ export function applyInput(
  *
  * A player that slashes stands still, without turning, for as long as a
  * slash lasts.  Any other player that wants to move walks that way, facing
- * it, and idles otherwise.
+ * it, and idles otherwise.  A walking player does not go through the
+ * obstacles of the village, nor out of it: it slides along what it walks
+ * into at an angle, and walks on the spot against what it walks straight
+ * into.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @returns {PlayerMotion} The motion after the step.
@@ -154,7 +158,10 @@ export function stepMotion(motion: PlayerMotion): PlayerMotion {
   if (direction.x === 0 && direction.z === 0) {
     return startAction({ ...motion, slashSteps }, 'Idle');
   }
-  const { x, z } = movePosition(motion, direction, STEP_SECONDS);
+  const { x, z } = VILLAGE_TERRAIN.resolveMove(
+    motion,
+    movePosition(motion, direction, STEP_SECONDS),
+  );
   const yaw: number = findYaw(direction);
   return startAction({ ...motion, x, z, yaw, slashSteps }, 'Walk');
 }

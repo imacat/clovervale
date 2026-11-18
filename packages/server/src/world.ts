@@ -24,6 +24,7 @@
 import {
   APPEARANCE_COUNT,
   AuthoritativePlayer,
+  SPAWN_POINT_COUNT,
   SPAWN_YAW,
   createMotion,
   findSpawnPoint,
@@ -58,8 +59,8 @@ export class World {
    *
    * The player gets an identifier no player has had before, the appearance
    * the fewest players have (the lowest-numbered one if several tie), and a
-   * place on the plaza clear of everyone else, where it idles facing the
-   * fountain.
+   * place on the plaza clear of the obstacles and, while there is room, of
+   * everyone else, where it idles facing the fountain.
    *
    * @returns {PlayerState} The new player.
    */
@@ -153,10 +154,12 @@ export class World {
   /**
    * Chooses where a new player comes into the world.
    *
-   * @returns {GroundVector} The first spawn point clear of every player.
+   * @returns {GroundVector} The first spawn point clear of every player, or
+   *   if there is none, a spawn point by turns, as the players do not stand
+   *   in the way of each other.
    */
   #chooseSpawnPoint(): GroundVector {
-    for (let index = 0; ; index++) {
+    for (let index = 0; index < SPAWN_POINT_COUNT; index++) {
       const point: GroundVector = findSpawnPoint(index);
       const isClear: boolean = [...this.#players.values()].every(
         ({ mover }: Player) =>
@@ -167,6 +170,7 @@ export class World {
         return point;
       }
     }
+    return findSpawnPoint(this.#lastId % SPAWN_POINT_COUNT);
   }
 }
 

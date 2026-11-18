@@ -21,7 +21,13 @@
  * @module bots/patrol Where a bot walks to in the village, and how.
  */
 
-import { SIMULATION_RATE, WALK_SPEED } from '@clovervale/shared';
+import {
+  SIMULATION_RATE,
+  WALK_SPEED,
+  findPlacement,
+  movePosition,
+  placePoint,
+} from '@clovervale/shared';
 import type { GroundVector } from '@clovervale/shared';
 
 /** A place in the village worth walking to. */
@@ -33,17 +39,34 @@ export interface PointOfInterest {
 }
 
 /**
+ * What a bot visits: the name, the file name of the model, and where a
+ * player stands to visit it, as the model has it before it is placed.
+ */
+type Visit = readonly [name: string, file: string, local: GroundVector];
+
+/**
  * The places a bot patrols between, each where a player stands to visit
  * what stands there: in front of the door of the weapon shop, at the rim of
  * the fountain on the side of the spawn points of the players, in front of
- * the NPC, and by the stones that mark the spawn point of the monster.
+ * the NPC, and by the stones that mark the spawn point of the monster, on
+ * the side of the village.
  */
-export const POINTS_OF_INTEREST: readonly PointOfInterest[] = [
-  { name: 'weapon shop', position: { x: 8.6, z: -6.75 } },
-  { name: 'fountain', position: { x: 0, z: -5.9 } },
-  { name: 'NPC', position: { x: 2.69, z: -5.31 } },
-  { name: 'spawn point', position: { x: 10.36, z: 7.41 } },
+const VISITS: readonly Visit[] = [
+  ['weapon shop', 'weapon-shop.glb', { x: -2.25, z: 3.4 }],
+  ['fountain', 'fountain.glb', { x: 0, z: 2.6 }],
+  ['NPC', 'npc.glb', { x: 0, z: 1.2 }],
+  ['spawn point', 'prop-spawn-stones.glb', { x: -1.5, z: -2.1 }],
 ];
+
+/**
+ * The places a bot patrols between, where the models of the village stand.
+ */
+export const POINTS_OF_INTEREST: readonly PointOfInterest[] = VISITS.map(
+  ([name, file, local]: Visit): PointOfInterest => ({
+    name,
+    position: placePoint(findPlacement(file), local),
+  }),
+);
 
 /** How far a walking player goes in one simulation step, in metres. */
 export const STEP_DISTANCE: number = WALK_SPEED / SIMULATION_RATE;
@@ -68,6 +91,57 @@ export function planLeg(from: GroundVector, to: GroundVector): Leg {
   const direction: GroundVector = { x: to.x - from.x, z: to.z - from.z };
   const distance: number = Math.sqrt(direction.x ** 2 + direction.z ** 2);
   return { direction, steps: Math.round(distance / STEP_DISTANCE) };
+}
+
+/**
+ * Plans a walk through points, one straight walk after another.
+ *
+ * Each walk starts where the one before it ends, which is within half a
+ * step of its point.
+ *
+ * @param {GroundVector} from - Where the walk starts.
+ * @param {readonly GroundVector[]} points - The points to walk through, the
+ *   last of which is where the walk is to end.
+ * @returns {Leg[]} The straight walks, each of at least one step, which end
+ *   within half a step of the last point.
+ */
+export function planRoute(
+  from: GroundVector,
+  points: readonly GroundVector[],
+): Leg[] {
+  const legs: Leg[] = [];
+  let start: GroundVector = from;
+  for (const point of points) {
+    const leg: Leg = planLeg(start, point);
+    if (leg.steps === 0) {
+      continue;
+    }
+    legs.push(leg);
+    for (let step = 0; step < leg.steps; step++) {
+      start = movePosition(start, leg.direction, 1 / SIMULATION_RATE);
+    }
+  }
+  return legs;
+}
+
+/** The number of simulation steps a bot walks for to get out of a fix. */
+export const ESCAPE_STEPS: number = SIMULATION_RATE;
+
+/**
+ * Plans a short walk in a direction chosen at random, for a bot that has
+ * no way to where it is going from where it is.
+ *
+ * @param {() => number} drawRandom - Gives a random number from 0 up to but
+ *   not including 1.
+ * @returns {Leg} The walk, of {@link ESCAPE_STEPS} steps, every direction as
+ *   likely as the others.
+ */
+export function planEscape(drawRandom: () => number): Leg {
+  const angle: number = 2 * Math.PI * drawRandom();
+  return {
+    direction: { x: Math.sin(angle), z: Math.cos(angle) },
+    steps: ESCAPE_STEPS,
+  };
 }
 
 /**

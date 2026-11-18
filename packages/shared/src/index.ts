@@ -41,6 +41,12 @@ export {
 } from './movement.ts';
 export type { GroundVector } from './movement.ts';
 export {
+  NavigationGraph,
+  WAYPOINT_CLEARANCE,
+  findVillagePath,
+  placeWaypoints,
+} from './navigation.ts';
+export {
   SLASH_STEPS,
   applyInput,
   createMotion,
@@ -77,7 +83,31 @@ export type {
   WelcomeMessage,
 } from './protocol.ts';
 export {
+  PLAYER_RADIUS,
+  Terrain,
+  findTurn,
+  placePoint,
+  placeShape,
+  turnVector,
+} from './terrain.ts';
+export type {
+  Boundary,
+  BoxShape,
+  CircleShape,
+  Pose,
+  Shape,
+  Turn,
+} from './terrain.ts';
+export {
+  VILLAGE_BOUNDARY,
+  VILLAGE_PLACEMENTS,
+  VILLAGE_TERRAIN,
+  findPlacement,
+} from './village-layout.ts';
+export type { Placement } from './village-layout.ts';
+export {
   PLAZA_CENTRE,
+  SPAWN_POINT_COUNT,
   SPAWN_SPACING,
   SPAWN_YAW,
   findSpawnPoint,

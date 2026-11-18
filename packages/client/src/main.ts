@@ -23,6 +23,7 @@
 
 import {
   PROTOCOL_VERSION,
+  VILLAGE_TERRAIN,
   decodeServerMessage,
   encodeClientMessage,
   findSpawnPoint,
@@ -51,6 +52,7 @@ import type { LoadedModel } from './model-loader.ts';
 import { describeFailure, summariseModels } from './model-report.ts';
 import type { ModelProblem } from './model-report.ts';
 import { DelayLine } from './network-delay.ts';
+import { createObstacleOutlines } from './obstacle-outlines.ts';
 import { createPanel } from './panel.ts';
 import type { Panel } from './panel.ts';
 import { PlayerFigures } from './player-figures.ts';
@@ -85,6 +87,8 @@ const timeline = new SnapshotTimeline();
 
 const panel: Panel = createPanel();
 const scene = createVillageScene();
+const outlines = createObstacleOutlines(VILLAGE_TERRAIN);
+scene.add(outlines);
 const figures = new PlayerFigures(scene, (appearance: number) =>
   createPlayerFigure(models, appearance),
 );
@@ -94,6 +98,7 @@ const viewport: Viewport = showScene(
   (seconds: number) => {
     sendMove();
     showPlayers();
+    outlines.visible = panel.obstacles.isShown;
     for (const actor of actors) {
       actor.update(seconds);
     }

@@ -29,6 +29,7 @@ import {
   createMoveMessage,
   decodeServerMessage,
   encodeClientMessage,
+  findVillagePath,
   isResting,
 } from '@clovervale/shared';
 import type {
@@ -37,7 +38,13 @@ import type {
   ServerMessage,
 } from '@clovervale/shared';
 
-import { POINTS_OF_INTEREST, chooseNextPoint, planLeg } from './patrol.ts';
+import {
+  POINTS_OF_INTEREST,
+  STEP_DISTANCE,
+  chooseNextPoint,
+  planEscape,
+  planRoute,
+} from './patrol.ts';
 import type { Leg } from './patrol.ts';
 
 /** How a bot patrols. */
@@ -50,11 +57,21 @@ export interface PatrolSettings {
   readonly maxPause: number;
   /** Gives a random number from 0 up to but not including 1. */
   readonly drawRandom: () => number;
+  /**
+   * Finds the way from one point to another, as points to walk to one
+   * straight walk after another, or `null` if there is none.  The way
+   * around the obstacles of the village by default.
+   */
+  readonly findPath?: (
+    from: GroundVector,
+    to: GroundVector,
+  ) => GroundVector[] | null;
 }
 
 /**
  * How a bot patrols unless told otherwise: between the points of interest
- * of the village, staying at each for one to three seconds.
+ * of the village, around the obstacles, staying at each for one to three
+ * seconds.
  */
 export const DEFAULT_PATROL: PatrolSettings = {
   points: POINTS_OF_INTEREST.map(({ position }) => position),
@@ -76,6 +93,9 @@ export interface RunningBot {
   stop(): void;
 }
 
+/** The direction of a player that stands still. */
+const STOP: GroundVector = { x: 0, z: 0 };
+
 /** How long one step of the simulation lasts, in milliseconds. */
 const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 
@@ -87,11 +107,21 @@ const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 const STOP_LEAD_STEPS: number = INPUT_WAIT_LIMIT / 2;
 
 /**
+ * The number of times a bot sets out for a point without getting there
+ * before it gives up on the point.
+ */
+const ATTEMPT_LIMIT = 5;
+
+/**
  * Starts a bot that connects to a game server as a player, and patrols for
  * ever.
  *
- * Its player walks in a straight line to one of the points, stays there
- * for a while, and walks on to another, chosen at random, again and again.
+ * Its player walks to one of the points, in a straight line if nothing is
+ * in the way or around what is otherwise, stays there for a while, and
+ * walks on to another, chosen at random, again and again.  A player that
+ * does not get where it is going sets out again from where it ends up, and
+ * walks a little way in a direction chosen at random if it finds no way
+ * from there, until it gives up on the point and moves on to another.
  *
  * @param {string} url - The WebSocket URL of the server.
  * @param {PatrolSettings} [patrol] - How the bot patrols, or between the
@@ -118,48 +148,82 @@ export function startBot(
 
     let sequence = 0;
     let point: number | null = null;
+    let target: GroundVector | null = null;
+    let attempts = 0;
+    let isStaying = false;
     let readyTime = 0;
-    let stopTimer: NodeJS.Timeout | null = null;
+    const timers = new Set<NodeJS.Timeout>();
+    const findPath = patrol.findPath ?? findVillagePath;
     const sendMove = (after: number, direction: GroundVector): void => {
       if (socket.readyState === WebSocket.OPEN) {
         const stamp = { sequence: ++sequence, after };
         socket.send(encodeClientMessage(createMoveMessage(stamp, direction)));
       }
     };
-    const walk = (leg: Leg): void => {
-      // Every input of the bot comes after its player has come to rest, so
-      // it comes into effect at the next step.
-      sendMove(0, leg.direction);
-      stopTimer = setTimeout(
+    const sendLater = (
+      steps: number,
+      after: number,
+      direction: GroundVector,
+    ): void => {
+      const timer: NodeJS.Timeout = setTimeout(
         () => {
-          stopTimer = null;
-          sendMove(leg.steps, { x: 0, z: 0 });
+          timers.delete(timer);
+          sendMove(after, direction);
         },
-        Math.max(leg.steps - STOP_LEAD_STEPS, 0) * STEP_MILLISECONDS,
+        Math.max(steps - STOP_LEAD_STEPS, 0) * STEP_MILLISECONDS,
+      );
+      timers.add(timer);
+    };
+    const walk = (legs: readonly Leg[]): void => {
+      const [first] = legs;
+      if (first === undefined) {
+        return;
+      }
+      // Every walk of the bot starts after its player has come to rest, so
+      // its first input comes into effect at the next step.
+      sendMove(0, first.direction);
+      // Each later input is sent shortly before it is to come into effect.
+      let steps = 0;
+      legs.forEach((leg: Leg, index: number) => {
+        steps += leg.steps;
+        sendLater(steps, leg.steps, legs[index + 1]?.direction ?? STOP);
+      });
+    };
+    const setOut = (from: GroundVector, to: GroundVector): void => {
+      attempts++;
+      const path: GroundVector[] | null = findPath(from, to);
+      walk(
+        path === null ? [planEscape(patrol.drawRandom)] : planRoute(from, path),
       );
     };
     const patrolOn = (own: InputProgress): void => {
       const now: number = performance.now();
       const isReady: boolean =
-        stopTimer === null &&
+        timers.size === 0 &&
         own.sequence === sequence &&
         isResting(own.motion) &&
         now >= readyTime;
       if (!isReady) {
         return;
       }
-      point = chooseNextPoint(patrol.points.length, point, patrol.drawRandom);
-      const target: GroundVector | undefined = patrol.points[point];
-      if (target === undefined) {
+      if (target !== null && !isStaying) {
+        if (!isNear(own.motion, target) && attempts < ATTEMPT_LIMIT) {
+          setOut(own.motion, target);
+          return;
+        }
+        isStaying = true;
+        readyTime =
+          now +
+          patrol.minPause +
+          patrol.drawRandom() * (patrol.maxPause - patrol.minPause);
         return;
       }
-      const leg: Leg = planLeg(own.motion, target);
-      const pause: number =
-        patrol.minPause +
-        patrol.drawRandom() * (patrol.maxPause - patrol.minPause);
-      readyTime = now + leg.steps * STEP_MILLISECONDS + pause;
-      if (leg.steps > 0) {
-        walk(leg);
+      point = chooseNextPoint(patrol.points.length, point, patrol.drawRandom);
+      target = patrol.points[point] ?? null;
+      isStaying = false;
+      attempts = 0;
+      if (target !== null) {
+        setOut(own.motion, target);
       }
     };
 
@@ -200,10 +264,10 @@ export function startBot(
       }
     });
     socket.addEventListener('close', () => {
-      if (stopTimer !== null) {
-        clearTimeout(stopTimer);
-        stopTimer = null;
+      for (const timer of timers) {
+        clearTimeout(timer);
       }
+      timers.clear();
       if (playerId === null) {
         fail(new Error(`The server at ${url} left without a welcome.`));
       } else if (isStopping) {
@@ -213,4 +277,17 @@ export function startBot(
       }
     });
   });
+}
+
+/**
+ * Tells whether a player has got to a point.
+ *
+ * @param {GroundVector} position - Where the player stands.
+ * @param {GroundVector} point - The point.
+ * @returns {boolean} Whether the player stands within a step of the point.
+ */
+function isNear(position: GroundVector, point: GroundVector): boolean {
+  const dx: number = position.x - point.x;
+  const dz: number = position.z - point.z;
+  return Math.sqrt(dx * dx + dz * dz) <= STEP_DISTANCE;
 }

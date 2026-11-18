@@ -244,6 +244,32 @@ describe('startBot', () => {
     TEST_TIMEOUT,
   );
 
+  it(
+    'sets out again when it gets nowhere or somewhere else',
+    async () => {
+      const [first] = POINTS as [GroundVector];
+      const ways: (GroundVector[] | null)[] = [
+        [{ x: first.x + 1, z: first.z }],
+        null,
+      ];
+      let count = 0;
+      const bot: RunningBot = await startTestBot({
+        ...PATROL,
+        findPath: (from: GroundVector, to: GroundVector) => {
+          count++;
+          return ways.length > 0 ? (ways.shift() ?? null) : [to];
+        },
+      });
+      const watcher: Watcher = watchServer(url);
+      cleanups.push(watcher.close);
+      await waitUntil(() =>
+        isIdleAt(findPlayer(watcher.snapshots.at(-1), bot.playerId), first),
+      );
+      expect(count).toBe(3);
+    },
+    TEST_TIMEOUT,
+  );
+
   it('leaves the village when stopped', async () => {
     const watcher: Watcher = watchServer(url);
     cleanups.push(watcher.close);

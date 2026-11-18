@@ -25,12 +25,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PLAYER_RADIUS,
   SIMULATION_RATE,
   SLASH_DURATION,
   SLASH_STEPS,
+  VILLAGE_BOUNDARY,
   WALK_SPEED,
   applyInput,
   createMotion,
+  findPlacement,
   isResting,
   stepMotion,
 } from '../src/index.ts';
@@ -194,5 +197,42 @@ describe('a player who interacts', () => {
     const again: PlayerMotion = stepMotion(applyInput(over, INTERACT));
     expect(again.action).toBe('Slash');
     expect(again.actionCount).toBe(3);
+  });
+});
+
+describe('a player who walks into the scenery', () => {
+  // The cottage by the plaza faces it, its front wall along the Z axis.
+  const cottage = findPlacement('prop-cottage.glb');
+  const front: number = cottage.x + 2.35 + PLAYER_RADIUS;
+
+  it('walks on the spot against what it walks straight into', () => {
+    const start: PlayerMotion = createMotion({ x: front + 2, z: -3.5 }, 0);
+    const walked: PlayerMotion = stepTimes(applyInput(start, steer(-1, 0)), 60);
+    expect(walked.x).toBeCloseTo(front, 9);
+    expect(walked.z).toBe(-3.5);
+    expect(walked).toMatchObject({ yaw: -90, action: 'Walk' });
+    expect(stepMotion(walked)).toMatchObject({ x: walked.x, z: walked.z });
+  });
+
+  it('slides along what it walks into at an angle', () => {
+    const start: PlayerMotion = createMotion({ x: front + 0.5, z: -3 }, 0);
+    const walked: PlayerMotion = stepTimes(
+      applyInput(start, steer(-1, -1)),
+      20,
+    );
+    expect(walked.x).toBeCloseTo(front, 9);
+    expect(walked.z).toBeLessThan(-3 - 0.8);
+  });
+
+  it('cannot leave the village', () => {
+    const start: PlayerMotion = createMotion({ x: 0, z: 15 }, 0);
+    const walked: PlayerMotion = stepTimes(
+      applyInput(start, steer(0, 1)),
+      SIMULATION_RATE * 10,
+    );
+    expect(walked.z).toBeCloseTo(
+      VILLAGE_BOUNDARY.z + VILLAGE_BOUNDARY.radius - PLAYER_RADIUS,
+      9,
+    );
   });
 });

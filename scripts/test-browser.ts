@@ -190,6 +190,19 @@ const NETWORK_DELAY = 300;
 /** How long a player is walked for behind the delay, in milliseconds. */
 const DELAYED_WALK_DURATION = 700;
 
+/**
+ * How long a player may take to walk from the plaza to the cottage on its
+ * left, in milliseconds.
+ */
+const BLOCKED_TIMEOUT = 20_000;
+/**
+ * The number of looks in a row that must find a walking player where it
+ * was, for it to count as stopped.
+ */
+const BLOCKED_LOOKS = 6;
+/** How long a player is walked along an obstacle, in milliseconds. */
+const SLIDE_DURATION = 700;
+
 const MIME_TYPES: Readonly<Record<string, string>> = {
   '.css': 'text/css',
   '.glb': 'model/gltf-binary',
@@ -1463,6 +1476,118 @@ async function checkPrediction(
 }
 
 /**
+ * Checks that a player that walks into an obstacle behind a slow
+ * connection, with the outlines of the obstacles drawn, is stopped by it,
+ * and slides along it when it walks into it at an angle, and that its own
+ * page shows it in the end where the server tells, without a correction,
+ * as does the page of another player.
+ *
+ * The player walks left, which in the first view is towards the cottage
+ * on the left of the plaza, whose front faces the plaza.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {string} watcher - The browsing context of the other page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the player has passed.
+ * @throws {Error} If either page does not show the player so.
+ */
+async function checkObstacle(
+  session: BidiSession,
+  actor: string,
+  watcher: string,
+  id: number,
+): Promise<void> {
+  const mode =
+    `With its messages held back for ${String(NETWORK_DELAY)} ` +
+    'milliseconds each way, the first page';
+  await setControl(session, actor, 'Show obstacles', true);
+  await setControl(session, actor, 'Net delay (ms)', NETWORK_DELAY);
+  const describeView = (view: OwnView): string =>
+    `draws its player at x ${String(view.drawn?.x)}, z ` +
+    `${String(view.drawn?.z)}, and the server tells x ` +
+    `${String(view.told?.x)}, z ${String(view.told?.z)}, doing ` +
+    `"${view.told?.action ?? ''}"`;
+  const before: OwnView = await readOwnView(session, actor, id);
+  let blocked: OwnView;
+  let slid: OwnView;
+  try {
+    await sendKey(session, actor, 'keyDown', 'a');
+    let lastX = NaN;
+    let stillLooks = 0;
+    blocked = await waitFor(
+      () => readOwnView(session, actor, id),
+      (view: OwnView) => {
+        const isStill =
+          view.told?.action === 'Walk' && view.told.x === lastX;
+        stillLooks = isStill ? stillLooks + 1 : 0;
+        lastX = view.told?.x ?? NaN;
+        return stillLooks >= BLOCKED_LOOKS;
+      },
+      BLOCKED_TIMEOUT,
+      (view: OwnView) =>
+        `${mode}, with the A key held down, ${describeView(view)}, never ` +
+        'stopped by the cottage.',
+    );
+    if (!((blocked.told?.x ?? NaN) < (before.told?.x ?? NaN))) {
+      throw new Error(
+        `${mode}, with the A key held down, ${describeView(blocked)}, ` +
+          `after x ${String(before.told?.x)} before.`,
+      );
+    }
+    await sendKey(session, actor, 'keyDown', 'w');
+    await sleep(SLIDE_DURATION + NETWORK_DELAY * 2);
+    slid = await readOwnView(session, actor, id);
+  } finally {
+    await sendKey(session, actor, 'keyUp', 'w');
+    await sendKey(session, actor, 'keyUp', 'a');
+  }
+  const blockedX: number = blocked.told?.x ?? NaN;
+  const blockedZ: number = blocked.told?.z ?? NaN;
+  const isAlong: boolean =
+    Math.abs((slid.told?.x ?? NaN) - blockedX) < SAME_POSITION &&
+    (slid.told?.z ?? NaN) < blockedZ - 0.1;
+  if (!isAlong) {
+    throw new Error(
+      `${mode}, with the W key held down as well against the cottage at ` +
+        `x ${String(blockedX)}, z ${String(blockedZ)}, ` +
+        `${describeView(slid)}, not sliding along it.`,
+    );
+  }
+
+  const isAt = (view: OwnView, x: number, z: number): boolean =>
+    view.drawn?.x === x && view.drawn.z === z;
+  const own: OwnView = await waitFor(
+    () => readOwnView(session, actor, id),
+    (view: OwnView) =>
+      view.told?.action === 'Idle' && isAt(view, view.told.x, view.told.z),
+    ACTION_TIMEOUT,
+    (view: OwnView) => `${mode} ${describeView(view)}, with the keys released.`,
+  );
+  await sleep(POLL_INTERVAL * 5 + NETWORK_DELAY * 2);
+  const later: OwnView = await readOwnView(session, actor, id);
+  if (!isAt(later, own.told?.x ?? NaN, own.told?.z ?? NaN)) {
+    throw new Error(`${mode} ${describeView(later)}, still moving.`);
+  }
+  if (later.corrections !== before.corrections) {
+    throw new Error(
+      `${mode} counts "${later.corrections}" corrections, after ` +
+        `"${before.corrections}" before its player walked into the cottage.`,
+    );
+  }
+  await waitFor(
+    () => readOwnView(session, watcher, id),
+    (view: OwnView) => isAt(view, own.told?.x ?? NaN, own.told?.z ?? NaN),
+    ACTION_TIMEOUT,
+    (view: OwnView) =>
+      `${mode} ${describeView(later)}, and the second page ` +
+      `${describeView(view)}.`,
+  );
+  await setControl(session, actor, 'Net delay (ms)', 0);
+  await setControl(session, actor, 'Show obstacles', false);
+}
+
+/**
  * Reads where a page has its camera, after choosing a player in the camera
  * control of its panel, if told to.
  *
@@ -1588,10 +1713,12 @@ async function checkCamera(
  * Checks the built client in two pages connected to one server: that each
  * draws its scene, shows the models it has and connects, that what the
  * player of one page does with the keyboard shows in the other page,
- * smoothly or snapshot by snapshot as the panel of that page is set, and
- * that a page shows its own player ahead of a slow connection, or behind
- * it, as its panel is set, and that the camera of a page follows the player
- * of the other page when its panel is set to, until that player leaves.
+ * smoothly or snapshot by snapshot as the panel of that page is set, that
+ * a page shows its own player ahead of a slow connection, or behind it, as
+ * its panel is set, that an obstacle stops a player, in both pages
+ * alike and without a correction behind a slow connection, and that the
+ * camera of a page follows the player of the other page when its panel is
+ * set to, until that player leaves.
  *
  * @returns {Promise<void>} A promise settled once the client has passed.
  * @throws {Error} If the client fails the check, or the check cannot run.
@@ -1658,6 +1785,7 @@ async function checkClient(): Promise<void> {
     await checkSlash(session, first, second, id);
     await checkPrediction(session, first, second, id, false, 'd');
     await checkPrediction(session, first, second, id, true, 'a');
+    await checkObstacle(session, first, second, id);
     const other: PageState = await readPageState(session, second);
     const otherId = Number(/^#(\d+)/.exec(other.panel.Player ?? '')?.[1]);
     await checkCamera(session, first, id, second, otherId);
@@ -1683,8 +1811,8 @@ try {
   await checkClient();
   console.log(
     'Browser check passed: two clients draw their scenes, connect, show ' +
-      'each other what their players do, predict their own, and have the ' +
-      'camera follow another player.',
+      'each other what their players do, predict their own, stop them at ' +
+      'obstacles, and have the camera follow another player.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);
