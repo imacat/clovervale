@@ -25,8 +25,8 @@
     "docs": "typedoc",
     "release": "npm run build && node scripts/release.ts",
     "clean": "node scripts/clean.ts",
-    "dev:server": "npm run dev --workspace @clovervale/server",
-    "dev:client": "npm run dev --workspace @clovervale/client",
+    "dev:server": "npm run dev --workspace @clovervale/server --",
+    "dev:client": "npm run dev --workspace @clovervale/client --",
     "dev:bots": "npm run dev --workspace @clovervale/bots --"
   },
   "devDependencies": {

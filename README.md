@@ -74,7 +74,8 @@ Checks that the 3D models are valid glTF and meet the needs of the game.
 
 #### `npm run dev:server`
 
-Runs the server, restarting it on changes.
+Runs the server, restarting it on changes.  Options for the server
+follow a `--`, as in `npm run dev:server -- --port 9000`.
 
 #### `npm run dev:client`
 
