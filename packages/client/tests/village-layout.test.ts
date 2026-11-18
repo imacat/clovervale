@@ -27,6 +27,7 @@ import { findSpawnPoint } from '@clovervale/shared';
 
 import {
   CHARACTER_FILES,
+  MONSTER_FILE,
   REQUIRED_MODEL_FILES,
 } from '../src/model-catalogue.ts';
 import { layoutVillage } from '../src/village-layout.ts';
@@ -70,17 +71,18 @@ function findOnly(placements: readonly Placement[], file: string): Placement {
 }
 
 describe('layoutVillage', () => {
-  it('stands every required model but the characters in one place', () => {
+  it('stands each required model that never moves in one place', () => {
     const placements: Placement[] = layoutVillage(REQUIRED_MODEL_FILES);
     expect(placements.map((placement: Placement) => placement.file)).toEqual(
       REQUIRED_MODEL_FILES.filter(
-        (file: string) => !CHARACTER_FILES.includes(file),
+        (file: string) =>
+          !CHARACTER_FILES.includes(file) && file !== MONSTER_FILE,
       ),
     );
   });
 
-  it('leaves the characters to stand where their players are', () => {
-    expect(layoutVillage(CHARACTER_FILES)).toEqual([]);
+  it('leaves the characters and the monster to stand where they are', () => {
+    expect(layoutVillage([...CHARACTER_FILES, MONSTER_FILE])).toEqual([]);
   });
 
   it('stands the buildings around the fountain, each facing it', () => {
@@ -140,10 +142,13 @@ describe('layoutVillage', () => {
     expect(measureDistance(npc, fountain)).toBeLessThan(5);
   });
 
-  it('stands the monster farther out than everyone in the village', () => {
-    const placements: Placement[] = layoutVillage(PLAZA_FILES);
+  it('stands the spawn stones farther out than everyone in the village', () => {
+    const placements: Placement[] = layoutVillage([
+      ...PLAZA_FILES,
+      'prop-spawn-stones.glb',
+    ]);
     const fountain: Placement = findOnly(placements, 'fountain.glb');
-    const monster: Placement = findOnly(placements, 'monster.glb');
+    const stones: Placement = findOnly(placements, 'prop-spawn-stones.glb');
     for (const villager of placements) {
       const isVillager: boolean = [
         'npc.glb',
@@ -151,7 +156,7 @@ describe('layoutVillage', () => {
         'prop-cottage.glb',
       ].includes(villager.file);
       if (isVillager) {
-        expect(measureDistance(monster, fountain)).toBeGreaterThan(
+        expect(measureDistance(stones, fountain)).toBeGreaterThan(
           measureDistance(villager, fountain),
         );
       }

@@ -18,7 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/interpolation Showing the players slightly in the past.
+ * @module client/interpolation Showing the players and the monsters
+ *   slightly in the past.
  */
 
 import {
@@ -26,7 +27,11 @@ import {
   SNAPSHOT_RATE,
   WALK_SPEED,
 } from '@clovervale/shared';
-import type { PlayerState, SnapshotMessage } from '@clovervale/shared';
+import type {
+  MonsterState,
+  PlayerState,
+  SnapshotMessage,
+} from '@clovervale/shared';
 
 /** How far in the past the players are shown by default, in milliseconds. */
 export const DEFAULT_DELAY: number = (2 * 1000) / SNAPSHOT_RATE;
@@ -62,15 +67,34 @@ const CLOCK_RESYNC = 500;
  */
 const JUMP_FACTOR = 1.5;
 
-/** The players to show at one moment. */
+/** The players and the monsters to show at one moment. */
 export interface PlayersView {
   /** The players, as they are shown. */
   readonly players: readonly PlayerState[];
+  /** The monsters, as they are shown. */
+  readonly monsters: readonly MonsterState[];
   /**
    * How long before the latest snapshot the players were as they are shown,
    * in milliseconds.
    */
   readonly lag: number;
+  /**
+   * The time on the clock of the server when the players were as they are
+   * shown, in milliseconds, or `null` before the first snapshot.
+   */
+  readonly time: number | null;
+}
+
+/** Anything whose position and facing a snapshot gives. */
+interface Placed {
+  /** The identifier, unique among its kind. */
+  readonly id: number;
+  /** The position along the X axis, in metres. */
+  readonly x: number;
+  /** The position along the Z axis, in metres. */
+  readonly z: number;
+  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  readonly yaw: number;
 }
 
 /** A snapshot, and when the server took it. */
@@ -79,10 +103,17 @@ interface TimedSnapshot {
   readonly time: number;
   /** The players in the snapshot. */
   readonly players: readonly PlayerState[];
+  /** The monsters in the snapshot. */
+  readonly monsters: readonly MonsterState[];
 }
 
 /** The view that shows nobody. */
-const EMPTY_VIEW: PlayersView = { players: [], lag: 0 };
+const EMPTY_VIEW: PlayersView = {
+  players: [],
+  monsters: [],
+  lag: 0,
+  time: null,
+};
 
 /**
  * Finds the yaw part of the way from one yaw to another, the shorter way
@@ -101,6 +132,44 @@ export function interpolateYaw(
   const turn: number = ((((to - from) % 360) + 540) % 360) - 180;
   const yaw: number = from + turn * fraction;
   return 180 - ((((180 - yaw) % 360) + 360) % 360);
+}
+
+/**
+ * Places everything part of the way from where one snapshot tells to where
+ * the next tells, unless it has moved further than it can walk.
+ *
+ * @param {readonly T[]} before - Everything as the earlier snapshot tells.
+ * @param {readonly T[]} after - Everything as the later snapshot tells.
+ * @param {number} fraction - How much of the time between them has passed,
+ *   from 0 to 1.
+ * @param {number} reach - The furthest anything can walk between them, in
+ *   metres.
+ * @returns {T[]} Everything the earlier snapshot tells, in its order.
+ * @template T
+ */
+function interpolatePlaced<T extends Placed>(
+  before: readonly T[],
+  after: readonly T[],
+  fraction: number,
+  reach: number,
+): T[] {
+  return before.map((item: T) => {
+    const next: T | undefined = after.find(
+      (other: T) => other.id === item.id,
+    );
+    if (
+      next === undefined ||
+      Math.hypot(next.x - item.x, next.z - item.z) > reach
+    ) {
+      return item;
+    }
+    return {
+      ...item,
+      x: item.x + (next.x - item.x) * fraction,
+      z: item.z + (next.z - item.z) * fraction,
+      yaw: interpolateYaw(item.yaw, next.yaw, fraction),
+    };
+  });
 }
 
 /**
@@ -168,7 +237,7 @@ export class ServerClock {
   }
 }
 
-/** The latest snapshots, to show the players from. */
+/** The latest snapshots, to show the players and the monsters from. */
 export class SnapshotTimeline {
   readonly #clock = new ServerClock();
   #snapshots: TimedSnapshot[] = [];
@@ -180,6 +249,15 @@ export class SnapshotTimeline {
    */
   get latest(): readonly PlayerState[] | null {
     return this.#snapshots.at(-1)?.players ?? null;
+  }
+
+  /**
+   * The monsters in the latest snapshot, or `null` before the first one.
+   *
+   * @returns {(readonly MonsterState[]) | null} The monsters.
+   */
+  get latestMonsters(): readonly MonsterState[] | null {
+    return this.#snapshots.at(-1)?.monsters ?? null;
   }
 
   /**
@@ -206,41 +284,51 @@ export class SnapshotTimeline {
       return;
     }
     this.#clock.observe(time, arrivalTime);
-    this.#snapshots.push({ time, players: snapshot.players });
+    this.#snapshots.push({
+      time,
+      players: snapshot.players,
+      monsters: snapshot.monsters,
+    });
     if (this.#snapshots.length > HISTORY_LIMIT) {
       this.#snapshots.shift();
     }
   }
 
   /**
-   * Tells the players exactly as the latest snapshot tells them.
+   * Tells the players and the monsters exactly as the latest snapshot tells
+   * them.
    *
-   * @returns {PlayersView} The players, or nobody before the first
-   *   snapshot.
+   * @returns {PlayersView} The players and the monsters, or nobody before
+   *   the first snapshot.
    */
   readLatest(): PlayersView {
-    const { latest } = this;
-    return latest === null ? EMPTY_VIEW : { players: latest, lag: 0 };
+    const newest: TimedSnapshot | undefined = this.#snapshots.at(-1);
+    if (newest === undefined) {
+      return EMPTY_VIEW;
+    }
+    const { players, monsters, time } = newest;
+    return { players, monsters, lag: 0, time };
   }
 
   /**
-   * Tells the players as they were a while ago on the clock of the server.
+   * Tells the players and the monsters as they were a while ago on the
+   * clock of the server.
    *
    * Between two snapshots, a player stands part of the way from where the
    * earlier one tells to where the later one tells, by the time that has
    * passed between them, and is turned likewise, the shorter way round.  It
    * does what the earlier one tells, and is there only if the earlier one
    * tells so.  A player that has moved further than it can walk stays where
-   * it was until the time of the later snapshot.
+   * it was until the time of the later snapshot.  So does a monster.
    *
-   * Past the latest snapshot, the players stay as it tells them.  Before the
+   * Past the latest snapshot, everyone stays as it tells them.  Before the
    * earliest snapshot that is kept, there is nobody.
    *
    * @param {number} localTime - The time on the clock of the page, in
    *   milliseconds, which is no earlier than at the last reading.
    * @param {number} delay - How long ago, in milliseconds.
-   * @returns {PlayersView} The players, or nobody before the first
-   *   snapshot.
+   * @returns {PlayersView} The players and the monsters, or nobody before
+   *   the first snapshot.
    */
   readPast(localTime: number, delay: number): PlayersView {
     const now: number | null = this.#clock.read(localTime);
@@ -256,34 +344,31 @@ export class SnapshotTimeline {
     const before: TimedSnapshot | undefined = this.#snapshots[index];
     const after: TimedSnapshot | undefined = this.#snapshots[index + 1];
     if (before === undefined) {
-      return { players: [], lag };
+      return { players: [], monsters: [], lag, time };
     }
     if (after === undefined) {
-      return { players: before.players, lag };
+      const { players, monsters } = before;
+      return { players, monsters, lag, time };
     }
     const span: number = after.time - before.time;
     const fraction: number = (time - before.time) / span;
     const reach: number = (WALK_SPEED * JUMP_FACTOR * span) / 1000;
-    const players: PlayerState[] = before.players.map(
-      (player: PlayerState) => {
-        const next: PlayerState | undefined = after.players.find(
-          (other: PlayerState) => other.id === player.id,
-        );
-        if (
-          next === undefined ||
-          Math.hypot(next.x - player.x, next.z - player.z) > reach
-        ) {
-          return player;
-        }
-        return {
-          ...player,
-          x: player.x + (next.x - player.x) * fraction,
-          z: player.z + (next.z - player.z) * fraction,
-          yaw: interpolateYaw(player.yaw, next.yaw, fraction),
-        };
-      },
-    );
-    return { players, lag };
+    return {
+      players: interpolatePlaced(
+        before.players,
+        after.players,
+        fraction,
+        reach,
+      ),
+      monsters: interpolatePlaced(
+        before.monsters,
+        after.monsters,
+        fraction,
+        reach,
+      ),
+      lag,
+      time,
+    };
   }
 
   /** Forgets every snapshot, and the time of the server with them. */

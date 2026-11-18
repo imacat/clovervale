@@ -35,7 +35,7 @@ import type { Object3D } from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { Actor } from './actor.ts';
-import { CHARACTER_FILES } from './model-catalogue.ts';
+import { CHARACTER_FILES, MONSTER_FILE } from './model-catalogue.ts';
 import type { LoadedModel } from './model-loader.ts';
 import type { Figure } from './player-figures.ts';
 import { layoutVillage } from './village-layout.ts';
@@ -223,6 +223,27 @@ export function createPlayerFigure(
   const file: string | undefined = CHARACTER_FILES[appearance - 1];
   const model: LoadedModel | undefined = models.find(
     (candidate: LoadedModel) => candidate.file === file,
+  );
+  if (model === undefined) {
+    return null;
+  }
+  const root: Object3D = clone(model.root);
+  prepareModel(root);
+  return { root, clips: model.clips };
+}
+
+/**
+ * Makes a model to show the monster with, ready to stand in the village.
+ *
+ * @param {readonly LoadedModel[]} models - The models.
+ * @returns {Figure | null} A copy of the monster, or `null` if the monster
+ *   is not among the models.
+ */
+export function createMonsterFigure(
+  models: readonly LoadedModel[],
+): Figure | null {
+  const model: LoadedModel | undefined = models.find(
+    (candidate: LoadedModel) => candidate.file === MONSTER_FILE,
   );
   if (model === undefined) {
     return null;

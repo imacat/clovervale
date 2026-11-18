@@ -24,7 +24,11 @@
 import { AnimationClip, NumberKeyframeTrack, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { createMotion, createSnapshotMessage } from '@clovervale/shared';
+import {
+  PLAYER_HEALTH,
+  createMotion,
+  createSnapshotMessage,
+} from '@clovervale/shared';
 import type { InputProgress, PlayerState } from '@clovervale/shared';
 
 import { SnapshotTimeline } from '../src/interpolation.ts';
@@ -40,6 +44,7 @@ const PLAYER: PlayerState = {
   yaw: 90,
   action: 'Idle',
   actionCount: 0,
+  health: 100,
 };
 
 /** What the snapshots tell the page of its own player. */
@@ -68,8 +73,8 @@ function createClip(
 
 /**
  * Creates a model with an arm, which is down when idling, goes up to 1 and
- * back when walking a one-second stride, and rises to 6 within 0.6 seconds
- * when slashing.
+ * back when walking a one-second stride, rises to 6 within 0.6 seconds
+ * when slashing, and drops to -2 within a second when dying.
  *
  * @param {number} appearance - The number of the appearance of the model.
  * @returns {Figure} The model, named after its appearance.
@@ -84,6 +89,7 @@ function createFigure(appearance: number): Figure {
     createClip('Idle', [0, 1], [0, 0]),
     createClip('Walk', [0, 0.5, 1], [0, 1, 0]),
     createClip('Slash', [0, 0.6], [0, 6]),
+    createClip('Die', [0, 1], [0, -2]),
   ];
   return { root, clips };
 }
@@ -136,6 +142,17 @@ describe('PlayerFigures', () => {
     expect(root?.name).toBe('appearance 2');
     expect(root?.position.toArray()).toEqual([1.5, 0, -3]);
     expect(root?.rotation.y).toBeCloseTo(Math.PI / 2);
+  });
+
+  it('shows the health of a player in its bar', () => {
+    const scene = new Object3D();
+    const figures = new PlayerFigures(scene, createFigure);
+    figures.showPlayers([PLAYER]);
+    expect(findOnly(figures).health).toBe(1);
+    figures.showPlayers([{ ...PLAYER, health: PLAYER_HEALTH / 4 }]);
+    expect(findOnly(figures).health).toBeCloseTo(0.25);
+    figures.showPlayers([{ ...PLAYER, health: 0 }]);
+    expect(findOnly(figures).health).toBe(0);
   });
 
   it('shows every player with a model of its own', () => {
@@ -227,6 +244,28 @@ describe('PlayerFigures', () => {
     expect(measureArm(scene)).toBeCloseTo(0);
   });
 
+  it('plays a death once and holds its last pose while dead', () => {
+    const scene = new Object3D();
+    const figures = new PlayerFigures(scene, createFigure);
+    figures.showPlayers([{ ...PLAYER, action: 'Walk', actionCount: 1 }]);
+    figures.update(0.25);
+    const dead: PlayerState = { ...PLAYER, action: 'Die', actionCount: 2 };
+    figures.showPlayers([dead]);
+    figures.update(0.5);
+    expect(findOnly(figures).clip).toBe('Die');
+    expect(measureArm(scene)).toBeCloseTo(-1);
+    for (let frame = 0; frame < 4; frame++) {
+      figures.showPlayers([dead]);
+      figures.update(0.5);
+    }
+    expect(findOnly(figures).clip).toBe('Die');
+    expect(measureArm(scene)).toBeCloseTo(-2);
+    figures.showPlayers([{ ...PLAYER, action: 'Idle', actionCount: 3 }]);
+    figures.update(0.1);
+    expect(findOnly(figures).clip).toBe('Idle');
+    expect(measureArm(scene)).toBeCloseTo(0);
+  });
+
   it('starts a slash over when the action count changes', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
@@ -288,6 +327,7 @@ describe('PlayerFigures', () => {
       const snapshot = createSnapshotMessage(
         step,
         [{ ...PLAYER, ...state }],
+        [],
         OWN,
       );
       timeline.addSnapshot(snapshot, step * 50);

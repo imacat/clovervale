@@ -28,7 +28,11 @@ import {
   createMotion,
   createSnapshotMessage,
 } from '@clovervale/shared';
-import type { InputProgress, PlayerState } from '@clovervale/shared';
+import type {
+  InputProgress,
+  MonsterState,
+  PlayerState,
+} from '@clovervale/shared';
 
 import {
   HISTORY_LIMIT,
@@ -50,6 +54,7 @@ const PLAYER: PlayerState = {
   yaw: 90,
   action: 'Walk',
   actionCount: 1,
+  health: 100,
 };
 
 /** What the snapshots tell the page of its own player. */
@@ -72,7 +77,10 @@ function receiveAtOnce(
   step: number,
   players: readonly PlayerState[],
 ): void {
-  timeline.addSnapshot(createSnapshotMessage(step, players, OWN), step * STEP);
+  timeline.addSnapshot(
+    createSnapshotMessage(step, players, [], OWN),
+    step * STEP,
+  );
 }
 
 /**
@@ -174,8 +182,9 @@ describe('SnapshotTimeline', () => {
   it('has nothing to show before the first snapshot', () => {
     const timeline = new SnapshotTimeline();
     expect(timeline.latest).toBeNull();
-    expect(timeline.readLatest()).toEqual({ players: [], lag: 0 });
-    expect(timeline.readPast(1000, 200)).toEqual({ players: [], lag: 0 });
+    const nobody = { players: [], monsters: [], lag: 0, time: null };
+    expect(timeline.readLatest()).toEqual(nobody);
+    expect(timeline.readPast(1000, 200)).toEqual(nobody);
   });
 
   it('shows the latest snapshot as it is', () => {
@@ -184,7 +193,12 @@ describe('SnapshotTimeline', () => {
     receiveAtOnce(timeline, 2, [PLAYER]);
     receiveAtOnce(timeline, 4, [moved]);
     expect(timeline.latest).toEqual([moved]);
-    expect(timeline.readLatest()).toEqual({ players: [moved], lag: 0 });
+    expect(timeline.readLatest()).toEqual({
+      players: [moved],
+      monsters: [],
+      lag: 0,
+      time: 4 * STEP,
+    });
   });
 
   it('puts a player between two snapshots, by the time between them', () => {
@@ -229,7 +243,10 @@ describe('SnapshotTimeline', () => {
     ];
     for (const [step, arrival] of arrivals) {
       const player: PlayerState = { ...PLAYER, x: step * 0.05 };
-      timeline.addSnapshot(createSnapshotMessage(step, [player], OWN), arrival);
+      timeline.addSnapshot(
+        createSnapshotMessage(step, [player], [], OWN),
+        arrival,
+      );
     }
     const seen: number[] = [1400, 1425, 1450, 1475, 1500].map(
       (time: number) => findOnly(timeline.readPast(time, 200)).x,
@@ -296,8 +313,18 @@ describe('SnapshotTimeline', () => {
     const moved: PlayerState = { ...PLAYER, x: 1.15 };
     receiveAtOnce(timeline, 2, [PLAYER]);
     receiveAtOnce(timeline, 4, [moved]);
-    expect(timeline.readPast(400, 200)).toEqual({ players: [moved], lag: 0 });
-    expect(timeline.readPast(900, 200)).toEqual({ players: [moved], lag: 0 });
+    expect(timeline.readPast(400, 200)).toEqual({
+      players: [moved],
+      monsters: [],
+      lag: 0,
+      time: 200,
+    });
+    expect(timeline.readPast(900, 200)).toEqual({
+      players: [moved],
+      monsters: [],
+      lag: 0,
+      time: 700,
+    });
   });
 
   it('carries on from where it held once the next snapshot arrives', () => {
@@ -305,7 +332,7 @@ describe('SnapshotTimeline', () => {
     receiveAtOnce(timeline, 2, [PLAYER]);
     receiveAtOnce(timeline, 4, [{ ...PLAYER, x: 1.2 }]);
     expect(findOnly(timeline.readPast(440, 200)).x).toBe(1.2);
-    const late = createSnapshotMessage(6, [{ ...PLAYER, x: 1.4 }], OWN);
+    const late = createSnapshotMessage(6, [{ ...PLAYER, x: 1.4 }], [], OWN);
     timeline.addSnapshot(late, 445);
     expect(findOnly(timeline.readPast(450, 200)).x).toBeCloseTo(1.3);
   });
@@ -353,6 +380,63 @@ describe('SnapshotTimeline', () => {
     timeline.clear();
     expect(timeline.size).toBe(0);
     expect(timeline.latest).toBeNull();
-    expect(timeline.readPast(400, 200)).toEqual({ players: [], lag: 0 });
+    expect(timeline.readPast(400, 200)).toEqual({
+      players: [],
+      monsters: [],
+      lag: 0,
+      time: null,
+    });
+    expect(timeline.latestMonsters).toBeNull();
+  });
+
+  it('puts a monster between two snapshots, like a player', () => {
+    const timeline = new SnapshotTimeline();
+    const monster: MonsterState = {
+      id: 1,
+      x: 10,
+      z: 8,
+      yaw: 0,
+      action: 'Walk',
+      actionCount: 3,
+      health: 40,
+      mode: 'chase',
+    };
+    const later: MonsterState = { ...monster, x: 10.1, yaw: 90, health: 20 };
+    timeline.addSnapshot(
+      createSnapshotMessage(2, [PLAYER], [monster], OWN),
+      2 * STEP,
+    );
+    timeline.addSnapshot(
+      createSnapshotMessage(4, [PLAYER], [later], OWN),
+      4 * STEP,
+    );
+    expect(timeline.latestMonsters).toEqual([later]);
+    const view = timeline.readPast(350, 200);
+    expect(view.time).toBe(150);
+    expect(view.monsters).toHaveLength(1);
+    expect(view.monsters[0]?.x).toBeCloseTo(10.05);
+    expect(view.monsters[0]?.yaw).toBeCloseTo(45);
+    expect(view.monsters[0]?.health).toBe(40);
+  });
+
+  it('leaves out a monster that the earlier snapshot leaves out', () => {
+    const timeline = new SnapshotTimeline();
+    const monster: MonsterState = {
+      id: 1,
+      x: 10,
+      z: 8,
+      yaw: 0,
+      action: 'Idle',
+      actionCount: 0,
+      health: 60,
+      mode: 'idle',
+    };
+    receiveAtOnce(timeline, 2, [PLAYER]);
+    timeline.addSnapshot(
+      createSnapshotMessage(4, [PLAYER], [monster], OWN),
+      4 * STEP,
+    );
+    expect(timeline.readPast(350, 200).monsters).toEqual([]);
+    expect(timeline.readPast(400, 200).monsters).toEqual([monster]);
   });
 });

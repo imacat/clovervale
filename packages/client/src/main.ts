@@ -29,7 +29,10 @@ import {
   findSpawnPoint,
 } from '@clovervale/shared';
 import type {
+  EntityRef,
+  GameEvent,
   GroundVector,
+  MonsterState,
   PlayerInput,
   PlayerMotion,
   PlayerState,
@@ -40,6 +43,8 @@ import type { Actor } from './actor.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
+import { EventSchedule } from './event-schedule.ts';
+import { HitMarkers } from './hit-markers.ts';
 import { SnapshotTimeline } from './interpolation.ts';
 import type { PlayersView } from './interpolation.ts';
 import { REQUIRED_MODEL_FILES, planModels } from './model-catalogue.ts';
@@ -51,6 +56,7 @@ import {
 import type { LoadedModel } from './model-loader.ts';
 import { describeFailure, summariseModels } from './model-report.ts';
 import type { ModelProblem } from './model-report.ts';
+import { MonsterFigures } from './monster-figures.ts';
 import { DelayLine } from './network-delay.ts';
 import { createObstacleOutlines } from './obstacle-outlines.ts';
 import { createPanel } from './panel.ts';
@@ -60,6 +66,7 @@ import { MoveKeys, findKeyCommand } from './player-input.ts';
 import type { KeyCommand } from './player-input.ts';
 import {
   describeDisplay,
+  describeMonster,
   describePrediction,
   describeSnapshot,
 } from './player-readout.ts';
@@ -67,6 +74,7 @@ import { PlayerPrediction, placeOwnPlayer } from './prediction.ts';
 import { resolveServerUrl } from './server-url.ts';
 import './style.css';
 import {
+  createMonsterFigure,
   createPlayerFigure,
   createVillageScene,
   populateVillage,
@@ -77,6 +85,15 @@ import type { Viewport } from './viewport.ts';
 /** The URL of the directory of the models, relative to the page. */
 const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 
+/** The colour of the number of a hit on the player of the page. */
+const OWN_HIT_COLOUR = '#ff4b3e';
+/** The colour of the number of a hit on another player. */
+const PLAYER_HIT_COLOUR = '#ff9a3d';
+/** The colour of the number of a hit on a monster. */
+const MONSTER_HIT_COLOUR = '#ffe14d';
+/** The most hits that are remembered as shown, for looking at. */
+const SHOWN_HIT_LIMIT = 100;
+
 /** The models that stand in the village whoever is connected. */
 const actors: Actor[] = [];
 /** The models that have been loaded so far. */
@@ -84,6 +101,10 @@ let models: readonly LoadedModel[] = [];
 
 /** The latest snapshots from the server, to show the players from. */
 const timeline = new SnapshotTimeline();
+/** The events from the server that are yet to be shown. */
+const schedule = new EventSchedule();
+/** The latest hits that have been shown, the latest last. */
+const shownHits: GameEvent[] = [];
 
 const panel: Panel = createPanel();
 const scene = createVillageScene();
@@ -92,6 +113,10 @@ scene.add(outlines);
 const figures = new PlayerFigures(scene, (appearance: number) =>
   createPlayerFigure(models, appearance),
 );
+const monsterFigures = new MonsterFigures(scene, () =>
+  createMonsterFigure(models),
+);
+const markers = new HitMarkers(scene);
 const viewport: Viewport = showScene(
   scene,
   findSpawnPoint(0),
@@ -103,6 +128,8 @@ const viewport: Viewport = showScene(
       actor.update(seconds);
     }
     figures.update(seconds);
+    monsterFigures.update(seconds);
+    markers.update(seconds);
   },
 );
 
@@ -112,7 +139,10 @@ Object.defineProperty(window, 'clovervale', {
   value: {
     describeCamera: () => viewport.getFocus(),
     describeFigures: () => figures.describeFigures(),
+    describeMonsters: () => monsterFigures.describeMonsters(),
     listLatestPlayers: () => timeline.latest ?? [],
+    listLatestMonsters: () => timeline.latestMonsters ?? [],
+    listShownHits: () => [...shownHits],
   },
 });
 
@@ -203,11 +233,43 @@ function sendMove(): void {
 }
 
 /**
+ * Shows the hits whose moment has come in what is shown, each once, with a
+ * number that floats up from whoever was hit, where it is shown.  A hit on
+ * whoever is not shown is not shown either.
+ *
+ * @param {PlayersView} view - The players and the monsters as they are
+ *   shown.
+ */
+function showHits(view: PlayersView): void {
+  for (const event of schedule.takeDue(view.time)) {
+    const { target }: { target: EntityRef } = event;
+    const shown: GroundVector | undefined =
+      target.kind === 'player'
+        ? view.players.find((player: PlayerState) => player.id === target.id)
+        : view.monsters.find(
+            (monster: MonsterState) => monster.id === target.id,
+          );
+    if (shown === undefined) {
+      continue;
+    }
+    let colour: string = MONSTER_HIT_COLOUR;
+    if (target.kind === 'player') {
+      colour = target.id === ownId ? OWN_HIT_COLOUR : PLAYER_HIT_COLOUR;
+    }
+    markers.show(shown, event.damage, colour);
+    shownHits.push(event);
+    if (shownHits.length > SHOWN_HIT_LIMIT) {
+      shownHits.shift();
+    }
+  }
+}
+
+/**
  * Shows the players as the panel is set to show them, with the camera on
  * the player the panel has it follow, as it is shown.  The player of the
- * page is shown as predicted, or like the others.  The others are shown
- * either smoothly, as they were a while ago, or exactly as the latest
- * snapshot tells them.
+ * page is shown as predicted, or like the others.  The others and the
+ * monsters are shown either smoothly, as they were a while ago, or exactly
+ * as the latest snapshot tells them, and so are the hits among them.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -225,9 +287,11 @@ function showPlayers(): void {
   ) {
     const drawn: PlayerMotion = prediction.readDrawn(now);
     const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
-    view = { players, lag: view.lag };
+    view = { ...view, players };
   }
   figures.showPlayers(view.players);
+  monsterFigures.showMonsters(view.monsters);
+  showHits(view);
   panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
   panel.showPrediction(describePrediction(prediction));
   const followedId: number | null = panel.camera.followedId ?? ownId;
@@ -267,6 +331,13 @@ function receiveMessage(data: string): void {
         prediction.reconcile(message.own, now);
       }
       panel.showReadout(describeSnapshot(ownId, message.players));
+      panel.showMonster(describeMonster(message.monsters));
+    }
+    return;
+  }
+  if (message.type === 'events') {
+    if (ownId !== null) {
+      schedule.receive(message.events);
     }
     return;
   }
@@ -303,6 +374,8 @@ async function connectToServer(): Promise<void> {
     prediction = null;
     panel.state.server = 'disconnected';
     timeline.clear();
+    schedule.clear();
+    panel.showMonster(describeMonster(null));
     panel.camera.followedId = null;
     panel.offerCameraChoices(listCameraChoices(null, null));
     panel.showReadout(describeSnapshot(null, null));
@@ -320,7 +393,9 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
   if (command !== 'interact') {
     moveKeys.pressKey(event.code);
     sendMove();
-  } else if (!event.repeat) {
+  } else if (!event.repeat && prediction?.motion.action !== 'Die') {
+    // A dead player cannot slash, and is not to slash once it is back for
+    // a key pressed while it was dead.
     sendInput({ type: 'interact' });
   }
 });

@@ -23,7 +23,13 @@
  */
 
 import { SIMULATION_RATE } from './movement.ts';
-import { applyInput, stepMotion } from './player-motion.ts';
+import type { GroundVector } from './movement.ts';
+import {
+  applyInput,
+  killMotion,
+  relocateMotion,
+  stepMotion,
+} from './player-motion.ts';
 import type { PlayerInput, PlayerMotion } from './player-motion.ts';
 
 /**
@@ -142,6 +148,35 @@ export class AuthoritativePlayer {
     this.#receivedSequence = input.sequence;
     this.#waiting.push({ input, waited: 0 });
     return true;
+  }
+
+  /**
+   * Makes the player die where it is, which its peer learns of only from
+   * the motion of the player as the server tells it.
+   *
+   * The player stops whatever it is doing and lies there, neither moving,
+   * turning nor slashing, until it is moved somewhere else.  The inputs
+   * that are waiting for their turn still come into effect when it comes,
+   * but only to change the way the player wants to move.
+   */
+  kill(): void {
+    this.#motion = killMotion(this.#motion);
+  }
+
+  /**
+   * Moves the player somewhere else at once, which its peer learns of only
+   * from the motion of the player as the server tells it.
+   *
+   * The player stops whatever it is doing and idles there, facing the way it
+   * is told, but still wants to move the way it did.  The inputs that are
+   * waiting for their turn still come into effect when it comes.
+   *
+   * @param {GroundVector} position - Where the player is to stand.
+   * @param {number} yaw - The turn around the Y axis from facing +Z towards
+   *   +X, in degrees.
+   */
+  relocate(position: GroundVector, yaw: number): void {
+    this.#motion = relocateMotion(this.#motion, position, yaw);
   }
 
   /**

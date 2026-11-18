@@ -47,6 +47,18 @@ describe('chooseClip', () => {
     });
   });
 
+  it('plays the clips of an attack and of a death once and holds them', () => {
+    const monsterClips: readonly string[] = ['Idle', 'Walk', 'Attack', 'Die'];
+    expect(chooseClip('Attack', monsterClips)).toEqual({
+      name: 'Attack',
+      playback: 'hold',
+    });
+    expect(chooseClip('Die', monsterClips)).toEqual({
+      name: 'Die',
+      playback: 'hold',
+    });
+  });
+
   it('idles when the model lacks the clip', () => {
     expect(chooseClip('Slash', ['Idle', 'Talk'])).toEqual({
       name: 'Idle',

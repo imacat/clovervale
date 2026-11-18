@@ -21,7 +21,12 @@
  * @module client/player-readout Telling the owner what is synchronised.
  */
 
-import type { GroundVector, PlayerState } from '@clovervale/shared';
+import { MONSTER_HEALTH, PLAYER_HEALTH } from '@clovervale/shared';
+import type {
+  GroundVector,
+  MonsterState,
+  PlayerState,
+} from '@clovervale/shared';
 
 import type { PlayersView } from './interpolation.ts';
 
@@ -37,6 +42,23 @@ export interface PlayerReadout {
   readonly yaw: string;
   /** What the player of the page is doing in the latest snapshot. */
   readonly action: string;
+  /**
+   * The health of the player of the page in the latest snapshot, and
+   * whether it is dead.
+   */
+  readonly health: string;
+}
+
+/** What the owner reads about the monster in the latest snapshot. */
+export interface MonsterReadout {
+  /** What the monster is up to. */
+  readonly mode: string;
+  /** What the monster is doing. */
+  readonly action: string;
+  /** The health of the monster. */
+  readonly health: string;
+  /** The position of the monster. */
+  readonly position: string;
 }
 
 /** What the owner reads about the player of the page as it is shown. */
@@ -100,14 +122,53 @@ export function describeSnapshot(
       position: UNKNOWN,
       yaw: UNKNOWN,
       action: UNKNOWN,
+      health: UNKNOWN,
     };
   }
+  const health = `${String(own.health)} / ${String(PLAYER_HEALTH)}`;
   return {
     player: `${id}, appearance ${String(own.appearance)}`,
     players: count,
     position: `${formatNumber(own.x, 2)}, ${formatNumber(own.z, 2)}`,
     yaw: `${formatNumber(own.yaw, 1)}°`,
     action: own.action,
+    health: own.action === 'Die' ? `${health}, dead` : health,
+  };
+}
+
+/**
+ * Describes the monster in the latest snapshot.
+ *
+ * @param {(readonly MonsterState[]) | null} monsters - The monsters in the
+ *   latest snapshot, or `null` before the first one.
+ * @returns {MonsterReadout} What the owner reads, which reports the
+ *   monster as gone when the snapshot has none.
+ */
+export function describeMonster(
+  monsters: readonly MonsterState[] | null,
+): MonsterReadout {
+  if (monsters === null) {
+    return {
+      mode: UNKNOWN,
+      action: UNKNOWN,
+      health: UNKNOWN,
+      position: UNKNOWN,
+    };
+  }
+  const [monster] = monsters;
+  if (monster === undefined) {
+    return {
+      mode: 'gone',
+      action: UNKNOWN,
+      health: UNKNOWN,
+      position: UNKNOWN,
+    };
+  }
+  return {
+    mode: monster.mode,
+    action: monster.action,
+    health: `${String(monster.health)} / ${String(MONSTER_HEALTH)}`,
+    position: `${formatNumber(monster.x, 2)}, ${formatNumber(monster.z, 2)}`,
   };
 }
 

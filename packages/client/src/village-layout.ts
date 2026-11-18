@@ -57,16 +57,17 @@ function findSpareSpots(index: number): Spot[] {
  *
  * The fountain stands in the middle of a plaza, in front of the great tree,
  * and the cottages and the weapon shop stand around the plaza, each facing
- * it.  The NPC is by the fountain, and the monster is a little way outside.
- * The characters have no place of their own, as they stand wherever their
- * players are.  A prop the village has no place for stands by itself to one
- * side, where it stands in nobody's way.
+ * it.  The NPC is by the fountain, and the spawn stones of the monster are
+ * a little way outside.  The characters and the monster have no place of
+ * their own, as they stand wherever the server has them.  A prop the
+ * village has no place for stands by itself to one side, where it stands
+ * in nobody's way.
  *
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.
  * @returns {Placement[]} Where each model stands.  A model can stand in
- *   several places, and a character or a file the game does not use stands
- *   nowhere.
+ *   several places, and a character, the monster or a file the game does
+ *   not use stands nowhere.
  */
 export function layoutVillage(files: readonly string[]): Placement[] {
   const placements: Placement[] = [];

@@ -40,7 +40,6 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
   'fountain.glb': [[PLAZA_CENTRE.x, PLAZA_CENTRE.z, 0]],
   'weapon-shop.glb': [[12, -4.5, -90]],
   'npc.glb': [[3.2, -6.4, -25]],
-  'monster.glb': [[8.4, 6.8, -60]],
   'prop-spawn-stones.glb': [[11.4, 9, -30]],
   'prop-great-tree.glb': [[0, -14.5, 20]],
   'prop-cottage.glb': [
@@ -189,7 +188,6 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
     makeBox(-1.4, 2.5, 1.9, 3.05),
   ],
   'npc.glb': [makeCircle(0, 0, 0.35)],
-  'monster.glb': [makeBox(-0.45, 0.45, -1.8, 1)],
   // The five standing stones, and not the slab they stand round.
   'prop-spawn-stones.glb': Array.from({ length: 5 }, (_, index: number) => {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));

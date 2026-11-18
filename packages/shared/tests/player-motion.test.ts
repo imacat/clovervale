@@ -35,6 +35,7 @@ import {
   createMotion,
   findPlacement,
   isResting,
+  killMotion,
   stepMotion,
 } from '../src/index.ts';
 import type { PlayerInput, PlayerMotion } from '../src/index.ts';
@@ -234,5 +235,58 @@ describe('a player who walks into the scenery', () => {
       VILLAGE_BOUNDARY.z + VILLAGE_BOUNDARY.radius - PLAYER_RADIUS,
       9,
     );
+  });
+});
+
+describe('a player who dies', () => {
+  it('falls where it is, facing the same way', () => {
+    const walking: PlayerMotion = stepTimes(
+      applyInput(createMotion({ x: 0, z: 0 }, 0), steer(1, 0)),
+      4,
+    );
+    const dead: PlayerMotion = killMotion(walking);
+    expect(dead).toMatchObject({
+      x: walking.x,
+      z: walking.z,
+      yaw: walking.yaw,
+      action: 'Die',
+      actionCount: walking.actionCount + 1,
+    });
+    expect(isResting(dead)).toBe(false);
+  });
+
+  it('stops slashing', () => {
+    const slashing: PlayerMotion = stepMotion(
+      applyInput(createMotion({ x: 0, z: 0 }, 0), INTERACT),
+    );
+    const dead: PlayerMotion = stepTimes(killMotion(slashing), SLASH_STEPS);
+    expect(dead.action).toBe('Die');
+    expect(dead.actionCount).toBe(slashing.actionCount + 1);
+  });
+
+  it('neither moves nor turns while it wants to', () => {
+    const dead: PlayerMotion = killMotion(createMotion({ x: 1, z: 2 }, 30));
+    const steered: PlayerMotion = applyInput(dead, steer(-1, 0));
+    const after: PlayerMotion = stepTimes(steered, SIMULATION_RATE);
+    expect(after).toEqual(steered);
+    expect(after).toMatchObject({ x: 1, z: 2, yaw: 30, action: 'Die' });
+  });
+
+  it('does not slash, then or later', () => {
+    const dead: PlayerMotion = killMotion(createMotion({ x: 0, z: 0 }, 0));
+    const asked: PlayerMotion = applyInput(dead, INTERACT);
+    expect(asked).toEqual(dead);
+    expect(stepTimes(asked, SIMULATION_RATE)).toEqual(dead);
+  });
+
+  it('still takes in the way it wants to move', () => {
+    const walking: PlayerMotion = applyInput(
+      createMotion({ x: 0, z: 0 }, 0),
+      steer(1, 0),
+    );
+    const dead: PlayerMotion = killMotion(stepMotion(walking));
+    expect(dead.direction).toEqual({ x: 1, z: 0 });
+    const stopped: PlayerMotion = applyInput(dead, steer(0, 0));
+    expect(stopped.direction).toEqual({ x: 0, z: 0 });
   });
 });

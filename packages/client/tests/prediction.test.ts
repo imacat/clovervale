@@ -26,11 +26,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AuthoritativePlayer,
+  DEATH_DURATION,
   SIMULATION_RATE,
   SLASH_STEPS,
   SNAPSHOT_RATE,
   WALK_SPEED,
   createMotion,
+  killMotion,
 } from '@clovervale/shared';
 import type {
   InputProgress,
@@ -47,6 +49,9 @@ const STEP: number = 1000 / SIMULATION_RATE;
 
 /** How far a player walks in one step, in metres. */
 const STEP_LENGTH: number = WALK_SPEED / SIMULATION_RATE;
+
+/** The number of simulation steps a dead player lies where it fell. */
+const DEATH_STEPS: number = DEATH_DURATION * SIMULATION_RATE;
 
 /** The number of simulation steps from one snapshot to the next. */
 const STEPS_PER_SNAPSHOT: number = SIMULATION_RATE / SNAPSHOT_RATE;
@@ -93,6 +98,16 @@ interface Link {
   readonly stepsFirst?: boolean;
 }
 
+/** Where the server moves the player at once, after one of its steps. */
+interface Relocation {
+  /** The number of the step after which the player is moved, from 1. */
+  readonly step: number;
+  /** Where the player is moved to. */
+  readonly position: { readonly x: number; readonly z: number };
+  /** The yaw the player is turned to, in degrees. */
+  readonly yaw: number;
+}
+
 /** What came of playing inputs over a link. */
 interface Outcome {
   /** The prediction of the page in the end. */
@@ -127,12 +142,20 @@ function steer(x: number, z: number): PlayerInput {
  * @param {readonly TimedInput[]} inputs - The inputs, in the order of
  *   their times.
  * @param {number} duration - How long to play for, in whole milliseconds.
+ * @param {readonly Relocation[]} [relocations] - Where the server moves the
+ *   player at once, and when, which the page cannot foresee.  None by
+ *   default.
+ * @param {readonly number[]} [deaths] - The numbers of the steps after
+ *   which the server kills the player, from 1, which the page cannot
+ *   foresee either.  None by default.
  * @returns {Outcome} What came of it.
  */
 function play(
   link: Link,
   inputs: readonly TimedInput[],
   duration: number,
+  relocations: readonly Relocation[] = [],
+  deaths: readonly number[] = [],
 ): Outcome {
   const server = new AuthoritativePlayer(START);
   const prediction = new PlayerPrediction(START, 0);
@@ -160,7 +183,16 @@ function play(
     }
     if (time >= link.phase && (time - link.phase) % STEP === 0) {
       server.step();
-      if (++stepCount % STEPS_PER_SNAPSHOT === 0) {
+      stepCount++;
+      if (deaths.includes(stepCount)) {
+        server.kill();
+      }
+      for (const relocation of relocations) {
+        if (relocation.step === stepCount) {
+          server.relocate(relocation.position, relocation.yaw);
+        }
+      }
+      if (stepCount % STEPS_PER_SNAPSHOT === 0) {
         const arrival: number = time + link.downlink;
         const sent: InputProgress[] = downward.get(arrival) ?? [];
         downward.set(arrival, [...sent, server.progress]);
@@ -182,6 +214,18 @@ function play(
     }
   }
   return { prediction, server, snapshotCount, lead };
+}
+
+/**
+ * Moves the player of a server several steps of the simulation forward.
+ *
+ * @param {AuthoritativePlayer} player - The player.
+ * @param {number} count - The number of steps.
+ */
+function stepTimes(player: AuthoritativePlayer, count: number): void {
+  for (let step = 0; step < count; step++) {
+    player.step();
+  }
 }
 
 /**
@@ -490,6 +534,122 @@ describe('a prediction set right by the server', () => {
     expect(prediction.motion).toEqual(server.motion);
   });
 
+  it.each([
+    ['walking', QUICK_TURNS, 2600, [17, 29]],
+    ['slashing', SLASHES, 5000, [8, 25, 61]],
+    ['standing still', QUICK_TURNS, 2600, [4]],
+  ])(
+    'moves the player where the server moves it %s, once, without drifting',
+    (
+      _: string,
+      inputs: readonly TimedInput[],
+      duration: number,
+      steps: readonly number[],
+    ) => {
+      const relocations: Relocation[] = steps.map((step: number) => ({
+        step,
+        position: { x: -1, z: 4 + step / 10 },
+        yaw: 180,
+      }));
+      for (const link of LINKS) {
+        const outcome: Outcome = play(link, inputs, duration, relocations);
+        const told = JSON.stringify(link);
+        expect(outcome.prediction.correctionCount, told).toBe(steps.length);
+        expect(outcome.prediction.motion, told).toEqual(outcome.server.motion);
+        expect(outcome.server.progress.sequence, told).toBe(inputs.length);
+      }
+    },
+  );
+
+  it('walks on from where the server moves it, as the keys tell', () => {
+    const inputs: TimedInput[] = [{ time: 300, input: steer(1, 0) }];
+    const link: Link = { uplink: 150, downlink: 150, phase: 3, frame: 16 };
+    const relocation: Relocation = {
+      step: 30,
+      position: { x: -1, z: 4 },
+      yaw: 180,
+    };
+    const { prediction, server }: Outcome = play(link, inputs, 3000, [
+      relocation,
+    ]);
+    // Still walking, the page is ahead of the server, on the same line.
+    expect(prediction.correctionCount).toBe(1);
+    expect(prediction.motion).toMatchObject({ z: 4, action: 'Walk' });
+    expect(server.motion).toMatchObject({ z: 4, action: 'Walk' });
+    expect(prediction.motion.x).toBeGreaterThan(server.motion.x);
+    expect(server.motion.x).toBeGreaterThan(-1 + 20 * STEP_LENGTH);
+  });
+
+  it.each([
+    ['walking', QUICK_TURNS, 4000, 12],
+    ['slashing', SLASHES, 6000, 25],
+    ['standing still', QUICK_TURNS, 4000, 4],
+  ])(
+    'lets the player die and come back as the server does, %s',
+    (
+      _: string,
+      inputs: readonly TimedInput[],
+      duration: number,
+      step: number,
+    ) => {
+      const revival: Relocation = {
+        step: step + DEATH_STEPS,
+        position: { x: -1, z: 4 },
+        yaw: 180,
+      };
+      for (const link of LINKS) {
+        const outcome: Outcome = play(link, inputs, duration, [revival], [
+          step,
+        ]);
+        const told = JSON.stringify(link);
+        expect(outcome.prediction.correctionCount, told).toBe(2);
+        expect(outcome.prediction.motion, told).toEqual(outcome.server.motion);
+        expect(outcome.server.progress.sequence, told).toBe(inputs.length);
+      }
+    },
+  );
+
+  it('keeps the player where it fell while it is dead', () => {
+    const prediction = new PlayerPrediction(START, 0);
+    prediction.reconcile(
+      { sequence: 0, steps: 2, motion: killMotion(START) },
+      100,
+    );
+    prediction.issueInput(steer(1, 0), 200);
+    prediction.issueInput(INTERACT, 300);
+    expect(prediction.readDrawn(1000)).toMatchObject({
+      x: START.x,
+      z: START.z,
+      yaw: START.yaw,
+      action: 'Die',
+    });
+  });
+
+  it('comes back walking as the keys held through death tell', () => {
+    const prediction = new PlayerPrediction(START, 0);
+    prediction.reconcile(
+      { sequence: 0, steps: 2, motion: killMotion(START) },
+      100,
+    );
+    prediction.issueInput(steer(1, 0), 200);
+    prediction.issueInput(INTERACT, 300);
+    prediction.advance(2600);
+    const server = new AuthoritativePlayer(START);
+    server.kill();
+    server.receiveInput({ ...steer(1, 0), sequence: 1, after: 0 });
+    server.receiveInput({ ...INTERACT, sequence: 2, after: 0 });
+    stepTimes(server, DEATH_STEPS - 5);
+    server.relocate({ x: -1, z: 4 }, 180);
+    stepTimes(server, 5);
+    // The page is ahead of the server, on the same line.
+    prediction.reconcile(server.progress, 2600);
+    expect(prediction.motion).toMatchObject({ z: 4, action: 'Walk' });
+    expect(prediction.motion.x).toBeGreaterThan(server.motion.x);
+    prediction.advance(2800);
+    expect(prediction.motion.action).toBe('Walk');
+    expect(prediction.motion.x).toBeGreaterThan(-1 + 9 * STEP_LENGTH);
+  });
+
   it('takes the word of the server for where the player is', () => {
     const prediction = new PlayerPrediction(START, 0);
     const moved: PlayerMotion = { ...START, x: START.x + 3, z: START.z - 4 };
@@ -526,9 +686,9 @@ describe('a prediction set right by the server', () => {
 
 describe('placeOwnPlayer', () => {
   const own: PlayerState = { id: 4, appearance: 2, x: 0, z: 0, yaw: 0,
-    action: 'Idle', actionCount: 0 };
+    action: 'Idle', actionCount: 0, health: 70 };
   const other: PlayerState = { id: 9, appearance: 1, x: 5, z: 5, yaw: 90,
-    action: 'Walk', actionCount: 3 };
+    action: 'Walk', actionCount: 3, health: 100 };
   const motion: PlayerMotion = {
     ...createMotion({ x: 1, z: 2 }, -90),
     action: 'Slash',
@@ -536,7 +696,7 @@ describe('placeOwnPlayer', () => {
     slashSteps: 4,
   };
   const placed: PlayerState = { id: 4, appearance: 2, x: 1, z: 2, yaw: -90,
-    action: 'Slash', actionCount: 7 };
+    action: 'Slash', actionCount: 7, health: 70 };
 
   it('shows the player of the page with the motion, in its place', () => {
     expect(placeOwnPlayer([own, other], own, motion)).toEqual([placed, other]);

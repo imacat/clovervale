@@ -21,8 +21,8 @@
  * @module shared/protocol Messages exchanged between the server and its peers.
  */
 
-import { ACTION_STATES } from './actions.ts';
-import type { ActionState } from './actions.ts';
+import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
+import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
 import type { GroundVector } from './movement.ts';
 import type {
@@ -32,7 +32,7 @@ import type {
 } from './player-motion.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -62,7 +62,83 @@ export interface PlayerState {
    * whenever the player starts an action, even the same one again.
    */
   readonly actionCount: number;
+  /** The health of the player, from 0 to its full health. */
+  readonly health: number;
 }
+
+/** What the monster can be up to. */
+export const MONSTER_MODES = [
+  'idle',
+  'wander',
+  'chase',
+  'return',
+  'dead',
+] as const;
+
+/**
+ * What the monster is up to: idling or wandering near its home, chasing a
+ * player, walking back home after giving up, or lying dead.
+ */
+export type MonsterMode = (typeof MONSTER_MODES)[number];
+
+/** The monster, as the server knows it at one moment. */
+export interface MonsterState {
+  /** The identifier of the monster, unique among the monsters. */
+  readonly id: number;
+  /** The position along the X axis, in metres. */
+  readonly x: number;
+  /** The position along the Z axis, in metres. */
+  readonly z: number;
+  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  readonly yaw: number;
+  /** What the monster is doing. */
+  readonly action: MonsterAction;
+  /**
+   * The number of actions the monster has started so far.  It changes
+   * whenever the monster starts an action, even the same one again.
+   */
+  readonly actionCount: number;
+  /** The health of the monster, from 0 to its full health. */
+  readonly health: number;
+  /** What the monster is up to. */
+  readonly mode: MonsterMode;
+}
+
+/** What can take part in a fight. */
+export type EntityKind = 'player' | 'monster';
+
+/** Who takes part in something that happens: a player or a monster. */
+export interface EntityRef {
+  /** Whether it is a player or a monster. */
+  readonly kind: EntityKind;
+  /** The identifier of the player or of the monster. */
+  readonly id: number;
+}
+
+/** That something took damage from something else, once. */
+export interface HitEvent {
+  /** The event discriminator. */
+  readonly type: 'hit';
+  /**
+   * The number of the event among the events of the server, which goes up
+   * with every event, from 1.
+   */
+  readonly id: number;
+  /** The simulation step at which it happened. */
+  readonly step: number;
+  /** Who struck. */
+  readonly attacker: EntityRef;
+  /** Who was struck. */
+  readonly target: EntityRef;
+  /** How much health the target lost. */
+  readonly damage: number;
+}
+
+/**
+ * Anything that happens once, at one moment, unlike the state that the
+ * snapshots tell again and again.
+ */
+export type GameEvent = HitEvent;
 
 /** The first message the server sends to every newly connected peer. */
 export interface WelcomeMessage {
@@ -88,6 +164,8 @@ export interface SnapshotMessage {
   readonly step: number;
   /** Every player in the world. */
   readonly players: readonly PlayerState[];
+  /** Every monster in the world that is to be seen. */
+  readonly monsters: readonly MonsterState[];
   /**
    * How far the player of the peer had got with the inputs of the peer
    * when the snapshot was taken.
@@ -95,8 +173,19 @@ export interface SnapshotMessage {
   readonly own: InputProgress;
 }
 
+/**
+ * What has happened in the world since the events the server last sent,
+ * which the server sends every peer once each.
+ */
+export interface EventsMessage {
+  /** The message discriminator. */
+  readonly type: 'events';
+  /** The events, in the order they happened. */
+  readonly events: readonly GameEvent[];
+}
+
 /** Any message the server can send to a peer. */
-export type ServerMessage = WelcomeMessage | SnapshotMessage;
+export type ServerMessage = WelcomeMessage | SnapshotMessage | EventsMessage;
 
 /** What a peer sends whenever the way its player wants to move changes. */
 export type MoveMessage = MoveInput & InputStamp;
@@ -126,6 +215,8 @@ export function createWelcomeMessage(playerId: number): WelcomeMessage {
  * @param {number} step - The number of simulation steps the world has
  *   taken.
  * @param {readonly PlayerState[]} players - Every player in the world.
+ * @param {readonly MonsterState[]} monsters - Every monster in the world
+ *   that is to be seen.
  * @param {InputProgress} own - How far the player of the peer has got with
  *   the inputs of the peer.
  * @returns {SnapshotMessage} The snapshot message.
@@ -133,9 +224,23 @@ export function createWelcomeMessage(playerId: number): WelcomeMessage {
 export function createSnapshotMessage(
   step: number,
   players: readonly PlayerState[],
+  monsters: readonly MonsterState[],
   own: InputProgress,
 ): SnapshotMessage {
-  return { type: 'snapshot', step, players, own };
+  return { type: 'snapshot', step, players, monsters, own };
+}
+
+/**
+ * Creates an events message.
+ *
+ * @param {readonly GameEvent[]} events - The events, in the order they
+ *   happened.
+ * @returns {EventsMessage} The events message.
+ */
+export function createEventsMessage(
+  events: readonly GameEvent[],
+): EventsMessage {
+  return { type: 'events', events };
 }
 
 /**
@@ -202,11 +307,13 @@ export function decodeServerMessage(data: string): ServerMessage {
     value.type === 'snapshot' &&
     Number.isInteger(value.step) &&
     Array.isArray(value.players) &&
+    Array.isArray(value.monsters) &&
     isInputProgress(value.own)
   ) {
     const players: unknown[] = value.players;
+    const monsters: unknown[] = value.monsters;
     const { sequence, steps, motion } = value.own;
-    if (players.every(isPlayerState)) {
+    if (players.every(isPlayerState) && monsters.every(isMonsterState)) {
       return {
         type: 'snapshot',
         step: value.step as number,
@@ -218,6 +325,17 @@ export function decodeServerMessage(data: string): ServerMessage {
           yaw: player.yaw,
           action: player.action,
           actionCount: player.actionCount,
+          health: player.health,
+        })),
+        monsters: monsters.map((monster: MonsterState) => ({
+          id: monster.id,
+          x: monster.x,
+          z: monster.z,
+          yaw: monster.yaw,
+          action: monster.action,
+          actionCount: monster.actionCount,
+          health: monster.health,
+          mode: monster.mode,
         })),
         own: {
           sequence,
@@ -233,6 +351,22 @@ export function decodeServerMessage(data: string): ServerMessage {
             slashSteps: motion.slashSteps,
           },
         },
+      };
+    }
+  }
+  if (value.type === 'events' && Array.isArray(value.events)) {
+    const events: unknown[] = value.events;
+    if (events.every(isHitEvent)) {
+      return {
+        type: 'events',
+        events: events.map((event: HitEvent) => ({
+          type: 'hit',
+          id: event.id,
+          step: event.step,
+          attacker: { kind: event.attacker.kind, id: event.attacker.id },
+          target: { kind: event.target.kind, id: event.target.id },
+          damage: event.damage,
+        })),
       };
     }
   }
@@ -385,6 +519,59 @@ function isPlayerState(value: unknown): value is PlayerState {
     Number.isFinite(value.z) &&
     Number.isFinite(value.yaw) &&
     isActionState(value.action) &&
-    Number.isInteger(value.actionCount)
+    Number.isInteger(value.actionCount) &&
+    isCount(value.health)
+  );
+}
+
+/**
+ * Checks whether a decoded value is the state of a monster.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is the state of a monster.
+ */
+function isMonsterState(value: unknown): value is MonsterState {
+  return (
+    isRecord(value) &&
+    Number.isInteger(value.id) &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.z) &&
+    Number.isFinite(value.yaw) &&
+    MONSTER_ACTIONS.some((action: MonsterAction) => action === value.action) &&
+    Number.isInteger(value.actionCount) &&
+    isCount(value.health) &&
+    MONSTER_MODES.some((mode: MonsterMode) => mode === value.mode)
+  );
+}
+
+/**
+ * Checks whether a decoded value tells who takes part in something.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value tells that.
+ */
+function isEntityRef(value: unknown): value is EntityRef {
+  return (
+    isRecord(value) &&
+    (value.kind === 'player' || value.kind === 'monster') &&
+    Number.isInteger(value.id)
+  );
+}
+
+/**
+ * Checks whether a decoded value is a hit.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value is a hit.
+ */
+function isHitEvent(value: unknown): value is HitEvent {
+  return (
+    isRecord(value) &&
+    value.type === 'hit' &&
+    isCount(value.id) &&
+    isCount(value.step) &&
+    isEntityRef(value.attacker) &&
+    isEntityRef(value.target) &&
+    isCount(value.damage)
   );
 }

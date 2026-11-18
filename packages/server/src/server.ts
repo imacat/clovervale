@@ -34,6 +34,7 @@ import type { RawData } from 'ws';
 import {
   SIMULATION_RATE,
   SNAPSHOT_RATE,
+  createEventsMessage,
   createSnapshotMessage,
   createWelcomeMessage,
   decodeClientMessage,
@@ -41,7 +42,9 @@ import {
 } from '@clovervale/shared';
 import type {
   ClientMessage,
+  GameEvent,
   InputProgress,
+  MonsterState,
   PlayerState,
 } from '@clovervale/shared';
 
@@ -92,8 +95,10 @@ const SOCKET_FILE_MODE = 0o660;
  * peer disconnects.  A peer that sends anything but well-formed client
  * messages, or inputs that are not numbered upwards, or more inputs than
  * can wait for their turn, is disconnected.  All peers are sent snapshots
- * of all the players, again and again, as the simulation of the world goes
- * on, each with how far its own player has got with its inputs.
+ * of all the players and the monsters, again and again, as the simulation
+ * of the world goes on, each with how far its own player has got with its
+ * inputs, and after each snapshot, once, the events that have happened
+ * since the last.
  *
  * A Unix socket file is created for its owner and its group to connect to.
  * A socket file that nothing listens on any more is replaced.
@@ -257,9 +262,11 @@ function readText(data: RawData): string {
 
 /**
  * Keeps the simulation of a world going at its fixed rate, and sends every
- * peer a snapshot of the players at the snapshot rate, which tells the
- * number of steps the simulation has taken, and how far the player of the
- * peer has got with the inputs of the peer.
+ * peer a snapshot of the players and the monsters at the snapshot rate,
+ * which tells the number of steps the simulation has taken, and how far the
+ * player of the peer has got with the inputs of the peer.  Right after the
+ * snapshots, it sends every peer the events that have happened since the
+ * last snapshots, if any have, so that each peer hears of each event once.
  *
  * @param {World} world - The world to simulate.
  * @param {ReadonlyMap<WebSocket, number>} playerIds - The identifiers of
@@ -285,14 +292,23 @@ function runSimulation(
     }
     if (isSnapshotDue) {
       const players: PlayerState[] = world.listPlayers();
+      const monsters: MonsterState[] = world.listMonsters();
+      const events: GameEvent[] = world.takeEvents();
+      const eventData: string | null =
+        events.length === 0
+          ? null
+          : encodeServerMessage(createEventsMessage(events));
       for (const [socket, id] of playerIds) {
         const own: InputProgress | null = world.findProgress(id);
         if (own !== null && socket.readyState === WebSocket.OPEN) {
           socket.send(
             encodeServerMessage(
-              createSnapshotMessage(stepCount, players, own),
+              createSnapshotMessage(stepCount, players, monsters, own),
             ),
           );
+          if (eventData !== null) {
+            socket.send(eventData);
+          }
         }
       }
     }

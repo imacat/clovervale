@@ -21,8 +21,12 @@
  * @module shared/index The public interface of the shared package.
  */
 
-export { ACTION_STATES, SLASH_DURATION } from './actions.ts';
-export type { ActionState } from './actions.ts';
+export {
+  ACTION_STATES,
+  MONSTER_ACTIONS,
+  SLASH_DURATION,
+} from './actions.ts';
+export type { ActionState, MonsterAction } from './actions.ts';
 export {
   AuthoritativePlayer,
   INPUT_WAIT_LIMIT,
@@ -33,6 +37,15 @@ export type {
   InputStamp,
   StampedInput,
 } from './authoritative-player.ts';
+export {
+  DEATH_DURATION,
+  MONSTER_HEALTH,
+  PLAYER_HEALTH,
+  SLASH_DAMAGE,
+  SLASH_REACH,
+  STRIKE_HALF_ANGLE,
+  isWithinStrike,
+} from './combat.ts';
 export {
   SIMULATION_RATE,
   WALK_SPEED,
@@ -51,6 +64,8 @@ export {
   applyInput,
   createMotion,
   isResting,
+  killMotion,
+  relocateMotion,
   stepMotion,
 } from './player-motion.ts';
 export type {
@@ -62,8 +77,10 @@ export type {
 export {
   APPEARANCE_COUNT,
   DEFAULT_SERVER_PORT,
+  MONSTER_MODES,
   PROTOCOL_VERSION,
   SNAPSHOT_RATE,
+  createEventsMessage,
   createInteractMessage,
   createMoveMessage,
   createSnapshotMessage,
@@ -75,7 +92,14 @@ export {
 } from './protocol.ts';
 export type {
   ClientMessage,
+  EntityKind,
+  EntityRef,
+  EventsMessage,
+  GameEvent,
+  HitEvent,
   InteractMessage,
+  MonsterMode,
+  MonsterState,
   MoveMessage,
   PlayerState,
   ServerMessage,

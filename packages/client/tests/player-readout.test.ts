@@ -23,10 +23,13 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { PlayerState } from '@clovervale/shared';
+import { MONSTER_HEALTH, PLAYER_HEALTH } from '@clovervale/shared';
+import type { MonsterState, PlayerState } from '@clovervale/shared';
 
+import type { PlayersView } from '../src/interpolation.ts';
 import {
   describeDisplay,
+  describeMonster,
   describePrediction,
   describeSnapshot,
 } from '../src/player-readout.ts';
@@ -34,10 +37,13 @@ import {
 /** Two players of a snapshot. */
 const PLAYERS: readonly PlayerState[] = [
   { id: 3, appearance: 1, x: 0.8, z: -3.5, yaw: 180, action: 'Idle',
-    actionCount: 0 },
+    actionCount: 0, health: 100 },
   { id: 12, appearance: 2, x: -4.256, z: -0.001, yaw: -90, action: 'Slash',
-    actionCount: 5 },
+    actionCount: 5, health: 55 },
 ];
+
+/** A view that shows nobody, to show players with. */
+const EMPTY: PlayersView = { players: [], monsters: [], lag: 0, time: null };
 
 describe('describeSnapshot', () => {
   it('tells nothing before the server has said anything', () => {
@@ -47,6 +53,7 @@ describe('describeSnapshot', () => {
       position: '–',
       yaw: '–',
       action: '–',
+      health: '–',
     });
   });
 
@@ -57,6 +64,7 @@ describe('describeSnapshot', () => {
       position: '–',
       yaw: '–',
       action: '–',
+      health: '–',
     });
   });
 
@@ -67,6 +75,7 @@ describe('describeSnapshot', () => {
       position: '-4.26, 0.00',
       yaw: '-90.0°',
       action: 'Slash',
+      health: `55 / ${String(PLAYER_HEALTH)}`,
     });
     expect(describeSnapshot(3, PLAYERS)).toEqual({
       player: '#3, appearance 1',
@@ -74,6 +83,16 @@ describe('describeSnapshot', () => {
       position: '0.80, -3.50',
       yaw: '180.0°',
       action: 'Idle',
+      health: `100 / ${String(PLAYER_HEALTH)}`,
+    });
+  });
+
+  it('reports the player of the page as dead while it is dying', () => {
+    const dead: PlayerState = { id: 3, appearance: 1, x: 0.8, z: -3.5,
+      yaw: 180, action: 'Die', actionCount: 1, health: 0 };
+    expect(describeSnapshot(3, [dead])).toMatchObject({
+      action: 'Die',
+      health: `0 / ${String(PLAYER_HEALTH)}, dead`,
     });
   });
 
@@ -84,20 +103,57 @@ describe('describeSnapshot', () => {
       position: '–',
       yaw: '–',
       action: '–',
+      health: '–',
     });
+  });
+});
+
+describe('describeMonster', () => {
+  it('tells nothing before the first snapshot', () => {
+    expect(describeMonster(null)).toEqual({
+      mode: '–',
+      action: '–',
+      health: '–',
+      position: '–',
+    });
+  });
+
+  it('tells the monster as the snapshot tells it', () => {
+    const monster: MonsterState = {
+      id: 1,
+      x: 10.256,
+      z: 8.001,
+      yaw: 45,
+      action: 'Attack',
+      actionCount: 12,
+      health: 40,
+      mode: 'chase',
+    };
+    expect(describeMonster([monster])).toEqual({
+      mode: 'chase',
+      action: 'Attack',
+      health: `40 / ${String(MONSTER_HEALTH)}`,
+      position: '10.26, 8.00',
+    });
+  });
+
+  it('reports the monster as gone when the snapshot has none', () => {
+    expect(describeMonster([])).toMatchObject({ mode: 'gone' });
   });
 });
 
 describe('describeDisplay', () => {
   it('tells nothing before the first snapshot', () => {
-    expect(describeDisplay(12, null, { players: [], lag: 0 })).toEqual({
+    expect(describeDisplay(12, null, { ...EMPTY, lag: 0 })).toEqual({
       drawnAt: '–',
       behind: '–',
     });
   });
 
   it('tells a player shown as the latest snapshot tells is not behind', () => {
-    expect(describeDisplay(12, PLAYERS, { players: PLAYERS, lag: 0 })).toEqual({
+    expect(
+      describeDisplay(12, PLAYERS, { ...EMPTY, players: PLAYERS, lag: 0 }),
+    ).toEqual({
       drawnAt: '-4.26, 0.00',
       behind: '0 ms, 0.00 m',
     });
@@ -109,7 +165,7 @@ describe('describeDisplay', () => {
       x: player.x - 0.3,
       z: player.z + 0.4,
     }));
-    const view = { players: drawn, lag: 149.6 };
+    const view = { ...EMPTY, players: drawn, lag: 149.6 };
     expect(describeDisplay(12, PLAYERS, view)).toEqual({
       drawnAt: '-4.56, 0.40',
       behind: '150 ms, 0.50 m',
@@ -117,14 +173,14 @@ describe('describeDisplay', () => {
   });
 
   it('tells only the time behind while the player is not shown yet', () => {
-    expect(describeDisplay(12, PLAYERS, { players: [], lag: 200 })).toEqual({
+    expect(describeDisplay(12, PLAYERS, { ...EMPTY, lag: 200 })).toEqual({
       drawnAt: '–',
       behind: '200 ms',
     });
   });
 
   it('tells only the time behind once the player is gone', () => {
-    const view = { players: PLAYERS, lag: 80 };
+    const view = { ...EMPTY, players: PLAYERS, lag: 80 };
     expect(describeDisplay(12, PLAYERS.slice(0, 1), view)).toEqual({
       drawnAt: '-4.26, 0.00',
       behind: '80 ms',

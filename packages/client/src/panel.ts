@@ -29,11 +29,13 @@ import type { ModelProblem } from './model-report.ts';
 import { MAX_NETWORK_DELAY } from './network-delay.ts';
 import {
   describeDisplay,
+  describeMonster,
   describePrediction,
   describeSnapshot,
 } from './player-readout.ts';
 import type {
   DisplayReadout,
+  MonsterReadout,
   PlayerReadout,
   PredictionReadout,
 } from './player-readout.ts';
@@ -124,6 +126,13 @@ export interface Panel {
    */
   readonly showReadout: (readout: PlayerReadout) => void;
   /**
+   * Shows the monster as the latest snapshot tells it, for the owner to
+   * see.
+   *
+   * @param {MonsterReadout} readout - What the owner reads.
+   */
+  readonly showMonster: (readout: MonsterReadout) => void;
+  /**
    * Shows how the player of the page is shown, for the owner to compare
    * with what is synchronised.
    *
@@ -153,6 +162,15 @@ const READOUT_NAMES: readonly [keyof PlayerReadout, string][] = [
   ['position', 'Position'],
   ['yaw', 'Yaw'],
   ['action', 'Action'],
+  ['health', 'Health'],
+];
+
+/** The names of the values of the monster, in the order they are shown. */
+const MONSTER_NAMES: readonly [keyof MonsterReadout, string][] = [
+  ['mode', 'Monster'],
+  ['action', 'Monster action'],
+  ['health', 'Monster health'],
+  ['position', 'Monster at'],
 ];
 
 /** The names of the values of the prediction, in the order shown. */
@@ -195,7 +213,15 @@ export function createPanel(): Panel {
     ...describeSnapshot(null, null),
   };
   const display: Record<keyof DisplayReadout, string> = {
-    ...describeDisplay(null, null, { players: [], lag: 0 }),
+    ...describeDisplay(null, null, {
+      players: [],
+      monsters: [],
+      lag: 0,
+      time: null,
+    }),
+  };
+  const monster: Record<keyof MonsterReadout, string> = {
+    ...describeMonster(null),
   };
   // The style sheet of the panel is part of the style sheet of the client.
   const gui = new GUI({ title: 'Clovervale', injectStyles: false });
@@ -224,6 +250,10 @@ export function createPanel(): Panel {
   for (const [key, name] of READOUT_NAMES) {
     folder.add(shown, key).name(name).disable().listen();
   }
+  const monsterFolder: GUI = gui.addFolder('Monster');
+  for (const [key, name] of MONSTER_NAMES) {
+    monsterFolder.add(monster, key).name(name).disable().listen();
+  }
   const predictionFolder: GUI = gui.addFolder('Prediction');
   for (const [key, name] of PREDICTION_NAMES) {
     predictionFolder.add(predicted, key).name(name).disable().listen();
@@ -235,6 +265,9 @@ export function createPanel(): Panel {
 
   const showReadout = (readout: PlayerReadout): void => {
     Object.assign(shown, readout);
+  };
+  const showMonster = (readout: MonsterReadout): void => {
+    Object.assign(monster, readout);
   };
   const showDisplay = (readout: DisplayReadout): void => {
     Object.assign(display, readout);
@@ -276,6 +309,7 @@ export function createPanel(): Panel {
     camera,
     offerCameraChoices,
     showReadout,
+    showMonster,
     showDisplay,
     showPrediction,
     listProblems,

@@ -43,11 +43,14 @@ export const CHARACTER_FILES: readonly string[] = Array.from(
   (_, index: number) => `character-${String(index + 1).padStart(2, '0')}.glb`,
 );
 
+/** The file name of the monster. */
+export const MONSTER_FILE = 'monster.glb';
+
 /** The kinds of the required models other than the characters. */
 const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
   [
     ['npc.glb', 'npc'],
-    ['monster.glb', 'monster'],
+    [MONSTER_FILE, 'monster'],
     ['weapon-shop.glb', 'building'],
     ['fountain.glb', 'building'],
   ],

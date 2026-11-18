@@ -121,7 +121,9 @@ const ATTEMPT_LIMIT = 5;
  * walks on to another, chosen at random, again and again.  A player that
  * does not get where it is going sets out again from where it ends up, and
  * walks a little way in a direction chosen at random if it finds no way
- * from there, until it gives up on the point and moves on to another.
+ * from there, until it gives up on the point and moves on to another.  A
+ * player that dies gives up the rest of its walk, and sets out again from
+ * where it comes back.
  *
  * @param {string} url - The WebSocket URL of the server.
  * @param {PatrolSettings} [patrol] - How the bot patrols, or between the
@@ -196,7 +198,23 @@ export function startBot(
         path === null ? [planEscape(patrol.drawRandom)] : planRoute(from, path),
       );
     };
+    const stopWalking = (): void => {
+      if (timers.size === 0) {
+        return;
+      }
+      for (const timer of timers) {
+        clearTimeout(timer);
+      }
+      timers.clear();
+      sendMove(0, STOP);
+    };
     const patrolOn = (own: InputProgress): void => {
+      if (own.motion.action === 'Die') {
+        // The player comes back elsewhere, where the rest of the walk would
+        // lead it astray, so it is to rest by then and set out afresh.
+        stopWalking();
+        return;
+      }
       const now: number = performance.now();
       const isReady: boolean =
         timers.size === 0 &&
@@ -240,6 +258,10 @@ export function startBot(
         if (playerId !== null && !isStopping) {
           patrolOn(message.own);
         }
+        return;
+      }
+      // A bot does not fight, so what happens does not concern it.
+      if (message.type === 'events') {
         return;
       }
       if (message.protocolVersion !== PROTOCOL_VERSION) {

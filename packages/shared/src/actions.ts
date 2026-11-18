@@ -18,14 +18,21 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module shared/actions What a player can be doing, and for how long.
+ * @module shared/actions What a player or the monster can be doing, and for
+ *   how long.
  */
 
 /** What a player can be doing. */
-export const ACTION_STATES = ['Idle', 'Walk', 'Slash'] as const;
+export const ACTION_STATES = ['Idle', 'Walk', 'Slash', 'Die'] as const;
 
 /** What a player is doing. */
 export type ActionState = (typeof ACTION_STATES)[number];
 
 /** How long a slash lasts, in seconds. */
 export const SLASH_DURATION = 0.6;
+
+/** What the monster can be doing. */
+export const MONSTER_ACTIONS = ['Idle', 'Walk', 'Attack', 'Die'] as const;
+
+/** What the monster is doing. */
+export type MonsterAction = (typeof MONSTER_ACTIONS)[number];

@@ -39,6 +39,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket as SocketFileClient } from 'ws';
 
 import {
+  MONSTER_HEALTH,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
   SLASH_DURATION,
@@ -52,6 +53,7 @@ import {
 import type {
   ClientMessage,
   InputProgress,
+  MonsterState,
   PlayerState,
   ServerMessage,
   WelcomeMessage,
@@ -69,6 +71,8 @@ interface TimedSnapshot {
   readonly step: number;
   /** The players in the snapshot. */
   readonly players: readonly PlayerState[];
+  /** The monsters in the snapshot. */
+  readonly monsters: readonly MonsterState[];
   /** How far the player of the peer has got with the inputs of the peer. */
   readonly own: InputProgress;
   /** When the snapshot was received, in milliseconds. */
@@ -153,8 +157,8 @@ class Peer {
     for (;;) {
       const [message, time] = await this.#receive();
       if (message.type === 'snapshot') {
-        const { step, players, own } = message;
-        return { step, players, own, time };
+        const { step, players, monsters, own } = message;
+        return { step, players, monsters, own, time };
       }
     }
   }
@@ -309,6 +313,21 @@ describe('the game server', () => {
     const own: TimedSnapshot = await mover.receiveSnapshotWhere(isWalking);
     expect(seen.players).toEqual(own.players);
     expect(findPlayer(seen, moverId).yaw).toBeCloseTo(90);
+  });
+
+  it('sends every peer the monster, and its health', async () => {
+    const [first] = await connectPeer();
+    const [second] = await connectPeer();
+    const seen: TimedSnapshot = await first.receiveSnapshotWhere(isPair);
+    expect(seen.monsters).toEqual([
+      expect.objectContaining({ health: MONSTER_HEALTH }),
+    ]);
+    const other: TimedSnapshot = await second.receiveSnapshotWhere(
+      () => true,
+    );
+    expect(other.monsters.map((monster: MonsterState) => monster.id)).toEqual(
+      seen.monsters.map((monster: MonsterState) => monster.id),
+    );
   });
 
   it('sends snapshots at the snapshot rate', async () => {

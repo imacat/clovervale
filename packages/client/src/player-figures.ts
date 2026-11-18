@@ -23,9 +23,14 @@
 
 import type { AnimationClip, Object3D } from 'three';
 
+import { PLAYER_HEALTH } from '@clovervale/shared';
 import type { PlayerState } from '@clovervale/shared';
 
 import { Actor } from './actor.ts';
+import { HealthBar } from './health-bar.ts';
+
+/** The colour of the health bars of the players. */
+const HEALTH_COLOUR = '#4fd04a';
 
 /** A model to show a player with. */
 export interface Figure {
@@ -58,6 +63,8 @@ export interface FigureView {
   readonly yaw: number;
   /** The name of the clip the player plays, or `null` if it has none. */
   readonly clip: string | null;
+  /** How much of the health bar of the player is filled, from 0 to 1. */
+  readonly health: number;
 }
 
 /** A player that is shown. */
@@ -68,6 +75,8 @@ interface ShownPlayer {
   readonly root: Object3D;
   /** The model of the player, playing its clips. */
   readonly actor: Actor;
+  /** The health bar above the player. */
+  readonly bar: HealthBar;
   /** The action count of the action the model is playing the clip of. */
   actionCount: number;
 }
@@ -95,8 +104,9 @@ export class PlayerFigures {
    *
    * Each player stands where its state tells, facing the way it tells, and
    * plays the clip of the action it tells, which starts over whenever the
-   * action count of the player changes.  A player without a model to show
-   * it with is left out.
+   * action count of the player changes, with a health bar above it that
+   * shows its health.  A player without a model to show it with is left
+   * out.
    *
    * @param {readonly PlayerState[]} players - The players as they are to be
    *   shown, whether a snapshot tells them so or they lie between two.
@@ -119,6 +129,7 @@ export class PlayerFigures {
       }
       shown.root.position.set(player.x, 0, player.z);
       shown.root.rotation.y = (player.yaw * Math.PI) / 180;
+      shown.bar.show(player.health, PLAYER_HEALTH);
       if (shown.actionCount !== player.actionCount) {
         shown.actionCount = player.actionCount;
         shown.actor.play(player.action);
@@ -150,6 +161,7 @@ export class PlayerFigures {
       z: shown.root.position.z,
       yaw: (shown.root.rotation.y * 180) / Math.PI,
       clip: shown.actor.clipName,
+      health: shown.bar.fraction,
     }));
   }
 
@@ -169,6 +181,7 @@ export class PlayerFigures {
       appearance: player.appearance,
       root: figure.root,
       actor: new Actor(figure.root, figure.clips),
+      bar: new HealthBar(figure.root, HEALTH_COLOUR),
       actionCount: player.actionCount,
     };
     shown.actor.play(player.action);

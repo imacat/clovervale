@@ -110,7 +110,8 @@ export function createMotion(
  * Takes an input of a player in, which shows from the next step on.
  *
  * A move changes the way the player wants to move.  An interaction is a
- * slash, which a player that is slashing already does not start again.
+ * slash, which a player that is slashing already does not start again, and
+ * a dead player does not start at all, then or later.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.
@@ -124,7 +125,7 @@ export function applyInput(
     const { x, z } = input.direction;
     return { ...motion, direction: { x, z } };
   }
-  if (motion.action === 'Slash') {
+  if (motion.action === 'Slash' || motion.action === 'Die') {
     return motion;
   }
   return { ...motion, isInteracting: true };
@@ -138,12 +139,15 @@ export function applyInput(
  * it, and idles otherwise.  A walking player does not go through the
  * obstacles of the village, nor out of it: it slides along what it walks
  * into at an angle, and walks on the spot against what it walks straight
- * into.
+ * into.  A dead player stays exactly as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @returns {PlayerMotion} The motion after the step.
  */
 export function stepMotion(motion: PlayerMotion): PlayerMotion {
+  if (motion.action === 'Die') {
+    return motion;
+  }
   let { slashSteps } = motion;
   if (motion.action === 'Slash' && --slashSteps > 0) {
     return { ...motion, slashSteps };
@@ -164,6 +168,57 @@ export function stepMotion(motion: PlayerMotion): PlayerMotion {
   );
   const yaw: number = findYaw(direction);
   return startAction({ ...motion, x, z, yaw, slashSteps }, 'Walk');
+}
+
+/**
+ * Makes a player die where it is, as only the server does.
+ *
+ * The player stops whatever it is doing and falls there, facing the way it
+ * did.  It stays so until it is moved somewhere else, neither moving,
+ * turning nor slashing, but still takes in the way it wants to move, so
+ * that it walks that way once it is moved.
+ *
+ * @param {PlayerMotion} motion - The motion of the player.
+ * @returns {PlayerMotion} The motion of the dead player.
+ */
+export function killMotion(motion: PlayerMotion): PlayerMotion {
+  return {
+    ...motion,
+    action: 'Die',
+    actionCount: motion.actionCount + 1,
+    isInteracting: false,
+    slashSteps: 0,
+  };
+}
+
+/**
+ * Moves a player somewhere else at once, as only the server does.
+ *
+ * The player stops whatever it is doing and idles there, facing the way it
+ * is told, but still wants to move the way it did, so that it walks on
+ * from there at the next step if it wants to.
+ *
+ * @param {PlayerMotion} motion - The motion of the player.
+ * @param {GroundVector} position - Where the player is to stand.
+ * @param {number} yaw - The turn around the Y axis from facing +Z towards
+ *   +X, in degrees.
+ * @returns {PlayerMotion} The motion of the player standing there.
+ */
+export function relocateMotion(
+  motion: PlayerMotion,
+  position: GroundVector,
+  yaw: number,
+): PlayerMotion {
+  return {
+    ...motion,
+    x: position.x,
+    z: position.z,
+    yaw,
+    action: 'Idle',
+    actionCount: motion.actionCount + 1,
+    isInteracting: false,
+    slashSteps: 0,
+  };
 }
 
 /**

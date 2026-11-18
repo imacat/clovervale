@@ -165,3 +165,71 @@ describe('an input of a player', () => {
     expect(player.receiveInput(late)).toBe(true);
   });
 });
+
+describe('a player moved elsewhere', () => {
+  it('idles there, facing the way told, and walks on from there', () => {
+    const player: AuthoritativePlayer = createPlayer();
+    player.receiveInput(steer(1, 0, 1));
+    stepTimes(player, 3);
+    const { actionCount } = player.motion;
+    player.relocate({ x: 0, z: 2 }, 180);
+    expect(player.motion).toMatchObject({
+      x: 0,
+      z: 2,
+      yaw: 180,
+      action: 'Idle',
+      actionCount: actionCount + 1,
+    });
+    player.step();
+    expect(player.motion).toMatchObject({ z: 2, yaw: 90, action: 'Walk' });
+    expect(player.motion.x).toBeCloseTo(STEP_LENGTH);
+  });
+
+  it('stops slashing', () => {
+    const player: AuthoritativePlayer = createPlayer();
+    player.receiveInput({ type: 'interact', sequence: 1, after: 0 });
+    stepTimes(player, 2);
+    expect(player.motion.action).toBe('Slash');
+    player.relocate({ x: 0, z: 2 }, 0);
+    player.step();
+    expect(player.motion.action).toBe('Idle');
+  });
+
+  it('keeps how far it has got with the inputs of its peer', () => {
+    const player: AuthoritativePlayer = createPlayer();
+    player.receiveInput(steer(1, 0, 1));
+    stepTimes(player, 3);
+    player.relocate({ x: 0, z: 2 }, 0);
+    expect(player.progress).toMatchObject({ sequence: 1, steps: 3 });
+    expect(player.progress.motion).toBe(player.motion);
+  });
+});
+
+describe('a player who dies', () => {
+  it('takes its inputs in turn, only for the way it wants to move', () => {
+    const player: AuthoritativePlayer = createPlayer();
+    player.kill();
+    player.receiveInput({ type: 'interact', sequence: 1, after: 0 });
+    player.receiveInput(steer(2, 0, 1));
+    player.step();
+    expect(player.progress).toMatchObject({ sequence: 2, steps: 1 });
+    expect(player.motion).toMatchObject({
+      x: 0,
+      z: 0,
+      action: 'Die',
+      direction: { x: 1, z: 0 },
+    });
+  });
+
+  it('walks once moved, without the slash it was asked for', () => {
+    const player: AuthoritativePlayer = createPlayer();
+    player.kill();
+    player.receiveInput({ type: 'interact', sequence: 1, after: 0 });
+    player.receiveInput(steer(2, 0, 1));
+    stepTimes(player, SIMULATION_RATE);
+    player.relocate({ x: 0, z: 2 }, 0);
+    player.step();
+    expect(player.motion).toMatchObject({ z: 2, action: 'Walk' });
+    expect(player.motion.x).toBeCloseTo(STEP_LENGTH);
+  });
+});

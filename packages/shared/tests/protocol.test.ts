@@ -25,6 +25,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PROTOCOL_VERSION,
+  createEventsMessage,
   createInteractMessage,
   createMoveMessage,
   createSnapshotMessage,
@@ -34,7 +35,12 @@ import {
   encodeClientMessage,
   encodeServerMessage,
 } from '../src/index.ts';
-import type { InputProgress, PlayerState } from '../src/index.ts';
+import type {
+  HitEvent,
+  InputProgress,
+  MonsterState,
+  PlayerState,
+} from '../src/index.ts';
 
 /** A player to put in snapshots. */
 const PLAYER: PlayerState = {
@@ -45,6 +51,29 @@ const PLAYER: PlayerState = {
   yaw: -90,
   action: 'Walk',
   actionCount: 4,
+  health: 85,
+};
+
+/** A monster to put in snapshots. */
+const MONSTER: MonsterState = {
+  id: 1,
+  x: 10.5,
+  z: 8.25,
+  yaw: 135,
+  action: 'Attack',
+  actionCount: 9,
+  health: 40,
+  mode: 'chase',
+};
+
+/** A hit to put in events messages. */
+const HIT: HitEvent = {
+  type: 'hit',
+  id: 3,
+  step: 41,
+  attacker: { kind: 'player', id: 7 },
+  target: { kind: 'monster', id: 1 },
+  damage: 20,
 };
 
 /** How far the player of a peer has got, to put in snapshots. */
@@ -75,23 +104,76 @@ describe('the server message codec', () => {
 
   it('decodes the snapshot message it encodes', () => {
     const idler: PlayerState = { ...PLAYER, id: 8, action: 'Slash' };
-    const message = createSnapshotMessage(42, [PLAYER, idler], OWN);
+    const message = createSnapshotMessage(42, [PLAYER, idler], [MONSTER], OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       step: 42,
       players: [PLAYER, idler],
+      monsters: [MONSTER],
       own: OWN,
     });
   });
 
-  it('decodes a snapshot message without players', () => {
-    const message = createSnapshotMessage(0, [], OWN);
+  it('decodes a snapshot message of a dead player', () => {
+    const dead: PlayerState = { ...PLAYER, action: 'Die', health: 0 };
+    const own: InputProgress = {
+      ...OWN,
+      motion: { ...OWN.motion, action: 'Die' },
+    };
+    const message = createSnapshotMessage(42, [dead], [], own);
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'snapshot',
+      step: 42,
+      players: [dead],
+      monsters: [],
+      own,
+    });
+  });
+
+  it('decodes a snapshot message without players or monsters', () => {
+    const message = createSnapshotMessage(0, [], [], OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       step: 0,
       players: [],
+      monsters: [],
       own: OWN,
     });
+  });
+
+  it('decodes the events message it encodes', () => {
+    const back: HitEvent = {
+      ...HIT,
+      id: 4,
+      attacker: HIT.target,
+      target: HIT.attacker,
+      damage: 15,
+    };
+    const message = createEventsMessage([HIT, back]);
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'events',
+      events: [HIT, back],
+    });
+  });
+
+  it('rejects an events message without a list of events', () => {
+    const data = JSON.stringify({ type: 'events', events: HIT });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['a known type', { type: 'heal' }],
+    ['a number', { id: -1 }],
+    ['a step', { step: 1.5 }],
+    ['an attacker', { attacker: null }],
+    ['a known kind of target', { target: { kind: 'tree', id: 1 } }],
+    ['an amount of damage', { damage: '20' }],
+  ])('rejects an events message with a hit without %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'events',
+      events: [HIT, { ...HIT, ...flaw }],
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
   });
 
   it('rejects data that is not JSON', () => {
@@ -127,6 +209,7 @@ describe('the server message codec', () => {
       type: 'snapshot',
       step: 4,
       players: {},
+      monsters: [],
       own: OWN,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -140,6 +223,7 @@ describe('the server message codec', () => {
     const data = JSON.stringify({
       type: 'snapshot',
       players: [],
+      monsters: [],
       own: OWN,
       ...flaw,
     });
@@ -153,11 +237,41 @@ describe('the server message codec', () => {
     ['a yaw', { yaw: 'north' }],
     ['a known action', { action: 'Fly' }],
     ['an action count', { actionCount: undefined }],
+    ['a valid health', { health: -5 }],
   ])('rejects a snapshot of a player without %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
       step: 4,
       players: [PLAYER, { ...PLAYER, ...flaw }],
+      monsters: [],
+      own: OWN,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it('rejects a snapshot message without a list of monsters', () => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      own: OWN,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['an identifier', { id: 1.5 }],
+    ['a position', { z: null }],
+    ['a known action', { action: 'Slash' }],
+    ['an action count', { actionCount: '9' }],
+    ['a valid health', { health: undefined }],
+    ['a known mode', { mode: 'sleep' }],
+  ])('rejects a snapshot of a monster without %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [{ ...MONSTER, ...flaw }],
       own: OWN,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -186,6 +300,7 @@ describe('the server message codec', () => {
       type: 'snapshot',
       step: 4,
       players: [PLAYER],
+      monsters: [],
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();

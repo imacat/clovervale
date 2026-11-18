@@ -21,7 +21,7 @@
  * @module client/clip-choice Choosing the animation clip a model plays.
  */
 
-import type { ActionState } from '@clovervale/shared';
+import type { ActionState, MonsterAction } from '@clovervale/shared';
 
 /**
  * How a clip is played: in a loop, or once before holding its last pose.
@@ -39,11 +39,16 @@ export interface ClipPlan {
 /** The name of the clip every animated model plays by default. */
 export const IDLE_CLIP = 'Idle';
 
-/** How the clip of each action is played.  The clips are named after them. */
-const PLAYBACKS: Readonly<Record<ActionState, Playback>> = {
+/**
+ * How the clip of each action of a player or the monster is played.  The
+ * clips are named after them.
+ */
+const PLAYBACKS: Readonly<Record<ActionState | MonsterAction, Playback>> = {
   Idle: 'loop',
   Walk: 'loop',
   Slash: 'hold',
+  Attack: 'hold',
+  Die: 'hold',
 };
 
 /**
@@ -51,13 +56,13 @@ const PLAYBACKS: Readonly<Record<ActionState, Playback>> = {
  *
  * A model that lacks the clip for it idles instead.
  *
- * @param {ActionState} action - What the model is doing.
+ * @param {ActionState | MonsterAction} action - What the model is doing.
  * @param {readonly string[]} clipNames - The names of the clips of the model.
  * @returns {ClipPlan | null} The clip to play, or `null` if the model has
  *   nothing to play.
  */
 export function chooseClip(
-  action: ActionState,
+  action: ActionState | MonsterAction,
   clipNames: readonly string[],
 ): ClipPlan | null {
   if (clipNames.includes(action)) {

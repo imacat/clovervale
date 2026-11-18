@@ -24,7 +24,7 @@
 import { AnimationMixer, LoopOnce, LoopRepeat } from 'three';
 import type { AnimationAction, AnimationClip, Object3D } from 'three';
 
-import type { ActionState } from '@clovervale/shared';
+import type { ActionState, MonsterAction } from '@clovervale/shared';
 
 import { chooseClip } from './clip-choice.ts';
 import type { ClipPlan } from './clip-choice.ts';
@@ -61,13 +61,13 @@ export class Actor {
   /**
    * Plays the clip of the model for what it is doing, from its beginning.
    *
-   * Idling and walking go on in a loop, and a slash is played once, after
-   * which the model holds its last pose.  A model that lacks the clip idles
-   * instead.
+   * Idling and walking go on in a loop, and a slash, an attack or a death
+   * is played once, after which the model holds its last pose.  A model
+   * that lacks the clip idles instead.
    *
-   * @param {ActionState} action - What the model is doing.
+   * @param {ActionState | MonsterAction} action - What the model is doing.
    */
-  play(action: ActionState): void {
+  play(action: ActionState | MonsterAction): void {
     const plan: ClipPlan | null = chooseClip(action, [...this.#clips.keys()]);
     const clip: AnimationClip | undefined = this.#clips.get(plan?.name ?? '');
     if (plan === null || clip === undefined) {

@@ -25,16 +25,36 @@ import { describe, expect, it } from 'vitest';
 
 import {
   APPEARANCE_COUNT,
+  DEATH_DURATION,
+  MONSTER_HEALTH,
+  PLAYER_HEALTH,
   PLAZA_CENTRE,
   SIMULATION_RATE,
+  SLASH_DAMAGE,
   SLASH_DURATION,
+  SPAWN_POINT_COUNT,
   WALK_SPEED,
   createInteractMessage,
   createMoveMessage,
+  findSpawnPoint,
+  findVillagePath,
 } from '@clovervale/shared';
-import type { GroundVector, PlayerState } from '@clovervale/shared';
+import type {
+  GameEvent,
+  GroundVector,
+  MonsterState,
+  PlayerState,
+} from '@clovervale/shared';
 
+import {
+  MONSTER_APPROACH_DISTANCE,
+  MONSTER_ATTACK_DAMAGE,
+  MONSTER_ID,
+} from '../src/monster.ts';
 import { World } from '../src/world.ts';
+
+/** The number of simulation steps a dead player lies where it fell. */
+const DEATH_STEPS: number = DEATH_DURATION * SIMULATION_RATE;
 
 /** The number of simulation steps a slash lasts. */
 const SLASH_STEPS: number = Math.round(SLASH_DURATION * SIMULATION_RATE);
@@ -104,14 +124,134 @@ function findPlayer(world: World, id: number): PlayerState {
 }
 
 /**
- * Measures how far apart two players stand.
+ * Measures how far apart two players, or a player and the monster, stand.
  *
- * @param {PlayerState} a - One player.
- * @param {PlayerState} b - The other player.
+ * @param {GroundVector} a - One of them.
+ * @param {GroundVector} b - The other.
  * @returns {number} The distance between them, in metres.
  */
-function measureDistance(a: PlayerState, b: PlayerState): number {
+function measureDistance(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
+}
+
+/** How far a walking player goes in one simulation step, in metres. */
+const STEP_DISTANCE: number = WALK_SPEED / SIMULATION_RATE;
+
+/** A point near the home of the monster, where nothing stands. */
+const NEAR_MONSTER: GroundVector = { x: 8, z: 9 };
+
+/**
+ * Makes a source of random numbers that gives the same numbers every time.
+ *
+ * @returns {() => number} Gives a number from 0 up to but not including 1.
+ */
+function createRandom(): () => number {
+  let seed = 1;
+  return (): number => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+}
+
+/**
+ * Finds the monster in a world as it is now.
+ *
+ * @param {World} world - The world.
+ * @returns {MonsterState} The monster.
+ * @throws {Error} If the monster is not to be seen.
+ */
+function findMonster(world: World): MonsterState {
+  const [monster] = world.listMonsters();
+  if (monster === undefined) {
+    throw new Error('The monster is not to be seen.');
+  }
+  return monster;
+}
+
+/**
+ * Walks a player of a world to a point around the obstacles, steering it
+ * at every step, and stops it there.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {GroundVector} to - The point.
+ * @throws {Error} If the player finds no way there.
+ */
+function walkPlayer(world: World, id: number, to: GroundVector): void {
+  const path: GroundVector[] | null = findVillagePath(
+    findPlayer(world, id),
+    to,
+  );
+  if (path === null) {
+    throw new Error('The player finds no way.');
+  }
+  for (const point of path) {
+    for (let step = 0; step < 100 * SIMULATION_RATE; step++) {
+      const { x, z }: PlayerState = findPlayer(world, id);
+      if (Math.hypot(point.x - x, point.z - z) <= STEP_DISTANCE) {
+        break;
+      }
+      steerPlayer(world, id, { x: point.x - x, z: point.z - z });
+      world.step();
+    }
+  }
+  steerPlayer(world, id, { x: 0, z: 0 });
+  world.step();
+}
+
+/**
+ * Walks a player of a world near the home of the monster, and waits there
+ * until the monster has come to it.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ */
+function meetMonster(world: World, id: number): void {
+  walkPlayer(world, id, NEAR_MONSTER);
+  for (let step = 0; step < 10 * SIMULATION_RATE; step++) {
+    if (measureDistance(findPlayer(world, id), findMonster(world)) <= 1.2) {
+      return;
+    }
+    world.step();
+  }
+}
+
+/**
+ * Walks a player of a world near the home of the monster, and waits there
+ * until the monster has killed it.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @returns {PlayerState} The player as it was when it died.
+ * @throws {Error} If the player does not die.
+ */
+function killPlayer(world: World, id: number): PlayerState {
+  meetMonster(world, id);
+  for (let step = 0; step < 30 * SIMULATION_RATE; step++) {
+    world.step();
+    const player: PlayerState = findPlayer(world, id);
+    if (player.health === 0) {
+      world.takeEvents();
+      return player;
+    }
+  }
+  throw new Error(`Player ${String(id)} does not die.`);
+}
+
+/**
+ * Turns a player of a world towards a point, with a single step towards
+ * it, and stops it.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {GroundVector} point - The point.
+ */
+function turnPlayer(world: World, id: number, point: GroundVector): void {
+  const { x, z }: PlayerState = findPlayer(world, id);
+  steerPlayer(world, id, { x: point.x - x, z: point.z - z });
+  world.step();
+  steerPlayer(world, id, { x: 0, z: 0 });
+  world.step();
 }
 
 describe('a player coming into the world', () => {
@@ -490,5 +630,242 @@ describe('the inputs of a player', () => {
     expect(world.receiveInput(id, first)).toBe(false);
     const earlier = createInteractMessage({ sequence: 4, after: 0 });
     expect(world.receiveInput(id, earlier)).toBe(false);
+  });
+});
+
+describe('the monster in the world', () => {
+  it('is seen at full health from the start', () => {
+    expect(new World(createRandom()).listMonsters()).toEqual([
+      expect.objectContaining({ id: MONSTER_ID, health: MONSTER_HEALTH }),
+    ]);
+  });
+
+  it('comes to a player near its home', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    meetMonster(world, id);
+    expect(
+      measureDistance(findPlayer(world, id), findMonster(world)),
+    ).toBeLessThanOrEqual(MONSTER_APPROACH_DISTANCE);
+  });
+});
+
+describe('a slash', () => {
+  it('hurts the monster in front of the player and within reach', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    meetMonster(world, id);
+    turnPlayer(world, id, findMonster(world));
+    world.takeEvents();
+    interactPlayer(world, id);
+    world.step();
+    const events: GameEvent[] = world.takeEvents();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'hit',
+        attacker: { kind: 'player', id },
+        target: { kind: 'monster', id: MONSTER_ID },
+        damage: SLASH_DAMAGE,
+      }),
+    );
+    expect(findMonster(world).health).toBe(MONSTER_HEALTH - SLASH_DAMAGE);
+  });
+
+  it('misses the monster behind the player', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    meetMonster(world, id);
+    const player: PlayerState = findPlayer(world, id);
+    const monster: MonsterState = findMonster(world);
+    turnPlayer(world, id, {
+      x: 2 * player.x - monster.x,
+      z: 2 * player.z - monster.z,
+    });
+    interactPlayer(world, id);
+    world.step();
+    expect(findMonster(world).health).toBe(MONSTER_HEALTH);
+  });
+
+  it('misses the monster out of reach', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    turnPlayer(world, id, findMonster(world));
+    interactPlayer(world, id);
+    stepTimes(world, 2);
+    expect(findMonster(world).health).toBe(MONSTER_HEALTH);
+    expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('does not hurt another player', () => {
+    const world = new World(createRandom());
+    const first: PlayerState = world.addPlayer();
+    const second: PlayerState = world.addPlayer();
+    turnPlayer(world, first.id, second);
+    expect(
+      measureDistance(findPlayer(world, first.id), second),
+    ).toBeLessThan(1.6);
+    interactPlayer(world, first.id);
+    stepTimes(world, 2);
+    expect(findPlayer(world, second.id).health).toBe(PLAYER_HEALTH);
+    expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('can kill the monster, which is then gone for a while', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    meetMonster(world, id);
+    let hits = 0;
+    for (
+      let tries = 0;
+      tries < 20 && world.listMonsters().length > 0;
+      tries++
+    ) {
+      const monster: MonsterState = findMonster(world);
+      if (monster.mode === 'dead') {
+        world.step();
+        continue;
+      }
+      turnPlayer(world, id, monster);
+      interactPlayer(world, id);
+      stepTimes(world, SLASH_DURATION * SIMULATION_RATE + 1);
+      hits = world
+        .takeEvents()
+        .filter((event: GameEvent) => event.target.kind === 'monster')
+        .reduce((count: number) => count + 1, hits);
+    }
+    expect(hits).toBe(MONSTER_HEALTH / SLASH_DAMAGE);
+    stepTimes(world, 5 * SIMULATION_RATE);
+    expect(world.listMonsters()).toEqual([]);
+  });
+});
+
+describe('the attack of the monster', () => {
+  it('hurts the player until it dies', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    meetMonster(world, id);
+    world.takeEvents();
+    const { health }: PlayerState = findPlayer(world, id);
+    const hits: GameEvent[] = [];
+    for (let step = 0; step < 30 * SIMULATION_RATE; step++) {
+      world.step();
+      hits.push(...world.takeEvents());
+      if (findPlayer(world, id).health === 0) {
+        break;
+      }
+    }
+    expect(hits.length).toBe(Math.ceil(health / MONSTER_ATTACK_DAMAGE));
+    for (const hit of hits) {
+      expect(hit).toMatchObject({
+        attacker: { kind: 'monster', id: MONSTER_ID },
+        target: { kind: 'player', id },
+      });
+    }
+    expect(
+      hits.reduce((total: number, hit: GameEvent) => total + hit.damage, 0),
+    ).toBe(health);
+    expect(findPlayer(world, id).action).toBe('Die');
+  });
+});
+
+describe('a dead player', () => {
+  it('lies where it fell for as long as a death lasts', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    const fallen: PlayerState = killPlayer(world, id);
+    expect(fallen).toMatchObject({ action: 'Die', health: 0 });
+    stepTimes(world, DEATH_STEPS - 1);
+    expect(findPlayer(world, id)).toEqual(fallen);
+  });
+
+  it('then comes back at a spawn point, idling at full health', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    const fallen: PlayerState = killPlayer(world, id);
+    stepTimes(world, DEATH_STEPS);
+    const player: PlayerState = findPlayer(world, id);
+    expect(player).toMatchObject({
+      action: 'Idle',
+      actionCount: fallen.actionCount + 1,
+      health: PLAYER_HEALTH,
+    });
+    const isSpawnPoint: boolean = Array.from(
+      { length: SPAWN_POINT_COUNT },
+      (_, index: number) => findSpawnPoint(index),
+    ).some(
+      (point: GroundVector) => point.x === player.x && point.z === player.z,
+    );
+    expect(isSpawnPoint).toBe(true);
+  });
+
+  it('neither moves, turns nor slashes', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    const fallen: PlayerState = killPlayer(world, id);
+    steerPlayer(world, id, { x: fallen.x, z: fallen.z });
+    interactPlayer(world, id);
+    stepTimes(world, DEATH_STEPS - 1);
+    expect(findPlayer(world, id)).toEqual(fallen);
+    expect(
+      world
+        .takeEvents()
+        .filter((event: GameEvent) => event.attacker.kind === 'player'),
+    ).toEqual([]);
+  });
+
+  it('is neither hurt nor chased by the monster', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    killPlayer(world, id);
+    const modes = new Set<string>();
+    for (let step = 1; step < DEATH_STEPS; step++) {
+      world.step();
+      modes.add(findMonster(world).mode);
+    }
+    expect(world.takeEvents()).toEqual([]);
+    expect(findMonster(world).mode).not.toBe('chase');
+    expect(modes.has('return')).toBe(true);
+  });
+
+  it('comes back walking the way it was last told to move', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    killPlayer(world, id);
+    steerPlayer(world, id, { x: 1, z: 0 });
+    stepTimes(world, DEATH_STEPS);
+    const back: PlayerState = findPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id)).toMatchObject({ yaw: 90, action: 'Walk' });
+    expect(findPlayer(world, id).x).toBeCloseTo(back.x + STEP_DISTANCE);
+  });
+
+  it('comes back without the slash it was asked for', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    killPlayer(world, id);
+    interactPlayer(world, id);
+    stepTimes(world, DEATH_STEPS + 1);
+    expect(findPlayer(world, id).action).toBe('Idle');
+  });
+});
+
+describe('the events of the world', () => {
+  it('are taken once each, numbered upwards, with their steps', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    meetMonster(world, id);
+    const events: GameEvent[] = [];
+    for (let step = 1; step <= 10 * SIMULATION_RATE; step++) {
+      world.step();
+      const taken: GameEvent[] = world.takeEvents();
+      expect(world.takeEvents()).toEqual([]);
+      events.push(...taken);
+    }
+    expect(events.length).toBeGreaterThan(1);
+    events.forEach((event: GameEvent, index: number) => {
+      expect(event.id).toBe((events[0]?.id ?? 0) + index);
+    });
+    const steps: number[] = events.map((event: GameEvent) => event.step);
+    expect(steps).toEqual([...steps].sort((a: number, b: number) => a - b));
   });
 });

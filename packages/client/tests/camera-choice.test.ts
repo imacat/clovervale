@@ -43,6 +43,7 @@ function makePlayer(id: number): PlayerState {
     yaw: 0,
     action: 'Idle',
     actionCount: 0,
+    health: 100,
   };
 }
 
