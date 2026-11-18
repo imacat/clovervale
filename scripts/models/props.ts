@@ -21,7 +21,7 @@
  * @module scripts/models/props The optional static scenery.
  */
 
-import type { Vector3 } from 'three';
+import { Vector3 } from 'three';
 
 import {
   createBlob,
@@ -35,7 +35,13 @@ import {
   createTube,
   place,
 } from './geometry.ts';
-import type { Pair, Placement, Shape, Triple } from './geometry.ts';
+import type {
+  Pair,
+  Placement,
+  Shape,
+  Triangle,
+  Triple,
+} from './geometry.ts';
 import { getItem } from './items.ts';
 import { Model } from './model.ts';
 import type { Face, ShapeOptions } from './model.ts';
@@ -670,33 +676,6 @@ export function buildSpawnStones(): BuiltModel {
 }
 
 /**
- * Creates a flat ring in the XY plane around the origin, extruded along Z.
- *
- * @param {number} inner - The inner radius.
- * @param {number} outer - The outer radius.
- * @param {number} depth - The thickness along Z.
- * @returns {Shape} The ring, in two halves.
- */
-function createUprightRing(inner: number, outer: number, depth: number): Shape {
-  const count = 12;
-  return [0, 180].flatMap((from: number) => {
-    const angles: number[] = Array.from(
-      { length: count + 1 },
-      (_, i: number) => ((from + (180 * i) / count) * Math.PI) / 180,
-    );
-    const findPoint = (radius: number, angle: number): Pair => [
-      radius * Math.cos(angle),
-      radius * Math.sin(angle),
-    ];
-    const outline: Pair[] = [
-      ...angles.map((angle: number) => findPoint(outer, angle)),
-      ...[...angles].reverse().map((angle: number) => findPoint(inner, angle)),
-    ];
-    return createExtrusion(outline, depth);
-  });
-}
-
-/**
  * Creates a short, thick cross of four equal arms with rounded corners, in
  * the XY plane around the origin, extruded along Z.
  *
@@ -747,67 +726,96 @@ function createRoundCross(
 }
 
 /**
- * Builds the healing stele that stands by the fountain: a short tapering
- * stone of plain pale stone on a low plinth, whole and kept clean.  Its
- * front, which faces +Z, is carved with the sign of healing, a short,
- * thick cross of four equal rounded arms inside a circle, inlaid in a
- * softly glowing green.
+ * How far the face struck off the front of the healing stele leans back
+ * from upright, in degrees.
+ */
+const STELE_FACE_LEAN = 12;
+
+/**
+ * Where the face struck off the front of the healing stele crosses the YZ
+ * plane, as a height and how far forward of the middle of the boulder it
+ * lies there, in metres.  A negative distance lies behind the middle.
+ */
+const STELE_FACE_POINT: Pair = [0.3, -0.02];
+
+/**
+ * Shapes a point of a lumpy ball of about radius one into the boulder of
+ * the healing stele: broad at the foot, narrowing unevenly towards a blunt
+ * top that leans over to the right and a little back.
+ *
+ * @param {Vector3} point - The point, changed in place.
+ */
+function shapeSteleBoulder(point: Vector3): void {
+  const rise: number = Math.min(Math.max((point.y + 1) / 2, 0), 1);
+  const taper: number = 1.15 - 0.55 * rise;
+  point.set(
+    point.x * 0.36 * taper + 0.11 * rise * rise,
+    (point.y + 0.3) * 0.5,
+    point.z * 0.42 * taper - 0.04 * rise,
+  );
+}
+
+/**
+ * Builds the healing stele that stands by the fountain: a big rough
+ * boulder of pale stone set upright in the ground, broad at the foot and
+ * narrowing unevenly to a blunt top that leans to one side, with one large
+ * flat face struck off its front, which faces +Z and leans back a little.
+ * The face bears the sign of healing, a short, thick cross of four equal
+ * rounded arms, inlaid in a softly glowing green.
  *
  * @returns {BuiltModel} The model.
  */
 export function buildHealingStele(): BuiltModel {
   const model = new Model('HealingStele');
   model.setMaterial('stone', '#cdc8bc');
-  model.setMaterial('stoneDark', '#b2ac9f');
-  model.setMaterial('carving', '#7d776c');
   model.setMaterial('rune', '#6fe68c', {
     roughness: 0.5,
     emissive: '#2fae52',
   });
-  const plinthHeight = 0.1;
-  const height = 0.56;
-  const width = 0.48;
-  const depth = 0.2;
-  const taper: Pair = [0.78, 0.8];
-  model.add('stoneDark', createBlock(0.62, plinthHeight, 0.36, [0.94, 0.9]));
+  const lean: number = (STELE_FACE_LEAN * Math.PI) / 180;
+  const [ny, nz]: Pair = [Math.sin(lean), Math.cos(lean)];
+  const [faceY, faceZ]: Pair = STELE_FACE_POINT;
+  const boulder: Shape = createBlob(2, 525, 0.1);
+  const struck = new Set<Vector3>();
+  for (const tri of boulder) {
+    for (const point of tri) {
+      shapeSteleBoulder(point);
+      // Whatever reaches below the ground is flattened onto it, and
+      // whatever stands in front of the face is struck off onto it.
+      point.y = Math.max(point.y, 0);
+      const beyond: number = (point.y - faceY) * ny + (point.z - faceZ) * nz;
+      if (beyond > 0) {
+        point.z -= beyond / nz;
+        struck.add(point);
+      }
+    }
+  }
   model.add(
     'stone',
-    place(createBlock(width, height, depth, taper), {
-      pos: [0, plinthHeight, 0],
-    }),
+    boulder.filter((tri: Triangle) => tri.some((p: Vector3) => p.y > 0)),
   );
-  // Whatever is carved on the front lies on it, which leans back a little.
-  const lean: number =
-    (Math.atan(((depth / 2) * (1 - taper[1])) / height) * 180) / Math.PI;
-  const placeOnFront = (shape: Shape, y: number): Shape => {
-    const share: number = (y - plinthHeight) / height;
-    const z: number = (depth / 2) * (1 - (1 - taper[1]) * share);
-    return place(shape, { pos: [0, y, z], rot: [-lean, 0, 0] });
-  };
-  // The sign: a dark round hollow, a glowing circle, and a glowing cross.
-  const runeHeight = 0.4;
-  const runeScale = 0.7;
-  const hollow: Pair[] = Array.from({ length: 16 }, (_, i: number): Pair => {
-    const angle: number = (Math.PI * i) / 8;
-    return [0.265 * Math.cos(angle), 0.265 * Math.sin(angle)];
-  });
-  const rune: Shape = [
-    ...createUprightRing(0.205, 0.24, 0.02),
-    ...createRoundCross(0.175, 0.062, 0.02),
-  ];
-  model.add(
-    'carving',
-    placeOnFront(
-      place(createExtrusion(hollow, 0.02), { scale: runeScale }),
-      runeHeight,
-    ),
-  );
+  // The cross lies at the middle of the face, weighted by area, sunk in
+  // it all but a little.
+  const middle = new Vector3();
+  let area = 0;
+  for (const [a, b, c] of boulder) {
+    if ([a, b, c].every((p: Vector3) => struck.has(p))) {
+      const share: number =
+        new Vector3()
+          .subVectors(b, a)
+          .cross(new Vector3().subVectors(c, a))
+          .length() / 2;
+      middle.addScaledVector(a.clone().add(b).add(c), share / 3);
+      area += share;
+    }
+  }
+  middle.divideScalar(area);
   model.add(
     'rune',
-    placeOnFront(
-      place(rune, { pos: [0, 0, 0.006], scale: runeScale }),
-      runeHeight,
-    ),
+    place(createRoundCross(0.175, 0.062, 0.02), {
+      pos: [middle.x, middle.y - ny * 0.006, middle.z - nz * 0.006],
+      rot: [-STELE_FACE_LEAN, 0, 0],
+    }),
   );
   model.centreFootprint();
   return { model };

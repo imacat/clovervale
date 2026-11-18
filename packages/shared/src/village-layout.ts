@@ -203,8 +203,8 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   }),
   // The trunk, and not the roots.
   'prop-great-tree.glb': [makeCircle(-0.15, 0.41, 1.6)],
-  // The plinth the stele stands on.
-  'prop-healing-stele.glb': [makeBox(-0.31, 0.31, -0.18, 0.18)],
+  // The foot of the boulder.
+  'prop-healing-stele.glb': [makeBox(-0.355, 0.355, -0.24, 0.24)],
   // The post, and not the board nailed to it above the ground.
   'prop-village-sign.glb': [makeCircle(0.005, -0.02, 0.07)],
   'prop-cottage.glb': [makeBox(-2.55, 2.55, -2.35, 2.35)],

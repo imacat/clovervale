@@ -36,6 +36,7 @@ import {
   findPlacement,
   findSpawnPoint,
   findTurn,
+  placePoint,
   turnVector,
 } from '../src/index.ts';
 import type { GroundVector, Placement } from '../src/index.ts';
@@ -148,6 +149,46 @@ describe('VILLAGE_TERRAIN', () => {
     };
     expect(VILLAGE_TERRAIN.isClear(front)).toBe(true);
     expect(findInteraction(front)).toBe('Drink');
+  });
+
+  it('takes up the ground the foot of the healing stele stands on', () => {
+    const stele: Placement = findPlacement('prop-healing-stele.glb');
+    // The foot of the boulder is 0.71 m wide and 0.48 m deep.  A player a
+    // little closer than touching to a side of it is in its way, and one a
+    // little farther is not.
+    const sides: readonly GroundVector[] = [
+      { x: -0.355, z: 0 },
+      { x: 0.355, z: 0 },
+      { x: 0, z: -0.24 },
+      { x: 0, z: 0.24 },
+    ];
+    for (const { x, z } of sides) {
+      const findSpot = (gap: number): GroundVector => {
+        const length: number = Math.hypot(x, z);
+        const reach: number = length + PLAYER_RADIUS + gap;
+        return placePoint(stele, {
+          x: (x / length) * reach,
+          z: (z / length) * reach,
+        });
+      };
+      expect(VILLAGE_TERRAIN.isClear(findSpot(-0.05))).toBe(false);
+      expect(VILLAGE_TERRAIN.isClear(findSpot(0.02))).toBe(true);
+    }
+  });
+
+  it('leaves a way round the fountain between its rim and the stele', () => {
+    const fountain: Placement = findPlacement('fountain.glb');
+    const radius: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.05;
+    const findPoint = (degrees: number): GroundVector => ({
+      x: fountain.x + radius * Math.sin((degrees * Math.PI) / 180),
+      z: fountain.z + radius * Math.cos((degrees * Math.PI) / 180),
+    });
+    for (let degrees = 0; degrees < 360; degrees += 5) {
+      expect(
+        VILLAGE_TERRAIN.isPathClear(findPoint(degrees), findPoint(degrees + 5)),
+        String(degrees),
+      ).toBe(true);
+    }
   });
 
   it('stands the village sign outside the gate, beside the way', () => {
