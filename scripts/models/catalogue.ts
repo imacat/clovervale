@@ -33,8 +33,8 @@ import {
   buildRock,
   buildSpawnStones,
 } from './props.ts';
-import { buildWildDog } from './wild-dog.ts';
 import type { BuiltModel } from './rig.ts';
+import { buildWildDog } from './wild-dog.ts';
 
 /** A model to generate. */
 export interface ModelEntry {
