@@ -30,14 +30,38 @@ import {
   INTERACTION_HALF_ANGLE,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
+  TALK_REACH,
   findInteraction,
+  findPlacement,
+  findVillager,
 } from '../src/index.ts';
+import type { Placement, Pose } from '../src/index.ts';
 
 /**
  * The farthest a player can stand from the centre of the fountain to drink
  * from it.
  */
 const REACH: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH;
+
+/** Where Nancy the villager stands. */
+const NANCY: Placement = findPlacement('npc-nancy.glb');
+
+/** What Nancy says when a player talks to her. */
+const NANCY_LINE =
+  'Wild dogs prowl outside the village, and no one dares to go out any ' +
+  'more. What are we to do?';
+
+/**
+ * Makes the pose of a player some way south of Nancy.
+ *
+ * @param {number} distance - How far from her it stands, from centre to
+ *   centre, in metres.
+ * @param {number} yaw - The way it faces, 180 to face her.
+ * @returns {Pose} The pose.
+ */
+function standByNancy(distance: number, yaw: number): Pose {
+  return { x: NANCY.x, z: NANCY.z + distance, yaw };
+}
 
 describe('findInteraction', () => {
   it('drinks by the rim of the fountain, facing it', () => {
@@ -74,5 +98,44 @@ describe('findInteraction', () => {
 
   it('slashes away from anything to interact with', () => {
     expect(findInteraction({ x: 11, z: 9, yaw: 0 })).toBe('Slash');
+  });
+});
+
+describe('findInteraction by Nancy', () => {
+  it('talks to her as far from her as she can be talked to', () => {
+    expect(findInteraction(standByNancy(TALK_REACH - 1e-9, 180))).toBe('Talk');
+  });
+
+  it('talks to her facing to one side of her within the angle', () => {
+    const yaw: number = 180 + INTERACTION_HALF_ANGLE - 1;
+    expect(findInteraction(standByNancy(TALK_REACH - 0.1, yaw))).toBe('Talk');
+  });
+
+  it('slashes beyond her reach, facing her', () => {
+    expect(findInteraction(standByNancy(TALK_REACH + 0.01, 180))).toBe(
+      'Slash',
+    );
+  });
+
+  it('slashes by her, facing away from her', () => {
+    expect(findInteraction(standByNancy(TALK_REACH - 0.1, 0))).toBe('Slash');
+  });
+});
+
+describe('findVillager', () => {
+  it('finds Nancy, with her name and her line, facing her', () => {
+    expect(findVillager(standByNancy(TALK_REACH - 0.1, 180))).toMatchObject({
+      name: 'Nancy',
+      line: NANCY_LINE,
+    });
+  });
+
+  it('finds nobody by her, facing away from her', () => {
+    expect(findVillager(standByNancy(TALK_REACH - 0.1, 0))).toBeNull();
+  });
+
+  it('finds nobody by the fountain, facing it', () => {
+    const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
+    expect(findVillager({ x: PLAZA_CENTRE.x, z, yaw: 180 })).toBeNull();
   });
 });

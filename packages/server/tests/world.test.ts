@@ -36,9 +36,11 @@ import {
   SLASH_DURATION,
   SLASH_REACH,
   SPAWN_POINT_COUNT,
+  TALK_STEPS,
   WALK_SPEED,
   createInteractMessage,
   createMoveMessage,
+  findPlacement,
   findSpawnPoint,
   findVillagePath,
   isWithinStrike,
@@ -294,6 +296,12 @@ const BY_FOUNTAIN: GroundVector = {
   x: PLAZA_CENTRE.x,
   z: PLAZA_CENTRE.z + 2.1,
 };
+
+/** Where Nancy the villager stands. */
+const NANCY: GroundVector = findPlacement('npc-nancy.glb');
+
+/** Where a player stands by Nancy, whom it is within reach of. */
+const BY_NANCY: GroundVector = { x: NANCY.x, z: NANCY.z + 1.2 };
 
 /**
  * Walks a player of a world near the home of the monster, waits there
@@ -738,6 +746,56 @@ describe('a player who interacts by the fountain', () => {
     const { id }: PlayerState = world.addPlayer();
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, { x: BY_FOUNTAIN.x, z: BY_FOUNTAIN.z + 1 });
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Slash');
+    expect(world.findSlash(id)).toMatchObject({ isHit: false });
+  });
+});
+
+describe('a player who interacts by Nancy', () => {
+  it('talks from the next step, for as long as a talk lasts', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    walkPlayer(world, id, BY_NANCY);
+    turnPlayer(world, id, NANCY);
+    const before: PlayerState = findPlayer(world, id);
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id)).toMatchObject({
+      x: before.x,
+      z: before.z,
+      yaw: before.yaw,
+      action: 'Talk',
+      actionCount: before.actionCount + 1,
+      health: before.health,
+    });
+    stepTimes(world, TALK_STEPS - 1);
+    expect(findPlayer(world, id).action).toBe('Talk');
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Idle');
+  });
+
+  it('changes nothing else, and is not judged as a slash', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    walkPlayer(world, id, BY_NANCY);
+    turnPlayer(world, id, NANCY);
+    world.takeEvents();
+    interactPlayer(world, id, world.time - 200);
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Talk');
+    expect(world.findSlash(id)).toBeNull();
+    stepTimes(world, TALK_STEPS);
+    expect(world.takeEvents()).toEqual([]);
+    expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
+  });
+
+  it('slashes facing away from her', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    walkPlayer(world, id, BY_NANCY);
+    turnPlayer(world, id, { x: BY_NANCY.x, z: BY_NANCY.z + 1 });
     interactPlayer(world, id);
     world.step();
     expect(findPlayer(world, id).action).toBe('Slash');

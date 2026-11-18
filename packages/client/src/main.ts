@@ -42,6 +42,7 @@ import type {
   PlayerState,
   ServerMessage,
   StampedInput,
+  Villager,
 } from '@clovervale/shared';
 
 import type { Actor } from './actor.ts';
@@ -90,7 +91,9 @@ import {
 } from './player-readout.ts';
 import { PlayerPrediction, placeOwnPlayer } from './prediction.ts';
 import { resolveServerUrl } from './server-url.ts';
+import { SpeechBubble, findHeadTop } from './speech-bubble.ts';
 import './style.css';
+import { TalkWatch } from './talk-watch.ts';
 import {
   createMonsterFigure,
   createPlayerFigure,
@@ -154,6 +157,9 @@ const monsterFigures = new MonsterFigures(scene, () =>
   createMonsterFigure(models),
 );
 const markers = new HitMarkers(scene);
+const speech = new SpeechBubble(scene);
+/** What notices each talk of the player of the page to a villager. */
+const talks = new TalkWatch();
 const viewport: Viewport = showScene(
   scene,
   findSpawnPoint(0),
@@ -169,6 +175,7 @@ const viewport: Viewport = showScene(
     figures.update(seconds);
     monsterFigures.update(seconds);
     markers.update(seconds);
+    speech.update(seconds);
   },
 );
 
@@ -183,6 +190,7 @@ Object.defineProperty(window, 'clovervale', {
     listLatestMonsters: () => timeline.latestMonsters ?? [],
     listShownHits: () => [...shownHits],
     listShownHeals: () => [...shownHeals],
+    describeSpeech: () => speech.describe(),
   },
 });
 
@@ -353,7 +361,9 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * the player the panel has it follow, as it is shown.  The player of the
  * page is shown as predicted, or like the others.  The others and the
  * monsters are shown either smoothly, as they were a while ago, or exactly
- * as the latest snapshot tells them, and so are the hits among them.
+ * as the latest snapshot tells them, and so are the hits among them.  Once
+ * the player of the page starts to talk to a villager, as predicted, what
+ * the villager says is shown above its head.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -381,6 +391,13 @@ function showPlayers(): void {
   const predicted: PlayerMotion | null = prediction?.motion ?? null;
   prompt.show(describePrompt(predicted));
   panel.showInteraction(describeSpaceKey(predicted));
+  const villager: Villager | null = talks.noticeTalk(predicted);
+  if (villager !== null) {
+    const model: LoadedModel | undefined = models.find(
+      (candidate: LoadedModel) => candidate.file === villager.file,
+    );
+    speech.say(villager, findHeadTop(villager, model?.root ?? null));
+  }
   const followedId: number | null = panel.camera.followedId ?? ownId;
   const followed: PlayerState | undefined = view.players.find(
     (player: PlayerState) => player.id === followedId,

@@ -48,6 +48,7 @@ const PLAYBACKS: Readonly<Record<ActionState | MonsterAction, Playback>> = {
   Walk: 'loop',
   Slash: 'hold',
   Drink: 'loop',
+  Talk: 'loop',
   Attack: 'hold',
   Die: 'hold',
 };

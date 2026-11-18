@@ -141,6 +141,23 @@ describe('the server message codec', () => {
     });
   });
 
+  it('decodes a snapshot message of a talking player', () => {
+    const talker: PlayerState = { ...PLAYER, action: 'Talk' };
+    const own: InputProgress = {
+      ...OWN,
+      motion: { ...OWN.motion, action: 'Talk', actionSteps: 5 },
+    };
+    const message = createSnapshotMessage(42, [talker], [], own);
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'snapshot',
+      step: 42,
+      players: [talker],
+      monsters: [],
+      own,
+      slash: null,
+    });
+  });
+
   it('decodes a snapshot message of a dead player', () => {
     const dead: PlayerState = { ...PLAYER, action: 'Die', health: 0 };
     const own: InputProgress = {

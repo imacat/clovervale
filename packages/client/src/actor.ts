@@ -61,9 +61,9 @@ export class Actor {
   /**
    * Plays the clip of the model for what it is doing, from its beginning.
    *
-   * Idling, walking and drinking go on in a loop, and a slash, an attack or
-   * a death is played once, after which the model holds its last pose.  A
-   * model that lacks the clip idles instead.
+   * Idling, walking, drinking and talking go on in a loop, and a slash, an
+   * attack or a death is played once, after which the model holds its last
+   * pose.  A model that lacks the clip idles instead.
    *
    * @param {ActionState | MonsterAction} action - What the model is doing.
    */

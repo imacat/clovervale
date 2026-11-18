@@ -22,7 +22,7 @@
  *   server and for whoever predicts what the server will do.
  */
 
-import { DRINK_DURATION, SLASH_DURATION } from './actions.ts';
+import { DRINK_DURATION, SLASH_DURATION, TALK_DURATION } from './actions.ts';
 import type { ActionState, Interaction } from './actions.ts';
 import { findInteraction } from './interaction.ts';
 import { SIMULATION_RATE, findYaw, movePosition } from './movement.ts';
@@ -42,10 +42,14 @@ export const DRINK_STEPS: number = Math.round(
   DRINK_DURATION * SIMULATION_RATE,
 );
 
+/** The number of simulation steps a talk to a villager lasts. */
+export const TALK_STEPS: number = Math.round(TALK_DURATION * SIMULATION_RATE);
+
 /** The number of simulation steps each interaction lasts. */
 const INTERACTION_STEPS: Readonly<Record<Interaction, number>> = {
   Slash: SLASH_STEPS,
   Drink: DRINK_STEPS,
+  Talk: TALK_STEPS,
 };
 
 /**
@@ -131,10 +135,11 @@ export function createMotion(
  * Takes an input of a player in, which shows from the next step on.
  *
  * A move changes the way the player wants to move.  An interaction makes
- * the player slash or drink from the fountain, as {@link findInteraction}
- * tells from where it stands and which way it faces at the step it starts,
- * unless the player cannot interact then, as {@link canInteract} tells, in
- * which case it does neither, then or later.
+ * the player slash, drink from the fountain or talk to a villager, as
+ * {@link findInteraction} tells from where it stands and which way it faces
+ * at the step it starts, unless the player cannot interact then, as
+ * {@link canInteract} tells, in which case it does none of them, then or
+ * later.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.
@@ -157,13 +162,13 @@ export function applyInput(
 /**
  * Moves a player one step of the simulation forward.
  *
- * A player that slashes or drinks from the fountain stands still, without
- * turning, for as long as that lasts, whichever way it wants to move.  Any
- * other player that wants to move walks that way, facing it, and idles
- * otherwise.  A walking player does not go through the obstacles of the
- * village, nor out of it: it slides along what it walks into at an angle,
- * and walks on the spot against what it walks straight into.  A dead player
- * stays exactly as it is.
+ * A player that slashes, drinks from the fountain or talks to a villager
+ * stands still, without turning, for as long as that lasts, whichever way
+ * it wants to move.  Any other player that wants to move walks that way,
+ * facing it, and idles otherwise.  A walking player does not go through the
+ * obstacles of the village, nor out of it: it slides along what it walks
+ * into at an angle, and walks on the spot against what it walks straight
+ * into.  A dead player stays exactly as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @returns {PlayerMotion} The motion after the step.
@@ -270,8 +275,8 @@ export function isResting(motion: PlayerMotion): boolean {
  * Tells whether a player can start to interact with the world now.
  *
  * @param {PlayerMotion} motion - The motion of the player.
- * @returns {boolean} Whether the player is alive, and neither slashing nor
- *   drinking from the fountain.
+ * @returns {boolean} Whether the player is alive, and neither slashing,
+ *   drinking from the fountain nor talking to a villager.
  */
 export function canInteract(motion: PlayerMotion): boolean {
   return !isInteraction(motion.action) && motion.action !== 'Die';
@@ -281,7 +286,8 @@ export function canInteract(motion: PlayerMotion): boolean {
  * Tells whether an action is one a player starts by interacting.
  *
  * @param {ActionState} action - The action.
- * @returns {boolean} Whether it is a slash or a drink from the fountain.
+ * @returns {boolean} Whether it is a slash, a drink from the fountain or a
+ *   talk to a villager.
  */
 function isInteraction(action: ActionState): action is Interaction {
   return Object.hasOwn(INTERACTION_STEPS, action);

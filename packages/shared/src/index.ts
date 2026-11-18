@@ -26,6 +26,7 @@ export {
   DRINK_DURATION,
   MONSTER_ACTIONS,
   SLASH_DURATION,
+  TALK_DURATION,
 } from './actions.ts';
 export type { ActionState, Interaction, MonsterAction } from './actions.ts';
 export {
@@ -51,7 +52,9 @@ export {
   FOUNTAIN_HEALING,
   FOUNTAIN_REACH,
   INTERACTION_HALF_ANGLE,
+  TALK_REACH,
   findInteraction,
+  findVillager,
 } from './interaction.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
 export type { Placed } from './interpolation.ts';
@@ -71,6 +74,7 @@ export {
 export {
   DRINK_STEPS,
   SLASH_STEPS,
+  TALK_STEPS,
   applyInput,
   canInteract,
   createMotion,
@@ -150,3 +154,5 @@ export {
   SPAWN_YAW,
   findSpawnPoint,
 } from './village.ts';
+export { VILLAGERS } from './villagers.ts';
+export type { Villager } from './villagers.ts';

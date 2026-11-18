@@ -33,6 +33,9 @@ import {
   SIMULATION_RATE,
   SLASH_DURATION,
   SLASH_STEPS,
+  TALK_DURATION,
+  TALK_REACH,
+  TALK_STEPS,
   VILLAGE_BOUNDARY,
   WALK_SPEED,
   applyInput,
@@ -53,6 +56,15 @@ const BY_FOUNTAIN: PlayerMotion = createMotion(
   {
     x: PLAZA_CENTRE.x,
     z: PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.1,
+  },
+  180,
+);
+
+/** Where a player stands south of Nancy the villager, facing her. */
+const BY_NANCY: PlayerMotion = createMotion(
+  {
+    x: findPlacement('npc-nancy.glb').x,
+    z: findPlacement('npc-nancy.glb').z + TALK_REACH - 0.1,
   },
   180,
 );
@@ -287,6 +299,49 @@ describe('a player who interacts by the fountain', () => {
     const dead: PlayerMotion = stepTimes(killMotion(drinking), DRINK_STEPS);
     expect(dead.action).toBe('Die');
     expect(dead.actionCount).toBe(drinking.actionCount + 1);
+  });
+});
+
+describe('a player who interacts by Nancy', () => {
+  it('talks from the next step, for as long as a talk lasts', () => {
+    expect(TALK_STEPS / SIMULATION_RATE).toBeCloseTo(TALK_DURATION);
+    const talking: PlayerMotion = stepMotion(applyInput(BY_NANCY, INTERACT));
+    expect(talking.action).toBe('Talk');
+    expect(talking.actionCount).toBe(1);
+    expect(canInteract(talking)).toBe(false);
+    expect(stepTimes(talking, TALK_STEPS - 1).action).toBe('Talk');
+    const over: PlayerMotion = stepTimes(talking, TALK_STEPS);
+    expect(over.action).toBe('Idle');
+    expect(canInteract(over)).toBe(true);
+  });
+
+  it('stands still without turning while it talks', () => {
+    const talking: PlayerMotion = stepTimes(
+      applyInput(applyInput(BY_NANCY, INTERACT), steer(1, 0)),
+      TALK_STEPS,
+    );
+    expect(talking).toMatchObject({
+      x: BY_NANCY.x,
+      z: BY_NANCY.z,
+      yaw: BY_NANCY.yaw,
+      action: 'Talk',
+    });
+    expect(stepMotion(talking).action).toBe('Walk');
+  });
+
+  it('can talk again as soon as the talk is over', () => {
+    const over: PlayerMotion = stepTimes(
+      applyInput(BY_NANCY, INTERACT),
+      TALK_STEPS + 1,
+    );
+    const again: PlayerMotion = stepMotion(applyInput(over, INTERACT));
+    expect(again.action).toBe('Talk');
+    expect(again.actionCount).toBe(3);
+  });
+
+  it('slashes facing away from her', () => {
+    const away: PlayerMotion = { ...BY_NANCY, yaw: 0 };
+    expect(stepMotion(applyInput(away, INTERACT)).action).toBe('Slash');
   });
 });
 

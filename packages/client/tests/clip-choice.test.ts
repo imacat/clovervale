@@ -70,6 +70,17 @@ describe('chooseClip', () => {
     });
   });
 
+  it('loops the clip of a talk, which the characters lack', () => {
+    expect(chooseClip('Talk', [...CHARACTER_CLIPS, 'Talk'])).toEqual({
+      name: 'Talk',
+      playback: 'loop',
+    });
+    expect(chooseClip('Talk', CHARACTER_CLIPS)).toEqual({
+      name: 'Idle',
+      playback: 'loop',
+    });
+  });
+
   it('idles when the model lacks the clip', () => {
     expect(chooseClip('Slash', ['Idle', 'Talk'])).toEqual({
       name: 'Idle',

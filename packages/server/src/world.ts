@@ -173,12 +173,12 @@ export class World {
    * Receives an input of a player from its peer.
    *
    * A move changes the way the player wants to move, and an interaction
-   * makes it slash or drink from the fountain, as the rules tell from where
-   * it stands and which way it faces then, unless it is doing either
-   * already or dead.  Either shows from the step at which the input comes
-   * into effect: no sooner than the next one, and no sooner than the player
-   * has taken as many steps since its previous input came into effect as
-   * the input tells.
+   * makes it slash, drink from the fountain or talk to a villager, as the
+   * rules tell from where it stands and which way it faces then, unless it
+   * is doing any of them already or dead.  Either input shows from the
+   * step at which it comes into effect: no sooner than the next one, and no
+   * sooner than the player has taken as many steps since its previous input
+   * came into effect as the input tells.
    *
    * @param {number} id - The identifier of the player.
    * @param {StampedInput} input - The input.
@@ -194,16 +194,17 @@ export class World {
   /**
    * Moves the world one step of the simulation forward.
    *
-   * A player that slashes or drinks from the fountain stands still,
-   * without turning, for as long as that lasts.  Any other player that
-   * wants to move walks that way, facing it, and idles otherwise.  The
-   * monster goes about its business.
+   * A player that slashes, drinks from the fountain or talks to a villager
+   * stands still, without turning, for as long as that lasts.  Any other
+   * player that wants to move walks that way, facing it, and idles
+   * otherwise.  The monster goes about its business.
    *
    * A drink that starts at the step gives the player back
    * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
    * full health if that is less, which is an event unless it is none.  A
    * drink is never judged on the world as its peer showed it, so the time
-   * its interaction names, if any, does not matter.
+   * its interaction names, if any, does not matter.  A talk changes nothing
+   * else in the world, and is never judged either.
    *
    * Then the strikes are judged.  A slash that starts at the step hits the
    * monster if the monster is alive, and was alive, in front of the player

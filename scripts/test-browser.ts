@@ -208,6 +208,40 @@ interface FountainLook {
   readonly corrections: string;
 }
 
+/** What the bubble above the head of a villager shows, and where. */
+interface SpeechView {
+  /** The name of the villager who speaks. */
+  readonly name: string;
+  /** What the villager says. */
+  readonly line: string;
+  /** The position of the foot of the bubble along the X axis, in metres. */
+  readonly x: number;
+  /** The height of the foot of the bubble, in metres. */
+  readonly y: number;
+  /** The position of the foot of the bubble along the Z axis, in metres. */
+  readonly z: number;
+}
+
+/** How a page shows a player by a villager, and what the villager says. */
+interface TalkLook {
+  /** The player in the latest snapshot, if it is there. */
+  readonly own: {
+    readonly x: number;
+    readonly z: number;
+    readonly action: string;
+  } | null;
+  /** The bubble the page shows, or `null` if it shows none. */
+  readonly speech: SpeechView | null;
+  /** The prompt the page shows, or `null` if it shows none. */
+  readonly prompt: string | null;
+  /** What the panel of the page tells the space bar does. */
+  readonly spaceKey: string;
+  /** The number of corrections the panel of the page counts. */
+  readonly corrections: string;
+  /** How far back the panel of the page tells its last slash was judged. */
+  readonly judgedBack: string;
+}
+
 /** The pixels of an image. */
 interface Pixels {
   /** The width of the image, in pixels. */
@@ -341,6 +375,39 @@ const DRINK_KEY = 'drink from the fountain';
 const SLASH_KEY = 'slash';
 /** The prompt a page shows by the fountain, facing it. */
 const DRINK_PROMPT = 'Press Space to drink from the fountain';
+/** Where Nancy the villager stands along the X axis, in metres. */
+const NANCY_X = 3.2;
+/** Where Nancy the villager stands along the Z axis, in metres. */
+const NANCY_Z = -6.4;
+/**
+ * The least position along the Z axis of the stretch a player is stepped
+ * to, before it walks along the X axis towards Nancy from the side of the
+ * fountain, in metres.  Along the whole stretch, the way to her is clear,
+ * and she stands straight ahead of the player.
+ */
+const TALK_LEAST_Z = -6.55;
+/** The greatest position along the Z axis of that stretch, in metres. */
+const TALK_MOST_Z = -6.25;
+/** What the panel tells the space bar does by Nancy, facing her. */
+const TALK_KEY = 'talk to Nancy';
+/** The prompt a page shows by Nancy, facing her. */
+const TALK_PROMPT = 'Press Space to talk to Nancy';
+/** What Nancy says. */
+const NANCY_LINE =
+  'Wild dogs prowl outside the village, and no one dares to go out any ' +
+  'more. What are we to do?';
+/**
+ * The furthest the foot of the bubble of what Nancy says may be from where
+ * she stands along the ground, in metres.
+ */
+const SPEECH_NEARNESS = 0.05;
+/** The least height of the foot of that bubble, in metres. */
+const SPEECH_LEAST_HEIGHT = 1;
+/**
+ * How long the bubble of what Nancy says may take to go away, in
+ * milliseconds, which is well over the time it takes to read it.
+ */
+const SPEECH_TIMEOUT = 30_000;
 /**
  * The keys that walk a player each way in the first view, by the turn of
  * the way from +Z towards +X, in steps of 45 degrees from 0.
@@ -549,6 +616,37 @@ function createFountainExpression(id: number): string {
       prompt: prompt === null || prompt.hidden ? null : prompt.textContent,
       spaceKey: panel['Space key'] ?? '',
       corrections: panel.Corrections ?? '',
+    });
+  })()`;
+}
+
+/**
+ * Makes the expression that tells how a page shows a player and the
+ * bubble above the head of a villager, and what it tells the space bar
+ * does, as JSON.
+ *
+ * @param {number} id - The identifier of the player.
+ * @returns {string} The expression.
+ */
+function createTalkExpression(id: number): string {
+  return `(() => {
+    const panel = {};
+    for (const input of document.querySelectorAll('input[aria-labelledby]')) {
+      const labelId = input.getAttribute('aria-labelledby');
+      const label = document.getElementById(labelId)?.textContent;
+      if (label) {
+        panel[label] = input.value;
+      }
+    }
+    const prompt = document.querySelector('.interaction-prompt');
+    return JSON.stringify({
+      own: window.clovervale.listLatestPlayers()
+        .find((player) => player.id === ${String(id)}) ?? null,
+      speech: window.clovervale.describeSpeech(),
+      prompt: prompt === null || prompt.hidden ? null : prompt.textContent,
+      spaceKey: panel['Space key'] ?? '',
+      corrections: panel.Corrections ?? '',
+      judgedBack: panel['Judged back'] ?? '',
     });
   })()`;
 }
@@ -2454,6 +2552,200 @@ async function checkFountain(
 }
 
 /**
+ * Reads how a page shows a player and the bubble above the head of a
+ * villager, and what it tells the space bar does.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<TalkLook>} How the page shows them.
+ */
+async function readTalkLook(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<TalkLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, createTalkExpression(id)),
+  ) as TalkLook;
+}
+
+/**
+ * Describes how a page shows a player and the bubble above the head of a
+ * villager, and what it tells the space bar does, for the error messages.
+ *
+ * @param {TalkLook} look - How the page shows them.
+ * @returns {string} The description.
+ */
+function describeTalkLook(look: TalkLook): string {
+  const { own, speech } = look;
+  const player: string =
+    own === null
+      ? 'without the player'
+      : `with the player at x ${own.x.toFixed(2)}, z ${own.z.toFixed(2)}, ` +
+        `doing "${own.action}"`;
+  const bubble: string =
+    speech === null
+      ? 'no bubble'
+      : `a bubble at x ${speech.x.toFixed(2)}, y ${speech.y.toFixed(2)}, ` +
+        `z ${speech.z.toFixed(2)} of ${speech.name} saying "${speech.line}"`;
+  const prompt: string =
+    look.prompt === null ? 'no prompt' : `the prompt "${look.prompt}"`;
+  return (
+    `${player}, the space bar to "${look.spaceKey}", ${prompt}, ${bubble}, ` +
+    `"${look.corrections}" corrections, and the last slash judged ` +
+    `"${look.judgedBack}" back`
+  );
+}
+
+/**
+ * Checks that a player that talks to Nancy behind a slow connection shows
+ * what she says in a bubble above her head in its own page, for a while
+ * and then no more, and nowhere in the page of another player, which shows
+ * it talking.  Its own page prompts it to talk by her.  The player does not
+ * slash, in either page, and its own page makes no correction.
+ *
+ * The player is stepped along the Z axis to where Nancy stands straight
+ * ahead of it to the right in the first view, and walks right until its
+ * page tells the space bar has it talk to her.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {string} watcher - The browsing context of the other page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the player has passed.
+ * @throws {Error} If either page does not show the player so.
+ */
+async function checkTalk(
+  session: BidiSession,
+  actor: string,
+  watcher: string,
+  id: number,
+): Promise<void> {
+  const look = (context: string) => (): Promise<TalkLook> =>
+    readTalkLook(session, context, id);
+  await stepWithin(
+    session,
+    actor,
+    id,
+    TALK_LEAST_Z,
+    TALK_MOST_Z,
+    'level with Nancy',
+  );
+  await sendKey(session, actor, 'keyDown', 'd');
+  try {
+    await waitFor(
+      look(actor),
+      (seen: TalkLook) => seen.spaceKey === TALK_KEY,
+      LEG_TIMEOUT,
+      (seen: TalkLook) =>
+        'With the D key held down to walk to Nancy, the first page tells ' +
+        `${describeTalkLook(seen)}.`,
+    );
+  } finally {
+    await sendKey(session, actor, 'keyUp', 'd');
+  }
+
+  const mode =
+    `With its messages held back for ${String(NETWORK_DELAY)} ` +
+    'milliseconds each way, the first page';
+  await setControl(session, actor, 'Net delay (ms)', NETWORK_DELAY);
+  const readBoth = (): Promise<[TalkLook, TalkLook]> =>
+    Promise.all([look(actor)(), look(watcher)()]);
+  const describeBoth = ([own, other]: [TalkLook, TalkLook]): string =>
+    `${mode} tells ${describeTalkLook(own)}, and the second page ` +
+    describeTalkLook(other);
+  const before: [TalkLook, TalkLook] = await waitFor(
+    readBoth,
+    ([own, other]: [TalkLook, TalkLook]) =>
+      own.own?.action === 'Idle' &&
+      other.own?.action === 'Idle' &&
+      own.own.x === other.own.x &&
+      own.own.z === other.own.z,
+    ACTION_TIMEOUT,
+    (looks: [TalkLook, TalkLook]) => `By Nancy, ${describeBoth(looks)}.`,
+  );
+  const [ownBefore, otherBefore] = before;
+  if (
+    ownBefore.prompt !== TALK_PROMPT ||
+    ownBefore.spaceKey !== TALK_KEY ||
+    ownBefore.speech !== null ||
+    otherBefore.speech !== null
+  ) {
+    throw new Error(`By Nancy, ${describeBoth(before)}.`);
+  }
+
+  const toldAction =
+    '(window.clovervale.listLatestPlayers()' +
+    `.find((player) => player.id === ${String(id)}) ?? {}).action`;
+  const figureAction =
+    '(window.clovervale.describeFigures()' +
+    `.find((figure) => figure.id === ${String(id)}) ?? {}).clip`;
+  // The second page watches for the player to talk and then stop, and
+  // both pages watch for a slash, all along until well after the talk.
+  const watches: Promise<string[]> = Promise.all([
+    watchAction(session, watcher, toldAction, 'Talk'),
+    watchAction(session, actor, PANEL_ACTION_EXPRESSION),
+    watchAction(session, watcher, figureAction),
+  ]);
+  // A watch that fails must not go unhandled while the keys are sent.
+  watches.catch(() => undefined);
+  await sendKey(session, actor, 'keyDown', ' ');
+  await sendKey(session, actor, 'keyUp', ' ');
+  const isSaid = ([own, other]: [TalkLook, TalkLook]): boolean =>
+    own.speech !== null &&
+    own.speech.name === 'Nancy' &&
+    own.speech.line === NANCY_LINE &&
+    Math.abs(own.speech.x - NANCY_X) <= SPEECH_NEARNESS &&
+    Math.abs(own.speech.z - NANCY_Z) <= SPEECH_NEARNESS &&
+    own.speech.y >= SPEECH_LEAST_HEIGHT &&
+    other.speech === null;
+  await waitFor(
+    readBoth,
+    isSaid,
+    ACTION_TIMEOUT,
+    (looks: [TalkLook, TalkLook]) =>
+      'With the space bar pressed by Nancy in the first page, ' +
+      `${describeBoth(looks)}.`,
+  );
+  const after: [TalkLook, TalkLook] = await waitFor(
+    readBoth,
+    ([own, other]: [TalkLook, TalkLook]) =>
+      own.speech === null && other.speech === null,
+    SPEECH_TIMEOUT,
+    (looks: [TalkLook, TalkLook]) =>
+      `A while after its player talked to Nancy, ${describeBoth(looks)}.`,
+  );
+  const [talked = '', ownSlashed = '', otherSlashed = ''] = await watches;
+  if (talked !== 'over') {
+    const problem: string =
+      talked === 'never' ? 'never talking' : 'talking without end';
+    throw new Error(
+      'With the space bar pressed by Nancy in the first page, the second ' +
+        `page tells player ${String(id)} is ${problem}.`,
+    );
+  }
+  if (ownSlashed !== 'never' || otherSlashed !== 'never') {
+    throw new Error(
+      'With the space bar pressed by Nancy in the first page, the panel ' +
+        `of the first page tells its player slashing "${ownSlashed}", and ` +
+        `the second page shows it slashing "${otherSlashed}".`,
+    );
+  }
+  if (
+    after[0].corrections !== ownBefore.corrections ||
+    after[0].judgedBack !== ownBefore.judgedBack
+  ) {
+    throw new Error(
+      `After its player talked to Nancy, ${describeBoth(after)}, after ` +
+        `"${ownBefore.corrections}" corrections and the last slash judged ` +
+        `"${ownBefore.judgedBack}" back before.`,
+    );
+  }
+  await setControl(session, actor, 'Net delay (ms)', 0);
+}
+
+/**
  * Reads where a page has its camera, after choosing a player in the camera
  * control of its panel, if told to.
  *
@@ -2586,7 +2878,9 @@ async function checkCamera(
  * of a player near the monster lowers its health in both pages, each of
  * which shows the hit once, that a hurt player that drinks from the
  * fountain gets health back in both pages, each of which shows the heal
- * once, without a correction behind a slow connection, and that the camera
+ * once, without a correction behind a slow connection, that a player that
+ * talks to Nancy sees what she says above her head in its own page alone,
+ * for a while, without a slash or a correction, and that the camera
  * of a page follows the player of the other page when its panel is set
  * to, until that player leaves.
  *
@@ -2659,6 +2953,7 @@ async function checkClient(): Promise<void> {
     await checkObstacle(session, first, second, id);
     await checkMonster(session, first, second, id);
     await checkFountain(session, first, second, id);
+    await checkTalk(session, first, second, id);
     const other: PageState = await readPageState(session, second);
     const otherId = Number(/^#(\d+)/.exec(other.panel.Player ?? '')?.[1]);
     await checkCamera(session, first, id, second, otherId);
@@ -2686,8 +2981,8 @@ try {
     'Browser check passed: two clients draw their scenes, connect, show ' +
       'each other what their players do, predict their own, have their ' +
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
-      'the monster, show each hit once, heal at the fountain, and have ' +
-      'the camera follow another player.',
+      'the monster, show each hit once, heal at the fountain, hear what ' +
+      'Nancy says, and have the camera follow another player.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);

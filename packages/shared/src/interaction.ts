@@ -26,8 +26,10 @@ import type { Interaction } from './actions.ts';
 import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
 import type { Pose } from './terrain.ts';
-import { FOUNTAIN_RIM_RADIUS } from './village-layout.ts';
+import { FOUNTAIN_RIM_RADIUS, findPlacement } from './village-layout.ts';
 import { PLAZA_CENTRE } from './village.ts';
+import { VILLAGERS } from './villagers.ts';
+import type { Villager } from './villagers.ts';
 
 /**
  * The farthest a player can stand from the rim of the fountain to drink
@@ -47,6 +49,12 @@ export const INTERACTION_HALF_ANGLE = 60;
  */
 export const FOUNTAIN_HEALING = 30;
 
+/**
+ * The farthest a player can stand from a villager to talk to it, from
+ * centre to centre, in metres.
+ */
+export const TALK_REACH = 1.6;
+
 /** Something in the village a player can interact with. */
 interface Interactable {
   /** What a player does with it. */
@@ -58,6 +66,8 @@ interface Interactable {
    * from centre to centre, in metres.
    */
   readonly reach: number;
+  /** The villager it is, if it is one to talk to. */
+  readonly villager?: Villager;
 }
 
 /**
@@ -70,23 +80,57 @@ const INTERACTABLES: readonly Interactable[] = [
     centre: PLAZA_CENTRE,
     reach: FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH,
   },
+  ...VILLAGERS.map(
+    (villager: Villager): Interactable => ({
+      interaction: 'Talk',
+      centre: findPlacement(villager.file),
+      reach: TALK_REACH,
+      villager,
+    }),
+  ),
 ];
 
 /**
  * Finds what a player does when it interacts with the world, standing as
  * it does.
  *
+ * Something is within reach of the player if its centre is no more than
+ * {@link INTERACTION_HALF_ANGLE} to either side of the way the player
+ * faces: the fountain if the player stands within {@link FOUNTAIN_REACH} of
+ * its rim, and a villager if the player stands within {@link TALK_REACH} of
+ * it.
+ *
  * @param {Pose} pose - Where the player stands, and which way it faces.
- * @returns {Interaction} A drink, if the player stands within
- *   {@link FOUNTAIN_REACH} of the rim of the fountain, with the centre of
- *   the fountain no more than {@link INTERACTION_HALF_ANGLE} to either side
- *   of the way it faces, or a slash otherwise.
+ * @returns {Interaction} A drink, if the fountain is within reach, or else
+ *   a talk, if a villager is, or else a slash.
  */
 export function findInteraction(pose: Pose): Interaction {
-  const found: Interactable | undefined = INTERACTABLES.find(
-    (interactable: Interactable) => isWithinReach(pose, interactable),
+  return findInteractable(pose)?.interaction ?? 'Slash';
+}
+
+/**
+ * Finds the villager a player talks to when it interacts with the world,
+ * standing as it does, as {@link findInteraction} tells.
+ *
+ * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @returns {Villager | null} The villager, or `null` if the player does not
+ *   talk.
+ */
+export function findVillager(pose: Pose): Villager | null {
+  return findInteractable(pose)?.villager ?? null;
+}
+
+/**
+ * Finds what a player interacts with, standing as it does.
+ *
+ * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @returns {Interactable | undefined} The first of
+ *   {@link INTERACTABLES} within reach of the player, if any.
+ */
+function findInteractable(pose: Pose): Interactable | undefined {
+  return INTERACTABLES.find((interactable: Interactable) =>
+    isWithinReach(pose, interactable),
   );
-  return found?.interaction ?? 'Slash';
 }
 
 /**

@@ -22,13 +22,17 @@
  *   space bar makes its player do.
  */
 
-import { canInteract, findInteraction } from '@clovervale/shared';
-import type { Interaction, PlayerMotion } from '@clovervale/shared';
+import { canInteract, findInteraction, findVillager } from '@clovervale/shared';
+import type { Interaction, PlayerMotion, Villager } from '@clovervale/shared';
 
-/** What each interaction is called, as the person at the page is told. */
+/**
+ * What each interaction is called, as the person at the page is told; a
+ * talk is followed by the name of the villager to talk to.
+ */
 const INTERACTION_NAMES: Readonly<Record<Interaction, string>> = {
   Slash: 'slash',
   Drink: 'drink from the fountain',
+  Talk: 'talk to',
 };
 
 /** What stands for a value that is not known yet. */
@@ -59,7 +63,7 @@ export function describeSpaceKey(motion: PlayerMotion | null): string {
   if (!canInteract(motion)) {
     return 'nothing';
   }
-  return INTERACTION_NAMES[findInteraction(motion)];
+  return nameInteraction(motion);
 }
 
 /**
@@ -75,11 +79,24 @@ export function describePrompt(motion: PlayerMotion | null): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;
   }
-  const interaction: Interaction = findInteraction(motion);
-  if (interaction === 'Slash') {
+  if (findInteraction(motion) === 'Slash') {
     return null;
   }
-  return `Press Space to ${INTERACTION_NAMES[interaction]}`;
+  return `Press Space to ${nameInteraction(motion)}`;
+}
+
+/**
+ * Names what the space bar makes a player do, standing as it does, as the
+ * person at the page is told.
+ *
+ * @param {PlayerMotion} motion - The motion of the player.
+ * @returns {string} What it does, with the name of the villager it talks
+ *   to, if it talks.
+ */
+function nameInteraction(motion: PlayerMotion): string {
+  const name: string = INTERACTION_NAMES[findInteraction(motion)];
+  const villager: Villager | null = findVillager(motion);
+  return villager === null ? name : `${name} ${villager.name}`;
 }
 
 /**

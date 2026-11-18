@@ -28,8 +28,10 @@ import {
   FOUNTAIN_RIM_RADIUS,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
+  TALK_REACH,
   applyInput,
   createMotion,
+  findPlacement,
   killMotion,
   stepMotion,
 } from '@clovervale/shared';
@@ -52,11 +54,32 @@ const BY_FOUNTAIN: PlayerMotion = createMotion(
 /** A player by the fountain, facing away from it. */
 const FACING_AWAY: PlayerMotion = { ...BY_FOUNTAIN, yaw: 0 };
 
+/** A player south of Nancy the villager, facing her. */
+const BY_NANCY: PlayerMotion = createMotion(
+  {
+    x: findPlacement('npc-nancy.glb').x,
+    z: findPlacement('npc-nancy.glb').z + TALK_REACH - 0.1,
+  },
+  180,
+);
+
 describe('describePrompt', () => {
   it('tells a player by the fountain, facing it, that it can drink', () => {
     expect(describePrompt(BY_FOUNTAIN)).toBe(
       'Press Space to drink from the fountain',
     );
+  });
+
+  it('tells a player by Nancy, facing her, that it can talk to her', () => {
+    expect(describePrompt(BY_NANCY)).toBe('Press Space to talk to Nancy');
+  });
+
+  it('tells nothing while the player talks already', () => {
+    const talking: PlayerMotion = stepMotion(
+      applyInput(BY_NANCY, { type: 'interact' }),
+    );
+    expect(talking.action).toBe('Talk');
+    expect(describePrompt(talking)).toBeNull();
   });
 
   it('tells nothing while the space bar makes the player slash', () => {
@@ -81,6 +104,7 @@ describe('describeSpaceKey', () => {
   it('tells what the space bar makes the player do', () => {
     expect(describeSpaceKey(BY_FOUNTAIN)).toBe('drink from the fountain');
     expect(describeSpaceKey(FACING_AWAY)).toBe('slash');
+    expect(describeSpaceKey(BY_NANCY)).toBe('talk to Nancy');
   });
 
   it('tells that it does nothing while the player cannot interact', () => {
