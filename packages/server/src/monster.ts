@@ -18,13 +18,12 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module server/monster The monster that lives by the spawn stones, as the
- *   server moves it.
+ * @module server/monster The monster that lives in the burrow among the
+ *   spawn stones, as the server moves it.
  */
 
 import {
   MONSTER_HEALTH,
-  PLAZA_CENTRE,
   SIMULATION_RATE,
   VILLAGE_TERRAIN,
   WAYPOINT_CLEARANCE,
@@ -43,17 +42,24 @@ import type {
 /** The identifier of the monster. */
 export const MONSTER_ID = 1;
 
-/** Where the monster lives and comes back to life: by the spawn stones. */
+/**
+ * The way the mouth of the burrow among the spawn stones faces, as the
+ * model of the stones has it before it is placed, in degrees.
+ */
+const BURROW_MOUTH_YAW = -72;
+
+/**
+ * Where the monster lives and comes back to life: at the mouth of its
+ * burrow, in the middle of the spawn stones.
+ */
 export const MONSTER_HOME: GroundVector = (() => {
   const { x, z } = findPlacement('prop-spawn-stones.glb');
   return { x, z };
 })();
 
-/** The yaw of the monster as it comes to life, facing the plaza. */
-export const MONSTER_HOME_YAW: number = findYaw({
-  x: PLAZA_CENTRE.x - MONSTER_HOME.x,
-  z: PLAZA_CENTRE.z - MONSTER_HOME.z,
-});
+/** The yaw of the monster as it comes to life, facing out of its burrow. */
+export const MONSTER_HOME_YAW: number =
+  findPlacement('prop-spawn-stones.glb').yaw + BURROW_MOUTH_YAW;
 
 /** The speed the monster wanders at, in metres per second. */
 export const MONSTER_WANDER_SPEED = 0.8;

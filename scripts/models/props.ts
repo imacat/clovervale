@@ -29,14 +29,16 @@ import {
   createBox,
   createCone,
   createEllipsoid,
+  createExtrusion,
   createLathe,
   createRandom,
   createTube,
   place,
 } from './geometry.ts';
+import type { Pair, Placement, Shape, Triple } from './geometry.ts';
 import { getItem } from './items.ts';
 import { Model } from './model.ts';
-import type { Face } from './model.ts';
+import type { Face, ShapeOptions } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
 /** A lump of leaves: its centre, its radius and its material. */
@@ -331,8 +333,110 @@ export function buildFlowers(): BuiltModel {
 }
 
 /**
- * Builds the marker of the monster spawn point: a ring of dark standing
- * stones around a glowing rune stone.
+ * The way the burrow among the standing stones slopes down into the ground,
+ * as a yaw in degrees.  It slopes under one of the stones, and its mouth
+ * faces the other way, out between two of them.
+ */
+const BURROW_YAW = 108;
+
+/**
+ * The broken pieces left of the old slab, each as the [angle, radius]
+ * corners around it, in degrees and metres from the middle of the ring.
+ */
+const SLAB_PIECES: readonly (readonly Pair[])[] = [
+  [
+    [150, 1.0],
+    [160, 1.22],
+    [185, 1.25],
+    [210, 1.2],
+    [232, 1.14],
+    [237, 0.95],
+    [224, 0.8],
+    [206, 0.87],
+    [190, 0.74],
+    [170, 0.83],
+    [155, 0.9],
+  ],
+  [
+    [340, 1.04],
+    [350, 1.2],
+    [15, 1.23],
+    [36, 1.13],
+    [41, 0.96],
+    [26, 0.88],
+    [6, 0.78],
+    [349, 0.86],
+  ],
+];
+
+/**
+ * The worn lines left of the circle once carved into the slab, each as the
+ * angles it runs between, in degrees.
+ */
+const CARVED_ARCS: readonly Pair[] = [
+  [166, 196],
+  [203, 222],
+  [352, 8],
+  [17, 30],
+];
+
+/**
+ * Creates a flat piece lying on the ground.
+ *
+ * @param {readonly Pair[]} corners - The [angle, radius] corners around
+ *   the piece, in degrees and metres from the origin.
+ * @param {number} height - The thickness of the piece.
+ * @returns {Shape} The piece.
+ */
+function createGroundPiece(corners: readonly Pair[], height: number): Shape {
+  const outline: Pair[] = corners.map(([degrees, radius]: Pair): Pair => {
+    const angle: number = (degrees * Math.PI) / 180;
+    return [radius * Math.sin(angle), -radius * Math.cos(angle)];
+  });
+  return place(createExtrusion(outline, height), {
+    pos: [0, height / 2, 0],
+    rot: [-90, 0, 0],
+  });
+}
+
+/**
+ * Creates a flat arc lying on the ground around the origin.
+ *
+ * @param {Pair} angles - The angles the arc runs from and to, in degrees,
+ *   the way the angle grows.
+ * @param {number} inner - The inner radius.
+ * @param {number} outer - The outer radius.
+ * @param {number} height - The thickness of the arc.
+ * @returns {Shape} The arc.
+ */
+function createGroundArc(
+  [from, to]: Pair,
+  inner: number,
+  outer: number,
+  height: number,
+): Shape {
+  const span: number = (((to - from) % 360) + 360) % 360;
+  const count: number = Math.max(Math.ceil(span / 6), 1);
+  const angles: number[] = Array.from(
+    { length: count + 1 },
+    (_, i: number) => from + (span * i) / count,
+  );
+  return createGroundPiece(
+    [
+      ...angles.map((angle: number): Pair => [angle, outer]),
+      ...[...angles].reverse().map((angle: number): Pair => [angle, inner]),
+    ],
+    height,
+  );
+}
+
+/**
+ * Builds the old ring of standing stones where the monster lives, long
+ * abandoned: weathered stones, one of them leaning, around the mouth of a
+ * burrow with the earth dug out of it heaped in front, and a few broken
+ * pieces of the slab that once lay there, with the worn lines of a carved
+ * circle on them.  The origin is at the mouth of the burrow, where the
+ * monster stands as it comes out.
  *
  * @returns {BuiltModel} The model.
  */
@@ -340,75 +444,181 @@ export function buildSpawnStones(): BuiltModel {
   const model = new Model('SpawnStones');
   model.setMaterial('rock', '#6f6a7c');
   model.setMaterial('rockDark', '#575266');
-  model.setMaterial('rune', '#c58cff', { emissive: '#7a35c9' });
-  model.setMaterial('slab', '#807a8e');
-  model.add(
-    'slab',
-    createLathe(
-      [
-        [0, 0],
-        [1.25, 0],
-        [1.15, 0.1],
-        [0, 0.1],
-      ],
-      7,
-    ),
-  );
-  model.add(
-    'rune',
-    createLathe(
-      [
-        [0.62, 0.1],
-        [0.74, 0.1],
-        [0.74, 0.125],
-        [0.62, 0.125],
-      ],
-      7,
-    ),
-  );
-  model.add(
-    'rune',
+  model.setMaterial('carving', '#4a4656');
+  model.setMaterial('slab', '#7d7889');
+  model.setMaterial('moss', '#6f9a3c');
+  model.setMaterial('earth', '#94603a');
+  model.setMaterial('earthDark', '#5c3a22');
+  model.setMaterial('hole', '#3a2416');
+  model.setMaterial('holeDeep', '#1f130b');
+  model.setMaterial('holeDark', '#0d0805');
+  model.setMaterial('bone', '#e9dfc6');
+  const addToBurrow = (
+    material: string,
+    shape: Shape,
+    options: ShapeOptions = {},
+  ): void => {
+    model.add(
+      material,
+      place(shape, { rot: [0, BURROW_YAW, 0] }),
+      null,
+      options,
+    );
+  };
+  // The hollow: a low bank of earth around a hole that darkens towards
+  // its far end, where it goes under a heap of earth by the stone.
+  const hollow: Triple = [0.85, 1, 1];
+  addToBurrow(
+    'earth',
     place(
       createLathe(
         [
-          [0, 0],
-          [0.16, 0.14],
-          [0.2, 0.42],
-          [0, 0.62],
+          [1, 0],
+          [0.82, 0.1],
         ],
-        5,
+        9,
       ),
-      { pos: [0, 0.1, 0] },
+      { pos: [0, 0, 0.8], scale: hollow },
     ),
   );
+  addToBurrow(
+    'earthDark',
+    place(
+      createLathe(
+        [
+          [0.82, 0.1],
+          [0.62, 0.012],
+        ],
+        9,
+      ),
+      { pos: [0, 0, 0.8], scale: hollow },
+    ),
+  );
+  const floors: (readonly [string, number, number, number])[] = [
+    ['hole', 0.62, 0.012, 0.8],
+    ['holeDeep', 0.42, 0.016, 1.0],
+    ['holeDark', 0.26, 0.02, 1.18],
+  ];
+  for (const [material, radius, height, middle] of floors) {
+    addToBurrow(
+      material,
+      place(
+        createLathe(
+          [
+            [radius, height],
+            [0, height],
+          ],
+          9,
+        ),
+        { pos: [0, 0, middle], scale: hollow },
+      ),
+    );
+  }
+  addToBurrow(
+    'earth',
+    place(createBlob(1, 400, 0.15), {
+      pos: [0, 0, 1.55],
+      scale: [0.7, 0.28, 0.3],
+    }),
+  );
+  // The earth dug out, heaped low in front of the mouth.
+  const heaps: (readonly [Triple, Triple])[] = [
+    [
+      [0, 0, -0.42],
+      [0.55, 0.1, 0.32],
+    ],
+    [
+      [-0.4, 0, -0.82],
+      [0.32, 0.08, 0.26],
+    ],
+    [
+      [0.38, 0, -0.8],
+      [0.3, 0.07, 0.24],
+    ],
+    [
+      [0.06, 0, -1.15],
+      [0.16, 0.06, 0.12],
+    ],
+  ];
+  heaps.forEach(([pos, scale]: readonly [Triple, Triple], i: number) => {
+    addToBurrow('earth', place(createBlob(1, 401 + i, 0.1), { pos, scale }), {
+      smooth: true,
+    });
+  });
+  // A gnawed bone by the mouth.
+  const bone: Shape = [
+    ...createBox(0.035, 0.035, 0.26),
+    ...[-0.13, 0.13].flatMap((end: number) =>
+      place(createEllipsoid([0.04, 0.035, 0.035], 0), { pos: [0, 0, end] }),
+    ),
+  ];
+  addToBurrow(
+    'bone',
+    place(bone, { pos: [0.66, 0.035, -0.5], rot: [0, 35, 0] }),
+  );
+  for (const corners of SLAB_PIECES) {
+    model.add('slab', createGroundPiece(corners, 0.06));
+  }
+  for (const angles of CARVED_ARCS) {
+    model.add('carving', createGroundArc(angles, 0.97, 1.03, 0.064));
+  }
   for (let i = 0; i < 5; i++) {
     const angle: number = ((i * 72 + 36) * Math.PI) / 180;
-    const height: number = 1.5 + (i % 3) * 0.35;
-    model.add(
-      i % 2 ? 'rock' : 'rockDark',
+    // One stone has broken off low, and the stone the burrow goes under
+    // leans over it.
+    const isBroken: boolean = i === 0;
+    const height: number = isBroken ? 0.9 : 1.5 + (i % 3) * 0.35;
+    const taper: Pair = isBroken ? [0.73, 0.76] : [0.55, 0.6];
+    const lean: number = i === 1 ? -18 : -6;
+    const spot: Placement = {
+      pos: [1.75 * Math.sin(angle), 0, 1.75 * Math.cos(angle)],
+      rot: [0, i * 72 + 36, 0],
+    };
+    const stand = (shape: Shape): Shape =>
       place(
-        place(createBlock(0.55, height, 0.42, [0.55, 0.6]), {
-          rot: [-6, 0, i % 2 ? 5 : -4],
+        place(shape, {
+          pos: [0, i === 1 ? -0.06 : 0, 0],
+          rot: [lean, 0, i % 2 ? 5 : -4],
         }),
-        {
-          pos: [1.75 * Math.sin(angle), 0, 1.75 * Math.cos(angle)],
-          rot: [0, i * 72 + 36, 0],
-        },
-      ),
-    );
-    model.add(
-      'rune',
-      place(
-        place(createBox(0.12, 0.3, 0.03), {
-          pos: [0, height * 0.55, -0.19],
-          rot: [-6, 0, 0],
-        }),
-        {
-          pos: [1.75 * Math.sin(angle), 0, 1.75 * Math.cos(angle)],
-          rot: [0, i * 72 + 36, 0],
-        },
-      ),
-    );
+        spot,
+      );
+    const material: string = i % 2 ? 'rock' : 'rockDark';
+    model.add(material, stand(createBlock(0.55, height, 0.42, taper)));
+    if (isBroken) {
+      model.add(
+        material,
+        stand(
+          place(createBlock(0.36, 0.22, 0.3, [0.4, 0.6]), {
+            pos: [0.08, height - 0.06, 0],
+            rot: [0, 0, -16],
+          }),
+        ),
+      );
+    }
+    if (i !== 1 && i !== 4) {
+      model.add(
+        'carving',
+        place(
+          place(createBox(0.12, 0.3, 0.03), {
+            pos: [0, height * 0.55, -0.19],
+            rot: [lean, 0, 0],
+          }),
+          spot,
+        ),
+      );
+    }
+    if (i === 0 || i === 3) {
+      model.add(
+        'moss',
+        place(
+          place(createBlob(1, 410 + i, 0.2), {
+            pos: [0, 0, -0.26],
+            scale: [0.26, 0.12, 0.12],
+          }),
+          spot,
+        ),
+      );
+    }
   }
   flattenUnderside(model);
   model.centreFootprint();

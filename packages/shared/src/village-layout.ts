@@ -194,7 +194,7 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
     makeBox(-1.4, 2.5, 1.9, 3.05),
   ],
   'npc.glb': [makeCircle(0, 0, 0.35)],
-  // The five standing stones, and not the slab they stand round.
+  // The five standing stones, and not the burrow they stand round.
   'prop-spawn-stones.glb': Array.from({ length: 5 }, (_, index: number) => {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));
     return makeCircle(x, z, 0.35);
