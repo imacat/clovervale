@@ -50,6 +50,7 @@ import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
 import { EventSchedule } from './event-schedule.ts';
+import { FountainGlow } from './fountain-glow.ts';
 import { HitMarkers } from './hit-markers.ts';
 import {
   createPrompt,
@@ -59,7 +60,11 @@ import {
 import type { Prompt } from './interaction-prompt.ts';
 import { SnapshotTimeline } from './interpolation.ts';
 import type { PlayersView } from './interpolation.ts';
-import { REQUIRED_MODEL_FILES, planModels } from './model-catalogue.ts';
+import {
+  FOUNTAIN_FILE,
+  REQUIRED_MODEL_FILES,
+  planModels,
+} from './model-catalogue.ts';
 import {
   MODEL_INDEX_FILE,
   fetchModelIndex,
@@ -124,6 +129,8 @@ const SHOWN_HIT_LIMIT = 100;
 const actors: Actor[] = [];
 /** The models that have been loaded so far. */
 let models: readonly LoadedModel[] = [];
+/** The glow of the fountain, once its model has been loaded. */
+let fountainGlow: FountainGlow | null = null;
 
 /** The latest snapshots from the server, to show the players from. */
 const timeline = new SnapshotTimeline();
@@ -158,6 +165,7 @@ const viewport: Viewport = showScene(
     for (const actor of actors) {
       actor.update(seconds);
     }
+    fountainGlow?.update(seconds);
     figures.update(seconds);
     monsterFigures.update(seconds);
     markers.update(seconds);
@@ -202,6 +210,12 @@ async function showModels(): Promise<void> {
   problems.push(...loaded.problems);
   models = loaded.models;
   actors.push(...populateVillage(scene, models));
+  const fountain: LoadedModel | undefined = models.find(
+    (model: LoadedModel) => model.file === FOUNTAIN_FILE,
+  );
+  if (fountain !== undefined) {
+    fountainGlow = new FountainGlow(fountain.root);
+  }
   panel.state.models = summariseModels(models.length, problems);
   panel.listProblems(problems);
 }

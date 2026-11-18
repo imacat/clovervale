@@ -57,11 +57,11 @@ function findSpareSpots(index: number): Spot[] {
  *
  * The fountain stands in the middle of a plaza, in front of the great tree,
  * and the cottages and the weapon shop stand around the plaza, each facing
- * it.  The NPC is by the fountain, and the spawn stones of the monster are
- * a little way outside.  The characters and the monster have no place of
- * their own, as they stand wherever the server has them.  A prop the
- * village has no place for stands by itself to one side, where it stands
- * in nobody's way.
+ * it.  The NPC is by the fountain, as is the healing stele, and the spawn
+ * stones of the monster are a little way outside.  The characters and the
+ * monster have no place of their own, as they stand wherever the server
+ * has them.  A prop the village has no place for stands by itself to one
+ * side, where it stands in nobody's way.
  *
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.

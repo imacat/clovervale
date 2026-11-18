@@ -46,13 +46,16 @@ export const CHARACTER_FILES: readonly string[] = Array.from(
 /** The file name of the monster, the wild dog. */
 export const MONSTER_FILE = 'wild-dog.glb';
 
+/** The file name of the healing fountain. */
+export const FOUNTAIN_FILE = 'fountain.glb';
+
 /** The kinds of the required models other than the characters. */
 const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
   [
     ['npc.glb', 'npc'],
     [MONSTER_FILE, 'monster'],
     ['weapon-shop.glb', 'building'],
-    ['fountain.glb', 'building'],
+    [FOUNTAIN_FILE, 'building'],
   ],
 );
 

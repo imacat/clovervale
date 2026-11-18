@@ -624,3 +624,147 @@ export function buildSpawnStones(): BuiltModel {
   model.centreFootprint();
   return { model };
 }
+
+/**
+ * Creates a flat ring in the XY plane around the origin, extruded along Z.
+ *
+ * @param {number} inner - The inner radius.
+ * @param {number} outer - The outer radius.
+ * @param {number} depth - The thickness along Z.
+ * @returns {Shape} The ring, in two halves.
+ */
+function createUprightRing(inner: number, outer: number, depth: number): Shape {
+  const count = 12;
+  return [0, 180].flatMap((from: number) => {
+    const angles: number[] = Array.from(
+      { length: count + 1 },
+      (_, i: number) => ((from + (180 * i) / count) * Math.PI) / 180,
+    );
+    const findPoint = (radius: number, angle: number): Pair => [
+      radius * Math.cos(angle),
+      radius * Math.sin(angle),
+    ];
+    const outline: Pair[] = [
+      ...angles.map((angle: number) => findPoint(outer, angle)),
+      ...[...angles].reverse().map((angle: number) => findPoint(inner, angle)),
+    ];
+    return createExtrusion(outline, depth);
+  });
+}
+
+/**
+ * Creates a short, thick cross of four equal arms with rounded corners, in
+ * the XY plane around the origin, extruded along Z.
+ *
+ * @param {number} reach - How far each arm reaches from the middle.
+ * @param {number} halfWidth - Half the width of each arm.
+ * @param {number} depth - The thickness along Z.
+ * @returns {Shape} The cross.
+ */
+function createRoundCross(
+  reach: number,
+  halfWidth: number,
+  depth: number,
+): Shape {
+  const corner: number = halfWidth * 0.45;
+  const fillet: number = halfWidth * 0.25;
+  /**
+   * Finds points along a quarter of a circle.
+   *
+   * @param {Pair} centre - The centre of the circle.
+   * @param {number} radius - The radius of the circle.
+   * @param {number} from - The angle the points start at, in quarter turns.
+   * @param {number} way - 1 to go anticlockwise, -1 to go clockwise.
+   * @returns {Pair[]} The points, the ends included.
+   */
+  const findArc = (
+    [x, y]: Pair,
+    radius: number,
+    from: number,
+    way: number,
+  ): Pair[] =>
+    Array.from({ length: 4 }, (_, i: number): Pair => {
+      const angle: number = (Math.PI / 2) * (from + (way * i) / 3);
+      return [x + radius * Math.cos(angle), y + radius * Math.sin(angle)];
+    });
+  // The arm that points up, from its right side round its end, and the
+  // rounded corner between it and the arm to its left.
+  const arm: Pair[] = [
+    ...findArc([halfWidth - corner, reach - corner], corner, 0, 1),
+    ...findArc([-halfWidth + corner, reach - corner], corner, 1, 1),
+    ...findArc([-halfWidth - fillet, halfWidth + fillet], fillet, 0, -1),
+  ];
+  const outline: Pair[] = [0, 1, 2, 3].flatMap((turn: number) => {
+    const angle: number = (Math.PI / 2) * turn;
+    const [c, s]: Pair = [Math.cos(angle), Math.sin(angle)];
+    return arm.map(([x, y]: Pair): Pair => [x * c - y * s, x * s + y * c]);
+  });
+  return createExtrusion(outline, depth);
+}
+
+/**
+ * Builds the healing stele that stands by the fountain: a short tapering
+ * stone of plain pale stone on a low plinth, whole and kept clean.  Its
+ * front, which faces +Z, is carved with the sign of healing, a short,
+ * thick cross of four equal rounded arms inside a circle, inlaid in a
+ * softly glowing green.
+ *
+ * @returns {BuiltModel} The model.
+ */
+export function buildHealingStele(): BuiltModel {
+  const model = new Model('HealingStele');
+  model.setMaterial('stone', '#cdc8bc');
+  model.setMaterial('stoneDark', '#b2ac9f');
+  model.setMaterial('carving', '#7d776c');
+  model.setMaterial('rune', '#6fe68c', {
+    roughness: 0.5,
+    emissive: '#2fae52',
+  });
+  const plinthHeight = 0.1;
+  const height = 0.56;
+  const width = 0.48;
+  const depth = 0.2;
+  const taper: Pair = [0.78, 0.8];
+  model.add('stoneDark', createBlock(0.62, plinthHeight, 0.36, [0.94, 0.9]));
+  model.add(
+    'stone',
+    place(createBlock(width, height, depth, taper), {
+      pos: [0, plinthHeight, 0],
+    }),
+  );
+  // Whatever is carved on the front lies on it, which leans back a little.
+  const lean: number =
+    (Math.atan(((depth / 2) * (1 - taper[1])) / height) * 180) / Math.PI;
+  const placeOnFront = (shape: Shape, y: number): Shape => {
+    const share: number = (y - plinthHeight) / height;
+    const z: number = (depth / 2) * (1 - (1 - taper[1]) * share);
+    return place(shape, { pos: [0, y, z], rot: [-lean, 0, 0] });
+  };
+  // The sign: a dark round hollow, a glowing circle, and a glowing cross.
+  const runeHeight = 0.4;
+  const runeScale = 0.7;
+  const hollow: Pair[] = Array.from({ length: 16 }, (_, i: number): Pair => {
+    const angle: number = (Math.PI * i) / 8;
+    return [0.265 * Math.cos(angle), 0.265 * Math.sin(angle)];
+  });
+  const rune: Shape = [
+    ...createUprightRing(0.205, 0.24, 0.02),
+    ...createRoundCross(0.175, 0.062, 0.02),
+  ];
+  model.add(
+    'carving',
+    placeOnFront(
+      place(createExtrusion(hollow, 0.02), { scale: runeScale }),
+      runeHeight,
+    ),
+  );
+  model.add(
+    'rune',
+    placeOnFront(
+      place(rune, { pos: [0, 0, 0.006], scale: runeScale }),
+      runeHeight,
+    ),
+  );
+  model.centreFootprint();
+  return { model };
+}

@@ -25,9 +25,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FOUNTAIN_REACH,
+  FOUNTAIN_RIM_RADIUS,
+  PLAYER_RADIUS,
   SPAWN_POINT_COUNT,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
+  findInteraction,
   findPlacement,
   findSpawnPoint,
 } from '../src/index.ts';
@@ -79,6 +83,27 @@ describe('VILLAGE_TERRAIN', () => {
     }
     expect(blocked).toBeGreaterThan(0);
     expect(blocked).toBeLessThan(72);
+  });
+
+  it('stands the healing stele by the fountain, clear of its front', () => {
+    const fountain: Placement = findPlacement('fountain.glb');
+    const stele: Placement = findPlacement('prop-healing-stele.glb');
+    const distance: number = Math.hypot(
+      stele.x - fountain.x,
+      stele.z - fountain.z,
+    );
+    expect(distance).toBeLessThan(3.5);
+    // On the side of the spawn points, and to the left as a player arriving
+    // there faces the fountain.
+    expect(stele.z).toBeGreaterThan(fountain.z);
+    expect(stele.x).toBeLessThan(fountain.x);
+    const front = {
+      x: fountain.x,
+      z: fountain.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH,
+      yaw: 180,
+    };
+    expect(VILLAGE_TERRAIN.isClear(front)).toBe(true);
+    expect(findInteraction(front)).toBe('Drink');
   });
 
   it('keeps every spawn point clear', () => {

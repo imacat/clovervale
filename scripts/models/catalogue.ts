@@ -29,6 +29,7 @@ import {
   buildFence,
   buildFlowers,
   buildGreatTree,
+  buildHealingStele,
   buildPineTree,
   buildRock,
   buildSpawnStones,
@@ -69,5 +70,6 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-fence', build: buildFence },
     { name: 'prop-flowers', build: buildFlowers },
     { name: 'prop-spawn-stones', build: buildSpawnStones },
+    { name: 'prop-healing-stele', build: buildHealingStele },
   ];
 }

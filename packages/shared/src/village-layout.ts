@@ -42,6 +42,7 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
   'npc.glb': [[3.2, -6.4, -25]],
   'prop-spawn-stones.glb': [[11.4, 9, -30]],
   'prop-great-tree.glb': [[0, -14.5, 20]],
+  'prop-healing-stele.glb': [[-2.1, -6.8, 20]],
   'prop-cottage.glb': [
     [-11, -4.5, 90],
     [-10.5, -16.5, 55],
@@ -201,6 +202,8 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   }),
   // The trunk, and not the roots.
   'prop-great-tree.glb': [makeCircle(-0.15, 0.41, 1.6)],
+  // The plinth the stele stands on.
+  'prop-healing-stele.glb': [makeBox(-0.31, 0.31, -0.18, 0.18)],
   'prop-cottage.glb': [makeBox(-2.55, 2.55, -2.35, 2.35)],
   // The trunk and the lowest branches.
   'prop-pine-tree.glb': [makeCircle(0, 0, 0.6)],
