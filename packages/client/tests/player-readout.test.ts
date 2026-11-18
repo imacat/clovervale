@@ -31,6 +31,7 @@ import {
   describeDisplay,
   describeMonster,
   describePrediction,
+  describeSlash,
   describeSnapshot,
 } from '../src/player-readout.ts';
 
@@ -214,6 +215,23 @@ describe('describePrediction', () => {
     expect(readout).toEqual({
       predicted: '1.00, 2.00',
       corrections: '3, last 0.07 m',
+    });
+  });
+});
+
+describe('describeSlash', () => {
+  it('tells nothing before the first slash', () => {
+    expect(describeSlash(null)).toEqual({ result: '–', judgedBack: '–' });
+  });
+
+  it('tells whether the slash hit, and how far back it was judged', () => {
+    expect(describeSlash({ step: 40, rewind: 312.5, isHit: true })).toEqual({
+      result: 'hit',
+      judgedBack: '313 ms',
+    });
+    expect(describeSlash({ step: 40, rewind: 0, isHit: false })).toEqual({
+      result: 'missed',
+      judgedBack: '0 ms',
     });
   });
 });

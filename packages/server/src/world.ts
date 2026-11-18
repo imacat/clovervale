@@ -34,6 +34,7 @@ import {
   SPAWN_YAW,
   createMotion,
   findSpawnPoint,
+  interpolatePlaced,
   isWithinStrike,
 } from '@clovervale/shared';
 import type {
@@ -44,6 +45,7 @@ import type {
   MonsterState,
   PlayerMotion,
   PlayerState,
+  SlashJudgement,
   StampedInput,
 } from '@clovervale/shared';
 
@@ -54,8 +56,18 @@ import {
   Monster,
 } from './monster.ts';
 
+/**
+ * The furthest back on the clock of the server a slash can be judged on
+ * the world as its peer showed it, in milliseconds.  A slash that names an
+ * earlier time is judged on the world as it was this long before it.
+ */
+export const LAG_COMPENSATION_LIMIT = 1000;
+
 /** The least distance between a new player and everyone else, in metres. */
 const SPAWN_CLEARANCE = 1;
+
+/** How long one step of the simulation lasts, in milliseconds. */
+const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 
 /** The number of simulation steps a dead player lies where it fell. */
 const DEATH_STEPS: number = Math.round(DEATH_DURATION * SIMULATION_RATE);
@@ -75,6 +87,27 @@ interface Player {
    * is alive.
    */
   deathSteps: number;
+  /** The latest slash of the player, as judged, or `null` before its first. */
+  lastSlash: SlashJudgement | null;
+}
+
+/** The monsters at one moment, as a snapshot then told them. */
+interface MonstersRecord {
+  /** The time on the clock of the server, in milliseconds. */
+  readonly time: number;
+  /** The monsters that were to be seen. */
+  readonly monsters: readonly MonsterState[];
+}
+
+/** A player whose slash starts at a step, to be judged. */
+interface Slasher {
+  /** The player. */
+  readonly player: Player;
+  /**
+   * The time on the clock of the server the slash names to be judged on,
+   * if it names one.
+   */
+  readonly viewTime: number | undefined;
 }
 
 /** The monster, as the events tell of it. */
@@ -88,6 +121,7 @@ export class World {
   #stepCount = 0;
   #events: GameEvent[] = [];
   #lastEventId = 0;
+  #history: MonstersRecord[] = [];
 
   /**
    * Starts a world without players, with the monster idling at its home.
@@ -119,6 +153,7 @@ export class World {
       ),
       health: PLAYER_HEALTH,
       deathSteps: 0,
+      lastSlash: null,
     };
     this.#players.set(player.id, player);
     return describePlayer(player);
@@ -160,11 +195,20 @@ export class World {
    * slash lasts.  Any other player that wants to move walks that way, facing
    * it, and idles otherwise.  The monster goes about its business.
    *
-   * Then the strikes are judged on where everyone stands after the step.  A
-   * slash that starts at the step hits the monster if it is alive, in front
-   * of the player and within reach, and a strike of the monster hits every
-   * player alive in front of it and within its reach.  The players cannot
-   * hurt each other.  Every hit is an event.
+   * Then the strikes are judged.  A slash that starts at the step hits the
+   * monster if the monster is alive, and was alive, in front of the player
+   * and within reach in the world at the time the slash names.  That is the
+   * world as the snapshots recorded told it, and between two of them, as a
+   * peer shows it between two snapshots; after the latest of them, the
+   * world after the step counts as one more of them.  The time is no
+   * earlier than {@link LAG_COMPENSATION_LIMIT} milliseconds before the
+   * step and no later than the step: an earlier or later time counts as the
+   * nearest of these, and a slash that names no time is judged on the world
+   * as it is after the step.  The player itself stands where it does after
+   * the step.  How each slash was judged is kept for its player.  A strike
+   * of the monster hits every player alive in front of it and within its
+   * reach after the step.  The players cannot hurt each other.  Every hit
+   * is an event.
    *
    * A player with no health left dies, and lies where it fell for
    * {@link DEATH_DURATION} seconds, neither moving, turning nor slashing,
@@ -174,16 +218,21 @@ export class World {
    */
   step(): void {
     this.#stepCount++;
-    const slashers: Player[] = [];
+    const slashers: Slasher[] = [];
     for (const player of this.#players.values()) {
       const before: PlayerMotion = player.mover.motion;
-      player.mover.step();
+      const applied: StampedInput[] = player.mover.step();
       const after: PlayerMotion = player.mover.motion;
       if (
         after.action === 'Slash' &&
         after.actionCount !== before.actionCount
       ) {
-        slashers.push(player);
+        const interaction: StampedInput | undefined = applied.findLast(
+          (input: StampedInput) => input.type === 'interact',
+        );
+        const viewTime: number | undefined =
+          interaction?.type === 'interact' ? interaction.viewTime : undefined;
+        slashers.push({ player, viewTime });
       }
       if (player.deathSteps > 0 && --player.deathSteps === 0) {
         player.mover.relocate(this.#chooseSpawnPoint(), SPAWN_YAW);
@@ -200,14 +249,8 @@ export class World {
         z: mover.motion.z,
       })),
     );
-    for (const player of slashers) {
-      if (
-        this.#monster.isAlive &&
-        isWithinStrike(player.mover.motion, this.#monster.pose, SLASH_REACH)
-      ) {
-        const damage: number = this.#monster.takeHit(SLASH_DAMAGE, player.id);
-        this.#recordHit({ kind: 'player', id: player.id }, MONSTER_REF, damage);
-      }
+    for (const slasher of slashers) {
+      this.#judgeSlash(slasher);
     }
     if (isStriking && this.#monster.isAlive) {
       for (const player of living) {
@@ -234,6 +277,36 @@ export class World {
     const events: GameEvent[] = this.#events;
     this.#events = [];
     return events;
+  }
+
+  /**
+   * Records the monsters as a snapshot taken now tells them, for the slashes
+   * to be judged on the world as a peer showed it.
+   *
+   * Only as many records are kept as it takes to judge a slash on the world
+   * up to {@link LAG_COMPENSATION_LIMIT} milliseconds before any later step.
+   */
+  recordSnapshot(): void {
+    const time: number = this.#stepCount * STEP_MILLISECONDS;
+    if (this.#history.at(-1)?.time === time) {
+      this.#history.pop();
+    }
+    this.#history.push({ time, monsters: this.listMonsters() });
+    const earliest: number = time - LAG_COMPENSATION_LIMIT;
+    while ((this.#history[1]?.time ?? Infinity) <= earliest) {
+      this.#history.shift();
+    }
+  }
+
+  /**
+   * Tells how the latest slash of a player was judged.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {SlashJudgement | null} How it was judged, or `null` if the
+   *   player has not slashed yet, or is not in the world.
+   */
+  findSlash(id: number): SlashJudgement | null {
+    return this.#players.get(id)?.lastSlash ?? null;
   }
 
   /**
@@ -265,6 +338,71 @@ export class World {
   listMonsters(): MonsterState[] {
     const state: MonsterState | null = this.#monster.state;
     return state === null ? [] : [state];
+  }
+
+  /**
+   * Judges a slash that starts at this step, and keeps how it was judged
+   * for its player.
+   *
+   * @param {Slasher} slasher - The player that slashes, and the time the
+   *   slash names.
+   */
+  #judgeSlash({ player, viewTime }: Slasher): void {
+    const now: number = this.#stepCount * STEP_MILLISECONDS;
+    const time: number =
+      viewTime === undefined || !Number.isFinite(viewTime)
+        ? now
+        : Math.min(Math.max(viewTime, now - LAG_COMPENSATION_LIMIT), now);
+    const target: MonsterState | undefined = this.#findMonstersAt(
+      time,
+      now,
+    ).find((monster: MonsterState) => monster.id === MONSTER_ID);
+    const isHit: boolean =
+      this.#monster.isAlive &&
+      target !== undefined &&
+      target.mode !== 'dead' &&
+      isWithinStrike(player.mover.motion, target, SLASH_REACH);
+    player.lastSlash = { step: this.#stepCount, rewind: now - time, isHit };
+    if (isHit) {
+      const damage: number = this.#monster.takeHit(SLASH_DAMAGE, player.id);
+      this.#recordHit({ kind: 'player', id: player.id }, MONSTER_REF, damage);
+    }
+  }
+
+  /**
+   * Finds the monsters as they were at a time, as the snapshots recorded
+   * told them, and between two of them as a peer shows them, with the
+   * monsters as they are now as one more record after the latest.
+   *
+   * @param {number} time - The time on the clock of the server, in
+   *   milliseconds, no later than now.
+   * @param {number} now - The time of the current step, in milliseconds.
+   * @returns {readonly MonsterState[]} The monsters that were to be seen
+   *   then, which are none before the earliest record.
+   */
+  #findMonstersAt(time: number, now: number): readonly MonsterState[] {
+    const records: MonstersRecord[] = [
+      ...this.#history.filter((record: MonstersRecord) => record.time < now),
+      { time: now, monsters: this.listMonsters() },
+    ];
+    const index: number = records.findLastIndex(
+      (record: MonstersRecord) => record.time <= time,
+    );
+    const before: MonstersRecord | undefined = records[index];
+    const after: MonstersRecord | undefined = records[index + 1];
+    if (before === undefined) {
+      return [];
+    }
+    if (after === undefined) {
+      return before.monsters;
+    }
+    const span: number = after.time - before.time;
+    return interpolatePlaced(
+      before.monsters,
+      after.monsters,
+      (time - before.time) / span,
+      span,
+    );
   }
 
   /**

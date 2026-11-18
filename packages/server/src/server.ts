@@ -97,8 +97,10 @@ const SOCKET_FILE_MODE = 0o660;
  * can wait for their turn, is disconnected.  All peers are sent snapshots
  * of all the players and the monsters, again and again, as the simulation
  * of the world goes on, each with how far its own player has got with its
- * inputs, and after each snapshot, once, the events that have happened
- * since the last.
+ * inputs and how its latest slash was judged, and after each snapshot,
+ * once, the events that have happened since the last.  A slash that names
+ * the time of the world its peer showed is judged on the world as it was
+ * then, as far as the world allows.
  *
  * A Unix socket file is created for its owner and its group to connect to.
  * A socket file that nothing listens on any more is replaced.
@@ -263,8 +265,10 @@ function readText(data: RawData): string {
 /**
  * Keeps the simulation of a world going at its fixed rate, and sends every
  * peer a snapshot of the players and the monsters at the snapshot rate,
- * which tells the number of steps the simulation has taken, and how far the
- * player of the peer has got with the inputs of the peer.  Right after the
+ * which tells the number of steps the simulation has taken, how far the
+ * player of the peer has got with the inputs of the peer, and how its
+ * latest slash was judged.  The world records every snapshot, for the
+ * slashes to be judged on the world as a peer showed it.  Right after the
  * snapshots, it sends every peer the events that have happened since the
  * last snapshots, if any have, so that each peer hears of each event once.
  *
@@ -291,6 +295,7 @@ function runSimulation(
       isSnapshotDue ||= stepCount % STEPS_PER_SNAPSHOT === 0;
     }
     if (isSnapshotDue) {
+      world.recordSnapshot();
       const players: PlayerState[] = world.listPlayers();
       const monsters: MonsterState[] = world.listMonsters();
       const events: GameEvent[] = world.takeEvents();
@@ -303,7 +308,13 @@ function runSimulation(
         if (own !== null && socket.readyState === WebSocket.OPEN) {
           socket.send(
             encodeServerMessage(
-              createSnapshotMessage(stepCount, players, monsters, own),
+              createSnapshotMessage(
+                stepCount,
+                players,
+                monsters,
+                own,
+                world.findSlash(id),
+              ),
             ),
           );
           if (eventData !== null) {

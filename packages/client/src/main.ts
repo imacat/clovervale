@@ -24,11 +24,13 @@
 import {
   PROTOCOL_VERSION,
   VILLAGE_TERRAIN,
+  createInteractMessage,
   decodeServerMessage,
   encodeClientMessage,
   findSpawnPoint,
 } from '@clovervale/shared';
 import type {
+  ClientMessage,
   EntityRef,
   GameEvent,
   GroundVector,
@@ -37,6 +39,7 @@ import type {
   PlayerMotion,
   PlayerState,
   ServerMessage,
+  StampedInput,
 } from '@clovervale/shared';
 
 import type { Actor } from './actor.ts';
@@ -68,6 +71,7 @@ import {
   describeDisplay,
   describeMonster,
   describePrediction,
+  describeSlash,
   describeSnapshot,
 } from './player-readout.ts';
 import { PlayerPrediction, placeOwnPlayer } from './prediction.ts';
@@ -203,6 +207,10 @@ const incoming = new DelayLine<string>(receiveMessage);
  * on and which is sent to the server, if the server has told the page of the
  * player and the connection is still open.
  *
+ * An interaction names the time of the server at which the world was as the
+ * page shows it at the step the interaction shows from, for the server to
+ * judge it on, if the panel is set so.
+ *
  * @param {PlayerInput} input - The input.
  * @returns {boolean} Whether the player was given the input.
  */
@@ -210,10 +218,22 @@ function sendInput(input: PlayerInput): boolean {
   if (prediction === null || socket?.readyState !== WebSocket.OPEN) {
     return false;
   }
-  outgoing.send(
-    encodeClientMessage(prediction.issueInput(input, performance.now())),
-    panel.network.delay,
-  );
+  const stamped: StampedInput = prediction.issueInput(input, performance.now());
+  let message: ClientMessage = stamped;
+  const stepTime: number | null = prediction.inputStepTime;
+  if (
+    stamped.type === 'interact' &&
+    panel.compensation.isEnabled &&
+    stepTime !== null
+  ) {
+    const { isEnabled, delay } = panel.interpolation;
+    const viewTime: number | null = timeline.findViewTime(
+      stepTime,
+      isEnabled ? delay : null,
+    );
+    message = createInteractMessage(stamped, viewTime);
+  }
+  outgoing.send(encodeClientMessage(message), panel.network.delay);
   return true;
 }
 
@@ -332,6 +352,7 @@ function receiveMessage(data: string): void {
       }
       panel.showReadout(describeSnapshot(ownId, message.players));
       panel.showMonster(describeMonster(message.monsters));
+      panel.showSlash(describeSlash(message.slash));
     }
     return;
   }
@@ -376,6 +397,7 @@ async function connectToServer(): Promise<void> {
     timeline.clear();
     schedule.clear();
     panel.showMonster(describeMonster(null));
+    panel.showSlash(describeSlash(null));
     panel.camera.followedId = null;
     panel.offerCameraChoices(listCameraChoices(null, null));
     panel.showReadout(describeSnapshot(null, null));

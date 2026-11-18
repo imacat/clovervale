@@ -32,12 +32,14 @@ import {
   SIMULATION_RATE,
   SLASH_DAMAGE,
   SLASH_DURATION,
+  SLASH_REACH,
   SPAWN_POINT_COUNT,
   WALK_SPEED,
   createInteractMessage,
   createMoveMessage,
   findSpawnPoint,
   findVillagePath,
+  isWithinStrike,
 } from '@clovervale/shared';
 import type {
   GameEvent,
@@ -51,13 +53,38 @@ import {
   MONSTER_ATTACK_DAMAGE,
   MONSTER_ID,
 } from '../src/monster.ts';
-import { World } from '../src/world.ts';
+import { LAG_COMPENSATION_LIMIT, World } from '../src/world.ts';
 
 /** The number of simulation steps a dead player lies where it fell. */
 const DEATH_STEPS: number = DEATH_DURATION * SIMULATION_RATE;
 
 /** The number of simulation steps a slash lasts. */
 const SLASH_STEPS: number = Math.round(SLASH_DURATION * SIMULATION_RATE);
+
+/** How long one step of the simulation lasts, in milliseconds. */
+const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
+
+/** A world that records a snapshot after every step, as a server would. */
+class RecordingWorld extends World {
+  /** The number of steps the world has taken. */
+  stepCount = 0;
+
+  /**
+   * The time of the latest step on the clock of the server.
+   *
+   * @returns {number} The time, in milliseconds.
+   */
+  get time(): number {
+    return this.stepCount * STEP_MILLISECONDS;
+  }
+
+  /** Moves the world one step forward, and records a snapshot. */
+  override step(): void {
+    super.step();
+    this.stepCount++;
+    this.recordSnapshot();
+  }
+}
 
 /**
  * Moves a world several steps of the simulation forward.
@@ -98,11 +125,17 @@ function steerPlayer(
  *
  * @param {World} world - The world.
  * @param {number} id - The identifier of the player.
+ * @param {number | null} [viewTime] - The time on the clock of the server
+ *   to judge the interaction on, or `null` for none, by default.
  * @returns {boolean} Whether the world accepted the input.
  */
-function interactPlayer(world: World, id: number): boolean {
+function interactPlayer(
+  world: World,
+  id: number,
+  viewTime: number | null = null,
+): boolean {
   const stamp = { sequence: ++lastSequence, after: 0 };
-  return world.receiveInput(id, createInteractMessage(stamp));
+  return world.receiveInput(id, createInteractMessage(stamp, viewTime));
 }
 
 /**
@@ -252,6 +285,60 @@ function turnPlayer(world: World, id: number, point: GroundVector): void {
   world.step();
   steerPlayer(world, id, { x: 0, z: 0 });
   world.step();
+}
+
+/** The monster at a moment. */
+interface MonsterSighting {
+  /** The time on the clock of the server, in milliseconds. */
+  readonly time: number;
+  /** The monster then. */
+  readonly monster: MonsterState;
+}
+
+/**
+ * Has the monster get away from a player that faces it: the monster comes
+ * to the player, the player walks away until the monster gives up on it,
+ * and then walks a few steps back after the monster as it goes home.
+ *
+ * @param {RecordingWorld} world - The world, which has no players yet.
+ * @returns {{ id: number; viewTime: number }} The identifier of the player,
+ *   and the latest time the monster was within reach of its slash, from
+ *   where it stands now and facing the way it does.
+ * @throws {Error} If the monster does not get away.
+ */
+function runGetaway(world: RecordingWorld): { id: number; viewTime: number } {
+  const { id }: PlayerState = world.addPlayer();
+  meetMonster(world, id);
+  const sightings: MonsterSighting[] = [];
+  const watch = (count: number): void => {
+    for (let step = 0; step < count; step++) {
+      world.step();
+      sightings.push({ time: world.time, monster: findMonster(world) });
+    }
+  };
+  steerPlayer(world, id, { x: -1, z: 0 });
+  for (let step = 0; step < 30 * SIMULATION_RATE; step++) {
+    if (findMonster(world).mode === 'return') {
+      break;
+    }
+    watch(1);
+  }
+  steerPlayer(world, id, { x: 1, z: 0 });
+  watch(6);
+  steerPlayer(world, id, { x: 0, z: 0 });
+  watch(1);
+  const player: PlayerState = findPlayer(world, id);
+  const near: MonsterSighting | undefined = sightings.findLast(
+    ({ monster }: MonsterSighting) =>
+      isWithinStrike(player, monster, SLASH_REACH),
+  );
+  if (
+    near === undefined ||
+    isWithinStrike(player, findMonster(world), SLASH_REACH)
+  ) {
+    throw new Error('The monster does not get away.');
+  }
+  return { id, viewTime: near.time };
 }
 
 describe('a player coming into the world', () => {
@@ -736,6 +823,86 @@ describe('a slash', () => {
     expect(hits).toBe(MONSTER_HEALTH / SLASH_DAMAGE);
     stepTimes(world, 5 * SIMULATION_RATE);
     expect(world.listMonsters()).toEqual([]);
+  });
+});
+
+describe('a slash that names the time its peer showed', () => {
+  it('hits the monster that was within reach then', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id, viewTime } = runGetaway(world);
+    world.takeEvents();
+    interactPlayer(world, id, viewTime);
+    world.step();
+    expect(world.takeEvents()).toContainEqual(
+      expect.objectContaining({
+        attacker: { kind: 'player', id },
+        target: { kind: 'monster', id: MONSTER_ID },
+      }),
+    );
+    expect(world.findSlash(id)).toEqual({
+      step: world.stepCount,
+      rewind: world.time - viewTime,
+      isHit: true,
+    });
+  });
+
+  it('misses that monster when it names no time', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id } = runGetaway(world);
+    world.takeEvents();
+    interactPlayer(world, id);
+    world.step();
+    expect(world.takeEvents()).not.toContainEqual(
+      expect.objectContaining({ attacker: { kind: 'player', id } }),
+    );
+    expect(world.findSlash(id)).toEqual({
+      step: world.stepCount,
+      rewind: 0,
+      isHit: false,
+    });
+  });
+
+  it('is judged on the world as it is when it names a later time', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id } = runGetaway(world);
+    interactPlayer(world, id, world.time + 1000);
+    world.step();
+    expect(world.findSlash(id)).toMatchObject({ rewind: 0, isHit: false });
+  });
+
+  it('is judged no further back than the limit', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id } = runGetaway(world);
+    interactPlayer(world, id, 0);
+    world.step();
+    expect(world.findSlash(id)).toMatchObject({
+      rewind: LAG_COMPENSATION_LIMIT,
+    });
+  });
+
+  it('misses the monster that was within reach longer ago than that', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id, viewTime } = runGetaway(world);
+    stepTimes(world, LAG_COMPENSATION_LIMIT / STEP_MILLISECONDS);
+    interactPlayer(world, id, viewTime);
+    world.step();
+    expect(world.findSlash(id)).toMatchObject({
+      rewind: LAG_COMPENSATION_LIMIT,
+      isHit: false,
+    });
+  });
+});
+
+describe('the judgement of the slashes of a player', () => {
+  it('is not there before the first slash', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    world.step();
+    expect(world.findSlash(id)).toBeNull();
+  });
+
+  it('is not there for a player not in the world', () => {
+    expect(new World(createRandom()).findSlash(1)).toBeNull();
   });
 });
 

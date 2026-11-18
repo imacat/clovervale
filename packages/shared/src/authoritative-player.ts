@@ -185,8 +185,12 @@ export class AuthoritativePlayer {
    *
    * An input that has waited for {@link INPUT_WAIT_LIMIT} steps comes into
    * effect whether its turn has come or not.
+   *
+   * @returns {StampedInput[]} The inputs that came into effect at the step,
+   *   in the order they did.
    */
-  step(): void {
+  step(): StampedInput[] {
+    const applied: StampedInput[] = [];
     for (
       let next: WaitingInput | undefined = this.#waiting[0];
       next !== undefined &&
@@ -197,11 +201,13 @@ export class AuthoritativePlayer {
       this.#motion = applyInput(this.#motion, next.input);
       this.#sequence = next.input.sequence;
       this.#steps = 0;
+      applied.push(next.input);
     }
     for (const waiting of this.#waiting) {
       waiting.waited++;
     }
     this.#motion = stepMotion(this.#motion);
     this.#steps++;
+    return applied;
   }
 }

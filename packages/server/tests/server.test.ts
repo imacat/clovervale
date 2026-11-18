@@ -56,6 +56,7 @@ import type {
   MonsterState,
   PlayerState,
   ServerMessage,
+  SlashJudgement,
   WelcomeMessage,
 } from '@clovervale/shared';
 
@@ -75,6 +76,8 @@ interface TimedSnapshot {
   readonly monsters: readonly MonsterState[];
   /** How far the player of the peer has got with the inputs of the peer. */
   readonly own: InputProgress;
+  /** How the latest slash of the player of the peer was judged. */
+  readonly slash: SlashJudgement | null;
   /** When the snapshot was received, in milliseconds. */
   readonly time: number;
 }
@@ -157,8 +160,8 @@ class Peer {
     for (;;) {
       const [message, time] = await this.#receive();
       if (message.type === 'snapshot') {
-        const { step, players, monsters, own } = message;
-        return { step, players, monsters, own, time };
+        const { step, players, monsters, own, slash } = message;
+        return { step, players, monsters, own, slash, time };
       }
     }
   }
@@ -405,6 +408,26 @@ describe('the game server', () => {
     const after: PlayerState = findPlayer(over, id);
     expect(after.action).toBe('Idle');
     expect(after.actionCount).toBeGreaterThan(before.actionCount);
+  });
+
+  it('judges a slash on the snapshot its peer names', async () => {
+    const [actor] = await connectPeer();
+    const [watcher] = await connectPeer();
+    const shown: TimedSnapshot = await actor.receiveSnapshot();
+    expect(shown.slash).toBeNull();
+    const shownTime: number = (shown.step * 1000) / SIMULATION_RATE;
+    actor.send(createInteractMessage({ sequence: 1, after: 0 }, shownTime));
+    let judged: TimedSnapshot = await actor.receiveSnapshot();
+    while (judged.slash === null) {
+      judged = await actor.receiveSnapshot();
+    }
+    const stepTime: number = (judged.slash.step * 1000) / SIMULATION_RATE;
+    expect(judged.slash).toEqual({
+      step: judged.slash.step,
+      rewind: stepTime - shownTime,
+      isHit: false,
+    });
+    expect((await watcher.receiveSnapshot()).slash).toBeNull();
   });
 
   it('tells every peer how far its own player has got', async () => {

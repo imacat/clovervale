@@ -233,6 +233,8 @@ const SAME_POSITION = 1e-9;
 const NETWORK_DELAY = 300;
 /** How long a player is walked for behind the delay, in milliseconds. */
 const DELAYED_WALK_DURATION = 700;
+/** The furthest back the server judges a slash, in milliseconds. */
+const COMPENSATION_LIMIT = 1000;
 
 /**
  * How long a player may take to walk from the plaza to the cottage on its
@@ -1449,6 +1451,62 @@ async function checkSlash(
 }
 
 /**
+ * Checks how the server judges a slash of a player behind a slow
+ * connection, with the lag compensation switched off and on, as the panel
+ * of its page tells: on the world as it is, and on the world as the page
+ * showed it, which is at least as far back as the messages to the server
+ * are held back, and no further back than the server judges any slash.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @returns {Promise<void>} A promise settled once the slashes have passed.
+ * @throws {Error} If the panel does not tell so.
+ */
+async function checkCompensation(
+  session: BidiSession,
+  actor: string,
+): Promise<void> {
+  await setControl(session, actor, 'Net delay (ms)', NETWORK_DELAY);
+  for (const isCompensating of [false, true]) {
+    const mode =
+      `With the lag compensation switched ${isCompensating ? 'on' : 'off'} ` +
+      `and its messages held back for ${String(NETWORK_DELAY)} ` +
+      'milliseconds each way, the first page';
+    await setControl(session, actor, 'Compensate lag', isCompensating);
+    await waitFor(
+      () => evaluateInPage(session, actor, PANEL_ACTION_EXPRESSION),
+      (action: string) => action === 'Idle',
+      ACTION_TIMEOUT,
+      (action: string) => `${mode} tells its player is "${action}".`,
+    );
+    const before: PageState = await readPageState(session, actor);
+    await sendKey(session, actor, 'keyDown', ' ');
+    await sendKey(session, actor, 'keyUp', ' ');
+    // The page may show the latest snapshot for a while after the delay
+    // goes up, until its clock of the server has caught up.
+    const least: number = isCompensating ? NETWORK_DELAY : 0;
+    const most: number = isCompensating ? COMPENSATION_LIMIT : 0;
+    const readBack = (state: PageState): number =>
+      Number(/^(\d+) ms$/.exec(state.panel['Judged back'] ?? '')?.[1]);
+    await waitFor(
+      () => readPageState(session, actor),
+      (state: PageState) =>
+        state.panel['Judged back'] !== before.panel['Judged back'] &&
+        readBack(state) >= least &&
+        readBack(state) <= most &&
+        state.panel.Result === 'missed',
+      ACTION_TIMEOUT,
+      (state: PageState) =>
+        `${mode} tells its slash was judged ` +
+        `"${state.panel['Judged back'] ?? ''}" back, with the result ` +
+        `"${state.panel.Result ?? ''}", after "` +
+        `${before.panel['Judged back'] ?? ''}" before.`,
+    );
+  }
+  await setControl(session, actor, 'Net delay (ms)', 0);
+}
+
+/**
  * Reads how a page shows a player, against what the server tells of it.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -2253,6 +2311,7 @@ async function checkClient(): Promise<void> {
     await checkMotion(session, first, second, id, false, 'd');
     await checkMotion(session, first, second, id, true, 'a');
     await checkSlash(session, first, second, id);
+    await checkCompensation(session, first);
     await checkPrediction(session, first, second, id, false, 'd');
     await checkPrediction(session, first, second, id, true, 'a');
     await checkObstacle(session, first, second, id);
@@ -2282,9 +2341,10 @@ try {
   await checkClient();
   console.log(
     'Browser check passed: two clients draw their scenes, connect, show ' +
-      'each other what their players do, predict their own, stop them at ' +
-      'obstacles, hurt the monster, show each hit once, and have the ' +
-      'camera follow another player.',
+      'each other what their players do, predict their own, have their ' +
+      'slashes judged on what they showed, stop them at obstacles, hurt ' +
+      'the monster, show each hit once, and have the camera follow ' +
+      'another player.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);

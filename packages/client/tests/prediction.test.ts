@@ -401,6 +401,18 @@ describe('the prediction of the player of the page', () => {
     expect(prediction.motion.action).toBe('Walk');
   });
 
+  it('tells when the latest input shows', () => {
+    const prediction = new PlayerPrediction(START, 0);
+    expect(prediction.inputStepTime).toBeNull();
+    prediction.issueInput(steer(1, 0), 1000);
+    expect(prediction.inputStepTime).toBe(1000);
+    prediction.issueInput(INTERACT, 1020);
+    expect(prediction.inputStepTime).toBe(1000 + STEP);
+    prediction.advance(1000 + STEP);
+    expect(prediction.motion.action).toBe('Slash');
+    expect(prediction.inputStepTime).toBe(1000 + STEP);
+  });
+
   it('numbers its inputs, and tells the steps between them', () => {
     const prediction = new PlayerPrediction(START, 0);
     const inputs: StampedInput[] = [

@@ -32,7 +32,7 @@ import type {
 } from './player-motion.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -140,6 +140,20 @@ export interface HitEvent {
  */
 export type GameEvent = HitEvent;
 
+/** How the server judged a slash of a player. */
+export interface SlashJudgement {
+  /** The simulation step at which the slash started, and was judged. */
+  readonly step: number;
+  /**
+   * How long before that step the world was as the slash was judged on, in
+   * milliseconds, which is 0 for a slash judged on the world as it was at
+   * the step.
+   */
+  readonly rewind: number;
+  /** Whether the slash hit. */
+  readonly isHit: boolean;
+}
+
 /** The first message the server sends to every newly connected peer. */
 export interface WelcomeMessage {
   /** The message discriminator. */
@@ -171,6 +185,11 @@ export interface SnapshotMessage {
    * when the snapshot was taken.
    */
   readonly own: InputProgress;
+  /**
+   * The latest slash of the player of the peer, as the server judged it,
+   * or `null` before its first.
+   */
+  readonly slash: SlashJudgement | null;
 }
 
 /**
@@ -219,6 +238,9 @@ export function createWelcomeMessage(playerId: number): WelcomeMessage {
  *   that is to be seen.
  * @param {InputProgress} own - How far the player of the peer has got with
  *   the inputs of the peer.
+ * @param {SlashJudgement | null} [slash] - The latest slash of the player
+ *   of the peer, as the server judged it, or `null` before its first,
+ *   which it is by default.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
@@ -226,8 +248,9 @@ export function createSnapshotMessage(
   players: readonly PlayerState[],
   monsters: readonly MonsterState[],
   own: InputProgress,
+  slash: SlashJudgement | null = null,
 ): SnapshotMessage {
-  return { type: 'snapshot', step, players, monsters, own };
+  return { type: 'snapshot', step, players, monsters, own, slash };
 }
 
 /**
@@ -267,10 +290,22 @@ export function createMoveMessage(
  * Creates an interact message.
  *
  * @param {InputStamp} stamp - What places the input in time.
+ * @param {number | null} [viewTime] - The time on the clock of the server,
+ *   in milliseconds, at which the world was as the peer showed it when the
+ *   interaction started there, for the server to judge the interaction on,
+ *   or `null` for the server to judge it on the world as it is then, which
+ *   it is by default.
  * @returns {InteractMessage} The interact message.
  */
-export function createInteractMessage(stamp: InputStamp): InteractMessage {
-  return { type: 'interact', sequence: stamp.sequence, after: stamp.after };
+export function createInteractMessage(
+  stamp: InputStamp,
+  viewTime: number | null = null,
+): InteractMessage {
+  const { sequence, after } = stamp;
+  if (viewTime === null) {
+    return { type: 'interact', sequence, after };
+  }
+  return { type: 'interact', sequence, after, viewTime };
 }
 
 /**
@@ -308,11 +343,13 @@ export function decodeServerMessage(data: string): ServerMessage {
     Number.isInteger(value.step) &&
     Array.isArray(value.players) &&
     Array.isArray(value.monsters) &&
-    isInputProgress(value.own)
+    isInputProgress(value.own) &&
+    (value.slash === null || isSlashJudgement(value.slash))
   ) {
     const players: unknown[] = value.players;
     const monsters: unknown[] = value.monsters;
     const { sequence, steps, motion } = value.own;
+    const slash: SlashJudgement | null = value.slash;
     if (players.every(isPlayerState) && monsters.every(isMonsterState)) {
       return {
         type: 'snapshot',
@@ -351,6 +388,10 @@ export function decodeServerMessage(data: string): ServerMessage {
             slashSteps: motion.slashSteps,
           },
         },
+        slash:
+          slash === null
+            ? null
+            : { step: slash.step, rewind: slash.rewind, isHit: slash.isHit },
       };
     }
   }
@@ -386,6 +427,8 @@ export function encodeClientMessage(message: ClientMessage): string {
 /**
  * Decodes a client message received from the wire.
  *
+ * The time an interact message names is left out if it is `null`.
+ *
  * @param {string} data - The encoded message.
  * @returns {ClientMessage} The decoded message.
  * @throws {Error} If the data is not a well-formed client message.
@@ -394,8 +437,20 @@ export function decodeClientMessage(data: string): ClientMessage {
   const value: Record<string, unknown> = parseObject(data, 'client');
   const { sequence, after } = value;
   if (isCount(sequence) && sequence > 0 && isCount(after)) {
-    if (value.type === 'interact') {
+    const { viewTime } = value;
+    if (
+      value.type === 'interact' &&
+      (viewTime === undefined || viewTime === null)
+    ) {
       return { type: 'interact', sequence, after };
+    }
+    if (value.type === 'interact' && Number.isFinite(viewTime)) {
+      return {
+        type: 'interact',
+        sequence,
+        after,
+        viewTime: viewTime as number,
+      };
     }
     if (value.type === 'move' && isGroundVector(value.direction)) {
       const { x, z } = value.direction;
@@ -541,6 +596,22 @@ function isMonsterState(value: unknown): value is MonsterState {
     Number.isInteger(value.actionCount) &&
     isCount(value.health) &&
     MONSTER_MODES.some((mode: MonsterMode) => mode === value.mode)
+  );
+}
+
+/**
+ * Checks whether a decoded value tells how a slash was judged.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether the value tells that.
+ */
+function isSlashJudgement(value: unknown): value is SlashJudgement {
+  return (
+    isRecord(value) &&
+    isCount(value.step) &&
+    Number.isFinite(value.rewind) &&
+    (value.rewind as number) >= 0 &&
+    typeof value.isHit === 'boolean'
   );
 }
 

@@ -31,6 +31,7 @@ import {
   describeDisplay,
   describeMonster,
   describePrediction,
+  describeSlash,
   describeSnapshot,
 } from './player-readout.ts';
 import type {
@@ -38,6 +39,7 @@ import type {
   MonsterReadout,
   PlayerReadout,
   PredictionReadout,
+  SlashReadout,
 } from './player-readout.ts';
 
 /** What the panel shows of the client itself. */
@@ -77,6 +79,16 @@ export interface NetworkSettings {
   delay: number;
 }
 
+/** How the owner has the slashes of the player of the page judged. */
+export interface CompensationSettings {
+  /**
+   * Whether the page asks the server to judge each slash of its player on
+   * the world as the page showed it when the slash started, rather than on
+   * the world as it is when the slash starts on the server.
+   */
+  isEnabled: boolean;
+}
+
 /** What the owner has drawn to see what the rules of the game use. */
 export interface ObstacleSettings {
   /**
@@ -105,6 +117,8 @@ export interface Panel {
   readonly prediction: Readonly<PredictionSettings>;
   /** The connection the page pretends to have, as set now. */
   readonly network: Readonly<NetworkSettings>;
+  /** How the owner has the slashes judged, as set now. */
+  readonly compensation: Readonly<CompensationSettings>;
   /** What the owner has drawn of the obstacles, as set now. */
   readonly obstacles: Readonly<ObstacleSettings>;
   /**
@@ -147,6 +161,13 @@ export interface Panel {
    */
   readonly showPrediction: (readout: PredictionReadout) => void;
   /**
+   * Shows how the server judged the latest slash of the player of the page,
+   * for the owner to compare with what was shown.
+   *
+   * @param {SlashReadout} readout - What the owner reads.
+   */
+  readonly showSlash: (readout: SlashReadout) => void;
+  /**
    * Lists the models that cannot be shown, for the owner to see.
    *
    * @param {readonly ModelProblem[]} problems - The models that cannot be
@@ -185,14 +206,21 @@ const DISPLAY_NAMES: readonly [keyof DisplayReadout, string][] = [
   ['behind', 'Behind'],
 ];
 
+/** The names of the values of the latest slash, in the order shown. */
+const SLASH_NAMES: readonly [keyof SlashReadout, string][] = [
+  ['result', 'Result'],
+  ['judgedBack', 'Judged back'],
+];
+
 /** The step of the delays the owner sets, in milliseconds. */
 const DELAY_STEP = 10;
 
 /**
  * Creates the settings panel, which starts with nothing synchronised yet,
  * with the player of the page to be shown as predicted, the other players
- * smoothly, by the default delay, no message held back, the camera on the
- * player of the page, and no outlines of the obstacles.
+ * smoothly, by the default delay, no message held back, the slashes judged
+ * on the world as the page showed it, the camera on the player of the page,
+ * and no outlines of the obstacles.
  *
  * @returns {Panel} The panel.
  */
@@ -204,10 +232,14 @@ export function createPanel(): Panel {
   };
   const prediction: PredictionSettings = { isEnabled: true };
   const network: NetworkSettings = { delay: 0 };
+  const compensation: CompensationSettings = { isEnabled: true };
   const obstacles: ObstacleSettings = { isShown: false };
   const camera: CameraSettings = { followedId: null };
   const predicted: Record<keyof PredictionReadout, string> = {
     ...describePrediction(null),
+  };
+  const slash: Record<keyof SlashReadout, string> = {
+    ...describeSlash(null),
   };
   const shown: Record<keyof PlayerReadout, string> = {
     ...describeSnapshot(null, null),
@@ -239,6 +271,7 @@ export function createPanel(): Panel {
   gui
     .add(interpolation, 'delay', 0, MAX_DELAY, DELAY_STEP)
     .name('Delay (ms)');
+  gui.add(compensation, 'isEnabled').name('Compensate lag');
   gui.add(obstacles, 'isShown').name('Show obstacles');
   // The panel keeps the keys from the game while a control of it is in use.
   gui.onFinishChange(() => {
@@ -262,6 +295,10 @@ export function createPanel(): Panel {
   for (const [key, name] of DISPLAY_NAMES) {
     displayFolder.add(display, key).name(name).disable().listen();
   }
+  const slashFolder: GUI = gui.addFolder('Last slash');
+  for (const [key, name] of SLASH_NAMES) {
+    slashFolder.add(slash, key).name(name).disable().listen();
+  }
 
   const showReadout = (readout: PlayerReadout): void => {
     Object.assign(shown, readout);
@@ -274,6 +311,9 @@ export function createPanel(): Panel {
   };
   const showPrediction = (readout: PredictionReadout): void => {
     Object.assign(predicted, readout);
+  };
+  const showSlash = (readout: SlashReadout): void => {
+    Object.assign(slash, readout);
   };
   let offered = '';
   const offerCameraChoices = (choices: readonly CameraChoice[]): void => {
@@ -305,6 +345,7 @@ export function createPanel(): Panel {
     interpolation,
     prediction,
     network,
+    compensation,
     obstacles,
     camera,
     offerCameraChoices,
@@ -312,6 +353,7 @@ export function createPanel(): Panel {
     showMonster,
     showDisplay,
     showPrediction,
+    showSlash,
     listProblems,
   };
 }

@@ -26,6 +26,7 @@ import type {
   GroundVector,
   MonsterState,
   PlayerState,
+  SlashJudgement,
 } from '@clovervale/shared';
 
 import type { PlayersView } from './interpolation.ts';
@@ -79,6 +80,14 @@ export interface PredictionReadout {
   readonly predicted: string;
   /** The number of corrections so far, and the size of the last one. */
   readonly corrections: string;
+}
+
+/** What the owner reads about the latest slash of the player of the page. */
+export interface SlashReadout {
+  /** Whether the slash hit. */
+  readonly result: string;
+  /** How far back the server judged the slash, in time. */
+  readonly judgedBack: string;
 }
 
 /** What there is to tell about a prediction. */
@@ -228,6 +237,24 @@ export function describePrediction(
   }
   const size = `${formatNumber(lastCorrection, 2)} m`;
   return { predicted, corrections: `${count}, last ${size}` };
+}
+
+/**
+ * Describes the latest slash of the player of the page, as the server
+ * judged it.
+ *
+ * @param {SlashJudgement | null} slash - How the slash was judged, or
+ *   `null` before the first slash.
+ * @returns {SlashReadout} What the owner reads.
+ */
+export function describeSlash(slash: SlashJudgement | null): SlashReadout {
+  if (slash === null) {
+    return { result: UNKNOWN, judgedBack: UNKNOWN };
+  }
+  return {
+    result: slash.isHit ? 'hit' : 'missed',
+    judgedBack: `${formatNumber(slash.rewind, 0)} ms`,
+  };
 }
 
 /**

@@ -77,6 +77,12 @@ export interface MoveInput {
 export interface InteractInput {
   /** The input discriminator. */
   readonly type: 'interact';
+  /**
+   * The time on the clock of the server, in milliseconds, at which the
+   * world was as the peer showed it when the interaction started there,
+   * for the server to judge the interaction on, if the peer asks for that.
+   */
+  readonly viewTime?: number;
 }
 
 /** Anything a player can be told to do. */

@@ -38,7 +38,6 @@ import {
   HISTORY_LIMIT,
   ServerClock,
   SnapshotTimeline,
-  interpolateYaw,
 } from '../src/interpolation.ts';
 import type { PlayersView } from '../src/interpolation.ts';
 
@@ -98,30 +97,6 @@ function findOnly(view: PlayersView): PlayerState {
   return only;
 }
 
-describe('interpolateYaw', () => {
-  it('turns part of the way from one yaw to another', () => {
-    expect(interpolateYaw(10, 50, 0.25)).toBeCloseTo(20);
-    expect(interpolateYaw(50, 10, 0.25)).toBeCloseTo(40);
-  });
-
-  it('gives the yaws themselves at both ends', () => {
-    expect(interpolateYaw(-90, 180, 0)).toBeCloseTo(-90);
-    expect(interpolateYaw(-90, 180, 1)).toBeCloseTo(180);
-    expect(interpolateYaw(180, 180, 0.5)).toBe(180);
-  });
-
-  it('turns the shorter way round, across the back', () => {
-    expect(interpolateYaw(170, -170, 0.25)).toBeCloseTo(175);
-    expect(interpolateYaw(170, -170, 0.75)).toBeCloseTo(-175);
-    expect(interpolateYaw(-170, 170, 0.25)).toBeCloseTo(-175);
-  });
-
-  it('turns the shorter way round between yaws counted from 0 to 360', () => {
-    expect(interpolateYaw(350, 10, 0.5) % 360).toBeCloseTo(0);
-    expect(interpolateYaw(10, 350, 0.25)).toBeCloseTo(5);
-  });
-});
-
 describe('ServerClock', () => {
   it('cannot tell the time before the server has told it', () => {
     expect(new ServerClock().read(1000)).toBeNull();
@@ -175,6 +150,18 @@ describe('ServerClock', () => {
     clock.observe(5000, 300);
     clock.reset();
     expect(clock.read(300)).toBeNull();
+  });
+
+  it('tells by a peek what a reading then would tell', () => {
+    const clock = new ServerClock();
+    expect(clock.peek(300)).toBeNull();
+    clock.observe(5000, 300);
+    expect(clock.read(400)).toBe(5100);
+    // A time arrives 20 milliseconds sooner than the first did.
+    clock.observe(5100, 380);
+    expect(clock.peek(450)).toBe(5155);
+    expect(clock.peek(700)).toBe(5420);
+    expect(clock.read(700)).toBe(5420);
   });
 });
 
@@ -372,6 +359,31 @@ describe('SnapshotTimeline', () => {
     receiveAtOnce(timeline, 2, [{ ...PLAYER, x: 8 }]);
     expect(timeline.size).toBe(1);
     expect(timeline.latest).toEqual([PLAYER]);
+  });
+
+  it('names the time of what it shows in the past, without moving', () => {
+    const timeline = new SnapshotTimeline();
+    expect(timeline.findViewTime(400, 200)).toBeNull();
+    receiveAtOnce(timeline, 2, [PLAYER]);
+    receiveAtOnce(timeline, 6, [PLAYER]);
+    expect(timeline.findViewTime(350, 200)).toBe(150);
+    expect(timeline.readPast(350, 200).time).toBe(150);
+    expect(timeline.findViewTime(500, 260)).toBe(240);
+  });
+
+  it('names the time of the latest snapshot for what it shows past it', () => {
+    const timeline = new SnapshotTimeline();
+    receiveAtOnce(timeline, 2, [PLAYER]);
+    receiveAtOnce(timeline, 4, [PLAYER]);
+    expect(timeline.findViewTime(400, 100)).toBe(4 * STEP);
+    expect(timeline.findViewTime(900, 200)).toBe(4 * STEP);
+  });
+
+  it('names the time of the latest snapshot for what it shows as is', () => {
+    const timeline = new SnapshotTimeline();
+    receiveAtOnce(timeline, 2, [PLAYER]);
+    receiveAtOnce(timeline, 4, [PLAYER]);
+    expect(timeline.findViewTime(1000, null)).toBe(4 * STEP);
   });
 
   it('has nothing to show once it is cleared', () => {

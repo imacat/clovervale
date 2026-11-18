@@ -40,6 +40,7 @@ import type {
   InputProgress,
   MonsterState,
   PlayerState,
+  SlashJudgement,
 } from '../src/index.ts';
 
 /** A player to put in snapshots. */
@@ -92,6 +93,9 @@ const OWN: InputProgress = {
   },
 };
 
+/** How a slash was judged, to put in snapshots. */
+const SLASH: SlashJudgement = { step: 40, rewind: 312.5, isHit: true };
+
 describe('the server message codec', () => {
   it('decodes the welcome message it encodes', () => {
     const message = createWelcomeMessage(7);
@@ -111,6 +115,19 @@ describe('the server message codec', () => {
       players: [PLAYER, idler],
       monsters: [MONSTER],
       own: OWN,
+      slash: null,
+    });
+  });
+
+  it('decodes a snapshot message that tells how a slash was judged', () => {
+    const message = createSnapshotMessage(42, [PLAYER], [], OWN, SLASH);
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'snapshot',
+      step: 42,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: SLASH,
     });
   });
 
@@ -127,6 +144,7 @@ describe('the server message codec', () => {
       players: [dead],
       monsters: [],
       own,
+      slash: null,
     });
   });
 
@@ -138,6 +156,7 @@ describe('the server message codec', () => {
       players: [],
       monsters: [],
       own: OWN,
+      slash: null,
     });
   });
 
@@ -211,6 +230,7 @@ describe('the server message codec', () => {
       players: {},
       monsters: [],
       own: OWN,
+      slash: null,
     });
     expect(() => decodeServerMessage(data)).toThrow();
   });
@@ -225,6 +245,7 @@ describe('the server message codec', () => {
       players: [],
       monsters: [],
       own: OWN,
+      slash: null,
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -245,6 +266,7 @@ describe('the server message codec', () => {
       players: [PLAYER, { ...PLAYER, ...flaw }],
       monsters: [],
       own: OWN,
+      slash: null,
     });
     expect(() => decodeServerMessage(data)).toThrow();
   });
@@ -255,6 +277,7 @@ describe('the server message codec', () => {
       step: 4,
       players: [PLAYER],
       own: OWN,
+      slash: null,
     });
     expect(() => decodeServerMessage(data)).toThrow();
   });
@@ -273,6 +296,7 @@ describe('the server message codec', () => {
       players: [PLAYER],
       monsters: [{ ...MONSTER, ...flaw }],
       own: OWN,
+      slash: null,
     });
     expect(() => decodeServerMessage(data)).toThrow();
   });
@@ -301,6 +325,25 @@ describe('the server message codec', () => {
       step: 4,
       players: [PLAYER],
       monsters: [],
+      slash: null,
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['is missing', { slash: undefined }],
+    ['has no whole step', { slash: { ...SLASH, step: 1.5 } }],
+    ['looks back by a negative time', { slash: { ...SLASH, rewind: -1 } }],
+    ['looks back by no number', { slash: { ...SLASH, rewind: '1' } }],
+    ['tells no hit or miss', { slash: { ...SLASH, isHit: 1 } }],
+  ])('rejects a snapshot whose judgement of a slash %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -328,6 +371,39 @@ describe('the client message codec', () => {
       sequence: 1,
       after: 0,
     });
+  });
+
+  it('decodes an interact message that names a time to be judged on', () => {
+    const message = createInteractMessage({ sequence: 2, after: 3 }, 1234.5);
+    expect(decodeClientMessage(encodeClientMessage(message))).toEqual({
+      type: 'interact',
+      sequence: 2,
+      after: 3,
+      viewTime: 1234.5,
+    });
+  });
+
+  it('decodes an interact message whose time is null as naming none', () => {
+    const data = '{"type":"interact","sequence":1,"after":0,"viewTime":null}';
+    expect(decodeClientMessage(data)).toEqual({
+      type: 'interact',
+      sequence: 1,
+      after: 0,
+    });
+  });
+
+  it.each([
+    ['a string', '100'],
+    ['an object', {}],
+    ['a truth value', true],
+  ])('rejects an interact message whose time is %s', (_, viewTime) => {
+    const data = JSON.stringify({
+      type: 'interact',
+      sequence: 1,
+      after: 0,
+      viewTime,
+    });
+    expect(() => decodeClientMessage(data)).toThrow();
   });
 
   it('rejects data that is not JSON', () => {

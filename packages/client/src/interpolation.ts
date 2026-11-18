@@ -25,7 +25,7 @@
 import {
   SIMULATION_RATE,
   SNAPSHOT_RATE,
-  WALK_SPEED,
+  interpolatePlaced,
 } from '@clovervale/shared';
 import type {
   MonsterState,
@@ -61,12 +61,6 @@ const CLOCK_SLEW = 0.1;
  */
 const CLOCK_RESYNC = 500;
 
-/**
- * How many times further than it can walk a player must have moved between
- * two snapshots to have jumped.
- */
-const JUMP_FACTOR = 1.5;
-
 /** The players and the monsters to show at one moment. */
 export interface PlayersView {
   /** The players, as they are shown. */
@@ -83,18 +77,6 @@ export interface PlayersView {
    * shown, in milliseconds, or `null` before the first snapshot.
    */
   readonly time: number | null;
-}
-
-/** Anything whose position and facing a snapshot gives. */
-interface Placed {
-  /** The identifier, unique among its kind. */
-  readonly id: number;
-  /** The position along the X axis, in metres. */
-  readonly x: number;
-  /** The position along the Z axis, in metres. */
-  readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
-  readonly yaw: number;
 }
 
 /** A snapshot, and when the server took it. */
@@ -114,63 +96,6 @@ const EMPTY_VIEW: PlayersView = {
   lag: 0,
   time: null,
 };
-
-/**
- * Finds the yaw part of the way from one yaw to another, the shorter way
- * round.
- *
- * @param {number} from - The yaw to turn from, in degrees.
- * @param {number} to - The yaw to turn to, in degrees.
- * @param {number} fraction - How much of the turn is made, from 0 to 1.
- * @returns {number} The yaw, in degrees, above -180 and up to 180.
- */
-export function interpolateYaw(
-  from: number,
-  to: number,
-  fraction: number,
-): number {
-  const turn: number = ((((to - from) % 360) + 540) % 360) - 180;
-  const yaw: number = from + turn * fraction;
-  return 180 - ((((180 - yaw) % 360) + 360) % 360);
-}
-
-/**
- * Places everything part of the way from where one snapshot tells to where
- * the next tells, unless it has moved further than it can walk.
- *
- * @param {readonly T[]} before - Everything as the earlier snapshot tells.
- * @param {readonly T[]} after - Everything as the later snapshot tells.
- * @param {number} fraction - How much of the time between them has passed,
- *   from 0 to 1.
- * @param {number} reach - The furthest anything can walk between them, in
- *   metres.
- * @returns {T[]} Everything the earlier snapshot tells, in its order.
- * @template T
- */
-function interpolatePlaced<T extends Placed>(
-  before: readonly T[],
-  after: readonly T[],
-  fraction: number,
-  reach: number,
-): T[] {
-  return before.map((item: T) => {
-    const next: T | undefined = after.find(
-      (other: T) => other.id === item.id,
-    );
-    if (
-      next === undefined ||
-      Math.hypot(next.x - item.x, next.z - item.z) > reach
-    ) {
-      return item;
-    }
-    return {
-      ...item,
-      x: item.x + (next.x - item.x) * fraction,
-      z: item.z + (next.z - item.z) * fraction,
-      yaw: interpolateYaw(item.yaw, next.yaw, fraction),
-    };
-  });
-}
 
 /**
  * The clock of the server, as a page can tell it from the snapshots.
@@ -212,6 +137,47 @@ export class ServerClock {
    *   milliseconds, or `null` before the first time of the server.
    */
   read(localTime: number): number | null {
+    const offset: number | null = this.#findOffset(localTime);
+    if (offset === null) {
+      return null;
+    }
+    this.#offset = offset;
+    this.#readTime = localTime;
+    return localTime + offset;
+  }
+
+  /**
+   * Tells the time of the server that a reading would tell, without
+   * reading the clock, so that the next reading is as if this one had not
+   * been made.
+   *
+   * @param {number} localTime - The time on the clock of the page, in
+   *   milliseconds, which is no earlier than at the last reading.
+   * @returns {number | null} The time on the clock of the server, in
+   *   milliseconds, which a reading then tells if no time of the server is
+   *   noted before it, or `null` before the first time of the server.
+   */
+  peek(localTime: number): number | null {
+    const offset: number | null = this.#findOffset(localTime);
+    return offset === null ? null : localTime + offset;
+  }
+
+  /** Forgets the time of the server. */
+  reset(): void {
+    this.#offsets = [];
+    this.#offset = null;
+  }
+
+  /**
+   * Finds how far ahead of the clock of the page the clock of the server is
+   * to be read at a time.
+   *
+   * @param {number} localTime - The time on the clock of the page, in
+   *   milliseconds, which is no earlier than at the last reading.
+   * @returns {number | null} The difference, in milliseconds, or `null`
+   *   before the first time of the server.
+   */
+  #findOffset(localTime: number): number | null {
     if (this.#offsets.length === 0) {
       return null;
     }
@@ -220,20 +186,10 @@ export class ServerClock {
     const error: number =
       this.#offset === null ? Infinity : target - this.#offset;
     if (this.#offset === null || Math.abs(error) > CLOCK_RESYNC) {
-      this.#offset = target;
-    } else {
-      const reach: number =
-        CLOCK_SLEW * Math.max(localTime - this.#readTime, 0);
-      this.#offset += Math.min(Math.max(error, -reach), reach);
+      return target;
     }
-    this.#readTime = localTime;
-    return localTime + this.#offset;
-  }
-
-  /** Forgets the time of the server. */
-  reset(): void {
-    this.#offsets = [];
-    this.#offset = null;
+    const reach: number = CLOCK_SLEW * Math.max(localTime - this.#readTime, 0);
+    return this.#offset + Math.min(Math.max(error, -reach), reach);
   }
 }
 
@@ -352,23 +308,46 @@ export class SnapshotTimeline {
     }
     const span: number = after.time - before.time;
     const fraction: number = (time - before.time) / span;
-    const reach: number = (WALK_SPEED * JUMP_FACTOR * span) / 1000;
     return {
       players: interpolatePlaced(
         before.players,
         after.players,
         fraction,
-        reach,
+        span,
       ),
       monsters: interpolatePlaced(
         before.monsters,
         after.monsters,
         fraction,
-        reach,
+        span,
       ),
       lag,
       time,
     };
+  }
+
+  /**
+   * Tells the time on the clock of the server at which the players and the
+   * monsters were as a page shows them at a time, without reading the clock
+   * of the server.
+   *
+   * @param {number} localTime - The time on the clock of the page, in
+   *   milliseconds, which is no earlier than at the last reading.
+   * @param {number | null} delay - How long ago the page shows them, in
+   *   milliseconds, as {@link SnapshotTimeline.readPast} does, or `null` if
+   *   it shows them as {@link SnapshotTimeline.readLatest} does.
+   * @returns {number | null} The time, in milliseconds, which is that of
+   *   the view then if no snapshot arrives before it, but no later than the
+   *   latest snapshot, which tells them as they are shown past it.  It is
+   *   `null` before the first snapshot.
+   */
+  findViewTime(localTime: number, delay: number | null): number | null {
+    const newest: TimedSnapshot | undefined = this.#snapshots.at(-1);
+    const now: number | null = this.#clock.peek(localTime);
+    if (newest === undefined || now === null) {
+      return null;
+    }
+    return delay === null ? newest.time : Math.min(now - delay, newest.time);
   }
 
   /** Forgets every snapshot, and the time of the server with them. */

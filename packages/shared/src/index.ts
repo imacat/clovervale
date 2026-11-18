@@ -46,6 +46,8 @@ export {
   STRIKE_HALF_ANGLE,
   isWithinStrike,
 } from './combat.ts';
+export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
+export type { Placed } from './interpolation.ts';
 export {
   SIMULATION_RATE,
   WALK_SPEED,
@@ -103,6 +105,7 @@ export type {
   MoveMessage,
   PlayerState,
   ServerMessage,
+  SlashJudgement,
   SnapshotMessage,
   WelcomeMessage,
 } from './protocol.ts';

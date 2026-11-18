@@ -25,6 +25,7 @@
 import {
   SIMULATION_RATE,
   applyInput,
+  interpolateYaw,
   isResting,
   stepMotion,
 } from '@clovervale/shared';
@@ -35,8 +36,6 @@ import type {
   PlayerState,
   StampedInput,
 } from '@clovervale/shared';
-
-import { interpolateYaw } from './interpolation.ts';
 
 /** How long one step of the simulation lasts, in milliseconds. */
 const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
@@ -71,6 +70,7 @@ export class PlayerPrediction {
   #waiting: StampedInput[] = [];
   #correctionCount = 0;
   #lastCorrection: number | null = null;
+  #inputStepTime: number | null = null;
 
   /**
    * Starts from what the server tells of the player, before any input.
@@ -115,6 +115,17 @@ export class PlayerPrediction {
   }
 
   /**
+   * The time on the clock of the page of the step that takes the latest
+   * input in, from which the input shows, or `null` before the first input.
+   * While the input waits for that step, it is the time the step is due.
+   *
+   * @returns {number | null} The time, in milliseconds.
+   */
+  get inputStepTime(): number | null {
+    return this.#inputStepTime;
+  }
+
+  /**
    * Takes an input of the player in, and stamps it for the server.
    *
    * The input shows at the next step of the player, which a player that
@@ -141,6 +152,8 @@ export class PlayerPrediction {
     };
     this.#waiting.push(stamped);
     this.advance(time);
+    this.#inputStepTime =
+      this.#waiting.length > 0 ? this.#dueTime : this.#stepTime;
     return stamped;
   }
 
