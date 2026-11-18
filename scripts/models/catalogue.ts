@@ -23,7 +23,6 @@
 
 import { buildCottage, buildFountain, buildWeaponShop } from './buildings.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
-import { buildMonster } from './monster.ts';
 import { buildNpc } from './npc.ts';
 import {
   buildBush,
@@ -34,6 +33,7 @@ import {
   buildRock,
   buildSpawnStones,
 } from './props.ts';
+import { buildWildDog } from './wild-dog.ts';
 import type { BuiltModel } from './rig.ts';
 
 /** A model to generate. */
@@ -58,7 +58,7 @@ export function listModels(): ModelEntry[] {
       }),
     ),
     { name: 'npc', build: buildNpc },
-    { name: 'monster', build: buildMonster },
+    { name: 'wild-dog', build: buildWildDog },
     { name: 'weapon-shop', build: buildWeaponShop },
     { name: 'fountain', build: buildFountain },
     { name: 'prop-cottage', build: buildCottage },

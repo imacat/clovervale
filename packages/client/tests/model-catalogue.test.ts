@@ -34,7 +34,7 @@ describe('classifyModel', () => {
     expect(classifyModel('character-01.glb')).toBe('character');
     expect(classifyModel('character-08.glb')).toBe('character');
     expect(classifyModel('npc.glb')).toBe('npc');
-    expect(classifyModel('monster.glb')).toBe('monster');
+    expect(classifyModel('wild-dog.glb')).toBe('monster');
     expect(classifyModel('weapon-shop.glb')).toBe('building');
     expect(classifyModel('fountain.glb')).toBe('building');
   });

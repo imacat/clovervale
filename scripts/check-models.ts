@@ -251,7 +251,7 @@ const CHARACTER_FILES: readonly string[] = Array.from(
 const REQUIRED_FILES: readonly string[] = [
   ...CHARACTER_FILES,
   'npc.glb',
-  'monster.glb',
+  'wild-dog.glb',
   'weapon-shop.glb',
   'fountain.glb',
 ];
@@ -685,7 +685,7 @@ function classifyModel(file: string): ModelKind {
   if (file === 'npc.glb') {
     return 'npc';
   }
-  return file === 'monster.glb' ? 'monster' : 'static';
+  return file === 'wild-dog.glb' ? 'monster' : 'static';
 }
 
 /**

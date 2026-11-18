@@ -18,7 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/monster The monster that appears outside the valley.
+ * @module scripts/models/wild-dog The wild dog, the monster that appears
+ *   outside the valley.
  */
 
 import { SIDES, computeStep } from './characters.ts';
@@ -180,14 +181,14 @@ function createEar(isFolded: boolean, scale: number): Shape {
 }
 
 /**
- * Builds the mesh and the skeleton of the monster: a scruffy stray dog with
- * a big head, tan fur with a dark saddle and a patch over one eye, a cream
+ * Builds the mesh and the skeleton of the wild dog: a scruffy stray with a
+ * big head, tan fur with a dark saddle and a patch over one eye, a cream
  * muzzle and chest, one ear folded over, raised hackles and small fangs.
  *
  * @returns {Model} The model without animations.
  */
 function buildBody(): Model {
-  const model = new Model('Monster');
+  const model = new Model('WildDog');
   model.setMaterial('fur', '#c48a50');
   model.setMaterial('dark', '#6e4a2e');
   model.setMaterial('cream', '#f3e2bd');
@@ -491,9 +492,9 @@ function buildBody(): Model {
 }
 
 /**
- * Adds the four animation clips to the monster.
+ * Adds the four animation clips to the wild dog.
  *
- * @param {Model} model - The monster.
+ * @param {Model} model - The wild dog.
  * @returns {ReadonlyMap<string, ClipReport>} The measurements of the baked
  *   clips, by clip name.
  */
@@ -724,12 +725,12 @@ function animateBody(model: Model): ReadonlyMap<string, ClipReport> {
 }
 
 /**
- * Builds the monster.
+ * Builds the wild dog.
  *
  * @returns {BuiltModel} The animated model and the measurements taken while
  *   baking.
  */
-export function buildMonster(): BuiltModel {
+export function buildWildDog(): BuiltModel {
   const model: Model = buildBody();
   const report: ReadonlyMap<string, ClipReport> = animateBody(model);
   model.centreOn(LEGS.map((leg: Leg) => leg.bones[2]));
