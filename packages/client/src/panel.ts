@@ -54,6 +54,15 @@ import type {
   SlashReadout,
 } from './player-readout.ts';
 import type { PushForecastSettings } from './push-forecast.ts';
+import {
+  DEFAULT_TRAILING_CAMERA,
+  MAX_ANGLE_LIMIT,
+  MAX_DEAD_ZONE,
+  MAX_EASE_TIME,
+  MAX_RECENTER_DELAY,
+  MAX_TURN_RATE,
+} from './trailing-camera.ts';
+import type { TrailingCameraSettings } from './trailing-camera.ts';
 import type { Translator } from './translator.ts';
 
 /** What the panel shows of the client itself. */
@@ -154,6 +163,11 @@ export interface Panel {
    * when the player it follows is gone.
    */
   readonly camera: CameraSettings;
+  /**
+   * How the owner has the camera turn after the player it follows, as set
+   * now.
+   */
+  readonly trailingCamera: Readonly<TrailingCameraSettings>;
   /** How the owner has the music played, as set now. */
   readonly music: Readonly<MusicSettings>;
   /**
@@ -254,6 +268,10 @@ const SLASH_NAMES: readonly [keyof SlashReadout, PlainMessageId][] = [
 
 /** The step of the delays the owner sets, in milliseconds. */
 const DELAY_STEP = 10;
+/** The step of the angles of the camera the owner sets, in degrees. */
+const ANGLE_STEP = 1;
+/** The step of the times of the camera the owner sets, in seconds. */
+const CAMERA_TIME_STEP = 0.05;
 /** The step of the volume of the music the owner sets. */
 const VOLUME_STEP = 0.05;
 /** The step of the hour the owner previews, in hours: three minutes. */
@@ -343,10 +361,11 @@ function showHourAsClock(control: NumberController): void {
  * predicted, gliding over its corrections, pushed out of the way of Toby
  * before the server tells of it, the other players smoothly, by the default
  * delay, no message held back, the slashes judged on the world as the page
- * showed it, the camera on the player of the page, no outlines of the
- * obstacles, the time of day of the world, with midnight ready to preview,
- * and the music on at its default volume.  The panel names everything in it
- * again in each language the page comes to speak.
+ * showed it, the camera on the player of the page, trailing gently behind
+ * the way it goes, no outlines of the obstacles, the time of day of the
+ * world, with midnight ready to preview, and the music on at its default
+ * volume.  The panel names everything in it again in each language the page
+ * comes to speak.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {(code: LanguageCode) => Promise<void>} chooseLanguage - Has the
@@ -375,6 +394,9 @@ export function createPanel(
   const obstacles: ObstacleSettings = { isShown: false };
   const timePreview: TimePreviewSettings = { isEnabled: false, hour: 0 };
   const camera: CameraSettings = { followedId: null };
+  const trailingCamera: TrailingCameraSettings = {
+    ...DEFAULT_TRAILING_CAMERA,
+  };
   const music: MusicSettings = {
     isEnabled: true,
     volume: DEFAULT_MUSIC_VOLUME,
@@ -439,6 +461,27 @@ export function createPanel(
     }),
     'panel.camera',
   ).listen();
+  name(gui.add(trailingCamera, 'isEnabled'), 'panel.trailingCamera');
+  name(
+    gui.add(trailingCamera, 'turnRate', 0, MAX_TURN_RATE, ANGLE_STEP),
+    'panel.turnRate',
+  );
+  name(
+    gui.add(trailingCamera, 'deadZone', 0, MAX_DEAD_ZONE, ANGLE_STEP),
+    'panel.deadZone',
+  );
+  name(
+    gui.add(trailingCamera, 'easeTime', 0, MAX_EASE_TIME, CAMERA_TIME_STEP),
+    'panel.easeTime',
+  );
+  name(
+    gui.add(trailingCamera, 'angleLimit', 0, MAX_ANGLE_LIMIT, ANGLE_STEP),
+    'panel.angleLimit',
+  );
+  name(
+    gui.add(trailingCamera, 'delay', 0, MAX_RECENTER_DELAY, CAMERA_TIME_STEP),
+    'panel.recenterDelay',
+  );
   name(gui.add(prediction, 'isEnabled'), 'panel.predict');
   name(gui.add(smoothing, 'isEnabled'), 'panel.smooth');
   name(gui.add(pushForecast, 'isEnabled'), 'panel.foreseePushes');
@@ -590,6 +633,7 @@ export function createPanel(
     obstacles,
     timePreview,
     camera,
+    trailingCamera,
     music,
     offerCameraChoices,
     showReadout,

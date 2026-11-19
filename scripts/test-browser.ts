@@ -3778,6 +3778,11 @@ async function checkClient(): Promise<void> {
     })) as { context: string };
     const second: string = created.context;
     await loadClient(session, second, url, 'The second page');
+    // The checks walk the players with the keys along the ways of the world
+    // they move them in under a camera that keeps its heading.
+    for (const page of [first, second]) {
+      await setControl(session, page, 'Trailing camera', false);
+    }
 
     const isPair = (state: PageState): boolean =>
       state.figures.length === 2 && state.panel.Players === '2';

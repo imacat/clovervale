@@ -238,6 +238,7 @@ const talks = new TalkWatch();
 const viewport: Viewport = showScene(
   scene,
   findSpawnPoint(0),
+  panel.trailingCamera,
   (seconds: number) => {
     sendMove();
     showPlayers();

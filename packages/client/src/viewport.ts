@@ -27,6 +27,9 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import type { GroundVector } from '@clovervale/shared';
 
+import { TrailingCamera } from './trailing-camera.ts';
+import type { TrailingCameraSettings } from './trailing-camera.ts';
+
 /** A view of a scene in the browser window. */
 export interface Viewport {
   /**
@@ -66,11 +69,15 @@ const FOCUS_HEIGHT = 1.2;
  * Shows a scene in the browser window, for the owner to look around in.
  *
  * Dragging with the left mouse button orbits around what the camera looks
- * at, and the wheel zooms.
+ * at, and the wheel zooms.  While the trailing camera is switched on, the
+ * camera also turns softly round behind the way what it looks at goes
+ * forwards, while the owner leaves it alone.
  *
  * @param {Scene} scene - The scene to show.
  * @param {GroundVector} focus - Where what the camera looks at stands at
  *   first.
+ * @param {Readonly<TrailingCameraSettings>} trailing - How the owner has
+ *   the camera turn after what it looks at, as set at every frame.
  * @param {(seconds: number) => void} update - Called before every frame is
  *   drawn, with the time since the last one, in seconds.
  * @returns {Viewport} The view.
@@ -78,6 +85,7 @@ const FOCUS_HEIGHT = 1.2;
 export function showScene(
   scene: Scene,
   focus: GroundVector,
+  trailing: Readonly<TrailingCameraSettings>,
   update: (seconds: number) => void,
 ): Viewport {
   const renderer = new WebGLRenderer({ antialias: true });
@@ -106,22 +114,60 @@ export function showScene(
   window.addEventListener('resize', fitViewToWindow);
   fitViewToWindow();
 
+  const readHeading = (): number => {
+    const x: number = controls.target.x - camera.position.x;
+    const z: number = controls.target.z - camera.position.z;
+    return (Math.atan2(x, z) * 180) / Math.PI;
+  };
+  const trailingCamera = new TrailingCamera();
+  // Whether the owner holds the camera now, and whether the owner has
+  // handled it since the last frame, as a turn of the wheel does at once.
+  let isHeld = false;
+  let isTouched = false;
+  controls.addEventListener('start', () => {
+    isHeld = true;
+    isTouched = true;
+  });
+  controls.addEventListener('end', () => {
+    isHeld = false;
+  });
+  const steerCamera = (seconds: number): void => {
+    const heading: number = readHeading();
+    const steered: number = trailingCamera.steer(
+      heading,
+      { x: controls.target.x, z: controls.target.z },
+      seconds,
+      trailing,
+      isHeld || isTouched,
+    );
+    isTouched = false;
+    if (steered === heading) {
+      return;
+    }
+    // The camera swings round what it looks at, keeping its distance and
+    // its height.
+    const turn: number = ((steered - heading) * Math.PI) / 180;
+    const x: number = camera.position.x - controls.target.x;
+    const z: number = camera.position.z - controls.target.z;
+    const cos: number = Math.cos(turn);
+    const sin: number = Math.sin(turn);
+    camera.position.x = controls.target.x + x * cos + z * sin;
+    camera.position.z = controls.target.z - x * sin + z * cos;
+  };
+
   let lastTime: number = performance.now();
   renderer.setAnimationLoop((time: number) => {
     // A page left in the background must not leap ahead when it comes back.
     const seconds: number = Math.min((time - lastTime) / 1000, 0.1);
     lastTime = time;
     update(seconds);
+    steerCamera(seconds);
     controls.update();
     renderer.render(scene, camera);
   });
 
   return {
-    getHeading: (): number => {
-      const x: number = controls.target.x - camera.position.x;
-      const z: number = controls.target.z - camera.position.z;
-      return (Math.atan2(x, z) * 180) / Math.PI;
-    },
+    getHeading: readHeading,
     getFocus: (): GroundVector => ({
       x: controls.target.x,
       z: controls.target.z,
