@@ -242,6 +242,22 @@ interface TalkLook {
   readonly judgedBack: string;
 }
 
+/** The time of day a page tells. */
+interface TimeOfDayView {
+  /**
+   * The time of day of the world, from 0 up to 1, or `null` before the
+   * page knows it.
+   */
+  readonly world: number | null;
+  /** The time of day the page shows, from 0 up to 1. */
+  readonly shown: number;
+  /**
+   * The moment the page told the time of day, in milliseconds since the
+   * Unix epoch, on the clock of the browser, which all its pages share.
+   */
+  readonly moment: number;
+}
+
 /** What a page shows in words, in the language it speaks. */
 interface LanguageLook {
   /** The language of the page, as its document tells. */
@@ -464,6 +480,63 @@ const SPEECH_LEAST_HEIGHT = 1;
  */
 const SPEECH_TIMEOUT = 30_000;
 /**
+ * The time of day the game server of the check holds its clock at, so that
+ * every check sees the village as it is at noon, whenever it runs.
+ */
+const HELD_TIME = '12:00';
+/** What the panel of a page tells of that time of day. */
+const HELD_TIME_OF_DAY = '12:00, day';
+/** That time of day, from 0 up to 1. */
+const HELD_DAY_SHARE = 0.5;
+/** The name of the switch of the panel that previews a time of day. */
+const PREVIEW_CONTROL = 'Time preview';
+/** The name of the control of the panel that sets the hour previewed. */
+const PREVIEW_HOUR_CONTROL = 'Time';
+/** The hour previewed to see the village at night: midnight. */
+const NIGHT_HOUR = 0;
+/** That hour, as the control of the panel shows it. */
+const NIGHT_CLOCK = '00:00';
+/**
+ * The most the foot of the view may be lit at midnight, as a share of how
+ * it is lit at noon: clearly darker.
+ */
+const NIGHT_MOST_SHARE = 0.7;
+/**
+ * The least the foot of the view may be lit at midnight, as a share of how
+ * it is lit at noon: far from black.
+ */
+const NIGHT_LEAST_SHARE = 0.3;
+/**
+ * The least brightness the foot of the view may have at midnight, from 0
+ * to 255.
+ */
+const NIGHT_LEAST_BRIGHTNESS = 40;
+/**
+ * The most the brightness of the foot of the view of a page may change, as
+ * a share, while another page previews a different time of day.
+ */
+const UNCHANGED_SHARE = 0.05;
+/**
+ * The length of the day of the game server whose clock runs, in minutes:
+ * long enough for the pages to load in daylight.
+ */
+const RUNNING_DAY_MINUTES = 10;
+/** The length of the day of the game server whose clock runs, in ms. */
+const RUNNING_DAY_DURATION = RUNNING_DAY_MINUTES * 60_000;
+/**
+ * How far apart the times of day two pages tell for one and the same moment
+ * may be, in days: half a second's worth on that server.
+ */
+const SAME_TIME_OF_DAY = 500 / RUNNING_DAY_DURATION;
+/** The least time the time of day of a page is watched moving on, in ms. */
+const DAY_WATCH_DURATION = 3000;
+/**
+ * The most the time of day of a page may run fast or slow, as a share of
+ * the time that passes.
+ */
+const DAY_PACE_TOLERANCE = 0.25;
+
+/**
  * The keys that walk a player each way in the first view, by the turn of
  * the way from +Z towards +X, in steps of 45 degrees from 0.
  */
@@ -502,6 +575,17 @@ const PAGE_EXPRESSION = `(() => {
     height: window.innerHeight,
     panel,
     figures: window.clovervale?.describeFigures() ?? [],
+  });
+})()`;
+
+/**
+ * Reads the time of day a page tells, and the moment it tells it, as JSON.
+ */
+const TIME_OF_DAY_EXPRESSION = `(() => {
+  const time = window.clovervale.describeTimeOfDay();
+  return JSON.stringify({
+    ...time,
+    moment: performance.timeOrigin + performance.now(),
   });
 })()`;
 
@@ -570,14 +654,18 @@ function createSwitchExpression(name: string, isEnabled: boolean): string {
 }
 
 /**
- * Makes the expression that types a number into a number field of the
+ * Makes the expression that types a value into a number field of the
  * panel, and gives what the field holds afterwards.
  *
  * @param {string} name - The name of the field.
- * @param {number} value - The number.
+ * @param {number | string} value - The value, as a number, or as the
+ *   field shows it.
  * @returns {string} The expression.
  */
-function createNumberExpression(name: string, value: number): string {
+function createNumberExpression(
+  name: string,
+  value: number | string,
+): string {
   return `(() => {
     for (const input of document.querySelectorAll('input[aria-labelledby]')) {
       const labelId = input.getAttribute('aria-labelledby');
@@ -958,10 +1046,12 @@ function startProgram(
 /**
  * Starts the built game server on a free port.
  *
+ * @param {readonly string[]} dayArgs - The options that tell the server how
+ *   to run the day.
  * @returns {Promise<number>} The port the server is listening on.
  */
-async function startGameServer(): Promise<number> {
-  const args: string[] = [serverFile, '--port', '0'];
+async function startGameServer(dayArgs: readonly string[]): Promise<number> {
+  const args: string[] = [serverFile, '--port', '0', ...dayArgs];
   const child: ChildProcess = startProgram(process.execPath, args, process.env);
   const pattern = /listening on port (\d+)/;
   return Number(
@@ -1228,6 +1318,23 @@ function measureGrassFraction(image: Pixels): number {
 }
 
 /**
+ * Measures how brightly an image is lit.
+ *
+ * @param {Pixels} image - The image.
+ * @returns {number} The mean brightness of its pixels, from 0 to 255.
+ */
+function measureBrightness(image: Pixels): number {
+  let sum = 0;
+  for (let at = 0; at < image.data.length; at += image.channels) {
+    sum +=
+      0.2126 * (image.data[at] ?? 0) +
+      0.7152 * (image.data[at + 1] ?? 0) +
+      0.0722 * (image.data[at + 2] ?? 0);
+  }
+  return sum / (image.width * image.height);
+}
+
+/**
  * Counts the pixels that differ between two images of the same size.
  *
  * @param {Pixels} before - One image.
@@ -1317,6 +1424,29 @@ async function captureView(
 }
 
 /**
+ * Captures the foot of the view of a page, which holds the ground, clear of
+ * the settings panel.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {PageState} state - What the page tells.
+ * @returns {Promise<Pixels>} The pixels of the foot of the view.
+ */
+function captureGround(
+  session: BidiSession,
+  context: string,
+  state: PageState,
+): Promise<Pixels> {
+  return captureView(session, context, {
+    type: 'box',
+    x: 0,
+    y: state.height / 2,
+    width: state.width,
+    height: state.height / 2,
+  });
+}
+
+/**
  * Looks at what a page tells and draws now.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -1328,15 +1458,7 @@ async function lookAtPage(
   context: string,
 ): Promise<PageLook> {
   const state: PageState = await readPageState(session, context);
-  // The foot of the view holds the ground, clear of the settings panel.
-  const clip: object = {
-    type: 'box',
-    x: 0,
-    y: state.height / 2,
-    width: state.width,
-    height: state.height / 2,
-  };
-  const view: Pixels = await captureView(session, context, clip);
+  const view: Pixels = await captureGround(session, context, state);
   return { ...state, grassFraction: measureGrassFraction(view) };
 }
 
@@ -1834,7 +1956,8 @@ async function readOwnView(
  * @param {BidiSession} session - The session with the browser.
  * @param {string} context - The browsing context of the page.
  * @param {string} name - The name of the control.
- * @param {boolean | number} value - What to set it to.
+ * @param {boolean | number | string} value - What to set it to, as a
+ *   switch, or as typed into a field.
  * @returns {Promise<void>} A promise settled once the control is set.
  * @throws {Error} If the control does not take the value.
  */
@@ -1842,7 +1965,7 @@ async function setControl(
   session: BidiSession,
   context: string,
   name: string,
-  value: boolean | number,
+  value: boolean | number | string,
 ): Promise<void> {
   const expression: string =
     typeof value === 'boolean'
@@ -3149,6 +3272,248 @@ async function checkCamera(
 }
 
 /**
+ * Reads the time of day a page tells.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<TimeOfDayView>} The time of day.
+ */
+async function readTimeOfDay(
+  session: BidiSession,
+  context: string,
+): Promise<TimeOfDayView> {
+  return JSON.parse(
+    await evaluateInPage(session, context, TIME_OF_DAY_EXPRESSION),
+  ) as TimeOfDayView;
+}
+
+/**
+ * Measures how brightly the foot of the view of a page is lit once it shows
+ * a time of day.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} shown - The time of day, from 0 up to 1.
+ * @param {string} name - The name of the page, for the error messages.
+ * @returns {Promise<number>} The mean brightness, from 0 to 255.
+ * @throws {Error} If the page does not show the time of day in time.
+ */
+async function measureShownTime(
+  session: BidiSession,
+  context: string,
+  shown: number,
+  name: string,
+): Promise<number> {
+  await waitFor(
+    () => readTimeOfDay(session, context),
+    (seen: TimeOfDayView) => seen.shown === shown,
+    ACTION_TIMEOUT,
+    (seen: TimeOfDayView) =>
+      `${name} shows the time of day ${String(seen.shown)} instead of ` +
+      `${String(shown)}.`,
+  );
+  // The time of day is shown from the next frame drawn.
+  await sleep(2 * POLL_INTERVAL);
+  const state: PageState = await readPageState(session, context);
+  return measureBrightness(await captureGround(session, context, state));
+}
+
+/**
+ * Checks that two pages on a server whose clock is held at noon both tell
+ * the time of day the server holds; that when its panel previews
+ * midnight, one page shows the village clearly darker, yet far from black,
+ * while still telling the time of day the server holds; and that the
+ * other page goes on showing noon meanwhile.  The preview is then switched
+ * off again.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} viewer - The browsing context of the page that previews.
+ * @param {string} other - The browsing context of the other page.
+ * @returns {Promise<void>} A promise settled once the pages have passed.
+ * @throws {Error} If either page does not show the time of day as it
+ *   should.
+ */
+async function checkNight(
+  session: BidiSession,
+  viewer: string,
+  other: string,
+): Promise<void> {
+  for (const [context, name] of [
+    [viewer, 'The first page'],
+    [other, 'The second page'],
+  ] as const) {
+    const told: string = (await readPageState(session, context)).panel[
+      'Time of day'
+    ] ?? '';
+    const time: TimeOfDayView = await readTimeOfDay(session, context);
+    if (told !== HELD_TIME_OF_DAY || time.world !== HELD_DAY_SHARE) {
+      throw new Error(
+        `On a server held at ${HELD_TIME}, ${name.toLowerCase()} tells ` +
+          `the time of day as "${told}" in its panel, and as ` +
+          `${String(time.world)} of a day.`,
+      );
+    }
+  }
+  const noon: number = await measureShownTime(
+    session,
+    viewer,
+    HELD_DAY_SHARE,
+    'The first page',
+  );
+  const otherNoon: number = await measureShownTime(
+    session,
+    other,
+    HELD_DAY_SHARE,
+    'The second page',
+  );
+  await setControl(session, viewer, PREVIEW_HOUR_CONTROL, NIGHT_CLOCK);
+  await setControl(session, viewer, PREVIEW_CONTROL, true);
+  try {
+    const night: number = await measureShownTime(
+      session,
+      viewer,
+      NIGHT_HOUR / 24,
+      'Previewing midnight, the first page',
+    );
+    if (
+      night > noon * NIGHT_MOST_SHARE ||
+      night < noon * NIGHT_LEAST_SHARE ||
+      night < NIGHT_LEAST_BRIGHTNESS
+    ) {
+      throw new Error(
+        'Previewing midnight, the first page lights the foot of its view ' +
+          `at a brightness of ${night.toFixed(1)}, against ` +
+          `${noon.toFixed(1)} at noon.`,
+      );
+    }
+    const previewTold: string = (await readPageState(session, viewer)).panel[
+      'Time of day'
+    ] ?? '';
+    const previewTime: TimeOfDayView = await readTimeOfDay(session, viewer);
+    if (
+      previewTold !== HELD_TIME_OF_DAY ||
+      previewTime.world !== HELD_DAY_SHARE
+    ) {
+      throw new Error(
+        'Previewing midnight, the first page tells the time of day as ' +
+          `"${previewTold}" in its panel, and as ` +
+          `${String(previewTime.world)} of a day.`,
+      );
+    }
+    const otherNight: number = await measureShownTime(
+      session,
+      other,
+      HELD_DAY_SHARE,
+      'With the first page previewing midnight, the second page',
+    );
+    const otherTime: TimeOfDayView = await readTimeOfDay(session, other);
+    if (
+      Math.abs(otherNight - otherNoon) > otherNoon * UNCHANGED_SHARE ||
+      otherTime.world !== HELD_DAY_SHARE
+    ) {
+      throw new Error(
+        'With the first page previewing midnight, the second page lights ' +
+          `the foot of its view at a brightness of ` +
+          `${otherNight.toFixed(1)}, against ${otherNoon.toFixed(1)} ` +
+          `before, and tells the time of day as ` +
+          `${String(otherTime.world)} of a day.`,
+      );
+    }
+  } finally {
+    await setControl(session, viewer, PREVIEW_CONTROL, false);
+  }
+  await measureShownTime(
+    session,
+    viewer,
+    HELD_DAY_SHARE,
+    'With the preview switched off, the first page',
+  );
+}
+
+/**
+ * Checks that two pages on a server whose day goes on, one joining after
+ * the other, tell the same time of day for one and the same moment, and
+ * that it goes on at the pace of the day of the server in both, against
+ * the time that passes on the clock of the browser.  The pages are left on
+ * that server.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} first - The browsing context of the page that joins
+ *   first.
+ * @param {string} second - The browsing context of the page that joins
+ *   later.
+ * @param {string} url - The address of the client, on that server.
+ * @returns {Promise<void>} A promise settled once the pages have passed.
+ * @throws {Error} If the pages do not tell the time of day as they should.
+ */
+async function checkDayAgreement(
+  session: BidiSession,
+  first: string,
+  second: string,
+  url: string,
+): Promise<void> {
+  await loadClient(session, first, url, 'The first page on a running day');
+  await loadClient(session, second, url, 'The second page on a running day');
+  // A page knows the time of day of the world only from its first snapshot,
+  // which may come some time after it is welcomed.
+  for (const [context, name] of [
+    [first, 'first'],
+    [second, 'second'],
+  ] as const) {
+    await waitFor(
+      () => readTimeOfDay(session, context),
+      (seen: TimeOfDayView) => seen.world !== null,
+      ACTION_TIMEOUT,
+      () =>
+        `On a running day, the ${name} page does not tell the time of day ` +
+        'of the world.',
+    );
+  }
+  const readBoth = async (): Promise<[TimeOfDayView, TimeOfDayView]> => [
+    await readTimeOfDay(session, first),
+    await readTimeOfDay(session, second),
+  ];
+  const measureGap = (a: number, b: number): number => {
+    const gap: number = Math.abs(a - b) % 1;
+    return Math.min(gap, 1 - gap);
+  };
+  const before: [TimeOfDayView, TimeOfDayView] = await readBoth();
+  await sleep(DAY_WATCH_DURATION);
+  const after: [TimeOfDayView, TimeOfDayView] = await readBoth();
+  for (const [early, late] of [before, after]) {
+    // The time of day of the first page, carried forward at the pace of the
+    // server to the moment the second page was read.
+    const between: number = late.moment - early.moment;
+    const carried: number =
+      (early.world ?? NaN) + between / RUNNING_DAY_DURATION;
+    if (!(measureGap(carried, late.world ?? NaN) <= SAME_TIME_OF_DAY)) {
+      throw new Error(
+        `On a running day, the first page tells the time of day as ` +
+          `${String(early.world)} of a day, and the second page, which ` +
+          `joined later, as ${String(late.world)}, ` +
+          `${between.toFixed(1)} ms after.`,
+      );
+    }
+  }
+  for (const index of [0, 1] as const) {
+    const change: number =
+      (after[index].world ?? NaN) - (before[index].world ?? NaN);
+    const passed: number = ((change % 1) + 1) % 1;
+    const elapsed: number = after[index].moment - before[index].moment;
+    const expected: number = elapsed / RUNNING_DAY_DURATION;
+    if (!(Math.abs(passed - expected) <= expected * DAY_PACE_TOLERANCE)) {
+      throw new Error(
+        `On a running day, the time of day of the ` +
+          `${index === 0 ? 'first' : 'second'} page goes on by ` +
+          `${passed.toExponential(3)} of a day in ` +
+          `${elapsed.toFixed(1)} ms, instead of ` +
+          `${expected.toExponential(3)}.`,
+      );
+    }
+  }
+}
+
+/**
  * Checks the built client in two pages connected to one server: that each
  * draws its scene, shows the models it has and connects, that what the
  * player of one page does with the keyboard shows in the other page,
@@ -3164,7 +3529,11 @@ async function checkCamera(
  * for a while, without a slash or a correction, that a page words its
  * text in the language chosen in its panel at once, and that the camera
  * of a page follows the player of the other page when its panel is set
- * to, until that player leaves.
+ * to, until that player leaves.  The server holds its clock at noon, which
+ * both pages tell, and a page that previews midnight in its panel shows
+ * the village clearly darker, yet far from black, while the other goes on
+ * showing noon.  On another server, whose day runs, two pages, one
+ * joining later than the other, tell the same time of day as it goes on.
  *
  * @returns {Promise<void>} A promise settled once the client has passed.
  * @throws {Error} If the client fails the check, or the check cannot run.
@@ -3176,7 +3545,7 @@ async function checkClient(): Promise<void> {
       throw new Error(`${missing} is missing.  Run "npm run build" first.`);
     }
   }
-  const serverPort: number = await startGameServer();
+  const serverPort: number = await startGameServer(['--hold-time', HELD_TIME]);
   const clientPort: number = await startClientServer();
   const session: BidiSession = await BidiSession.connect(await startFirefox());
 
@@ -3225,6 +3594,7 @@ async function checkClient(): Promise<void> {
       );
     }
 
+    await checkNight(session, first, second);
     await checkWalk(session, first, second, id);
     await checkMotion(session, first, second, id, false, 'd');
     await checkMotion(session, first, second, id, true, 'a');
@@ -3240,6 +3610,18 @@ async function checkClient(): Promise<void> {
     const other: PageState = await readPageState(session, second);
     const otherId = Number(/^#(\d+)/.exec(other.panel.Player ?? '')?.[1]);
     await checkCamera(session, first, id, second, otherId);
+
+    const dayPort: number = await startGameServer([
+      '--day-length',
+      String(RUNNING_DAY_MINUTES),
+    ]);
+    const later = (await session.send('browsingContext.create', {
+      type: 'window',
+    })) as { context: string };
+    const dayUrl =
+      `http://127.0.0.1:${String(clientPort)}/` +
+      `?server=ws://127.0.0.1:${String(dayPort)}`;
+    await checkDayAgreement(session, first, later.context, dayUrl);
   } catch (error: unknown) {
     const reason: string =
       error instanceof Error ? error.message : String(error);
@@ -3265,8 +3647,9 @@ try {
       'each other what their players do, predict their own, have their ' +
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, hear what ' +
-      'Nancy says, speak the language chosen, and have the camera follow ' +
-      'another player.',
+      'Nancy says, speak the language chosen, have the camera follow ' +
+      'another player, darken at night, preview a time of day on their ' +
+      'own, and agree on the time of day.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);

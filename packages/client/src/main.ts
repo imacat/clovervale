@@ -22,6 +22,7 @@
  */
 
 import {
+  NOON,
   PROTOCOL_VERSION,
   VILLAGE_TERRAIN,
   createInteractMessage,
@@ -51,6 +52,8 @@ import { BackgroundMusic, MUSIC_FILE } from './background-music.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
+import { DayClock, findShownTime } from './day-clock.ts';
+import type { DaylightLook } from './daylight.ts';
 import { EventSchedule } from './event-schedule.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
@@ -98,6 +101,7 @@ import {
   describePrediction,
   describeSlash,
   describeSnapshot,
+  describeTimeOfDay,
 } from './player-readout.ts';
 import { PlayerPrediction, placeOwnPlayer } from './prediction.ts';
 import { resolveServerUrl } from './server-url.ts';
@@ -113,6 +117,7 @@ import {
 } from './village-scene.ts';
 import { showScene } from './viewport.ts';
 import type { Viewport } from './viewport.ts';
+import { WindowGlow } from './window-glow.ts';
 
 /** The URL of the directory of the models, relative to the page. */
 const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
@@ -171,6 +176,16 @@ let models: readonly LoadedModel[] = [];
 let fountainGlow: FountainGlow | null = null;
 /** The glow of the forge, once the model of the weapon shop has been loaded. */
 let forgeGlow: ForgeGlow | null = null;
+/** The light in the windows of the houses, once their models are shown. */
+let windowGlow: WindowGlow | null = null;
+
+/** The time of day of the world, as the page reckons it. */
+const dayClock = new DayClock();
+/**
+ * The time of day the page last showed, which it goes on showing while it
+ * does not know the time of day of the world.
+ */
+let shownTime: number = NOON;
 
 /** The latest snapshots from the server, to show the players from. */
 const timeline = new SnapshotTimeline();
@@ -184,7 +199,7 @@ const shownHeals: HealEvent[] = [];
 const panel: Panel = createPanel(translator, switchLanguage);
 const music = new BackgroundMusic(new Audio(MUSIC_URL));
 const prompt: Prompt = createPrompt(document.body);
-const scene = createVillageScene();
+const { scene, daylight } = createVillageScene();
 const outlines = createObstacleOutlines(VILLAGE_TERRAIN);
 scene.add(outlines);
 const figures = new PlayerFigures(scene, (appearance: number) =>
@@ -203,6 +218,7 @@ const viewport: Viewport = showScene(
   (seconds: number) => {
     sendMove();
     showPlayers();
+    showTimeOfDay();
     outlines.visible = panel.obstacles.isShown;
     music.update(panel.music);
     for (const actor of actors) {
@@ -229,6 +245,10 @@ Object.defineProperty(window, 'clovervale', {
     listShownHits: () => [...shownHits],
     listShownHeals: () => [...shownHeals],
     describeSpeech: () => speech.describe(),
+    describeTimeOfDay: () => ({
+      world: dayClock.read(performance.now()),
+      shown: shownTime,
+    }),
   },
 });
 
@@ -256,6 +276,7 @@ async function showModels(): Promise<void> {
   problems.push(...loaded.problems);
   models = loaded.models;
   actors.push(...populateVillage(scene, models));
+  windowGlow = new WindowGlow(scene);
   const fountain: LoadedModel | undefined = models.find(
     (model: LoadedModel) => model.file === FOUNTAIN_FILE,
   );
@@ -455,6 +476,20 @@ function showPlayers(): void {
 }
 
 /**
+ * Shows the village as it looks at the time of day the panel previews, or
+ * else at the time of day of the world, and tells the time of day of the
+ * world in the panel.  The preview is the page's alone: the server is
+ * never told of it.
+ */
+function showTimeOfDay(): void {
+  const worldTime: number | null = dayClock.read(performance.now());
+  panel.state.timeOfDay = describeTimeOfDay(translator, worldTime);
+  shownTime = findShownTime(worldTime, panel.timePreview) ?? shownTime;
+  const look: DaylightLook = daylight.show(shownTime);
+  windowGlow?.show(look.windows);
+}
+
+/**
  * Handles a message from the game server.
  *
  * @param {string} data - The message as received.
@@ -471,6 +506,7 @@ function receiveMessage(data: string): void {
     if (ownId !== null) {
       const now: number = performance.now();
       timeline.addSnapshot(message, now);
+      dayClock.observe(message.step, now);
       panel.camera.followedId = keepFollowedPlayer(
         panel.camera.followedId,
         message.players,
@@ -497,11 +533,12 @@ function receiveMessage(data: string): void {
     return;
   }
   const version = String(message.protocolVersion);
-  if (message.protocolVersion !== PROTOCOL_VERSION) {
+  if (message.protocolVersion !== PROTOCOL_VERSION || message.day === null) {
     showServer(() => translator.translate('server.incompatible', { version }));
     return;
   }
   ownId = message.playerId;
+  dayClock.start(message.day);
   showServer(() => translator.translate('server.connected', { version }));
   panel.showReadout(describeSnapshot(translator, ownId, null));
 }
@@ -582,6 +619,7 @@ async function connectToServer(): Promise<void> {
     outgoing.clear();
     ownId = null;
     prediction = null;
+    dayClock.reset();
     showServer(() => translator.translate('server.disconnected'));
     timeline.clear();
     schedule.clear();

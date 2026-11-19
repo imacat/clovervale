@@ -23,7 +23,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { MONSTER_HEALTH, PLAYER_HEALTH } from '@clovervale/shared';
+import {
+  MONSTER_HEALTH,
+  NOON,
+  PLAYER_HEALTH,
+  findPhaseTime,
+} from '@clovervale/shared';
 import type { MonsterState, PlayerState } from '@clovervale/shared';
 
 import type { PlayersView } from '../src/interpolation.ts';
@@ -33,6 +38,7 @@ import {
   describePrediction,
   describeSlash,
   describeSnapshot,
+  describeTimeOfDay,
 } from '../src/player-readout.ts';
 import { Translator } from '../src/translator.ts';
 
@@ -303,5 +309,61 @@ describe('describeSlash', () => {
       result: 'ミス',
       judgedBack: '0 ms',
     });
+  });
+});
+
+describe('describeTimeOfDay', () => {
+  it('tells nothing before the time of day is known', () => {
+    expect(describeTimeOfDay(EN, null)).toBe('–');
+  });
+
+  it('tells the time on a 24-hour clock, and the part of the day', () => {
+    expect(describeTimeOfDay(EN, NOON)).toBe('12:00, day');
+    expect(describeTimeOfDay(EN, 0)).toBe('00:00, night');
+    expect(describeTimeOfDay(EN, (9 * 60 + 5) / 1440)).toBe('09:05, day');
+    expect(describeTimeOfDay(EN, findPhaseTime('dawn', 0.5))).toMatch(
+      /^0\d:\d\d, dawn$/,
+    );
+    expect(describeTimeOfDay(EN, findPhaseTime('dusk', 0.5))).toMatch(
+      /^[12]\d:\d\d, dusk$/,
+    );
+  });
+
+  it('tells dawn, day, dusk and night from the minutes they start', () => {
+    for (const told of [
+      '04:47, night',
+      '04:48, dawn',
+      '07:11, dawn',
+      '07:12, day',
+      '16:47, day',
+      '16:48, dusk',
+      '19:11, dusk',
+      '19:12, night',
+    ]) {
+      const [hours = 0, minutes = 0] = told.slice(0, 5).split(':').map(Number);
+      // Halfway through the minute, clear of where one part ends.
+      const time: number = (hours * 60 + minutes + 0.5) / 1440;
+      expect(describeTimeOfDay(EN, time)).toBe(told);
+    }
+  });
+
+  it('tells the minute reached, up to the last minute of the day', () => {
+    expect(describeTimeOfDay(EN, (13 * 60 + 59.9) / 1440)).toBe('13:59, day');
+    expect(describeTimeOfDay(EN, 1 - 1e-12)).toBe('23:59, night');
+  });
+
+  it('tells the time of day in the language of the page', async () => {
+    const zhTw: Translator = await createTranslator('zh-TW');
+    const zhCn: Translator = await createTranslator('zh-CN');
+    const ja: Translator = await createTranslator('ja');
+    expect(describeTimeOfDay(zhTw, NOON)).toBe('12:00，白天');
+    expect(describeTimeOfDay(zhTw, 0)).toBe('00:00，夜晚');
+    expect(describeTimeOfDay(zhCn, findPhaseTime('dusk', 0.5))).toMatch(
+      /，黄昏$/,
+    );
+    expect(describeTimeOfDay(ja, findPhaseTime('dawn', 0.5))).toMatch(
+      /、夜明け$/,
+    );
+    expect(describeTimeOfDay(ja, NOON)).toBe('12:00、昼');
   });
 });

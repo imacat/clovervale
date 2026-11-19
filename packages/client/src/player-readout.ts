@@ -21,7 +21,11 @@
  * @module client/player-readout Telling the owner what is synchronised.
  */
 
-import { MONSTER_HEALTH, PLAYER_HEALTH } from '@clovervale/shared';
+import {
+  MONSTER_HEALTH,
+  PLAYER_HEALTH,
+  findDayPhase,
+} from '@clovervale/shared';
 import type {
   GroundVector,
   MonsterState,
@@ -288,4 +292,35 @@ export function describeSlash(
 function formatNumber(value: number, places: number): string {
   const scale: number = 10 ** places;
   return (Math.round(value * scale) / scale + 0).toFixed(places);
+}
+
+/**
+ * Describes the time of day, in the language of the page.
+ *
+ * @param {Translator} translator - The translator of the text of the page.
+ * @param {number | null} time - The time of day, from 0 up to 1, or `null`
+ *   before it is known.
+ * @returns {string} The time on a 24-hour clock, to the minute it has
+ *   reached, and the part of the day it falls in, or a dash (`–`) if the
+ *   time is not known.
+ */
+export function describeTimeOfDay(
+  translator: Translator,
+  time: number | null,
+): string {
+  if (time === null) {
+    return UNKNOWN;
+  }
+  // A time on the minute must not round down to the minute before.
+  const minutes: number = Math.min(
+    Math.floor(time * 24 * 60 + 1e-6),
+    24 * 60 - 1,
+  );
+  const clock: string = [Math.floor(minutes / 60), minutes % 60]
+    .map((part: number) => String(part).padStart(2, '0'))
+    .join(':');
+  const phase: string = translator.translate(
+    `dayPhase.${findDayPhase(time).phase}`,
+  );
+  return translator.translate('readout.timeOfDay', { time: clock, phase });
 }

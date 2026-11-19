@@ -28,6 +28,7 @@ import {
   Mesh,
   MeshStandardMaterial,
 } from 'three';
+import type { Color, Object3D } from 'three';
 
 /** The least and the most of something. */
 type Range = readonly [least: number, most: number];
@@ -50,6 +51,11 @@ interface Ridge {
   readonly columns: number;
   /** The seed of its shape. */
   readonly seed: number;
+  /**
+   * How bright it is when it takes on the colour of the sky, as a share
+   * of the brightness of the sky.
+   */
+  readonly skyShade: number;
 }
 
 /** A point on a ridge: its distance round, out and up. */
@@ -63,7 +69,8 @@ export const MOUNTAINS_NAME = 'Mountains';
 
 /**
  * The ridges, nearest first: each farther one paler and more blue-grey,
- * and higher, so that it shows above the nearer ones.
+ * and higher, so that it shows above the nearer ones, and closer to the
+ * sky in brightness when it takes on the colour of the sky.
  */
 const RIDGES: readonly Ridge[] = [
   {
@@ -75,6 +82,7 @@ const RIDGES: readonly Ridge[] = [
     peakCount: 9,
     columns: 90,
     seed: 0x5eed01,
+    skyShade: 0.62,
   },
   {
     colour: '#87a2ae',
@@ -85,6 +93,7 @@ const RIDGES: readonly Ridge[] = [
     peakCount: 11,
     columns: 108,
     seed: 0x5eed02,
+    skyShade: 0.74,
   },
   {
     colour: '#a8bdcb',
@@ -95,6 +104,7 @@ const RIDGES: readonly Ridge[] = [
     peakCount: 13,
     columns: 126,
     seed: 0x5eed03,
+    skyShade: 0.86,
   },
 ];
 
@@ -117,7 +127,7 @@ const PEAK_SPREAD: Range = [0.1, 0.24];
  * @returns {() => number} A function that gives the next number, from 0 up
  *   to 1.
  */
-function createRandom(seed: number): () => number {
+export function createRandom(seed: number): () => number {
   let state: number = seed >>> 0;
   return (): number => {
     state = (state + 0x6d2b79f5) >>> 0;
@@ -282,4 +292,33 @@ export function createMountains(): Group {
     mountains.add(createRidge(ridge));
   }
   return mountains;
+}
+
+/**
+ * Has the mountains take on the colour of the sky instead of their own, as
+ * far as told, so that they melt into a dark or a coloured sky as they do
+ * into a pale one.  Each ridge then glows in the colour of the sky, the
+ * nearer ridges a little darker than the farther ones, as its own colour
+ * fades.
+ *
+ * @param {Object3D} mountains - The mountains, as {@link createMountains}
+ *   creates them.
+ * @param {Color} sky - The colour of the sky.
+ * @param {number} share - How far they take on the colour of the sky, from
+ *   0 for their own colours to 1 for the colour of the sky alone.
+ */
+export function tintMountains(
+  mountains: Object3D,
+  sky: Color,
+  share: number,
+): void {
+  mountains.children.forEach((child: Object3D, index: number) => {
+    const ridge: Ridge | undefined = RIDGES[index];
+    if (ridge === undefined || !(child instanceof Mesh)) {
+      return;
+    }
+    const material = child.material as MeshStandardMaterial;
+    material.color.set(ridge.colour).multiplyScalar(1 - share);
+    material.emissive.copy(sky).multiplyScalar(ridge.skyShade * share);
+  });
 }

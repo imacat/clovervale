@@ -21,12 +21,14 @@
  * @module client/panel The settings panel of the client.
  */
 
-import GUI from 'lil-gui';
+import GUI, { NumberController } from 'lil-gui';
 import type { Controller } from 'lil-gui';
 
 import { DEFAULT_MUSIC_VOLUME } from './background-music.ts';
 import type { MusicSettings } from './background-music.ts';
 import type { CameraChoice } from './camera-choice.ts';
+import { describeHour, parseHour } from './day-clock.ts';
+import type { TimePreviewSettings } from './day-clock.ts';
 import { describeSpaceKey } from './interaction-prompt.ts';
 import { DEFAULT_DELAY, MAX_DELAY } from './interpolation.ts';
 import { LANGUAGES } from './language.ts';
@@ -41,6 +43,7 @@ import {
   describePrediction,
   describeSlash,
   describeSnapshot,
+  describeTimeOfDay,
 } from './player-readout.ts';
 import type {
   DisplayReadout,
@@ -57,6 +60,8 @@ export interface PanelState {
   server: string;
   /** How showing the models went. */
   models: string;
+  /** The time of day of the world. */
+  timeOfDay: string;
 }
 
 /** How the owner has the players shown. */
@@ -130,6 +135,8 @@ export interface Panel {
   readonly compensation: Readonly<CompensationSettings>;
   /** What the owner has drawn of the obstacles, as set now. */
   readonly obstacles: Readonly<ObstacleSettings>;
+  /** The time of day the owner previews, as set now. */
+  readonly timePreview: Readonly<TimePreviewSettings>;
   /**
    * Where the owner has the camera, as set now, which the page changes
    * when the player it follows is gone.
@@ -237,6 +244,86 @@ const SLASH_NAMES: readonly [keyof SlashReadout, PlainMessageId][] = [
 const DELAY_STEP = 10;
 /** The step of the volume of the music the owner sets. */
 const VOLUME_STEP = 0.05;
+/** The step of the hour the owner previews, in hours: three minutes. */
+const HOUR_STEP = 0.05;
+
+/**
+ * Has a number control of hours show its hour as hours and minutes on a
+ * 24-hour clock, such as `13:55`, rather than as a number, and take an
+ * hour typed so, or as a whole hour alone.  Its slider, its arrow keys and
+ * its wheel go on stepping the hour as before.
+ *
+ * @param {NumberController} control - The control.
+ */
+function showHourAsClock(control: NumberController): void {
+  const input: HTMLInputElement = control.$input;
+  // A field for numbers alone, as on a touch screen, cannot hold a clock.
+  input.type = 'text';
+  input.removeAttribute('step');
+  const showClock = (): void => {
+    input.value = describeHour(Number(control.getValue()));
+  };
+  const stepHour = (delta: number): void => {
+    control._snapClampSetValue(Number(control.getValue()) + delta);
+    showClock();
+  };
+  const updateDisplay = control.updateDisplay.bind(control);
+  control.updateDisplay = (): NumberController => {
+    updateDisplay();
+    if (!control._inputFocused) {
+      showClock();
+    }
+    return control;
+  };
+  // The control itself reads its field as a number, so the field is kept
+  // from it, before it gets there.
+  const options: AddEventListenerOptions = { capture: true };
+  control.domElement.addEventListener(
+    'input',
+    (event: Event) => {
+      if (event.target !== input) {
+        return;
+      }
+      event.stopPropagation();
+      const hour: number | null = parseHour(input.value);
+      if (hour !== null) {
+        control._snapClampSetValue(hour);
+      }
+    },
+    options,
+  );
+  control.domElement.addEventListener(
+    'keydown',
+    (event: KeyboardEvent) => {
+      if (
+        event.target !== input ||
+        (event.code !== 'ArrowUp' && event.code !== 'ArrowDown')
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const direction: number = event.code === 'ArrowUp' ? 1 : -1;
+      stepHour(direction * HOUR_STEP * control._arrowKeyMultiplier(event));
+    },
+    options,
+  );
+  control.domElement.addEventListener(
+    'wheel',
+    (event: WheelEvent) => {
+      if (event.target !== input || !control._inputFocused) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      stepHour(HOUR_STEP * Number(control._normalizeMouseWheel(event)));
+    },
+    { capture: true, passive: false },
+  );
+  // The wheel over the slider writes the hour into the field as a number.
+  control.$slider.addEventListener('wheel', showClock);
+  showClock();
+}
 
 /**
  * Creates the settings panel, in the language of the page, which starts
@@ -244,7 +331,8 @@ const VOLUME_STEP = 0.05;
  * as predicted, the other players smoothly, by the default delay, no
  * message held back, the slashes judged on the world as the page showed
  * it, the camera on the player of the page, no outlines of the obstacles,
- * and the music on at its default volume.  The panel names everything in
+ * the time of day of the world, with midnight ready to preview, and the
+ * music on at its default volume.  The panel names everything in
  * it again in each language the page comes to speak.
  *
  * @param {Translator} translator - The translator of the text of the page.
@@ -260,6 +348,7 @@ export function createPanel(
   const state: PanelState = {
     server: translator.translate('server.connecting'),
     models: translator.translate('models.loading'),
+    timeOfDay: describeTimeOfDay(translator, null),
   };
   const interpolation: InterpolationSettings = {
     isEnabled: true,
@@ -269,6 +358,7 @@ export function createPanel(
   const network: NetworkSettings = { delay: 0 };
   const compensation: CompensationSettings = { isEnabled: true };
   const obstacles: ObstacleSettings = { isShown: false };
+  const timePreview: TimePreviewSettings = { isEnabled: false, hour: 0 };
   const camera: CameraSettings = { followedId: null };
   const music: MusicSettings = {
     isEnabled: true,
@@ -327,6 +417,7 @@ export function createPanel(
   });
   name(gui.add(state, 'server'), 'panel.server').disable().listen();
   name(gui.add(state, 'models'), 'panel.models').disable().listen();
+  name(gui.add(state, 'timeOfDay'), 'panel.timeOfDay').disable().listen();
   const cameraControl = name(
     gui.add(camera, 'followedId', {
       [translator.translate('camera.own')]: null,
@@ -345,6 +436,18 @@ export function createPanel(
   );
   name(gui.add(compensation, 'isEnabled'), 'panel.compensate');
   name(gui.add(obstacles, 'isShown'), 'panel.obstacles');
+  name(gui.add(timePreview, 'isEnabled'), 'panel.previewTime');
+  const hourControl: Controller = gui.add(
+    timePreview,
+    'hour',
+    0,
+    24,
+    HOUR_STEP,
+  );
+  if (hourControl instanceof NumberController) {
+    showHourAsClock(hourControl);
+  }
+  name(hourControl, 'panel.previewHour');
   name(gui.add(music, 'isEnabled'), 'panel.music');
   name(gui.add(music, 'volume', 0, 1, VOLUME_STEP), 'panel.volume');
   const languageControl = name(
@@ -466,6 +569,7 @@ export function createPanel(
     network,
     compensation,
     obstacles,
+    timePreview,
     camera,
     music,
     offerCameraChoices,

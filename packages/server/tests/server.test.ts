@@ -39,6 +39,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket as SocketFileClient } from 'ws';
 
 import {
+  DEFAULT_DAY_LENGTH,
+  DEFAULT_DAY_ORIGIN,
   MONSTER_HEALTH,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
@@ -49,9 +51,11 @@ import {
   createMoveMessage,
   decodeServerMessage,
   encodeClientMessage,
+  findTimeOfDay,
 } from '@clovervale/shared';
 import type {
   ClientMessage,
+  DayCycle,
   InputProgress,
   MonsterState,
   PlayerState,
@@ -288,6 +292,55 @@ describe('the game server', () => {
     const welcome: WelcomeMessage = await peer.receiveWelcome();
     expect(welcome.protocolVersion).toBe(PROTOCOL_VERSION);
     expect(listIds(await peer.receiveSnapshot())).toEqual([welcome.playerId]);
+  });
+
+  it('tells a peer how the day goes on the server', async () => {
+    const day: DayCycle = { origin: 0.75, length: 60_000 };
+    server = await startServer(0, day);
+    const peer = new Peer(server.port ?? 0);
+    peers.push(peer);
+    expect((await peer.receiveWelcome()).day).toEqual(day);
+  });
+
+  it('runs the default day from the default time by default', async () => {
+    server = await startServer(0);
+    const peer = new Peer(server.port ?? 0);
+    peers.push(peer);
+    expect((await peer.receiveWelcome()).day).toEqual({
+      origin: DEFAULT_DAY_ORIGIN,
+      length: DEFAULT_DAY_LENGTH,
+    });
+  });
+
+  it('shows a late peer the time of day the others see', async () => {
+    const day: DayCycle = { origin: 0.2, length: 4000 };
+    server = await startServer(0, day);
+    const early = new Peer(server.port ?? 0);
+    peers.push(early);
+    const earlyDay: DayCycle | null = (await early.receiveWelcome()).day;
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const late = new Peer(server.port ?? 0);
+    peers.push(late);
+    const lateDay: DayCycle | null = (await late.receiveWelcome()).day;
+    const { step } = await late.receiveSnapshot();
+    let seen: TimedSnapshot = await early.receiveSnapshot();
+    while (seen.step < step) {
+      seen = await early.receiveSnapshot();
+    }
+    expect(seen.step).toBe(step);
+    // The day had moved on before the late peer joined.
+    expect(step).toBeGreaterThan(0);
+    expect(earlyDay).not.toBeNull();
+    expect(lateDay).not.toBeNull();
+    const earlyTime: number = findTimeOfDay(
+      earlyDay ?? day,
+      (seen.step * 1000) / SIMULATION_RATE,
+    );
+    const lateTime: number = findTimeOfDay(
+      lateDay ?? day,
+      (step * 1000) / SIMULATION_RATE,
+    );
+    expect(lateTime).toBe(earlyTime);
   });
 
   it('gives every peer a player of its own', async () => {

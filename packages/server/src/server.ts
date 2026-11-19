@@ -32,6 +32,8 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 
 import {
+  DEFAULT_DAY_LENGTH,
+  DEFAULT_DAY_ORIGIN,
   SIMULATION_RATE,
   SNAPSHOT_RATE,
   createEventsMessage,
@@ -42,6 +44,7 @@ import {
 } from '@clovervale/shared';
 import type {
   ClientMessage,
+  DayCycle,
   GameEvent,
   InputProgress,
   MonsterState,
@@ -92,21 +95,25 @@ const SOCKET_FILE_MODE = 0o660;
  *
  * Every peer that connects gets a player of its own, which it is welcomed
  * with and steers with its messages, and which leaves the world when the
- * peer disconnects.  A peer that sends anything but well-formed client
- * messages, or inputs that are not numbered upwards, or more inputs than
- * can wait for their turn, is disconnected.  All peers are sent snapshots
- * of all the players and the monsters, again and again, as the simulation
- * of the world goes on, each with how far its own player has got with its
- * inputs and how its latest slash was judged, and after each snapshot,
- * once, the events that have happened since the last.  A slash that names
- * the time of the world its peer showed is judged on the world as it was
- * then, as far as the world allows.
+ * peer disconnects.  The welcome also tells the peer how the day goes.  A
+ * peer that sends anything but well-formed client messages, or inputs that
+ * are not numbered upwards, or more inputs than can wait for their turn,
+ * is disconnected.  All peers are sent snapshots of all the players and
+ * the monsters, again and again, as the simulation of the world goes on,
+ * each with how far its own player has got with its inputs and how its
+ * latest slash was judged, and after each snapshot, once, the events that
+ * have happened since the last.  A slash that names the time of the world
+ * its peer showed is judged on the world as it was then, as far as the
+ * world allows.
  *
  * A Unix socket file is created for its owner and its group to connect to.
  * A socket file that nothing listens on any more is replaced.
  *
  * @param {number | string} target - The TCP port to listen on, or 0 for any
  *   free port, or the path of the Unix socket file to listen on.
+ * @param {DayCycle} [day] - How the time of day goes, counted from step 0
+ *   of the simulation.  By default, a day lasts the default length and
+ *   starts at the default time of day.
  * @returns {Promise<RunningServer>} The running server.
  * @throws {Error} If the server cannot listen there: the port is taken,
  *   another server is listening on the socket file, or the path of the
@@ -114,6 +121,7 @@ const SOCKET_FILE_MODE = 0o660;
  */
 export async function startServer(
   target: number | string,
+  day: DayCycle = { origin: DEFAULT_DAY_ORIGIN, length: DEFAULT_DAY_LENGTH },
 ): Promise<RunningServer> {
   if (typeof target === 'string') {
     await removeStaleSocket(target);
@@ -145,7 +153,7 @@ export async function startServer(
       playerIds.delete(socket);
       world.removePlayer(player.id);
     });
-    socket.send(encodeServerMessage(createWelcomeMessage(player.id)));
+    socket.send(encodeServerMessage(createWelcomeMessage(player.id, day)));
   });
   const stopSimulation: () => void = runSimulation(world, playerIds);
   const address = listener.address();

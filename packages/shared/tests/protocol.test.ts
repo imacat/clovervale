@@ -36,6 +36,7 @@ import {
   encodeServerMessage,
 } from '../src/index.ts';
 import type {
+  DayCycle,
   HealEvent,
   HitEvent,
   InputProgress,
@@ -103,16 +104,42 @@ const OWN: InputProgress = {
   },
 };
 
+/** How the day goes on a server, to put in welcome messages. */
+const DAY: DayCycle = { origin: 0.3, length: 1_200_000 };
+
 /** How a slash was judged, to put in snapshots. */
 const SLASH: SlashJudgement = { step: 40, rewind: 312.5, isHit: true };
 
 describe('the server message codec', () => {
   it('decodes the welcome message it encodes', () => {
-    const message = createWelcomeMessage(7);
+    const message = createWelcomeMessage(7, DAY);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'welcome',
       protocolVersion: PROTOCOL_VERSION,
       playerId: 7,
+      day: DAY,
+    });
+  });
+
+  it('decodes a welcome message with a held clock', () => {
+    const day: DayCycle = { origin: 0.5, length: null };
+    const message = createWelcomeMessage(7, day);
+    expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
+      day,
+    });
+  });
+
+  it('decodes a welcome of another protocol version without a day', () => {
+    const data = JSON.stringify({
+      type: 'welcome',
+      protocolVersion: PROTOCOL_VERSION - 1,
+      playerId: 7,
+    });
+    expect(decodeServerMessage(data)).toEqual({
+      type: 'welcome',
+      protocolVersion: PROTOCOL_VERSION - 1,
+      playerId: 7,
+      day: null,
     });
   });
 
@@ -254,6 +281,24 @@ describe('the server message codec', () => {
       type: 'welcome',
       protocolVersion: '1',
       playerId: 7,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['without a day', {}],
+    ['with a null day', { day: null }],
+    ['with a day starting a full day later', { day: { ...DAY, origin: 1 } }],
+    ['with a day starting before midnight', { day: { ...DAY, origin: -0.1 } }],
+    ['with a day without a length', { day: { origin: 0.5 } }],
+    ['with a day lasting no time', { day: { ...DAY, length: 0 } }],
+    ['with a day of a non-numeric length', { day: { ...DAY, length: 'long' } }],
+  ])('rejects a welcome message %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'welcome',
+      protocolVersion: PROTOCOL_VERSION,
+      playerId: 7,
+      ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
   });

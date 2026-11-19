@@ -24,6 +24,7 @@
 import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
 import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
+import type { DayCycle } from './day-cycle.ts';
 import type { GroundVector } from './movement.ts';
 import type {
   InteractInput,
@@ -32,7 +33,7 @@ import type {
 } from './player-motion.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -179,6 +180,12 @@ export interface WelcomeMessage {
   readonly protocolVersion: number;
   /** The identifier of the player of the peer. */
   readonly playerId: number;
+  /**
+   * How the time of day goes on the server, so that the peer can tell the
+   * time of day from the steps of the snapshots, or `null` in a welcome of
+   * another protocol version, which may not include it.
+   */
+  readonly day: DayCycle | null;
 }
 
 /**
@@ -239,10 +246,19 @@ export type ClientMessage = MoveMessage | InteractMessage;
  * Creates the welcome message for the current protocol version.
  *
  * @param {number} playerId - The identifier of the player of the peer.
+ * @param {DayCycle} day - How the time of day goes on the server.
  * @returns {WelcomeMessage} The welcome message.
  */
-export function createWelcomeMessage(playerId: number): WelcomeMessage {
-  return { type: 'welcome', protocolVersion: PROTOCOL_VERSION, playerId };
+export function createWelcomeMessage(
+  playerId: number,
+  day: DayCycle,
+): WelcomeMessage {
+  return {
+    type: 'welcome',
+    protocolVersion: PROTOCOL_VERSION,
+    playerId,
+    day: { origin: day.origin, length: day.length },
+  };
 }
 
 /**
@@ -338,6 +354,9 @@ export function encodeServerMessage(message: ServerMessage): string {
 /**
  * Decodes a server message received from the wire.
  *
+ * A welcome of another protocol version is decoded without its day, so
+ * that the peer can still see which version it is.
+ *
  * @param {string} data - The encoded message.
  * @returns {ServerMessage} The decoded message.
  * @throws {Error} If the data is not a well-formed server message.
@@ -349,11 +368,16 @@ export function decodeServerMessage(data: string): ServerMessage {
     Number.isInteger(value.protocolVersion) &&
     Number.isInteger(value.playerId)
   ) {
-    return {
-      type: 'welcome',
-      protocolVersion: value.protocolVersion as number,
-      playerId: value.playerId as number,
-    };
+    const protocolVersion = value.protocolVersion as number;
+    const playerId = value.playerId as number;
+    if (protocolVersion !== PROTOCOL_VERSION) {
+      return { type: 'welcome', protocolVersion, playerId, day: null };
+    }
+    if (isDayCycle(value.day)) {
+      const { origin, length } = value.day;
+      const day: DayCycle = { origin, length };
+      return { type: 'welcome', protocolVersion, playerId, day };
+    }
   }
   if (
     value.type === 'snapshot' &&
@@ -517,6 +541,26 @@ function isCount(value: unknown): value is number {
 function isGroundVector(value: unknown): value is GroundVector {
   return (
     isRecord(value) && Number.isFinite(value.x) && Number.isFinite(value.z)
+  );
+}
+
+/**
+ * Checks whether a decoded value describes how the time of day goes.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it does.
+ */
+function isDayCycle(value: unknown): value is DayCycle {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const { origin, length } = value;
+  return (
+    Number.isFinite(origin) &&
+    (origin as number) >= 0 &&
+    (origin as number) < 1 &&
+    (length === null ||
+      (Number.isFinite(length) && (length as number) > 0))
   );
 }
 

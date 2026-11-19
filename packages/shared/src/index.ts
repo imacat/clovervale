@@ -49,6 +49,16 @@ export {
   isWithinStrike,
 } from './combat.ts';
 export {
+  DAY_PHASES,
+  DEFAULT_DAY_LENGTH,
+  DEFAULT_DAY_ORIGIN,
+  NOON,
+  findDayPhase,
+  findPhaseTime,
+  findTimeOfDay,
+} from './day-cycle.ts';
+export type { DayCycle, DayPeriod, DayPhase } from './day-cycle.ts';
+export {
   FOUNTAIN_HEALING,
   FOUNTAIN_REACH,
   INTERACTION_HALF_ANGLE,

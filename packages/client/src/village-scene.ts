@@ -21,20 +21,12 @@
  * @module client/village-scene Building the village the models stand in.
  */
 
-import {
-  CircleGeometry,
-  Color,
-  DirectionalLight,
-  Fog,
-  HemisphereLight,
-  Mesh,
-  MeshStandardMaterial,
-  Scene,
-} from 'three';
+import { CircleGeometry, Fog, Mesh, MeshStandardMaterial, Scene } from 'three';
 import type { Object3D } from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { Actor } from './actor.ts';
+import { Daylight } from './daylight.ts';
 import { CHARACTER_FILES, MONSTER_FILE } from './model-catalogue.ts';
 import type { LoadedModel } from './model-loader.ts';
 import { createMountains } from './mountains.ts';
@@ -54,8 +46,14 @@ type Patch = readonly [
   yaw: number,
 ];
 
-/** The colour of the sky. */
-const SKY_COLOUR = '#bfe4f2';
+/** The village without its models, and its light. */
+export interface VillageScene {
+  /** The scene to add the models to. */
+  readonly scene: Scene;
+  /** The light and the colours of the village through the day. */
+  readonly daylight: Daylight;
+}
+
 /** The colour of the grass. */
 const GRASS_COLOUR = '#8cc65c';
 /** The colour of the bare earth. */
@@ -70,8 +68,6 @@ const FOG_NEAR = 70;
  * lost in it.
  */
 const FOG_FAR = 760;
-/** Half the width of the square of ground that receives shadows, in metres. */
-const SHADOW_REACH = 34;
 
 /** The plaza, the paths into and out of it, and the monster's ground. */
 const PATCHES: readonly Patch[] = [
@@ -102,40 +98,14 @@ function createDisc(colour: string, height: number): Mesh {
 }
 
 /**
- * Creates the sun, which casts the shadows of the village.
+ * Creates the village without its models: the ground, the mountains around
+ * it, and the sky, the fog and the light, as at noon until told the time.
  *
- * @returns {DirectionalLight} The sun.
+ * @returns {VillageScene} The scene to add the models to, and its light.
  */
-function createSun(): DirectionalLight {
-  const sun = new DirectionalLight('#fff1d8', 2.4);
-  sun.position.set(-22, 36, 14);
-  sun.target.position.set(0, 0, -5);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
-  sun.shadow.camera.left = -SHADOW_REACH;
-  sun.shadow.camera.right = SHADOW_REACH;
-  sun.shadow.camera.bottom = -SHADOW_REACH;
-  sun.shadow.camera.top = SHADOW_REACH;
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 120;
-  sun.shadow.bias = -0.0004;
-  sun.shadow.normalBias = 0.03;
-  return sun;
-}
-
-/**
- * Creates the village without its models: the sky, the ground, the
- * mountains around it and the light.
- *
- * @returns {Scene} The scene to add the models to.
- */
-export function createVillageScene(): Scene {
+export function createVillageScene(): VillageScene {
   const scene = new Scene();
-  scene.background = new Color(SKY_COLOUR);
-  scene.fog = new Fog(SKY_COLOUR, FOG_NEAR, FOG_FAR);
-  scene.add(new HemisphereLight('#ffffff', '#8aa868', 1.5));
-  const sun: DirectionalLight = createSun();
-  scene.add(sun, sun.target);
+  scene.fog = new Fog(0, FOG_NEAR, FOG_FAR);
 
   const ground: Mesh = createDisc(GRASS_COLOUR, 0);
   ground.scale.setScalar(GROUND_RADIUS);
@@ -150,7 +120,7 @@ export function createVillageScene(): Scene {
     scene.add(patch);
   });
   scene.add(createMountains());
-  return scene;
+  return { scene, daylight: new Daylight(scene) };
 }
 
 /**

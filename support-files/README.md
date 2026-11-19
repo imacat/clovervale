@@ -23,7 +23,10 @@ Running
 
 Start the game server.  It listens for WebSocket connections on port
 8080, or on the port of the `--port` option, or on the Unix socket file
-of the `--socket` option.
+of the `--socket` option.  Its day lasts 20 minutes, or as many minutes
+as the `--day-length` option tells, and its clock reads 08:00 when it
+starts, unless the `--hold-time` option holds the clock at a fixed time
+of day, as in `--hold-time 12:00`.
 
     node server/server.cjs
 

@@ -21,7 +21,9 @@
  * @module server/main The entry point of the game server program.
  */
 
-import { parseListenTarget, USAGE } from './options.ts';
+import type { DayCycle } from '@clovervale/shared';
+
+import { parseDayCycle, parseListenTarget, USAGE } from './options.ts';
 import { startServer } from './server.ts';
 import type { RunningServer } from './server.ts';
 
@@ -30,7 +32,10 @@ import type { RunningServer } from './server.ts';
  *
  * The server listens on the Unix socket file of the `--socket` option, or
  * else on the TCP port of the `--port` option, or else on the default port,
- * and stops on SIGTERM and SIGINT.  When the options are wrong, the program
+ * and stops on SIGTERM and SIGINT.  Its day lasts as many minutes as the
+ * `--day-length` option tells, or the default length, and starts at the
+ * default time of day, unless the `--hold-time` option holds the clock of
+ * the world at a fixed time of day.  When the options are wrong, the program
  * says why and how to use it, and fails without listening.
  *
  * @param {string[]} args - The command-line arguments, without the program
@@ -39,15 +44,17 @@ import type { RunningServer } from './server.ts';
  */
 async function runServer(args: string[]): Promise<void> {
   let target: number | string;
+  let day: DayCycle;
   try {
     target = parseListenTarget(args);
+    day = parseDayCycle(args);
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : error);
     console.error(USAGE);
     process.exitCode = 2;
     return;
   }
-  const server: RunningServer = await startServer(target);
+  const server: RunningServer = await startServer(target, day);
   const stop = (): void => {
     server.stop().catch((error: unknown) => {
       console.error(error);

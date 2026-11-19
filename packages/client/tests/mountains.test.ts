@@ -35,7 +35,7 @@ import { describe, expect, it } from 'vitest';
 import { VILLAGE_TERRAIN } from '@clovervale/shared';
 import type { Boundary } from '@clovervale/shared';
 
-import { MOUNTAINS_NAME } from '../src/mountains.ts';
+import { MOUNTAINS_NAME, tintMountains } from '../src/mountains.ts';
 import { createVillageScene } from '../src/village-scene.ts';
 import { CAMERA_FAR, CAMERA_MAX_DISTANCE } from '../src/viewport.ts';
 
@@ -206,7 +206,7 @@ function findPeaks(skyline: readonly number[]): number[] {
 }
 
 describe('the mountains around the valley', () => {
-  const scene: Scene = createVillageScene();
+  const scene: Scene = createVillageScene().scene;
 
   it('stand beyond the reach of the players and the camera', () => {
     const ridges: Mesh[] = findRidges(scene);
@@ -275,7 +275,7 @@ describe('the mountains around the valley', () => {
 
   it('come out the same every time', () => {
     const ridges: Mesh[] = findRidges(scene);
-    const again: Mesh[] = findRidges(createVillageScene());
+    const again: Mesh[] = findRidges(createVillageScene().scene);
     expect(again.map(listCorners)).toEqual(ridges.map(listCorners));
   });
 
@@ -299,6 +299,66 @@ describe('the mountains around the valley', () => {
         const hits = new Raycaster(above, down).intersectObjects(ground);
         expect(hits.length).toBeGreaterThan(0);
       }
+    }
+  });
+});
+
+describe('tintMountains', () => {
+  /**
+   * Lists the colours of the ridges of fresh mountains, and their glow.
+   *
+   * @param {Color} sky - The colour of the sky to tint them with.
+   * @param {number} share - How far to tint them.
+   * @returns {[Color[], Color[], Color[]]} The colours of the ridges as
+   *   created and as tinted, and the light they give off by themselves,
+   *   nearest first.
+   */
+  function tint(sky: Color, share: number): [Color[], Color[], Color[]] {
+    const scene: Scene = createVillageScene().scene;
+    const ridges: Mesh[] = findRidges(scene);
+    const materials: MeshStandardMaterial[] = ridges.map(
+      (ridge: Mesh) => ridge.material as MeshStandardMaterial,
+    );
+    const own: Color[] = materials.map((material) => material.color.clone());
+    const mountains: Object3D | undefined =
+      scene.getObjectByName(MOUNTAINS_NAME);
+    if (mountains === undefined) {
+      throw new Error('There are no mountains.');
+    }
+    tintMountains(mountains, sky, share);
+    return [
+      own,
+      materials.map((material) => material.color.clone()),
+      materials.map((material) =>
+        material.emissive.clone().multiplyScalar(material.emissiveIntensity),
+      ),
+    ];
+  }
+
+  it('leaves the mountains in their own colours when untinted', () => {
+    const [own, tinted, glow] = tint(new Color('#e2643c'), 0);
+    expect(tinted).toEqual(own);
+    for (const colour of glow) {
+      expect(colour.equals(new Color(0, 0, 0))).toBe(true);
+    }
+  });
+
+  it('gives them the colour of the sky, nearer ones a little darker', () => {
+    const sky = new Color('#0e1a3c');
+    const [, tinted, glow] = tint(sky, 1);
+    for (const colour of tinted) {
+      expect(colour.equals(new Color(0, 0, 0))).toBe(true);
+    }
+    const shades: number[] = glow.map((colour: Color) => {
+      const shade: number = colour.b / sky.b;
+      expect(colour.r).toBeCloseTo(sky.r * shade, 9);
+      expect(colour.g).toBeCloseTo(sky.g * shade, 9);
+      return shade;
+    });
+    for (let index = 0; index < shades.length; index++) {
+      expect(shades[index]).toBeGreaterThan(0.4);
+      expect(shades[index]).toBeLessThan(1);
+      expect(shades[index]).toBeGreaterThan(shades[index - 1] ?? 0);
     }
   });
 });
