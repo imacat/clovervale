@@ -47,6 +47,7 @@ export const JA_MESSAGES: MessageTable = {
   'panel.camera': 'カメラ対象',
   'panel.predict': '予測',
   'panel.smooth': '補正の平滑化',
+  'panel.foreseePushes': '押しのけの先読み',
   'panel.netDelay': '通信遅延（ms）',
   'panel.interpolate': '補間',
   'panel.delay': '補間遅延（ms）',

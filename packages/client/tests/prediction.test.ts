@@ -1251,6 +1251,26 @@ describe('a prediction set right by the server', () => {
     expect(prediction.motion.z).toBeCloseTo(START.z + STEP_LENGTH * 2);
     expect(prediction.motion.yaw).toBeCloseTo(0);
   });
+
+  it('tells the step the server told its motion at, until it moves on', () => {
+    const prediction = new PlayerPrediction(START, 4, 0);
+    expect(prediction.toldStep).toBe(4);
+    prediction.reconcile({ sequence: 0, steps: 8, motion: START }, 8, 400);
+    expect(prediction.toldStep).toBe(8);
+    // A step of its own moves it on.
+    prediction.issueInput(steer(1, 0), 1000);
+    prediction.issueInput(steer(0, 0), 1200);
+    prediction.advance(1500);
+    expect(prediction.toldStep).toBeNull();
+    // The server has yet to take the inputs in.
+    prediction.reconcile({ sequence: 0, steps: 12, motion: START }, 12, 1500);
+    expect(prediction.toldStep).toBeNull();
+    // The server tells the very motion, after it has stopped.
+    const { motion, step } = prediction;
+    prediction.reconcile({ sequence: 2, steps: 5, motion }, step + 4, 1500);
+    expect(prediction.motion).toBe(motion);
+    expect(prediction.toldStep).toBe(step + 4);
+  });
 });
 
 describe('a prediction set right by the server, by Toby', () => {

@@ -114,6 +114,7 @@ import {
   describeTimeOfDay,
 } from './player-readout.ts';
 import { PlayerPrediction, placeOwnPlayer } from './prediction.ts';
+import { PushForecast } from './push-forecast.ts';
 import { resolveServerUrl } from './server-url.ts';
 import { SpeechBubble, findHeadTop } from './speech-bubble.ts';
 import './style.css';
@@ -337,6 +338,15 @@ let ownId: number | null = null;
 let prediction: PlayerPrediction | null = null;
 /** What draws the player of the page gliding over its corrections. */
 const smoothing = new CorrectionSmoothing(panel.smoothing, panel.prediction);
+/**
+ * What draws the player of the page pushed out of the way of Toby while it
+ * rests, before the server tells of it.
+ */
+const forecast = new PushForecast(
+  panel.pushForecast,
+  panel.smoothing,
+  panel.prediction,
+);
 /** The direction the server was last told the player wants to move in. */
 let sentDirection: GroundVector = { x: 0, z: 0 };
 const moveKeys = new MoveKeys();
@@ -457,11 +467,12 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
 /**
  * Shows the players as the panel is set to show them, with the camera on the
  * player the panel has it follow, as it is shown.  The player of the page is
- * shown as predicted, gliding over its corrections if the panel is set so, or
- * like the others.  The others and the monsters are shown either smoothly, as
- * they were a while ago, or exactly as the latest snapshot tells them, and so
- * are the hits among them.  Toby is shown as he is at the step of the server
- * the player of the page is shown at as it walks, running on evenly whether it
+ * shown as predicted, gliding over its corrections and, while it rests, pushed
+ * out of the way of Toby as foreseen, if the panel is set so, or like the
+ * others.  The others and the monsters are shown either smoothly, as they were
+ * a while ago, or exactly as the latest snapshot tells them, and so are the
+ * hits among them.  Toby is shown as he is at the step of the server the
+ * player of the page is shown at as it walks, running on evenly whether it
  * walks or rests, while the player of the page is shown as predicted, and as
  * he is when the others are shown otherwise.  Once the player of the page
  * starts to talk to a villager, as predicted, what the villager says is shown
@@ -476,22 +487,22 @@ function showPlayers(): void {
   const isOwn = (player: PlayerState): boolean => player.id === ownId;
   const latest: PlayerState | undefined = timeline.latest?.find(isOwn);
   prediction?.advance(now);
-  // The smoothing is told of every frame, so that a glide ends as soon as
-  // prediction is switched off.
-  const drawn: PlayerMotion | null =
-    prediction === null
-      ? null
-      : smoothing.readDrawn(prediction.readDrawn(now), now);
-  if (panel.prediction.isEnabled && drawn !== null && latest !== undefined) {
-    const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
-    view = { ...view, players };
-  }
   const shownStep: number | null =
     panel.prediction.isEnabled && prediction !== null
       ? prediction.readDrawnStep(now)
       : view.time === null
         ? null
         : view.time / STEP_MILLISECONDS;
+  // The smoothing and the forecast are told of every frame, so that a glide
+  // or a push ends as soon as prediction is switched off.
+  const drawn: PlayerMotion | null =
+    prediction === null
+      ? null
+      : forecast.advance(prediction, smoothing, now, shownStep);
+  if (panel.prediction.isEnabled && drawn !== null && latest !== undefined) {
+    const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
+    view = { ...view, players };
+  }
   if (shownStep !== null) {
     toby?.show(shownStep);
   }

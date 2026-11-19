@@ -53,6 +53,7 @@ import type {
   PredictionReadout,
   SlashReadout,
 } from './player-readout.ts';
+import type { PushForecastSettings } from './push-forecast.ts';
 import type { Translator } from './translator.ts';
 
 /** What the panel shows of the client itself. */
@@ -135,6 +136,11 @@ export interface Panel {
    * set now.
    */
   readonly smoothing: Readonly<SmoothingSettings>;
+  /**
+   * Whether the owner has the player of the page drawn pushed out of the way
+   * of Toby before the server tells of it, as set now.
+   */
+  readonly pushForecast: Readonly<PushForecastSettings>;
   /** The connection the page pretends to have, as set now. */
   readonly network: Readonly<NetworkSettings>;
   /** How the owner has the slashes judged, as set now. */
@@ -334,12 +340,13 @@ function showHourAsClock(control: NumberController): void {
 /**
  * Creates the settings panel, in the language of the page, which starts
  * with nothing synchronised yet, with the player of the page to be shown as
- * predicted, gliding over its corrections, the other players smoothly, by
- * the default delay, no message held back, the slashes judged on the world
- * as the page showed it, the camera on the player of the page, no outlines
- * of the obstacles, the time of day of the world, with midnight ready to
- * preview, and the music on at its default volume.  The panel names
- * everything in it again in each language the page comes to speak.
+ * predicted, gliding over its corrections, pushed out of the way of Toby
+ * before the server tells of it, the other players smoothly, by the default
+ * delay, no message held back, the slashes judged on the world as the page
+ * showed it, the camera on the player of the page, no outlines of the
+ * obstacles, the time of day of the world, with midnight ready to preview,
+ * and the music on at its default volume.  The panel names everything in it
+ * again in each language the page comes to speak.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {(code: LanguageCode) => Promise<void>} chooseLanguage - Has the
@@ -362,6 +369,7 @@ export function createPanel(
   };
   const prediction: PredictionSettings = { isEnabled: true };
   const smoothing: SmoothingSettings = { isEnabled: true };
+  const pushForecast: PushForecastSettings = { isEnabled: true };
   const network: NetworkSettings = { delay: 0 };
   const compensation: CompensationSettings = { isEnabled: true };
   const obstacles: ObstacleSettings = { isShown: false };
@@ -433,6 +441,7 @@ export function createPanel(
   ).listen();
   name(gui.add(prediction, 'isEnabled'), 'panel.predict');
   name(gui.add(smoothing, 'isEnabled'), 'panel.smooth');
+  name(gui.add(pushForecast, 'isEnabled'), 'panel.foreseePushes');
   name(
     gui.add(network, 'delay', 0, MAX_NETWORK_DELAY, DELAY_STEP),
     'panel.netDelay',
@@ -575,6 +584,7 @@ export function createPanel(
     interpolation,
     prediction,
     smoothing,
+    pushForecast,
     network,
     compensation,
     obstacles,

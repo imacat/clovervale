@@ -48,6 +48,7 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'panel.camera': '镜头跟随',
   'panel.predict': '预测',
   'panel.smooth': '平滑校正',
+  'panel.foreseePushes': '预判推开',
   'panel.netDelay': '网络延迟（ms）',
   'panel.interpolate': '插值',
   'panel.delay': '插值延迟（ms）',

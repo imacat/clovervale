@@ -51,6 +51,7 @@ export const EN_MESSAGES = {
   'panel.camera': 'Camera on',
   'panel.predict': 'Predict',
   'panel.smooth': 'Smooth corrections',
+  'panel.foreseePushes': 'Foresee pushes',
   'panel.netDelay': 'Net delay (ms)',
   'panel.interpolate': 'Interpolate',
   'panel.delay': 'Delay (ms)',

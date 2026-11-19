@@ -132,6 +132,7 @@ export class PlayerPrediction {
   #stepTime: number = Number.NEGATIVE_INFINITY;
   #dueTime: number;
   #step: number;
+  #toldStep: number | null;
   #setOffStep: number | null = null;
   #sequence = 0;
   #records: InputRecord[] = [
@@ -162,6 +163,7 @@ export class PlayerPrediction {
     this.#previous = motion;
     this.#dueTime = time;
     this.#step = step;
+    this.#toldStep = step;
     this.#leastOffset = step - time / STEP_MILLISECONDS;
   }
 
@@ -183,6 +185,19 @@ export class PlayerPrediction {
    */
   get step(): number {
     return this.#step;
+  }
+
+  /**
+   * The number of the step of the server after which the server told the
+   * predicted motion of the player, just as it is, if the page has not
+   * moved the player on from there by a step of its own, or `null` if it
+   * has.  The motion is then just what the server had after that step, and
+   * no input the page took in since has come into effect in it.
+   *
+   * @returns {number | null} The number of the step.
+   */
+  get toldStep(): number | null {
+    return this.#toldStep;
   }
 
   /**
@@ -261,6 +276,7 @@ export class PlayerPrediction {
       (this.#waiting.length > 0 || !isResting(this.#motion))
     ) {
       this.#previous = this.#motion;
+      this.#toldStep = null;
       this.#step = Math.max(
         this.#step + 1,
         this.#setOffStep ?? Number.NEGATIVE_INFINITY,
@@ -341,6 +357,7 @@ export class PlayerPrediction {
       }
     }
     this.#step = stepped;
+    this.#toldStep = stepped === step ? step : null;
     const last: InputRecord | undefined = this.#records.at(-1);
     if (last?.sequence === progress.sequence) {
       // The page never takes fewer steps with an input than the server.
