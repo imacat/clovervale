@@ -127,6 +127,9 @@ export const EN_MESSAGES = {
   // that the values they take are known.
   'villager.nancy.line.1':
     'Wild dogs prowl outside the village, and no one dares to go out any more. What are we to do?',
+  'villager.emma.name': 'Blacksmith Emma',
+  'villager.emma.line.1': 'Just a moment, let me finish this blade.',
+  'villager.emma.line.2': "Don't stand too close, the sparks will catch you.",
   'villager.martha.name': 'Chief Martha',
   'villager.martha.line.1':
     "Welcome to Clovervale. I'm Martha, the village chief. If there's anything I can help you with, just come and find me.",

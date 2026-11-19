@@ -123,6 +123,9 @@ export const JA_MESSAGES: MessageTable = {
   'villager.nancy.line.1':
     '村の入り口に野犬が出るようになって、村のみんな外に出られなく' +
     'なっちゃったの。どうしよう……',
+  'villager.emma.name': '鍛冶屋のエマ',
+  'villager.emma.line.1': 'ちょっと待ってて。この刀を打ち終えちゃうから。',
+  'villager.emma.line.2': 'あんまり近づかないでね。火花が飛ぶよ。',
   'villager.martha.name': '村長マーサ',
   'villager.martha.line.1':
     'クローバーヴェイルへようこそ。私は村長のマーサ。困ったことが' +

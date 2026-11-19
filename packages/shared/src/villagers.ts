@@ -29,7 +29,7 @@ import { findPlacement } from './village-layout.ts';
  * The identifier of a villager, which never changes, for the client to
  * find what the villager is called and what it says.
  */
-export type VillagerId = 'nancy' | 'martha' | 'toby';
+export type VillagerId = 'nancy' | 'emma' | 'martha' | 'toby';
 
 /** A villager a player can talk to. */
 export interface Villager {
@@ -45,6 +45,7 @@ export interface Villager {
 /** The villagers a player can talk to. */
 export const VILLAGERS: readonly Villager[] = [
   { id: 'nancy', file: 'npc-nancy.glb' },
+  { id: 'emma', file: 'npc-emma.glb' },
   { id: 'martha', file: 'npc-martha.glb' },
   { id: 'toby', file: TOBY_FILE },
 ];

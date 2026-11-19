@@ -122,6 +122,9 @@ export const ZH_CN_MESSAGES: MessageTable = {
 
   'villager.nancy.name': '南茜',
   'villager.nancy.line.1': '村口有野狗出没，村里的人都没法出门了，这可怎么办？',
+  'villager.emma.name': '铁匠艾玛',
+  'villager.emma.line.1': '稍等一下，我打完这把刀。',
+  'villager.emma.line.2': '别站太近，火星会喷到你。',
   'villager.martha.name': '村长玛莎',
   'villager.martha.line.1':
     '欢迎来到四叶谷，我是村长玛莎，有什么事都可以来找我帮忙。',

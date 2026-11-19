@@ -75,6 +75,21 @@ const MARTHA_LINES_ZH_TW: readonly string[] = [
   '那口井早就乾了，我封起來，免得小孩掉下去。',
 ];
 
+/** Emma the blacksmith, who has two lines. */
+const EMMA: Villager = findVillagerOf('npc-emma.glb');
+
+/** What Emma says, in English. */
+const EMMA_LINES: readonly string[] = [
+  'Just a moment, let me finish this blade.',
+  "Don't stand too close, the sparks will catch you.",
+];
+
+/** What Emma says, in Traditional Chinese. */
+const EMMA_LINES_ZH_TW: readonly string[] = [
+  '稍等一下，我打完這把刀。',
+  '別站太近，火星會噴到你。',
+];
+
 /** Toby, the child who goes about by the gate, who has three lines. */
 const TOBY: Villager = findVillagerOf('npc-toby.glb');
 
@@ -444,6 +459,23 @@ describe('SpeechBubble with a villager who has several lines', () => {
       name: '村長瑪莎',
       line: MARTHA_LINES_ZH_TW[index],
     });
+  });
+});
+
+describe('SpeechBubble with Emma', () => {
+  it('says each of her lines, in English and in Traditional Chinese', async () => {
+    const numbers: readonly number[] = [0, 0.99, 0.5, 0.25, 0.75, 0.1, 0.9];
+    const { bubble } = createBubble(undefined, createSequence(numbers));
+    expect(new Set(talkRepeatedly(bubble, EMMA, 10))).toEqual(
+      new Set(EMMA_LINES),
+    );
+    expect(bubble.describe()?.name).toBe('Blacksmith Emma');
+    const zhTw: Translator = await createTranslator('zh-TW');
+    const chinese = createBubble(zhTw, createSequence(numbers));
+    expect(new Set(talkRepeatedly(chinese.bubble, EMMA, 10))).toEqual(
+      new Set(EMMA_LINES_ZH_TW),
+    );
+    expect(chinese.bubble.describe()?.name).toBe('鐵匠艾瑪');
   });
 });
 

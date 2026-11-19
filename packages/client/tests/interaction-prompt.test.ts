@@ -168,9 +168,19 @@ describe('describePrompt', () => {
     expect(describePrompt(ja, BY_NANCY, 0)).toBe('スペースキーでナンシーと話す');
   });
 
-  it('tells nothing to a player by Emma the smith, facing her', () => {
-    expect(describePrompt(EN, BY_EMMA, 0)).toBeNull();
-    expect(describeSpaceKey(EN, BY_EMMA, 0)).toBe('slash');
+  it('tells a player by Emma, facing her, that it can talk to her', async () => {
+    expect(describePrompt(EN, BY_EMMA, 0)).toBe(
+      'Press Space to talk to Blacksmith Emma',
+    );
+    expect(describeSpaceKey(EN, BY_EMMA, 0)).toBe('talk to Blacksmith Emma');
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describePrompt(zhTw, BY_EMMA, 0)).toBe('按空白鍵與鐵匠艾瑪交談');
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describePrompt(zhCn, BY_EMMA, 0)).toBe('按空格键与铁匠艾玛交谈');
+    const ja: Translator = await createTranslator('ja');
+    expect(describePrompt(ja, BY_EMMA, 0)).toBe(
+      'スペースキーで鍛冶屋のエマと話す',
+    );
   });
 
   it('tells nothing while the player talks already', () => {

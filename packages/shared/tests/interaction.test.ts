@@ -174,10 +174,21 @@ describe('findInteraction by Nancy', () => {
 });
 
 describe('findInteraction by Emma the smith', () => {
-  it('slashes facing her close by, as she does not talk', () => {
+  it('talks to her close by, facing her', () => {
     for (const pose of listPosesFacingEmma()) {
-      expect(findInteraction(pose, 0)).toBe('Slash');
-      expect(findVillager(pose, 0)).toBeNull();
+      expect(findInteraction(pose, 0)).toBe('Talk');
+      expect(findVillager(pose, 0)).toEqual({
+        id: 'emma',
+        file: 'npc-emma.glb',
+      });
+    }
+  });
+
+  it('slashes close by her, facing away from her', () => {
+    for (const pose of listPosesFacingEmma()) {
+      expect(findInteraction({ ...pose, yaw: pose.yaw + 180 }, 0)).toBe(
+        'Slash',
+      );
     }
   });
 });
