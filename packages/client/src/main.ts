@@ -57,6 +57,10 @@ import { BackgroundMusic, MUSIC_FILE } from './background-music.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
+import {
+  CorrectionSmoothing,
+  reconcileSmoothly,
+} from './correction-smoothing.ts';
 import { DayClock, findShownTime } from './day-clock.ts';
 import type { DaylightLook } from './daylight.ts';
 import { EventSchedule } from './event-schedule.ts';
@@ -331,6 +335,8 @@ let ownId: number | null = null;
  * starts.
  */
 let prediction: PlayerPrediction | null = null;
+/** What draws the player of the page gliding over its corrections. */
+const smoothing = new CorrectionSmoothing(panel.smoothing, panel.prediction);
 /** The direction the server was last told the player wants to move in. */
 let sentDirection: GroundVector = { x: 0, z: 0 };
 const moveKeys = new MoveKeys();
@@ -449,17 +455,17 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
 }
 
 /**
- * Shows the players as the panel is set to show them, with the camera on
- * the player the panel has it follow, as it is shown.  The player of the
- * page is shown as predicted, or like the others.  The others and the
- * monsters are shown either smoothly, as they were a while ago, or exactly
- * as the latest snapshot tells them, and so are the hits among them.  Toby
- * is shown as he is at the step of the server the player of the page is
- * shown at as it walks, running on evenly whether it walks or rests, while
- * the player of the page is shown as predicted, and as he is when the others
- * are shown otherwise.  Once the player of the page starts to talk to a
- * villager, as predicted, what the villager says is shown above its head,
- * and follows the head of Toby as he goes on and squats.
+ * Shows the players as the panel is set to show them, with the camera on the
+ * player the panel has it follow, as it is shown.  The player of the page is
+ * shown as predicted, gliding over its corrections if the panel is set so, or
+ * like the others.  The others and the monsters are shown either smoothly, as
+ * they were a while ago, or exactly as the latest snapshot tells them, and so
+ * are the hits among them.  Toby is shown as he is at the step of the server
+ * the player of the page is shown at as it walks, running on evenly whether it
+ * walks or rests, while the player of the page is shown as predicted, and as
+ * he is when the others are shown otherwise.  Once the player of the page
+ * starts to talk to a villager, as predicted, what the villager says is shown
+ * above its head, and follows the head of Toby as he goes on and squats.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -470,12 +476,13 @@ function showPlayers(): void {
   const isOwn = (player: PlayerState): boolean => player.id === ownId;
   const latest: PlayerState | undefined = timeline.latest?.find(isOwn);
   prediction?.advance(now);
-  if (
-    panel.prediction.isEnabled &&
-    prediction !== null &&
-    latest !== undefined
-  ) {
-    const drawn: PlayerMotion = prediction.readDrawn(now);
+  // The smoothing is told of every frame, so that a glide ends as soon as
+  // prediction is switched off.
+  const drawn: PlayerMotion | null =
+    prediction === null
+      ? null
+      : smoothing.readDrawn(prediction.readDrawn(now), now);
+  if (panel.prediction.isEnabled && drawn !== null && latest !== undefined) {
     const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
     view = { ...view, players };
   }
@@ -583,7 +590,13 @@ function receiveMessage(data: string): void {
           now,
         );
       } else {
-        prediction.reconcile(message.own, message.step, now);
+        reconcileSmoothly(
+          prediction,
+          smoothing,
+          message.own,
+          message.step,
+          now,
+        );
       }
       panel.showReadout(describeSnapshot(translator, ownId, message.players));
       panel.showMonster(describeMonster(translator, message.monsters));

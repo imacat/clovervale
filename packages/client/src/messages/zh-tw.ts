@@ -47,6 +47,7 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'panel.timeOfDay': '時間',
   'panel.camera': '鏡頭跟隨',
   'panel.predict': '預測',
+  'panel.smooth': '平滑修正',
   'panel.netDelay': '網路延遲（ms）',
   'panel.interpolate': '內插',
   'panel.delay': '內插延遲（ms）',

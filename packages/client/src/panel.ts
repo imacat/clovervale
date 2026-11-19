@@ -27,6 +27,7 @@ import type { Controller } from 'lil-gui';
 import { DEFAULT_MUSIC_VOLUME } from './background-music.ts';
 import type { MusicSettings } from './background-music.ts';
 import type { CameraChoice } from './camera-choice.ts';
+import type { SmoothingSettings } from './correction-smoothing.ts';
 import { describeHour, parseHour } from './day-clock.ts';
 import type { TimePreviewSettings } from './day-clock.ts';
 import { describeSpaceKey } from './interaction-prompt.ts';
@@ -129,6 +130,11 @@ export interface Panel {
   readonly interpolation: Readonly<InterpolationSettings>;
   /** How the owner has the player of the page shown, as set now. */
   readonly prediction: Readonly<PredictionSettings>;
+  /**
+   * How the owner has the corrections of the player of the page drawn, as
+   * set now.
+   */
+  readonly smoothing: Readonly<SmoothingSettings>;
   /** The connection the page pretends to have, as set now. */
   readonly network: Readonly<NetworkSettings>;
   /** How the owner has the slashes judged, as set now. */
@@ -327,13 +333,13 @@ function showHourAsClock(control: NumberController): void {
 
 /**
  * Creates the settings panel, in the language of the page, which starts
- * with nothing synchronised yet, with the player of the page to be shown
- * as predicted, the other players smoothly, by the default delay, no
- * message held back, the slashes judged on the world as the page showed
- * it, the camera on the player of the page, no outlines of the obstacles,
- * the time of day of the world, with midnight ready to preview, and the
- * music on at its default volume.  The panel names everything in
- * it again in each language the page comes to speak.
+ * with nothing synchronised yet, with the player of the page to be shown as
+ * predicted, gliding over its corrections, the other players smoothly, by
+ * the default delay, no message held back, the slashes judged on the world
+ * as the page showed it, the camera on the player of the page, no outlines
+ * of the obstacles, the time of day of the world, with midnight ready to
+ * preview, and the music on at its default volume.  The panel names
+ * everything in it again in each language the page comes to speak.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {(code: LanguageCode) => Promise<void>} chooseLanguage - Has the
@@ -355,6 +361,7 @@ export function createPanel(
     delay: DEFAULT_DELAY,
   };
   const prediction: PredictionSettings = { isEnabled: true };
+  const smoothing: SmoothingSettings = { isEnabled: true };
   const network: NetworkSettings = { delay: 0 };
   const compensation: CompensationSettings = { isEnabled: true };
   const obstacles: ObstacleSettings = { isShown: false };
@@ -425,6 +432,7 @@ export function createPanel(
     'panel.camera',
   ).listen();
   name(gui.add(prediction, 'isEnabled'), 'panel.predict');
+  name(gui.add(smoothing, 'isEnabled'), 'panel.smooth');
   name(
     gui.add(network, 'delay', 0, MAX_NETWORK_DELAY, DELAY_STEP),
     'panel.netDelay',
@@ -566,6 +574,7 @@ export function createPanel(
     state,
     interpolation,
     prediction,
+    smoothing,
     network,
     compensation,
     obstacles,

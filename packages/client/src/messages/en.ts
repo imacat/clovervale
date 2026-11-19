@@ -50,6 +50,7 @@ export const EN_MESSAGES = {
   'panel.timeOfDay': 'Time of day',
   'panel.camera': 'Camera on',
   'panel.predict': 'Predict',
+  'panel.smooth': 'Smooth corrections',
   'panel.netDelay': 'Net delay (ms)',
   'panel.interpolate': 'Interpolate',
   'panel.delay': 'Delay (ms)',
