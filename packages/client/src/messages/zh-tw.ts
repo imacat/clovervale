@@ -122,9 +122,9 @@ export const ZH_TW_MESSAGES: MessageTable = {
 
   'villager.nancy.name': '南茜',
   'villager.nancy.line.1': '村口有野狗出沒，村裏的人都無法外出了，怎麼辦？',
-  'villager.martha.name': '瑪莎',
+  'villager.martha.name': '村長瑪莎',
   'villager.martha.line.1':
-    '歡迎來到四葉谷，我是村長{name}，有什麼事都可以來找我幫忙。',
+    '歡迎來到四葉谷，我是村長瑪莎，有什麼事都可以來找我幫忙。',
   'villager.martha.line.2': '那口井早就乾了，我封起來，免得小孩掉下去。',
   'villager.toby.name': '托比',
   'villager.toby.line.1': '媽媽說不可以出去，外面有野狗。',

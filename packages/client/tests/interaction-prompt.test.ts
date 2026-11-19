@@ -147,15 +147,15 @@ describe('describePrompt', () => {
   it('tells a player by Martha, facing her, that it can talk to her', async () => {
     const byMartha: PlayerMotion = standByMartha();
     expect(describePrompt(EN, byMartha, 0)).toBe(
-      'Press Space to talk to Martha',
+      'Press Space to talk to Chief Martha',
     );
-    expect(describeSpaceKey(EN, byMartha, 0)).toBe('talk to Martha');
+    expect(describeSpaceKey(EN, byMartha, 0)).toBe('talk to Chief Martha');
     const zhTw: Translator = await createTranslator('zh-TW');
-    expect(describePrompt(zhTw, byMartha, 0)).toBe('按空白鍵與瑪莎交談');
+    expect(describePrompt(zhTw, byMartha, 0)).toBe('按空白鍵與村長瑪莎交談');
     const zhCn: Translator = await createTranslator('zh-CN');
-    expect(describePrompt(zhCn, byMartha, 0)).toBe('按空格键与玛莎交谈');
+    expect(describePrompt(zhCn, byMartha, 0)).toBe('按空格键与村长玛莎交谈');
     const ja: Translator = await createTranslator('ja');
-    expect(describePrompt(ja, byMartha, 0)).toBe('スペースキーでマーサと話す');
+    expect(describePrompt(ja, byMartha, 0)).toBe('スペースキーで村長マーサと話す');
   });
 
   it('tells it in the language of the page, in its word order', async () => {

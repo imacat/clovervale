@@ -75,18 +75,14 @@ function listLineIds(villager: Villager): LineId[] {
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {Villager} villager - The villager.
- * @returns {VillagerWords} Its name and its lines, with its name in the
- *   lines that name it.
+ * @returns {VillagerWords} Its name and its lines.
  */
 export function describeVillager(
   translator: Translator,
   villager: Villager,
 ): VillagerWords {
-  const name: string = translator.translate(`villager.${villager.id}.name`);
   return {
-    name,
-    lines: listLineIds(villager).map((id: LineId) =>
-      translator.translate(id, { name }),
-    ),
+    name: translator.translate(`villager.${villager.id}.name`),
+    lines: listLineIds(villager).map((id: LineId) => translator.translate(id)),
   };
 }

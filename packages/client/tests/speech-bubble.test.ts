@@ -427,7 +427,7 @@ describe('SpeechBubble with a villager who has several lines', () => {
     const { bubble } = createBubble(undefined, createSequence([0]));
     bubble.say(MARTHA, HEAD);
     expect(bubble.describe()).toMatchObject({
-      name: 'Martha',
+      name: 'Chief Martha',
       line: MARTHA_LINES[0],
     });
   });
@@ -441,7 +441,7 @@ describe('SpeechBubble with a villager who has several lines', () => {
     await translator.choose('zh-TW');
     bubble.relabel();
     expect(bubble.describe()).toMatchObject({
-      name: '瑪莎',
+      name: '村長瑪莎',
       line: MARTHA_LINES_ZH_TW[index],
     });
   });
