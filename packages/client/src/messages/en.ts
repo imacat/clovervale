@@ -24,7 +24,9 @@
 
 /**
  * The text of the page in English, by message.  A name in braces, as in
- * `{name}`, stands for a value the message takes.
+ * `{name}`, stands for a value the message takes.  What a villager says is
+ * a list of lines, numbered from one, as in `villager.nancy.line.1`, and a
+ * line can name the villager as `{name}`.
  */
 export const EN_MESSAGES = {
   title: 'Clovervale',
@@ -120,9 +122,15 @@ export const EN_MESSAGES = {
   'spaceKey.nothing': 'nothing',
 
   'villager.nancy.name': 'Nancy',
-  'villager.nancy.line':
-    'Wild dogs prowl outside the village, and no one dares to go out any ' +
-    'more. What are we to do?',
+  // The lines of the villagers are written whole, each in one string, so
+  // that the values they take are known.
+  'villager.nancy.line.1':
+    'Wild dogs prowl outside the village, and no one dares to go out any more. What are we to do?',
+  'villager.martha.name': 'Martha',
+  'villager.martha.line.1':
+    "Welcome to Clovervale. I'm {name}, the village chief. If there's anything I can help you with, just come and find me.",
+  'villager.martha.line.2':
+    'That well ran dry long ago. I boarded it up so that none of the children would fall in.',
 } as const;
 
 /** A message of the page. */

@@ -59,13 +59,17 @@ export type HairStyle =
   | 'braid'
   | 'spiky'
   | 'puffs'
-  | 'bun';
+  | 'bun'
+  | 'chignon';
 
 /** The hair of a head, in model space. */
 export interface Hair {
   /** The hair itself. */
   readonly hair: Shape;
-  /** The ribbons and other ornaments in the hair. */
+  /**
+   * The ribbons and other ornaments in the hair, or the streaks of another
+   * colour in it.
+   */
   readonly accent: Shape;
 }
 
@@ -220,7 +224,11 @@ export const VARIANTS: readonly Look[] = [
  * @param {number} [factor] - The distance from the centre, in head radii.
  * @returns {Triple} The point in model space.
  */
-function findHeadPoint(yaw: number, down: number, factor = 1): Triple {
+export function findHeadPoint(
+  yaw: number,
+  down: number,
+  factor = 1,
+): Triple {
   const direction: Triple = [
     Math.sin(yaw * DEG) * Math.cos(down * DEG),
     -Math.sin(down * DEG),
@@ -611,6 +619,49 @@ export function createHair(style: HairStyle): Hair {
             { pos: [0, 0.2, -0.235], rot: [-50, 0, 0] },
           ),
         ]),
+      };
+    }
+    case 'chignon': {
+      // The hair is swept back from the brow, full over the ears, and
+      // coiled in a low, neat knot at the nape; it has gone silver at the
+      // temples, in streaks swept back above the ears to the knot.
+      const knot: Shape = place(createBlob(1, 61, 0.05), {
+        pos: [0, -0.07, -0.3],
+        scale: [0.15, 0.115, 0.11],
+      });
+      const twist: Shape = place(
+        createLathe(
+          [
+            [0.11, -0.025],
+            [0.13, 0],
+            [0.11, 0.025],
+          ],
+          8,
+        ),
+        { pos: [0, -0.07, -0.335], rot: [80, 0, 0] },
+      );
+      // The points each streak runs through: their angles from the front,
+      // and below the equator of the head, and the radius of the streak.
+      const streak: readonly (readonly [number, number, number])[] = [
+        [58, -30, 0.012],
+        [72, -25, 0.04],
+        [96, -18, 0.045],
+        [132, -8, 0.038],
+        [158, 4, 0.02],
+      ];
+      const sweep = (side: number): Shape =>
+        createTube(
+          streak.map(([yaw, down]) => findHeadPoint(yaw * side, down, 1.075)),
+          streak.map(([, , radius]): Pair => [radius, radius * 0.45]),
+          5,
+          [side, 0, 0],
+        );
+      return {
+        hair: [
+          ...createHairCap([50, 48, 56, 100, 112, 120, 124, 126, 126], 0.06),
+          ...liftToHead([knot, twist]),
+        ],
+        accent: [...sweep(1), ...sweep(-1)],
       };
     }
     case 'puffs': {

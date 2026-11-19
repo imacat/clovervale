@@ -33,13 +33,12 @@ import {
 import type { Object3D } from 'three';
 
 import { findPlacement } from '@clovervale/shared';
-import type { Villager } from '@clovervale/shared';
+import type { Villager, VillagerId } from '@clovervale/shared';
 
 import { findLanguage } from './language.ts';
 import type { LanguageCode } from './language.ts';
 import type { Translator } from './translator.ts';
 import { describeVillager } from './villager-words.ts';
-import type { VillagerWords } from './villager-words.ts';
 
 /** How fast a line is taken to be read, in words per second. */
 export const READING_SPEED = 3;
@@ -123,7 +122,11 @@ const READ_CHARACTER_PATTERN =
 const WIDE_CHARACTERS_PATTERN = new RegExp(WIDE_PATTERN.source, 'gu');
 
 /** What a bubble is to show. */
-export interface SpeechWords extends VillagerWords {
+export interface SpeechWords {
+  /** The name of the villager who speaks. */
+  readonly name: string;
+  /** What the villager says. */
+  readonly line: string;
   /** The language of the words. */
   readonly language: LanguageCode;
 }
@@ -154,6 +157,8 @@ export interface SpeechView {
 interface ShownSpeech {
   /** The villager who speaks. */
   readonly villager: Villager;
+  /** The position of the line the villager says among its lines. */
+  readonly lineIndex: number;
   /** What the bubble shows. */
   words: SpeechWords;
   /** The bubble, drawn on a sprite. */
@@ -377,7 +382,10 @@ export class SpeechBubble {
   readonly #parent: Object3D;
   readonly #translator: Translator;
   readonly #paint: (words: SpeechWords) => Sprite;
+  readonly #random: () => number;
   #shown: ShownSpeech | null = null;
+  /** The position of the line each villager said last, by villager. */
+  readonly #lastLines = new Map<VillagerId, number>();
 
   /**
    * Starts without a bubble.
@@ -387,15 +395,20 @@ export class SpeechBubble {
    * @param {(words: SpeechWords) => Sprite} [paint] - Draws a bubble, with
    *   the tip of its tail at its position, as a readable bubble with the
    *   name of the villager and what it says by default.
+   * @param {() => number} [random] - Gives a random number in [0, 1) each
+   *   time it is called, to pick the line a villager says by, as
+   *   `Math.random` does by default.
    */
   constructor(
     parent: Object3D,
     translator: Translator,
     paint: (words: SpeechWords) => Sprite = paintSpeech,
+    random: () => number = Math.random,
   ) {
     this.#parent = parent;
     this.#translator = translator;
     this.#paint = paint;
+    this.#random = random;
   }
 
   /**
@@ -403,17 +416,22 @@ export class SpeechBubble {
    * just above its head, for as long as {@link measureSpeechDuration}
    * tells, in place of any bubble shown before.
    *
+   * A villager with several lines says one of them, picked at random, but
+   * never the line it said the time before.
+   *
    * @param {Villager} villager - The villager.
    * @param {Vector3} head - The top of the head of the villager.
    */
   say(villager: Villager, head: Vector3): void {
     this.#hide();
-    const words: SpeechWords = this.#describe(villager);
+    const lineIndex: number = this.#pickLine(villager);
+    const words: SpeechWords = this.#describe(villager, lineIndex);
     const sprite: Sprite = this.#paint(words);
     sprite.position.set(head.x, head.y + BUBBLE_MARGIN, head.z);
     this.#parent.add(sprite);
     this.#shown = {
       villager,
+      lineIndex,
       words,
       sprite,
       duration: measureSpeechDuration(words.line),
@@ -430,7 +448,10 @@ export class SpeechBubble {
     if (shown === null) {
       return;
     }
-    const words: SpeechWords = this.#describe(shown.villager);
+    const words: SpeechWords = this.#describe(
+      shown.villager,
+      shown.lineIndex,
+    );
     const sprite: Sprite = this.#paint(words);
     sprite.position.copy(shown.sprite.position);
     sprite.material.opacity = shown.sprite.material.opacity;
@@ -496,15 +517,45 @@ export class SpeechBubble {
   }
 
   /**
+   * Picks the line a villager says this time: at random among its lines,
+   * other than the one it said last, if it has more than one.
+   *
+   * @param {Villager} villager - The villager.
+   * @returns {number} The position of the line among its lines.
+   */
+  #pickLine(villager: Villager): number {
+    const count: number = describeVillager(this.#translator, villager).lines
+      .length;
+    if (count <= 1) {
+      return 0;
+    }
+    const last: number | undefined = this.#lastLines.get(villager.id);
+    const choices: number = last === undefined ? count : count - 1;
+    let index: number = Math.min(
+      Math.floor(this.#random() * choices),
+      choices - 1,
+    );
+    if (last !== undefined && index >= last) {
+      index++;
+    }
+    this.#lastLines.set(villager.id, index);
+    return index;
+  }
+
+  /**
    * Tells what a bubble of a villager shows, in the language of the page.
    *
    * @param {Villager} villager - The villager.
+   * @param {number} lineIndex - The position of the line it says among its
+   *   lines.
    * @returns {SpeechWords} The name of the villager, what it says, and
    *   their language.
    */
-  #describe(villager: Villager): SpeechWords {
+  #describe(villager: Villager, lineIndex: number): SpeechWords {
+    const { name, lines } = describeVillager(this.#translator, villager);
     return {
-      ...describeVillager(this.#translator, villager),
+      name,
+      line: lines[lineIndex] ?? '',
       language: this.#translator.language,
     };
   }

@@ -119,5 +119,9 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'spaceKey.nothing': '无',
 
   'villager.nancy.name': '南茜',
-  'villager.nancy.line': '村口有野狗出没，村里的人都没法出门了，这可怎么办？',
+  'villager.nancy.line.1': '村口有野狗出没，村里的人都没法出门了，这可怎么办？',
+  'villager.martha.name': '玛莎',
+  'villager.martha.line.1':
+    '欢迎来到四叶谷，我是村长{name}，有什么事都可以来找我帮忙。',
+  'villager.martha.line.2': '那口井早就干了，我封起来，免得小孩掉下去。',
 };

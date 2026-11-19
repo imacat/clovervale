@@ -32,6 +32,7 @@ import {
   Box3,
   LoopOnce,
   Mesh,
+  Raycaster,
   SkinnedMesh,
   Vector3,
 } from 'three';
@@ -39,8 +40,12 @@ import type { AnimationAction, AnimationClip, Object3D } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
-import { findPlacement } from '@clovervale/shared';
-import type { Placement } from '@clovervale/shared';
+import {
+  VILLAGE_PLACEMENTS,
+  findPlacement,
+  placePoint,
+} from '@clovervale/shared';
+import type { GroundVector, Placement } from '@clovervale/shared';
 
 import { getItem } from './models/items.ts';
 
@@ -174,9 +179,12 @@ interface GltfDocument {
   readonly animations?: GltfAnimation[];
 }
 
-/** The outcome of checking that the hammer of the smith meets the iron. */
+/**
+ * The outcome of checking how two models meet: that the hammer of the smith
+ * meets the iron, or that the face of the chief is seen from the plaza.
+ */
 interface StrikeResult {
-  /** How close the hammer comes to the iron, for the owner to read. */
+  /** How the models meet, for the owner to read. */
   readonly summary: string;
   /** The requirements not met. */
   readonly failures: string[];
@@ -263,6 +271,7 @@ const REQUIRED_FILES: readonly string[] = [
   ...CHARACTER_FILES,
   'npc-nancy.glb',
   'npc-emma.glb',
+  'npc-martha.glb',
   'wild-dog.glb',
   'weapon-shop.glb',
   'fountain.glb',
@@ -331,6 +340,48 @@ const IRON_MATERIAL = 'hotIron';
  * or sink into it, in metres.
  */
 const STRIKE_TOLERANCE = 0.003;
+/** The file name of the chief, who stands on the porch of her house. */
+const CHIEF_FILE = 'npc-martha.glb';
+/** The file name of the house of the chief. */
+const CHIEF_HOUSE_FILE = 'prop-chief-house.glb';
+/**
+ * The models that stand around the porch of the house of the chief, any of
+ * which could hide her face: the house, with the posts, the banner and the
+ * roof of its porch, the low wall of its yard, and the old well.
+ */
+const PORCH_SURROUNDINGS: readonly string[] = [
+  CHIEF_HOUSE_FILE,
+  'prop-yard-wall.glb',
+  'prop-yard-wall-end.glb',
+  'prop-old-well.glb',
+];
+/**
+ * The materials of the face of the chief, which must be seen, and what
+ * they are.
+ */
+const FACE_PARTS: readonly (readonly [material: string, part: string])[] = [
+  ['eye', 'eyes'],
+  ['mouth', 'mouth'],
+];
+/** The height of the eyes of a player, in metres. */
+const PLAYER_EYE_HEIGHT = 1.3;
+/**
+ * Where the camera starts from a player, in metres: up, and back towards
+ * +Z.
+ */
+const CAMERA_OFFSET: readonly [up: number, back: number] = [7.5, 13];
+/**
+ * Where a player coming from the plaza stands in front of the porch of the
+ * house of the chief, as the model of the house has it.
+ */
+const BEFORE_PORCH: GroundVector = { x: 0, z: 6.25 };
+/**
+ * Where a player stands at the rim of the fountain on the side of the
+ * spawn points, to drink from it, as the model of the fountain has it.
+ */
+const AT_FOUNTAIN: GroundVector = { x: 0, z: 2.6 };
+/** How many times in her idle clip the face of the chief is looked at. */
+const SIGHT_SAMPLES = 12;
 /** The magic number of a binary glTF file. */
 const GLB_MAGIC = 0x46546c67;
 /** The type of the JSON chunk of a binary glTF file. */
@@ -1138,6 +1189,141 @@ async function checkStrike(): Promise<StrikeResult> {
 }
 
 /**
+ * Lists the points the face of the chief is looked at from: the eyes of a
+ * player in front of her porch, and the camera as it starts behind that
+ * player and behind a player at the fountain.
+ *
+ * @returns {[string, Vector3][]} What each point is, and where it is.
+ */
+function listChiefViewpoints(): [string, Vector3][] {
+  const before: GroundVector = placePoint(
+    findPlacement(CHIEF_HOUSE_FILE),
+    BEFORE_PORCH,
+  );
+  const fountain: GroundVector = placePoint(
+    findPlacement('fountain.glb'),
+    AT_FOUNTAIN,
+  );
+  const [up, back] = CAMERA_OFFSET;
+  return [
+    [
+      'a player in front of the porch',
+      new Vector3(before.x, PLAYER_EYE_HEIGHT, before.z),
+    ],
+    [
+      'the camera behind a player in front of the porch',
+      new Vector3(before.x, up, before.z + back),
+    ],
+    [
+      'the camera behind a player at the fountain',
+      new Vector3(fountain.x, up, fountain.z + back),
+    ],
+  ];
+}
+
+/**
+ * Loads the models around the porch of the house of the chief, each
+ * standing in every place the village has for it.
+ *
+ * @param {readonly string[]} files - The file names of the models there
+ *   are.
+ * @returns {Promise<Object3D[]>} The models there are, standing in their
+ *   places.
+ */
+async function loadPorchSurroundings(
+  files: readonly string[],
+): Promise<Object3D[]> {
+  const roots: Object3D[] = [];
+  for (const file of PORCH_SURROUNDINGS.filter((name: string) =>
+    files.includes(name),
+  )) {
+    const model: GLTF = await loadPlaced(file);
+    for (const placement of VILLAGE_PLACEMENTS) {
+      if (placement.file === file) {
+        const root: Object3D = model.scene.clone();
+        root.position.set(placement.x, 0, placement.z);
+        root.rotation.y = (placement.yaw * Math.PI) / 180;
+        root.updateMatrixWorld(true);
+        roots.push(root);
+      }
+    }
+  }
+  return roots;
+}
+
+/**
+ * Checks that the face of the chief on the porch of her house is seen from
+ * the plaza, as the village stands them: that from each point listed by
+ * {@link listChiefViewpoints}, neither her house, with the posts, the
+ * banner and the roof of its porch, nor the wall of the yard nor the well
+ * stands in front of two points of her face, one between her eyes and one
+ * at her mouth, each the mean of the vertices of its material, at each of {@link SIGHT_SAMPLES} evenly spaced
+ * moments of her idle clip.  The check fails if she has no idle clip, or
+ * no vertices of the material of her eyes or of her mouth.
+ *
+ * @param {readonly string[]} files - The file names of the models there
+ *   are.
+ * @returns {Promise<StrikeResult>} The outcome.
+ */
+async function checkChiefInSight(
+  files: readonly string[],
+): Promise<StrikeResult> {
+  const chief: GLTF = await loadPlaced(CHIEF_FILE);
+  const clip: AnimationClip | undefined = chief.animations.find(
+    (candidate: AnimationClip) => candidate.name === 'Idle',
+  );
+  if (clip === undefined) {
+    return { summary: '', failures: [`${CHIEF_FILE} does not idle`] };
+  }
+  const faceless: string[] = FACE_PARTS.filter(
+    ([material]: readonly [string, string]) =>
+      listMaterialVertices(chief.scene, material).length === 0,
+  ).map(
+    ([material, part]: readonly [string, string]) =>
+      `${CHIEF_FILE} has no vertices of the material "${material}" of ` +
+      `her ${part}, so whether they are seen cannot be checked`,
+  );
+  if (faceless.length > 0) {
+    return { summary: '', failures: faceless };
+  }
+  const surroundings: Object3D[] = await loadPorchSurroundings(files);
+  const raycaster = new Raycaster();
+  const hidden = new Set<string>();
+  for (let k = 0; k < SIGHT_SAMPLES; k++) {
+    const mixer: AnimationMixer = poseModel(
+      chief,
+      clip,
+      (clip.duration * k) / SIGHT_SAMPLES,
+    );
+    for (const [material, part] of FACE_PARTS) {
+      const points: Vector3[] = listMaterialVertices(chief.scene, material);
+      const middle = new Vector3();
+      for (const point of points) {
+        middle.add(point);
+      }
+      middle.divideScalar(points.length);
+      for (const [name, viewpoint] of listChiefViewpoints()) {
+        const way: Vector3 = new Vector3().subVectors(middle, viewpoint);
+        const distance: number = way.length();
+        raycaster.set(viewpoint, way.normalize());
+        raycaster.far = distance;
+        if (raycaster.intersectObjects(surroundings, true).length > 0) {
+          hidden.add(`the ${part} of ${CHIEF_FILE} from ${name}`);
+        }
+      }
+    }
+    resetModel(chief, mixer);
+  }
+  const failures: string[] = [...hidden].map(
+    (what: string) => `something hides ${what}`,
+  );
+  const summary =
+    `the face of ${CHIEF_FILE} on the porch is ` +
+    (failures.length === 0 ? 'seen from the plaza' : 'hidden from the plaza');
+  return { summary, failures };
+}
+
+/**
  * Checks the models of the client.
  *
  * @returns {Promise<boolean>} Whether every model meets every requirement.
@@ -1181,6 +1367,15 @@ async function checkModels(): Promise<boolean> {
           ],
         };
   problems.push(...strike.failures);
+  // The chief is required, so a missing one is already reported; her face
+  // is reported as not checked as well.
+  const sight: StrikeResult = files.includes(CHIEF_FILE)
+    ? await checkChiefInSight(files)
+    : {
+        summary: '',
+        failures: [`the face of ${CHIEF_FILE} cannot be checked`],
+      };
+  problems.push(...sight.failures);
   const characters: ModelResult[] = results.filter(
     (result: ModelResult) => result.kind === 'character',
   );
@@ -1198,9 +1393,11 @@ async function checkModels(): Promise<boolean> {
       console.log(`     - ${failure}`);
     }
   }
-  if (strike.summary !== '') {
-    const mark: string = strike.failures.length > 0 ? 'FAIL' : 'ok  ';
-    console.log(`${mark} ${strike.summary}`);
+  for (const meeting of [strike, sight]) {
+    if (meeting.summary !== '') {
+      const mark: string = meeting.failures.length > 0 ? 'FAIL' : 'ok  ';
+      console.log(`${mark} ${meeting.summary}`);
+    }
   }
   for (const problem of problems) {
     console.log(`FAIL ${problem}`);

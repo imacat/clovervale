@@ -34,9 +34,11 @@ import {
   VILLAGE_TERRAIN,
   findInteraction,
   findPlacement,
+  findTurn,
   findVillager,
+  turnVector,
 } from '../src/index.ts';
-import type { Placement, Pose } from '../src/index.ts';
+import type { GroundVector, Placement, Pose } from '../src/index.ts';
 
 /**
  * The farthest a player can stand from the centre of the fountain to drink
@@ -57,6 +59,25 @@ const NANCY: Placement = findPlacement('npc-nancy.glb');
  */
 function standByNancy(distance: number, yaw: number): Pose {
   return { x: NANCY.x, z: NANCY.z + distance, yaw };
+}
+
+/** Where Martha the village chief stands, on the porch of her house. */
+const MARTHA: Placement = findPlacement('npc-martha.glb');
+
+/**
+ * Makes the pose of a player on the porch in front of Martha, facing her.
+ *
+ * @returns {Pose} The pose, clear of everything that stands in the way.
+ */
+function standBeforeMartha(): Pose {
+  const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(MARTHA.yaw));
+  const pose: Pose = {
+    x: MARTHA.x + front.x * 0.8,
+    z: MARTHA.z + front.z * 0.8,
+    yaw: MARTHA.yaw + 180,
+  };
+  expect(VILLAGE_TERRAIN.isClear(pose)).toBe(true);
+  return pose;
 }
 
 /**
@@ -148,11 +169,29 @@ describe('findInteraction by Emma the smith', () => {
   });
 });
 
+describe('findInteraction by Martha the village chief', () => {
+  it('talks to her from in front of her on the porch, facing her', () => {
+    expect(findInteraction(standBeforeMartha())).toBe('Talk');
+  });
+
+  it('slashes in front of her, facing away from her', () => {
+    const pose: Pose = standBeforeMartha();
+    expect(findInteraction({ ...pose, yaw: MARTHA.yaw })).toBe('Slash');
+  });
+});
+
 describe('findVillager', () => {
   it('finds Nancy, facing her', () => {
     expect(findVillager(standByNancy(TALK_REACH - 0.1, 180))).toEqual({
       id: 'nancy',
       file: 'npc-nancy.glb',
+    });
+  });
+
+  it('finds Martha, facing her on the porch', () => {
+    expect(findVillager(standBeforeMartha())).toEqual({
+      id: 'martha',
+      file: 'npc-martha.glb',
     });
   });
 

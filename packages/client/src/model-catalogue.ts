@@ -57,6 +57,7 @@ const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
   [
     ['npc-nancy.glb', 'npc'],
     ['npc-emma.glb', 'npc'],
+    ['npc-martha.glb', 'npc'],
     [MONSTER_FILE, 'monster'],
     [WEAPON_SHOP_FILE, 'building'],
     [FOUNTAIN_FILE, 'building'],

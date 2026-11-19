@@ -224,18 +224,21 @@ const YARD_WALL_FILES: readonly string[] = [
  */
 const YARD_WALL_LINE = 4.8;
 
-/**
- * The place kept on the porch of the chief's house for a person to stand,
- * as the model of the house has it: beside the door, on the side of the
- * well, between the front wall and the posts of the porch.
- */
-const PORCH_PLACE: GroundVector = { x: 1.25, z: 2.35 };
+/** The file name of Martha, the village chief. */
+const MARTHA_FILE = 'npc-martha.glb';
 
 /**
- * The radius of the ground a person standing on the porch would take up,
- * as much as Nancy takes up, in metres.
+ * The place on the porch of the chief's house where Martha the chief
+ * stands, as the model of the house has it: beside the door, on the side of
+ * the well, between the front wall and the posts of the porch.
  */
-const PERSON_RADIUS = 0.35;
+const PORCH_PLACE: GroundVector = { x: 1.1, z: 2.7 };
+
+/**
+ * The radius of the ground Martha takes up, as much as Nancy takes up, in
+ * metres.
+ */
+const MARTHA_RADIUS = 0.35;
 
 /**
  * Where a player stands in front of the door of the chief's house, just
@@ -654,40 +657,16 @@ describe('the house of the village chief', () => {
     );
   });
 
-  it('keeps a place on the porch beside the door for a person', () => {
-    const place: GroundVector = placeOnChiefHouse(PORCH_PLACE);
-    expect(VILLAGE_TERRAIN.isClear(place, PERSON_RADIUS - PLAYER_RADIUS)).toBe(
-      true,
-    );
-    // A person who stands there facing the plaza faces the way the house
-    // does, give or take.
-    expect(
-      measureAlignment(findChiefHouseFront(), findWay(place, PLAZA_CENTRE)),
-    ).toBeGreaterThan(Math.cos((20 * Math.PI) / 180));
-    // The person stands out of the way from the plaza to the door.
-    const person: Shape = { shape: 'circle', ...place, radius: PERSON_RADIUS };
-    const terrain = new Terrain(
-      [...VILLAGE_TERRAIN.shapes, person],
-      VILLAGE_BOUNDARY,
-    );
-    expect(
-      terrain.isPathClear(
-        placeOnChiefHouse(BEFORE_PORCH),
-        placeOnChiefHouse(DOOR_FRONT),
-      ),
-    ).toBe(true);
-  });
-
-  it('lets someone coming in from the plaza see the person on the porch', () => {
-    // From in front of the porch, nothing stands between a player and a
-    // person on the porch, who faces the player.
+  it('lets someone coming in from the plaza see Martha on the porch', () => {
+    // From in front of the porch, nothing stands between a player and
+    // Martha on the porch, who faces the player.
     const place: GroundVector = placeOnChiefHouse(PORCH_PLACE);
     const before: GroundVector = placeOnChiefHouse(BEFORE_PORCH);
     const toBefore: GroundVector = findWay(place, before);
     expect(measureAlignment(findChiefHouseFront(), toBefore)).toBeGreaterThan(
       Math.cos((60 * Math.PI) / 180),
     );
-    const near: number = PERSON_RADIUS + PLAYER_RADIUS;
+    const near: number = MARTHA_RADIUS + PLAYER_RADIUS;
     expect(
       VILLAGE_TERRAIN.isPathClear(before, {
         x: place.x + toBefore.x * near,
@@ -770,6 +749,78 @@ describe('the house of the village chief', () => {
   });
 });
 
+/**
+ * Finds the way Martha faces.
+ *
+ * @returns {GroundVector} The way, a metre long.
+ */
+function findMarthaFront(): GroundVector {
+  return turnVector({ x: 0, z: 1 }, findTurn(findPlacement(MARTHA_FILE).yaw));
+}
+
+describe('Martha the village chief', () => {
+  it('stands on the porch beside the door, on the side of the well', () => {
+    const martha: Placement = findPlacement(MARTHA_FILE);
+    const place: GroundVector = placeOnChiefHouse(PORCH_PLACE);
+    expect(martha.x).toBeCloseTo(place.x, 6);
+    expect(martha.z).toBeCloseTo(place.z, 6);
+  });
+
+  it('faces the plaza', () => {
+    const martha: Placement = findPlacement(MARTHA_FILE);
+    expect(
+      measureAlignment(findMarthaFront(), findWay(martha, PLAZA_CENTRE)),
+    ).toBeGreaterThan(Math.cos((5 * Math.PI) / 180));
+  });
+
+  it('turns her front or side, not her back, to the camera along -Z', () => {
+    expect(findMarthaFront().z).toBeGreaterThanOrEqual(0);
+  });
+
+  it('takes up the ground she stands on, overlapping no other footprint', () => {
+    const martha: Placement = findPlacement(MARTHA_FILE);
+    expect(VILLAGE_TERRAIN.isClear(martha)).toBe(false);
+    const own: CircleShape[] = VILLAGE_TERRAIN.shapes.filter(
+      (shape: Shape): shape is CircleShape =>
+        shape.shape === 'circle' &&
+        shape.x === martha.x &&
+        shape.z === martha.z,
+    );
+    expect(own.map((shape: CircleShape) => shape.radius)).toEqual([
+      MARTHA_RADIUS,
+    ]);
+    const [footprint] = own;
+    for (const shape of VILLAGE_TERRAIN.shapes) {
+      if (footprint !== undefined && shape !== footprint) {
+        expect(measureGap(footprint, shape)).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('stands out of the way from the plaza to the door', () => {
+    expect(
+      VILLAGE_TERRAIN.isPathClear(
+        placeOnChiefHouse(BEFORE_PORCH),
+        placeOnChiefHouse(DOOR_FRONT),
+      ),
+    ).toBe(true);
+  });
+
+  it('lets a player walk up onto the porch and stand in front of her', () => {
+    const martha: Placement = findPlacement(MARTHA_FILE);
+    const front: GroundVector = findMarthaFront();
+    const reach: number = MARTHA_RADIUS + PLAYER_RADIUS + 0.1;
+    const spot: GroundVector = {
+      x: martha.x + front.x * reach,
+      z: martha.z + front.z * reach,
+    };
+    expect(VILLAGE_TERRAIN.isClear(spot)).toBe(true);
+    expect(
+      VILLAGE_TERRAIN.isPathClear(placeOnChiefHouse(BEFORE_PORCH), spot),
+    ).toBe(true);
+  });
+});
+
 describe('the old well', () => {
   it('stands behind the wall of the yard, seen from the plaza', () => {
     // As the model of the house has it, the well stands at x = 5.6, and the
@@ -819,7 +870,14 @@ describe('the old well', () => {
       z: well.z + toPlace.z * reach,
     };
     expect(VILLAGE_TERRAIN.isClear(beside)).toBe(true);
-    expect(VILLAGE_TERRAIN.isPathClear(beside, place)).toBe(true);
+    // Up to a player standing next to Martha on the porch.
+    const near: number = MARTHA_RADIUS + PLAYER_RADIUS;
+    expect(
+      VILLAGE_TERRAIN.isPathClear(beside, {
+        x: place.x - toPlace.x * near,
+        z: place.z - toPlace.z * near,
+      }),
+    ).toBe(true);
   });
 });
 

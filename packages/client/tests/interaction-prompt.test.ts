@@ -33,8 +33,10 @@ import {
   applyInput,
   createMotion,
   findPlacement,
+  findTurn,
   killMotion,
   stepMotion,
+  turnVector,
 } from '@clovervale/shared';
 import type {
   GroundVector,
@@ -98,6 +100,21 @@ function standByEmma(): PlayerMotion {
 const BY_EMMA: PlayerMotion = standByEmma();
 
 /**
+ * Finds a player on the porch of the chief's house in front of Martha, the
+ * village chief, facing her.
+ *
+ * @returns {PlayerMotion} The player.
+ */
+function standByMartha(): PlayerMotion {
+  const martha: Placement = findPlacement('npc-martha.glb');
+  const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(martha.yaw));
+  return createMotion(
+    { x: martha.x + front.x * 0.8, z: martha.z + front.z * 0.8 },
+    martha.yaw + 180,
+  );
+}
+
+/**
  * Makes a translator of the text into a language.
  *
  * @param {'zh-TW' | 'zh-CN' | 'ja'} code - The language.
@@ -120,6 +137,18 @@ describe('describePrompt', () => {
 
   it('tells a player by Nancy, facing her, that it can talk to her', () => {
     expect(describePrompt(EN, BY_NANCY)).toBe('Press Space to talk to Nancy');
+  });
+
+  it('tells a player by Martha, facing her, that it can talk to her', async () => {
+    const byMartha: PlayerMotion = standByMartha();
+    expect(describePrompt(EN, byMartha)).toBe('Press Space to talk to Martha');
+    expect(describeSpaceKey(EN, byMartha)).toBe('talk to Martha');
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describePrompt(zhTw, byMartha)).toBe('按空白鍵與瑪莎交談');
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describePrompt(zhCn, byMartha)).toBe('按空格键与玛莎交谈');
+    const ja: Translator = await createTranslator('ja');
+    expect(describePrompt(ja, byMartha)).toBe('スペースキーでマーサと話す');
   });
 
   it('tells it in the language of the page, in its word order', async () => {

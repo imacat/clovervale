@@ -61,6 +61,17 @@ const SMITH_AT_ANVIL: Spot = [2.37, 0.777, 90];
 const CHIEF_HOUSE_SPOT: Spot = [9.75, -17, -60];
 
 /**
+ * Where Martha, the village chief, stands on the porch of her house, and
+ * which way she faces, as the model of the house has it: beside the door,
+ * on the right of it as one faces the house, on the side of the well,
+ * between the front wall and the posts of the porch, close enough to the
+ * door that the post on the side of the well does not hide her face from
+ * the middle of the plaza, turned a little towards the well so that she
+ * faces the plaza.
+ */
+const CHIEF_ON_PORCH: Spot = [1.1, 2.7, 7];
+
+/**
  * Where the old well stands in the yard of the chief's house, as the model
  * of the house has it: beside the house on the side of the weapon shop, a
  * little forward of its front wall, in sight of the porch.
@@ -141,6 +152,7 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [-10.5, -16.5, 55],
   ],
   'prop-chief-house.glb': [CHIEF_HOUSE_SPOT],
+  'npc-martha.glb': [placeSpot(CHIEF_HOUSE_SPOT, CHIEF_ON_PORCH)],
   'prop-old-well.glb': [placeSpot(CHIEF_HOUSE_SPOT, WELL_IN_YARD)],
   'prop-yard-wall.glb': YARD_WALL_ON_HOUSE.map((spot: Spot) =>
     placeSpot(CHIEF_HOUSE_SPOT, spot),
@@ -302,6 +314,7 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   ],
   'npc-nancy.glb': [makeCircle(0, 0, 0.35)],
   'npc-emma.glb': [makeCircle(0, 0, 0.3)],
+  'npc-martha.glb': [makeCircle(0, 0, 0.35)],
   // The five standing stones, and not the burrow they stand round.
   'prop-spawn-stones.glb': Array.from({ length: 5 }, (_, index: number) => {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));

@@ -25,7 +25,7 @@
  * The identifier of a villager, which never changes, for the client to
  * find what the villager is called and what it says.
  */
-export type VillagerId = 'nancy';
+export type VillagerId = 'nancy' | 'martha';
 
 /** A villager a player can talk to. */
 export interface Villager {
@@ -41,4 +41,5 @@ export interface Villager {
 /** The villagers a player can talk to. */
 export const VILLAGERS: readonly Villager[] = [
   { id: 'nancy', file: 'npc-nancy.glb' },
+  { id: 'martha', file: 'npc-martha.glb' },
 ];

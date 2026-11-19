@@ -39,23 +39,41 @@ import type { SpeechWords } from '../src/speech-bubble.ts';
 import { Translator } from '../src/translator.ts';
 
 /**
- * Finds Nancy the villager.
+ * Finds a villager.
  *
- * @returns {Villager} Nancy.
- * @throws {Error} If there is no Nancy among the villagers.
+ * @param {string} file - The file name of the model of the villager.
+ * @returns {Villager} The villager.
+ * @throws {Error} If there is no such villager.
  */
-function findNancy(): Villager {
+function findVillagerOf(file: string): Villager {
   const found: Villager | undefined = VILLAGERS.find(
-    (villager: Villager) => villager.file === 'npc-nancy.glb',
+    (villager: Villager) => villager.file === file,
   );
   if (found === undefined) {
-    throw new Error('Nancy is not among the villagers.');
+    throw new Error(`${file} is not among the villagers.`);
   }
   return found;
 }
 
 /** Nancy the villager. */
-const NANCY: Villager = findNancy();
+const NANCY: Villager = findVillagerOf('npc-nancy.glb');
+
+/** Martha the village chief, who has two lines. */
+const MARTHA: Villager = findVillagerOf('npc-martha.glb');
+
+/** What Martha says, in English, in order. */
+const MARTHA_LINES: readonly string[] = [
+  "Welcome to Clovervale. I'm Martha, the village chief. If there's " +
+    'anything I can help you with, just come and find me.',
+  'That well ran dry long ago. I boarded it up so that none of the ' +
+    'children would fall in.',
+];
+
+/** What Martha says, in Traditional Chinese, in order. */
+const MARTHA_LINES_ZH_TW: readonly string[] = [
+  '歡迎來到四葉谷，我是村長瑪莎，有什麼事都可以來找我幫忙。',
+  '那口井早就乾了，我封起來，免得小孩掉下去。',
+];
 
 /** What Nancy says, in English. */
 const NANCY_LINE =
@@ -77,21 +95,64 @@ const HEAD = new Vector3(SPOT.x, 1.6, SPOT.z);
  *
  * @param {Translator} [translator] - The translator of the text of the page,
  *   in English by default.
+ * @param {() => number} [random] - The source of random numbers in [0, 1)
+ *   the bubble picks lines by, `Math.random` by default.
  * @returns {{ parent: Object3D, bubble: SpeechBubble, painted: SpeechWords[] }}
  *   The parent, the bubble, and what it was told to draw, in order.
  */
-function createBubble(translator: Translator = new Translator()): {
+function createBubble(
+  translator: Translator = new Translator(),
+  random: () => number = Math.random,
+): {
   parent: Object3D;
   bubble: SpeechBubble;
   painted: SpeechWords[];
 } {
   const parent = new Object3D();
   const painted: SpeechWords[] = [];
-  const bubble = new SpeechBubble(parent, translator, (words: SpeechWords) => {
-    painted.push(words);
-    return new Sprite();
-  });
+  const bubble = new SpeechBubble(
+    parent,
+    translator,
+    (words: SpeechWords) => {
+      painted.push(words);
+      return new Sprite();
+    },
+    random,
+  );
   return { parent, bubble, painted };
+}
+
+/**
+ * Makes a source of random numbers that gives the same numbers, in turn,
+ * over and over.
+ *
+ * @param {readonly number[]} numbers - The numbers, each in [0, 1).
+ * @returns {() => number} The source.
+ */
+function createSequence(numbers: readonly number[]): () => number {
+  let index = 0;
+  return (): number => numbers[index++ % numbers.length] ?? 0;
+}
+
+/**
+ * Talks to a villager over and over, and notes what it says each time.
+ *
+ * @param {SpeechBubble} bubble - The bubble.
+ * @param {Villager} villager - The villager.
+ * @param {number} count - How many times to talk to it.
+ * @returns {string[]} What it says, in order.
+ */
+function talkRepeatedly(
+  bubble: SpeechBubble,
+  villager: Villager,
+  count: number,
+): string[] {
+  const lines: string[] = [];
+  for (let i = 0; i < count; i++) {
+    bubble.say(villager, HEAD);
+    lines.push(bubble.describe()?.line ?? '');
+  }
+  return lines;
 }
 
 /**
@@ -296,5 +357,61 @@ describe('SpeechBubble', () => {
     bubble.update(0.2);
     expect(bubble.describe()).toBeNull();
     expect(parent.children).toEqual([]);
+  });
+});
+
+describe('SpeechBubble with a villager who has several lines', () => {
+  /** Numbers in [0, 1) spread over the whole of it, in no order. */
+  const SPREAD: readonly number[] = [0, 0.99, 0.5, 0.25, 0.75, 0.1, 0.9];
+
+  it('says each of the lines in time', () => {
+    for (const numbers of [SPREAD, [0], [0.99]]) {
+      const { bubble } = createBubble(undefined, createSequence(numbers));
+      expect(new Set(talkRepeatedly(bubble, MARTHA, 10))).toEqual(
+        new Set(MARTHA_LINES),
+      );
+    }
+  });
+
+  it('never says the same line twice running', () => {
+    for (const numbers of [SPREAD, [0], [0.5], [0.99]]) {
+      const { bubble } = createBubble(undefined, createSequence(numbers));
+      const lines: string[] = talkRepeatedly(bubble, MARTHA, 20);
+      lines.slice(1).forEach((line: string, index: number) => {
+        expect(line).not.toBe(lines[index]);
+      });
+    }
+  });
+
+  it('always says the one line of a villager who has one', () => {
+    for (const numbers of [SPREAD, [0], [0.99]]) {
+      const { bubble } = createBubble(undefined, createSequence(numbers));
+      expect(new Set(talkRepeatedly(bubble, NANCY, 10))).toEqual(
+        new Set([NANCY_LINE]),
+      );
+    }
+  });
+
+  it('puts her name in the line that names her', () => {
+    const { bubble } = createBubble(undefined, createSequence([0]));
+    bubble.say(MARTHA, HEAD);
+    expect(bubble.describe()).toMatchObject({
+      name: 'Martha',
+      line: MARTHA_LINES[0],
+    });
+  });
+
+  it('keeps to the line shown when shown in another language', async () => {
+    const translator = new Translator();
+    const { bubble } = createBubble(translator, createSequence([0.99]));
+    bubble.say(MARTHA, HEAD);
+    const index: number = MARTHA_LINES.indexOf(bubble.describe()?.line ?? '');
+    expect(index).toBeGreaterThanOrEqual(0);
+    await translator.choose('zh-TW');
+    bubble.relabel();
+    expect(bubble.describe()).toMatchObject({
+      name: '瑪莎',
+      line: MARTHA_LINES_ZH_TW[index],
+    });
   });
 });

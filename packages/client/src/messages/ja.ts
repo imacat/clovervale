@@ -118,7 +118,14 @@ export const JA_MESSAGES: MessageTable = {
   'spaceKey.nothing': 'なし',
 
   'villager.nancy.name': 'ナンシー',
-  'villager.nancy.line':
+  'villager.nancy.line.1':
     '村の入り口に野犬が出るようになって、村のみんな外に出られなく' +
     'なっちゃったの。どうしよう……',
+  'villager.martha.name': 'マーサ',
+  'villager.martha.line.1':
+    'クローバーヴェイルへようこそ。私は村長の{name}。困ったことが' +
+    'あったら、いつでも相談にいらっしゃい。',
+  'villager.martha.line.2':
+    'あの井戸はとっくに涸れてしまってね。子どもが落ちないように、' +
+    '私が板でふさいでおいたのよ。',
 };
