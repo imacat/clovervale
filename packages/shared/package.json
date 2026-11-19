@@ -1,6 +1,6 @@
 {
   "name": "@clovervale/shared",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Clovervale protocol and movement rules shared by the server, the client and the bots.",
   "license": "Apache-2.0",
