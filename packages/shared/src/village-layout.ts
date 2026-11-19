@@ -55,6 +55,61 @@ const WEAPON_SHOP_SPOT: Spot = [12, -4.3344, -90];
 const SMITH_AT_ANVIL: Spot = [2.37, 0.777, 90];
 
 /**
+ * The spot of the house of the village chief, at the back of the village on
+ * the north-east, facing the plaza.
+ */
+const CHIEF_HOUSE_SPOT: Spot = [9.75, -17, -60];
+
+/**
+ * Where the old well stands in the yard of the chief's house, as the model
+ * of the house has it: beside the house on the side of the weapon shop, a
+ * little forward of its front wall, in sight of the porch.
+ */
+const WELL_IN_YARD: Spot = [5.6, 3.1, 0];
+
+/**
+ * Where the whole two-metre stretches of the old low stone wall of the yard
+ * of the chief's house stand, as the model of the house has it, every other
+ * one in a run turned about so that their worn stones do not repeat.  The
+ * wall stands in short runs with wide gaps between, so that the yard is
+ * open on every side.  One stretch runs along the front, between the house
+ * and the plaza, 3 m in front of the front wall of the house: it stands in
+ * front of the well, so that the well stands behind the wall as seen from
+ * the plaza, and reaches on past it, by more than a metre, towards the
+ * weapon shop.  One stretch runs along the side of the well, behind it, on
+ * the side of the weapon shop.  At the corner behind the house away from
+ * the well, one stretch runs along the back and two along the side; and at
+ * the other corner behind it, one runs along the back and one slants
+ * forward towards the side of the well.
+ */
+const YARD_WALL_ON_HOUSE: readonly Spot[] = [
+  [6.24, 4.8, 0],
+  [6.75, 1.1, 90],
+  [-4.25, -3.75, 0],
+  [-5.25, -2.75, 90],
+  [-5.25, -0.75, 270],
+  [3.75, -3.75, 0],
+  [5.3028, -2.9167, -56.44],
+];
+
+/**
+ * Where the ragged ends of the old low stone wall in front of the yard of
+ * the chief's house stand, as the model of the house has it, on the line of
+ * the whole stretch, with the broad opening in front of the porch, 5.15 m
+ * wide, between them.  The short stretch on the left as one faces the house
+ * is a ragged end alone, in front of the left part of the house, broken
+ * down towards the opening, with its tall end beside the path to the back
+ * of the village.  On the right, a ragged end stands in front of the right
+ * part of the house, with its tall end beside the opening, broken down
+ * towards a gap of a metre, wide enough to walk through, between it and the
+ * whole stretch in front of the well.
+ */
+const YARD_WALL_ENDS_ON_HOUSE: readonly Spot[] = [
+  [-3.37, 4.8, 0],
+  [3.32, 4.8, 0],
+];
+
+/**
  * Finds the spot in the world of something placed on a model.
  *
  * @param {Spot} model - The spot of the model.
@@ -84,8 +139,15 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
   'prop-cottage.glb': [
     [-11, -4.5, 90],
     [-10.5, -16.5, 55],
-    [10.5, -16.5, -55],
   ],
+  'prop-chief-house.glb': [CHIEF_HOUSE_SPOT],
+  'prop-old-well.glb': [placeSpot(CHIEF_HOUSE_SPOT, WELL_IN_YARD)],
+  'prop-yard-wall.glb': YARD_WALL_ON_HOUSE.map((spot: Spot) =>
+    placeSpot(CHIEF_HOUSE_SPOT, spot),
+  ),
+  'prop-yard-wall-end.glb': YARD_WALL_ENDS_ON_HOUSE.map((spot: Spot) =>
+    placeSpot(CHIEF_HOUSE_SPOT, spot),
+  ),
   'prop-pine-tree.glb': [
     [-16.5, 0.5, 0],
     [-18.5, -6, 40],
@@ -112,7 +174,7 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [-3.3, -11.2, 0],
     [3.4, -11.4, 70],
     [-4.7, -12.5, 140],
-    [4.6, -12.7, 210],
+    [7.6, -24.2, 210],
     [-5, 4.6, 280],
     [-6.8, 6.2, 350],
     [-4.6, 7.6, 60],
@@ -252,6 +314,26 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   // The post, and not the board nailed to it above the ground.
   'prop-village-sign.glb': [makeCircle(0.005, -0.02, 0.07)],
   'prop-cottage.glb': [makeBox(-2.55, 2.55, -2.35, 2.35)],
+  // The house on its stone base, and the two posts of the porch in front
+  // of it, and not the floor of the porch.
+  'prop-chief-house.glb': [
+    makeBox(-3.75, 3.75, -3.35, 1.95),
+    makeCircle(-2, 3.45, 0.12),
+    makeCircle(2, 3.45, 0.12),
+  ],
+  // The round stonework.
+  'prop-old-well.glb': [makeCircle(0, 0, 0.7)],
+  // The body of the stretch, which reaches a little past each end, and the
+  // slabs on top of it.
+  'prop-yard-wall.glb': [makeBox(-1.15, 1.15, -0.21, 0.21)],
+  // The body of the ragged end, from its tall end to the low stones it
+  // steps down to, the slab askew on top of it, and the two stones fallen
+  // from it, on either side.
+  'prop-yard-wall-end.glb': [
+    makeBox(-0.77, 0.77, -0.21, 0.21),
+    makeCircle(0.05, 0.42, 0.29),
+    makeCircle(0.55, -0.55, 0.16),
+  ],
   // The trunk and the lowest branches.
   'prop-pine-tree.glb': [makeCircle(0, 0, 0.6)],
   'prop-bush.glb': [makeCircle(0, 0, 0.8)],

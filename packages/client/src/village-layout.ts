@@ -56,7 +56,8 @@ function findSpareSpots(index: number): Spot[] {
  * Arranges the models into a village.
  *
  * The fountain stands in the middle of a plaza, in front of the great tree,
- * and the cottages and the weapon shop stand around the plaza, each facing
+ * and the cottages, the weapon shop and the house of the village chief, in
+ * its open yard with the old well, stand around the plaza, each facing
  * it.  Nancy the villager is by the fountain, as is the healing stele, and
  * Emma the smith works at the anvil by the forge of the weapon shop.  The
  * village sign stands by the gate, and the spawn stones of the monster are

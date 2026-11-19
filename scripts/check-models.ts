@@ -868,6 +868,36 @@ async function checkModel(file: string): Promise<ModelResult> {
       // most a little taller, so that it does not tower over the players.
       check(height >= 1.5 && height <= 1.9, `height ${String(height)}`);
     }
+    if (file === 'prop-chief-house.glb') {
+      // The largest house of the village: much wider than a cottage, which
+      // is 5.5 m across under its roof and 5.4 m tall, and with its two
+      // storeys well above it, yet under a roof of a gentle pitch that does
+      // not tower, and not so large as to crowd its corner.
+      check(height >= 7 && height <= 8.2, `height ${String(height)}`);
+      check(size.x >= 7.5 && size.x <= 9, `width ${String(size.x)}`);
+      check(size.z <= 8, `depth ${String(size.z)}`);
+    }
+    if (file === 'prop-yard-wall.glb') {
+      // A two-metre stretch that reaches a little past each end, about
+      // thigh-high on a player, low enough to see the porch over.
+      check(size.x >= 2 && size.x <= 2.4, `length ${String(size.x)}`);
+      check(height >= 0.6 && height <= 0.8, `height ${String(height)}`);
+    }
+    if (file === 'prop-yard-wall-end.glb') {
+      // A ragged end shorter than a whole stretch, from its tall end, no
+      // taller than a whole stretch, to its low stones, with the stones
+      // fallen from it lying close by on either side.
+      check(size.x >= 1.3 && size.x <= 1.7, `length ${String(size.x)}`);
+      check(size.z <= 1.5, `depth ${String(size.z)}`);
+      check(height >= 0.5 && height <= 0.7, `height ${String(height)}`);
+    }
+    if (file === 'prop-old-well.glb') {
+      // No more than 1.5 m across, its stonework being 1.4 m across and the
+      // little roof over it only a little wider; and no more than 2 m tall
+      // with its roof, a little taller than a player.
+      check(size.x <= 1.5 && size.z <= 1.5, 'old well too wide');
+      check(height <= 2, `height ${String(height)}`);
+    }
   }
   if (measured.feet !== null) {
     const centre: Vector3 = measured.feet.getCenter(new Vector3());

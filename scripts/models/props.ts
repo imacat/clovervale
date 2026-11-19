@@ -279,6 +279,233 @@ export function buildFence(): BuiltModel {
   return { model };
 }
 
+/**
+ * Defines the materials of the old stonework of the yard of the chief's
+ * house, which the stretches of its low wall and the old well share:
+ * `stone` and `stoneDark` for the stones, and `moss` and `mossDark` for the
+ * moss on them.
+ *
+ * @param {Model} model - The model.
+ */
+function setOldStoneMaterials(model: Model): void {
+  model.setMaterial('stone', '#aaa69b');
+  model.setMaterial('stoneDark', '#8b877e');
+  model.setMaterial('moss', '#6f9a3c');
+  model.setMaterial('mossDark', '#587f30');
+}
+
+/**
+ * Creates a thin, ragged patch of moss lying flat around the origin, made
+ * of a few lumps that overlap unevenly.
+ *
+ * @param {number} seed - The random seed, which shapes the patch.
+ * @param {number} width - The most the patch reaches across X.
+ * @param {number} depth - The most the patch reaches across Z.
+ * @param {number} thickness - The most the patch reaches across Y.
+ * @returns {Shape} The patch, within the reach given.
+ */
+function createMossPatch(
+  seed: number,
+  width: number,
+  depth: number,
+  thickness: number,
+): Shape {
+  const random: () => number = createRandom(seed);
+  return [0, 1, 2].flatMap((i: number) =>
+    place(createBlob(0, seed * 10 + i, 0.3), {
+      pos: [(random() - 0.5) * 0.4 * width, 0, (random() - 0.5) * 0.4 * depth],
+      scale: [
+        (0.14 + 0.08 * random()) * width,
+        (thickness / 2) * 0.7,
+        (0.14 + 0.08 * random()) * depth,
+      ],
+    }),
+  );
+}
+
+/**
+ * The height of the body of the old low stone wall of the yard of the
+ * chief's house, under the slabs that cap it, in metres.
+ */
+const YARD_WALL_HEIGHT = 0.55;
+
+/** The depth of the body of the low wall of the chief's yard, in metres. */
+const YARD_WALL_DEPTH = 0.32;
+
+/**
+ * Builds a two-metre stretch of the old low stone wall of the yard of the
+ * chief's house, running along X: a body of rough stone, thigh-high on a
+ * player, capped with flat slabs, one of them chipped and sunk, with a few
+ * stones standing out of its faces and ragged moss on its top and its
+ * side.  The body reaches a little past each end of the slabs.
+ *
+ * @returns {BuiltModel} The model.
+ */
+export function buildYardWall(): BuiltModel {
+  const model = new Model('YardWall');
+  setOldStoneMaterials(model);
+  const depth: number = YARD_WALL_DEPTH;
+  model.add(
+    'stone',
+    createBlock(2.3, YARD_WALL_HEIGHT, depth, [1, 0.9]),
+  );
+  // The slabs on top: their middles along X, their lengths, how much they
+  // are worn down and turned, and their materials.
+  const slabs: readonly (readonly [number, number, number, number, string])[] =
+    [
+      [-0.75, 0.48, 0, 0, 'stoneDark'],
+      [-0.25, 0.47, 0, 2, 'stone'],
+      [0.25, 0.44, 0.035, -5, 'stoneDark'],
+      [0.75, 0.48, 0, -1, 'stoneDark'],
+    ];
+  for (const [x, length, wear, turn, material] of slabs) {
+    model.add(
+      material,
+      place(
+        createBlock(length, 0.11 - wear, 0.38, wear > 0 ? [0.8, 0.85] : [1, 1]),
+        { pos: [x, YARD_WALL_HEIGHT, 0], rot: [0, turn, wear > 0 ? 3 : 0] },
+      ),
+    );
+  }
+  // The stones that stand out of the faces: along X, up and on which side.
+  const stones: readonly Triple[] = [
+    [-0.6, 0.12, 1],
+    [0.45, 0.3, 1],
+    [-0.15, 0.22, -1],
+    [0.7, 0.1, -1],
+  ];
+  for (const [x, y, side] of stones) {
+    model.add(
+      'stoneDark',
+      place(createBox(0.3, 0.16, 0.04), {
+        pos: [x, y, side * (depth / 2 - 0.005 * y)],
+      }),
+    );
+  }
+  model.add(
+    'moss',
+    place(createMossPatch(31, 0.42, 0.3, 0.04), {
+      pos: [0.62, YARD_WALL_HEIGHT + 0.11, 0.02],
+    }),
+  );
+  model.add(
+    'mossDark',
+    place(createMossPatch(32, 0.36, 0.2, 0.03), {
+      pos: [-0.35, 0.12, depth / 2],
+      rot: [90, 0, 0],
+    }),
+  );
+  model.centreFootprint();
+  return { model };
+}
+
+/**
+ * The stones that the ragged end of the low wall of the chief's yard steps
+ * down to, low on the ground at the end of its body: their middles along X
+ * and Z, their sizes along X, Y and Z, how much they are turned about Y,
+ * and their materials.
+ */
+const YARD_WALL_END_STONES: readonly (readonly [
+  number,
+  number,
+  Triple,
+  number,
+  string,
+])[] = [
+  [0.47, 0.01, [0.3, 0.2, 0.3], 7, 'stone'],
+  [0.73, -0.02, [0.24, 0.13, 0.27], -12, 'stoneDark'],
+];
+
+/**
+ * The stones fallen from the ragged end of the low wall of the chief's yard
+ * and lying on the ground beside it: their middles along X and Z, their
+ * sizes along X, Y and Z, how much they are turned about Y and tipped about
+ * X, and their materials.  One is a slab that capped the wall, on the side
+ * the wall faces, and the other a stone of its body, behind it.
+ */
+const YARD_WALL_FALLEN_STONES: readonly (readonly [
+  number,
+  number,
+  Triple,
+  Pair,
+  string,
+])[] = [
+  [0.15, 0.42, [0.46, 0.1, 0.36], [28, 6], 'stoneDark'],
+  [0.65, -0.55, [0.24, 0.14, 0.2], [-20, -8], 'stone'],
+];
+
+/**
+ * Builds the ragged end of the old low stone wall of the yard of the
+ * chief's house, running along X: a short body of rough stone that has
+ * lost most of its slabs, nearly as tall as the body of a stretch at the
+ * end on -X, where one worn slab still lies askew on it, and broken down to
+ * half that height and then to two low stones at the end on +X.  A slab
+ * that fell from it lies on the ground on the +Z side, and a stone of its
+ * body on the -Z side, and moss grows on its top and on the fallen slab.
+ *
+ * @returns {BuiltModel} The model.
+ */
+export function buildYardWallEnd(): BuiltModel {
+  const model = new Model('YardWallEnd');
+  setOldStoneMaterials(model);
+  const depth: number = YARD_WALL_DEPTH;
+  model.add(
+    'stone',
+    place(createBlock(0.62, YARD_WALL_HEIGHT - 0.04, depth, [0.97, 0.9]), {
+      pos: [-0.33, 0, 0],
+    }),
+  );
+  model.add(
+    'stoneDark',
+    place(createBlock(0.38, 0.3, depth - 0.02, [0.85, 0.9]), {
+      pos: [0.12, 0, 0],
+      rot: [0, 3, 0],
+    }),
+  );
+  model.add(
+    'stoneDark',
+    place(createBlock(0.46, 0.1, 0.37, [0.85, 0.9]), {
+      pos: [-0.42, YARD_WALL_HEIGHT - 0.05, 0.01],
+      rot: [0, -6, -4],
+    }),
+  );
+  for (const [x, z, [w, h, d], turn, material] of YARD_WALL_END_STONES) {
+    model.add(
+      material,
+      place(createBlock(w, h, d, [0.8, 0.85]), {
+        pos: [x, 0, z],
+        rot: [0, turn, 0],
+      }),
+    );
+  }
+  for (const [x, z, [w, h, d], [turn, tip], material] of
+    YARD_WALL_FALLEN_STONES) {
+    model.add(
+      material,
+      place(createBlock(w, h, d, [0.85, 0.85]), {
+        pos: [x, 0, z],
+        rot: [tip, turn, 0],
+      }),
+    );
+  }
+  model.add(
+    'moss',
+    place(createMossPatch(41, 0.3, 0.26, 0.04), {
+      pos: [0.1, 0.3, 0.02],
+    }),
+  );
+  model.add(
+    'mossDark',
+    place(createMossPatch(42, 0.3, 0.24, 0.03), {
+      pos: [0.12, 0.1, 0.42],
+      rot: [0, 28, 0],
+    }),
+  );
+  flattenUnderside(model);
+  model.centreFootprint();
+  return { model };
+}
+
 /** The number of sprigs in a patch of clover. */
 const CLOVER_SPRIG_COUNT = 10;
 
@@ -860,7 +1087,10 @@ function createHeartOutline(length: number): Pair[] {
  *   thinner, so that the leaflets stand out in front of where it meets
  *   them when both lie on the same face.
  */
-function createFourLeafClover(length: number, depth: number): [Shape, Shape] {
+export function createFourLeafClover(
+  length: number,
+  depth: number,
+): [Shape, Shape] {
   const leaflet: Shape = createExtrusion(createHeartOutline(length), depth);
   const leaflets: Shape = [45, 135, 225, 315].flatMap((turn: number) =>
     place(leaflet, { rot: [0, 0, turn] }),
@@ -892,6 +1122,17 @@ function createFourLeafClover(length: number, depth: number): [Shape, Shape] {
     depth / 2,
   );
   return [leaflets, stalk];
+}
+
+/**
+ * Defines the materials of the four-leaved clover that the village sign
+ * bears: `leaf` for its leaflets and `stalk` for its stalk.
+ *
+ * @param {Model} model - The model.
+ */
+export function setCloverMaterials(model: Model): void {
+  model.setMaterial('leaf', '#3f9a3a');
+  model.setMaterial('stalk', '#2f7a2e');
 }
 
 /**
@@ -949,8 +1190,7 @@ export function buildVillageSign(): BuiltModel {
   model.setMaterial('board', '#d9a568');
   model.setMaterial('grain', '#b07a44');
   model.setMaterial('nail', '#4a3c34');
-  model.setMaterial('leaf', '#3f9a3a');
-  model.setMaterial('stalk', '#2f7a2e');
+  setCloverMaterials(model);
   model.add(
     'post',
     createTube(
@@ -1006,6 +1246,138 @@ export function buildVillageSign(): BuiltModel {
       }),
     );
   }
+  flattenUnderside(model);
+  model.centreFootprint();
+  return { model };
+}
+
+/** The radius of the stonework of the old well, in metres. */
+const WELL_RADIUS = 0.7;
+
+/**
+ * The patches of moss on the old well: the angle around the well, in
+ * degrees, how far the middle of each lies from the middle of the well and
+ * how high, and its size along the wall, upwards and outwards.  They lie
+ * on the top of the wall, against its side and at its foot, all within the
+ * reach of the stonework and the roof.
+ */
+const WELL_MOSS: readonly (readonly [number, number, number, Triple])[] = [
+  [25, 0.585, 0.66, [0.16, 0.035, 0.08]],
+  [140, 0.585, 0.66, [0.13, 0.03, 0.07]],
+  [230, 0.585, 0.66, [0.15, 0.035, 0.08]],
+  [320, 0.6, 0.63, [0.1, 0.06, 0.05]],
+  [155, 0.63, 0.33, [0.12, 0.16, 0.05]],
+  [70, 0.64, 0.03, [0.22, 0.11, 0.06]],
+  [200, 0.64, 0.03, [0.2, 0.1, 0.06]],
+  [290, 0.64, 0.03, [0.18, 0.1, 0.06]],
+];
+
+/**
+ * Builds the old well that stands in the yard of the chief's house, long
+ * out of use: a round wall of mossy stonework, course on course, with its
+ * mouth boarded over, between two weathered posts that still hold up the
+ * bare beam and the little roof over it, with neither bucket nor rope.
+ *
+ * @returns {BuiltModel} The model.
+ */
+export function buildOldWell(): BuiltModel {
+  const model = new Model('OldWell');
+  setOldStoneMaterials(model);
+  model.setMaterial('board', '#9e7d58');
+  model.setMaterial('boardDark', '#7f6142');
+  model.setMaterial('post', '#6c5139');
+  const sides = 10;
+  // The wall, each course set half a stone round from the one below.
+  const course = 0.19;
+  for (let i = 0; i < 3; i++) {
+    model.add(
+      i % 2 ? 'stoneDark' : 'stone',
+      createLathe(
+        [
+          [WELL_RADIUS - 0.04 + (i % 2) * 0.012, i * course],
+          [WELL_RADIUS - 0.04 + (i % 2) * 0.012, (i + 1) * course],
+        ],
+        sides,
+        { phase: i * 0.5 },
+      ),
+    );
+  }
+  const top = 0.66;
+  model.add(
+    'stoneDark',
+    createLathe(
+      [
+        [WELL_RADIUS, 3 * course],
+        [WELL_RADIUS, top],
+        [0.47, top],
+        [0.47, 0.45],
+      ],
+      sides,
+      { phase: 0.25 },
+    ),
+  );
+  // The boards over the mouth, laid side by side across it, a little
+  // askew, with two battens nailed across them.
+  const boards: readonly Pair[] = [
+    [-0.33, 4],
+    [-0.11, -3],
+    [0.11, 2],
+    [0.33, -5],
+  ];
+  boards.forEach(([z, turn]: Pair, i: number) => {
+    model.add(
+      i === 2 ? 'boardDark' : 'board',
+      place(createBlock(1.08, 0.035, 0.2), {
+        pos: [0, top, z],
+        rot: [0, turn, 0],
+      }),
+    );
+  });
+  for (const x of [-0.3, 0.28]) {
+    model.add(
+      'boardDark',
+      place(createBlock(0.07, 0.03, 0.86), { pos: [x, top + 0.035, 0] }),
+    );
+  }
+  // The posts, the bare beam between them and the little roof.
+  const beam = 1.42;
+  for (const x of [-0.59, 0.59]) {
+    model.add('post', place(createBlock(0.1, beam, 0.1), { pos: [x, 0, 0] }));
+  }
+  model.add('post', place(createBox(1.34, 0.08, 0.08), { pos: [0, beam, 0] }));
+  for (const side of [-1, 1]) {
+    model.add(
+      'board',
+      place(createBox(1.46, 0.035, 0.56), {
+        pos: [0, beam + 0.2, side * 0.2],
+        rot: [side * 38, 0, 0],
+      }),
+    );
+  }
+  // A ragged patch of moss towards one end of the roof, on its front.
+  model.add(
+    'moss',
+    place(createMossPatch(72, 0.42, 0.3, 0.035), {
+      pos: [0.4, beam + 0.2 + 0.788 * 0.022, 0.2 + 0.616 * 0.022],
+      rot: [38, 0, 0],
+    }),
+  );
+  WELL_MOSS.forEach(
+    (
+      [degrees, out, y, scale]: readonly [number, number, number, Triple],
+      i: number,
+    ) => {
+      const angle: number = (degrees * Math.PI) / 180;
+      model.add(
+        y > 0.6 ? 'moss' : 'mossDark',
+        place(createBlob(0, 700 + i, 0.25), {
+          pos: [out * Math.sin(angle), y, out * Math.cos(angle)],
+          rot: [0, degrees, 0],
+          scale,
+        }),
+      );
+    },
+  );
   flattenUnderside(model);
   model.centreFootprint();
   return { model };

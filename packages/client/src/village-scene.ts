@@ -69,12 +69,22 @@ const FOG_NEAR = 70;
  */
 const FOG_FAR = 760;
 
-/** The plaza, the paths into and out of it, and the monster's ground. */
+/**
+ * The plaza, the paths into and out of it, the way from the plaza up to the
+ * porch of the chief's house, and the monster's ground.  The path on the
+ * east, narrower than the one on the west, winds in three lengths from
+ * behind the great tree past the end of the low wall in front of the
+ * chief's yard, on the side away from the house, and past the end of the
+ * fence behind the tree, to the back of the village.
+ */
 const PATCHES: readonly Patch[] = [
   [0, 8, 2.6, 16, 0],
   [0, -8, 9, 8.2, 0],
   [-5.2, -21, 1.6, 10, -12],
-  [5.2, -21, 1.6, 10, 12],
+  [2.15, -17.2, 0.9, 2.7, 3.6],
+  [3.25, -20.9, 0.9, 2.25, -39.8],
+  [4.45, -26.35, 0.9, 4.45, 0.7],
+  [5.3, -14.6, 1.4, 1.8, -60],
   [10, 8, 4, 3, 0],
 ];
 

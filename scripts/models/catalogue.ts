@@ -21,7 +21,12 @@
  * @module scripts/models/catalogue The list of every model to generate.
  */
 
-import { buildCottage, buildFountain, buildWeaponShop } from './buildings.ts';
+import {
+  buildChiefHouse,
+  buildCottage,
+  buildFountain,
+  buildWeaponShop,
+} from './buildings.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
 import { buildNpcEmma } from './npc-emma.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
@@ -31,10 +36,13 @@ import {
   buildFence,
   buildGreatTree,
   buildHealingStele,
+  buildOldWell,
   buildPineTree,
   buildRock,
   buildSpawnStones,
   buildVillageSign,
+  buildYardWall,
+  buildYardWallEnd,
 } from './props.ts';
 import type { BuiltModel } from './rig.ts';
 import { buildWildDog } from './wild-dog.ts';
@@ -75,5 +83,9 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-spawn-stones', build: buildSpawnStones },
     { name: 'prop-healing-stele', build: buildHealingStele },
     { name: 'prop-village-sign', build: buildVillageSign },
+    { name: 'prop-chief-house', build: buildChiefHouse },
+    { name: 'prop-yard-wall', build: buildYardWall },
+    { name: 'prop-yard-wall-end', build: buildYardWallEnd },
+    { name: 'prop-old-well', build: buildOldWell },
   ];
 }

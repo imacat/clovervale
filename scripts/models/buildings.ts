@@ -18,7 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/buildings The weapon shop, the fountain and a cottage.
+ * @module scripts/models/buildings The weapon shop, the fountain, a cottage
+ *   and the house of the village chief.
  */
 
 import {
@@ -33,6 +34,7 @@ import {
 } from './geometry.ts';
 import type { Pair, Placement, Shape, Triple } from './geometry.ts';
 import { Model } from './model.ts';
+import { createFourLeafClover, setCloverMaterials } from './props.ts';
 import type { BuiltModel } from './rig.ts';
 
 /** A wall of a house. */
@@ -64,6 +66,11 @@ interface HousePlan {
   readonly base: number;
   /** The height of the walls. */
   readonly wall: number;
+  /**
+   * The number of storeys the walls rise through, each as tall as the
+   * others, or one if not given.
+   */
+  readonly storeys?: number;
   /** The height of the roof. */
   readonly rise: number;
   /** The offset of the door from the centre of the front wall. */
@@ -126,6 +133,12 @@ function setHouseMaterials(
 function addHouse(model: Model, plan: HousePlan): PutOnWall {
   const { x, width: w, depth: d, base, wall, rise } = plan;
   const eaves: number = base + wall;
+  const storeys: number = plan.storeys ?? 1;
+  const storey: number = wall / storeys;
+  const floors: number[] = Array.from(
+    { length: storeys - 1 },
+    (_, i: number) => base + (i + 1) * storey,
+  );
   const putOnWall: PutOnWall = (
     shape: Shape,
     side: Wall,
@@ -209,7 +222,7 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
   const gables: Wall[] = ['front', 'back'];
   const sides: Wall[] = ['left', 'right'];
   for (const side of gables) {
-    for (const y of [base + 0.1, eaves - 0.1]) {
+    for (const y of [base + 0.1, eaves - 0.1, ...floors]) {
       model.add(
         'timber',
         putOnWall(createBox(w + 0.12, 0.2, 0.1), side, 0, y, 0.03),
@@ -273,19 +286,21 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
     }
   }
   const addBrace = (side: Wall, u: number, lean: number): void => {
-    const span: number = wall * 0.5 - 0.2;
-    model.add(
-      'timber',
-      putOnWall(
-        place(createBox(0.15, Math.hypot(span, span * 0.8), 0.08), {
-          rot: [0, 0, lean * 38.7],
-        }),
-        side,
-        u,
-        base + 0.2 + span / 2,
-        0.03,
-      ),
-    );
+    const span: number = storey * 0.5 - 0.2;
+    for (let i = 0; i < storeys; i++) {
+      model.add(
+        'timber',
+        putOnWall(
+          place(createBox(0.15, Math.hypot(span, span * 0.8), 0.08), {
+            rot: [0, 0, lean * 38.7],
+          }),
+          side,
+          u,
+          base + i * storey + 0.2 + span / 2,
+          0.03,
+        ),
+      );
+    }
   };
   addBrace('front', -w / 2 + 0.65, -1);
   addBrace('front', w / 2 - 0.65, 1);
@@ -967,6 +982,214 @@ export function buildCottage(): BuiltModel {
       ),
     );
   }
+  model.centreFootprint();
+  return { model };
+}
+
+/**
+ * The outline of the banner of the village chief, in metres from the middle
+ * of its top edge: a length of cloth with its lower end cut into two tails.
+ */
+const BANNER_OUTLINE: readonly Pair[] = [
+  [-0.25, 0],
+  [0.25, 0],
+  [0.25, -0.85],
+  [0, -0.7],
+  [-0.25, -0.85],
+];
+
+/**
+ * Builds the house of the village chief: a cottage grown wider, deeper and
+ * two storeys tall, each storey as tall as the one of a cottage, with the
+ * same walls under a broad roof of a gentler pitch, laid with clay tiles
+ * of a deeper red-brown than those of a cottage, and a porch added in
+ * front of the middle of it under a little roof of the same tiles.  The
+ * door, as large as the door of a cottage, opens onto the middle of the
+ * porch.  From the left end of the front beam of the porch, as one faces
+ * the house, hangs a small banner bearing the green four-leaved clover of
+ * the village sign; to the right of the door, on the porch, is room for
+ * someone to stand.  The front faces +Z, and the windows of both storeys
+ * and the window in the gable, as large as those of a cottage, hold glass.
+ *
+ * @returns {BuiltModel} The model.
+ */
+export function buildChiefHouse(): BuiltModel {
+  const model = new Model('ChiefHouse');
+  setHouseMaterials(model, '#a5482d', '#8f3c25');
+  setCloverMaterials(model);
+  model.setMaterial('green', '#5fa646');
+  model.setMaterial('red', '#e2463c');
+  model.setMaterial('deck', '#a87447');
+  model.setMaterial('banner', '#e3b34c');
+  const lower = 1.75;
+  const upper = 4.05;
+  const pane = { w: 0.95, h: 0.85 };
+  const plan: HousePlan = {
+    x: 0,
+    width: 7.2,
+    depth: 5,
+    base: 0.4,
+    wall: 4.6,
+    storeys: 2,
+    rise: 2.1,
+    door: 0,
+    chimney: [-2, -1.2],
+    windows: [
+      { wall: 'front', u: -2.75, y: lower, ...pane },
+      { wall: 'front', u: 2.75, y: lower, ...pane },
+      { wall: 'front', u: -2.75, y: upper, ...pane },
+      { wall: 'front', u: 0, y: upper, ...pane },
+      { wall: 'front', u: 2.75, y: upper, ...pane },
+      { wall: 'front', u: 0, y: 5.9, w: 0.6, h: 0.55 },
+      { wall: 'left', u: 0, y: lower, ...pane },
+      { wall: 'left', u: 0, y: upper, ...pane },
+      { wall: 'right', u: 0, y: lower, ...pane },
+      { wall: 'right', u: 0, y: upper, ...pane },
+      { wall: 'back', u: -1.5, y: lower, ...pane },
+      { wall: 'back', u: 1.5, y: lower, ...pane },
+      { wall: 'back', u: -1.5, y: upper, ...pane },
+      { wall: 'back', u: 1.5, y: upper, ...pane },
+    ],
+  };
+  const putOnWall: PutOnWall = addHouse(model, plan);
+  const front: number = plan.depth / 2;
+
+  // The boxes of flowers under the windows of the ground floor, beside the
+  // porch, as a cottage has under its window.
+  for (const u of [-2.75, 2.75]) {
+    model.add(
+      'timber',
+      putOnWall(createBox(1.35, 0.26, 0.3), 'front', u, lower - 0.68, 0.2),
+    );
+    for (let i = 0; i < 4; i++) {
+      model.add(
+        'green',
+        putOnWall(
+          place(createBlob(0, 80 + i, 0.2), { scale: 0.17 }),
+          'front',
+          u - 0.5 + i * 0.33,
+          lower - 0.48,
+          0.2,
+        ),
+      );
+      model.add(
+        'red',
+        putOnWall(
+          createEllipsoid([0.07, 0.07, 0.07], 0),
+          'front',
+          u - 0.4 + i * 0.27,
+          lower - 0.34,
+          0.27,
+        ),
+      );
+    }
+  }
+
+  // The porch, added in front of the stone base across the middle of the
+  // front: a low wooden floor, two posts along its front, braced to the
+  // beam they hold up, and the little roof, which slopes down from the
+  // wall just above the floor of the upper storey.
+  const porch = 1.9;
+  const post = 2;
+  const postZ: number = front + 1.65;
+  const deck = 0.08;
+  const beam = 2.52;
+  const eaves = 3.15;
+  model.add(
+    'deck',
+    place(createBlock(4.4, deck, 1.65), { pos: [0, 0, front + 0.975] }),
+  );
+  for (const side of [-1, 1]) {
+    model.add(
+      'timber',
+      place(createBlock(0.16, beam - 0.08 - deck, 0.16), {
+        pos: [side * post, deck, postZ],
+      }),
+    );
+    model.add(
+      'timber',
+      place(createBox(0.08, 0.5, 0.08), {
+        pos: [side * (post - 0.17), beam - 0.25, postZ],
+        rot: [0, 0, side * 45],
+      }),
+    );
+  }
+  model.add(
+    'timber',
+    place(createBox(4.3, 0.16, 0.16), { pos: [0, beam, postZ] }),
+  );
+  const slope: number = (eaves - (beam + 0.08)) / (postZ - front);
+  const rows = 3;
+  for (let i = 0; i < rows; i++) {
+    const far: number = (porch * (rows - i)) / rows;
+    const thick: number = 0.12 + 0.05 * i;
+    model.add(
+      i % 2 ? 'roofShade' : 'roof',
+      place(
+        createExtrusion(
+          [
+            [0, eaves],
+            [far, eaves - slope * far],
+            [far, eaves - slope * far + thick],
+            [0, eaves + thick],
+          ],
+          4.8 - 0.04 * i,
+        ),
+        { pos: [0, 0, front], rot: [0, -90, 0] },
+      ),
+    );
+  }
+
+  // The banner, hung from a rod on two hooks in the front of the beam of
+  // the porch, beside the post on the left, clear of its brace.
+  const banner = -1.2;
+  const hang: number = beam - 0.03;
+  const cloth = 0.02;
+  const out: number = postZ - front + 0.13;
+  model.add(
+    'banner',
+    putOnWall(
+      createExtrusion(BANNER_OUTLINE, cloth),
+      'front',
+      banner,
+      hang - 0.02,
+      out,
+    ),
+  );
+  model.add(
+    'timber',
+    putOnWall(createBox(0.6, 0.035, 0.035), 'front', banner, hang, out),
+  );
+  for (const side of [-1, 1]) {
+    model.add(
+      'timber',
+      putOnWall(
+        createBox(0.03, 0.03, 0.06),
+        'front',
+        banner + side * 0.22,
+        hang,
+        out - 0.03,
+      ),
+    );
+    model.add(
+      'gold',
+      putOnWall(
+        createEllipsoid([0.03, 0.03, 0.03], 0),
+        'front',
+        banner + side * 0.32,
+        hang,
+        out,
+      ),
+    );
+  }
+  const [leaflets, stalk] = createFourLeafClover(0.13, 0.008);
+  const clover: number = hang - 0.32;
+  const face: number = out + cloth / 2;
+  model.add(
+    'leaf',
+    putOnWall(leaflets, 'front', banner, clover, face + 0.004),
+  );
+  model.add('stalk', putOnWall(stalk, 'front', banner, clover, face + 0.002));
   model.centreFootprint();
   return { model };
 }

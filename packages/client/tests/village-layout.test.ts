@@ -36,6 +36,7 @@ import type { Placement } from '../src/village-layout.ts';
 /** The required models, and the props the plaza is built from. */
 const PLAZA_FILES: readonly string[] = [
   ...REQUIRED_MODEL_FILES,
+  'prop-chief-house.glb',
   'prop-cottage.glb',
   'prop-great-tree.glb',
 ];
@@ -94,7 +95,11 @@ describe('layoutVillage', () => {
     const fountain: Placement = findOnly(placements, 'fountain.glb');
     const buildings: Placement[] = placements.filter(
       (placement: Placement) =>
-        ['prop-cottage.glb', 'weapon-shop.glb'].includes(placement.file),
+        [
+          'prop-chief-house.glb',
+          'prop-cottage.glb',
+          'weapon-shop.glb',
+        ].includes(placement.file),
     );
     expect(buildings).toHaveLength(4);
     const corners = new Set<string>();
@@ -157,6 +162,7 @@ describe('layoutVillage', () => {
       const isVillager: boolean = [
         'npc-nancy.glb',
         'weapon-shop.glb',
+        'prop-chief-house.glb',
         'prop-cottage.glb',
       ].includes(villager.file);
       if (isVillager) {
