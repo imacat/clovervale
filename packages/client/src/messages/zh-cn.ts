@@ -124,4 +124,8 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'villager.martha.line.1':
     '欢迎来到四叶谷，我是村长{name}，有什么事都可以来找我帮忙。',
   'villager.martha.line.2': '那口井早就干了，我封起来，免得小孩掉下去。',
+  'villager.toby.name': '托比',
+  'villager.toby.line.1': '妈妈说不可以出去，外面有野狗。',
+  'villager.toby.line.2': '有事要找村长哦，她住在最大的那间房子。',
+  'villager.toby.line.3': '我在找四叶的！找到就会有好运哦。',
 };

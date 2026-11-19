@@ -61,7 +61,7 @@ function walkLeg(from: GroundVector, leg: Leg): GroundVector {
     direction: leg.direction,
   });
   for (let step = 0; step < leg.steps; step++) {
-    motion = stepMotion(motion);
+    motion = stepMotion(motion, 0);
   }
   return { x: motion.x, z: motion.z };
 }
@@ -157,16 +157,17 @@ describe('planDrinkingWalk', () => {
       for (const leg of legs ?? []) {
         motion = applyInput(motion, { type: 'move', direction: leg.direction });
         for (let step = 0; step < leg.steps; step++) {
-          motion = stepMotion(motion);
+          motion = stepMotion(motion, 0);
         }
       }
       motion = stepMotion(
         applyInput(motion, { type: 'move', direction: { x: 0, z: 0 } }),
+        0,
       );
       expect(measureDistance(motion, DRINKING_SPOT)).toBeLessThanOrEqual(
         STEP_DISTANCE / 2 + 1e-9,
       );
-      expect(findInteraction(motion)).toBe('Drink');
+      expect(findInteraction(motion, 0)).toBe('Drink');
     }
   });
 

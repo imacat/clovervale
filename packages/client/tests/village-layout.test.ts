@@ -23,7 +23,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { findSpawnPoint } from '@clovervale/shared';
+import { TOBY_FILE, findSpawnPoint } from '@clovervale/shared';
 
 import {
   CHARACTER_FILES,
@@ -77,13 +77,17 @@ describe('layoutVillage', () => {
     expect(placements.map((placement: Placement) => placement.file)).toEqual(
       REQUIRED_MODEL_FILES.filter(
         (file: string) =>
-          !CHARACTER_FILES.includes(file) && file !== MONSTER_FILE,
+          !CHARACTER_FILES.includes(file) &&
+          file !== MONSTER_FILE &&
+          file !== TOBY_FILE,
       ),
     );
   });
 
-  it('leaves the characters and the monster to stand where they are', () => {
-    expect(layoutVillage([...CHARACTER_FILES, MONSTER_FILE])).toEqual([]);
+  it('leaves the characters, the monster and Toby to go about', () => {
+    expect(
+      layoutVillage([...CHARACTER_FILES, MONSTER_FILE, TOBY_FILE]),
+    ).toEqual([]);
   });
 
   it('leaves out an NPC the village has no place for', () => {

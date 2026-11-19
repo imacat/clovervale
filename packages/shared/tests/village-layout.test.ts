@@ -379,7 +379,7 @@ describe('VILLAGE_TERRAIN', () => {
       yaw: 180,
     };
     expect(VILLAGE_TERRAIN.isClear(front)).toBe(true);
-    expect(findInteraction(front)).toBe('Drink');
+    expect(findInteraction(front, 0)).toBe('Drink');
   });
 
   it('takes up the ground the foot of the healing stele stands on', () => {

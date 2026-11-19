@@ -251,15 +251,21 @@ export function startBot(
      * @param {InputProgress} own - How far the player has got with the
      *   inputs of the bot, now that it is ready for the next one.
      * @param {number} health - The health of the player.
+     * @param {number} step - The number of the step the server told that
+     *   at.
      * @returns {boolean} Whether the player is still on its visit.
      */
-    const visitFountain = (own: InputProgress, health: number): boolean => {
+    const visitFountain = (
+      own: InputProgress,
+      health: number,
+      step: number,
+    ): boolean => {
       if (visit === 'none' && health <= thirstyHealth) {
         visit = 'walking';
         attempts = 0;
       }
       if (visit === 'walking') {
-        if (findInteraction(own.motion) === 'Drink') {
+        if (findInteraction(own.motion, step) === 'Drink') {
           visit = 'drinking';
           drink();
           return true;
@@ -279,7 +285,11 @@ export function startBot(
       }
       return false;
     };
-    const patrolOn = (own: InputProgress, health: number): void => {
+    const patrolOn = (
+      own: InputProgress,
+      health: number,
+      step: number,
+    ): void => {
       if (own.motion.action === 'Die') {
         // The player comes back elsewhere, where the rest of the walk would
         // lead it astray, so it is to rest by then and set out afresh.
@@ -293,7 +303,7 @@ export function startBot(
         own.sequence === sequence &&
         isResting(own.motion) &&
         now >= readyTime;
-      if (!isReady || visitFountain(own, health)) {
+      if (!isReady || visitFountain(own, health, step)) {
         return;
       }
       if (target !== null && !isStaying) {
@@ -331,7 +341,7 @@ export function startBot(
           const own: PlayerState | undefined = message.players.find(
             (player: PlayerState) => player.id === playerId,
           );
-          patrolOn(message.own, own?.health ?? PLAYER_HEALTH);
+          patrolOn(message.own, own?.health ?? PLAYER_HEALTH, message.step);
         }
         return;
       }

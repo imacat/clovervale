@@ -128,4 +128,12 @@ export const JA_MESSAGES: MessageTable = {
   'villager.martha.line.2':
     'あの井戸はとっくに涸れてしまってね。子どもが落ちないように、' +
     '私が板でふさいでおいたのよ。',
+  'villager.toby.name': 'トビー',
+  'villager.toby.line.1':
+    'ママがね、おそとに出ちゃダメだって。野良犬がいるんだって。',
+  'villager.toby.line.2':
+    '用があるなら、村長さんのところに行ってね。いちばん大きい' +
+    'おうちに住んでるよ。',
+  'villager.toby.line.3':
+    '四つ葉のをさがしてるんだ！見つけたら、いいことがあるんだよ。',
 };

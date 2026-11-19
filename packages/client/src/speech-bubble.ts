@@ -32,7 +32,7 @@ import {
 } from 'three';
 import type { Object3D } from 'three';
 
-import { findPlacement } from '@clovervale/shared';
+import { locateVillager } from '@clovervale/shared';
 import type { Villager, VillagerId } from '@clovervale/shared';
 
 import { findLanguage } from './language.ts';
@@ -266,19 +266,23 @@ export function measureSpeechDuration(line: string): number {
 }
 
 /**
- * Finds the top of the head of a villager, where it stands in the village.
+ * Finds the top of the head of a villager, where it stands in the village
+ * at a step of the simulation.
  *
  * @param {Villager} villager - The villager.
  * @param {Object3D | null} root - The root of the model of the villager,
  *   as it stands in the village, or `null` if it has no model.
+ * @param {number} step - The number of the step, which may fall between
+ *   two steps.
  * @returns {Vector3} The point above where the villager stands at the
  *   height of the top of its model, or at a usual height without one.
  */
 export function findHeadTop(
   villager: Villager,
   root: Object3D | null,
+  step: number,
 ): Vector3 {
-  const { x, z } = findPlacement(villager.file);
+  const { x, z } = locateVillager(villager, step);
   const top: number =
     root === null ? NaN : new Box3().setFromObject(root).max.y;
   return new Vector3(x, Number.isFinite(top) ? top : DEFAULT_HEAD_TOP, z);
@@ -437,6 +441,21 @@ export class SpeechBubble {
       duration: measureSpeechDuration(words.line),
       age: 0,
     };
+  }
+
+  /**
+   * Moves the bubble of a villager to just above its head, where the head
+   * is now, if the bubble being shown is that of the villager, as it goes
+   * on speaking while it goes about.
+   *
+   * @param {Villager} villager - The villager.
+   * @param {Vector3} head - The top of the head of the villager.
+   */
+  follow(villager: Villager, head: Vector3): void {
+    if (this.#shown?.villager.id !== villager.id) {
+      return;
+    }
+    this.#shown.sprite.position.set(head.x, head.y + BUBBLE_MARGIN, head.z);
   }
 
   /**

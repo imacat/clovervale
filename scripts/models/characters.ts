@@ -60,7 +60,8 @@ export type HairStyle =
   | 'spiky'
   | 'puffs'
   | 'bun'
-  | 'chignon';
+  | 'chignon'
+  | 'tufts';
 
 /** The hair of a head, in model space. */
 export interface Hair {
@@ -71,6 +72,17 @@ export interface Hair {
    * colour in it.
    */
   readonly accent: Shape;
+}
+
+/**
+ * Where the head of a character of another build sits, and how big it is
+ * next to the head of a grown-up.
+ */
+export interface HeadFit {
+  /** The centre of the head in the rest pose. */
+  readonly centre: Triple;
+  /** The size of the head next to that of a grown-up. */
+  readonly scale: number;
 }
 
 /** The look of a character. */
@@ -242,6 +254,23 @@ export function findHeadPoint(
 }
 
 /**
+ * Moves a shape made on the head of a grown-up onto the head of another
+ * build, keeping its place on the head.
+ *
+ * @param {Shape} shape - The shape, in model space, on the head of a
+ *   grown-up.
+ * @param {HeadFit} fit - Where the other head sits, and how big it is.
+ * @returns {Shape} The shape on the other head, in model space.
+ */
+export function fitToHead(shape: Shape, fit: HeadFit): Shape {
+  const [x, y, z] = HEAD_CENTRE;
+  return place(place(shape, { pos: [-x, -y, -z] }), {
+    pos: fit.centre,
+    scale: fit.scale,
+  });
+}
+
+/**
  * Adds the head and the face.  The head is smooth-shaded; the features on
  * it are flat-shaded.
  *
@@ -250,54 +279,59 @@ export function findHeadPoint(
  *
  * @param {Model} model - The model.
  * @param {string} bone - The head bone.
+ * @param {HeadFit | null} [fit] - Where the head sits and how big it is,
+ *   for a character of another build, or `null` for the head of a
+ *   grown-up, which it is by default.
  */
-export function addHead(model: Model, bone: string): void {
-  model.add(
+export function addHead(
+  model: Model,
+  bone: string,
+  fit: HeadFit | null = null,
+): void {
+  const add = (material: string, shape: Shape, smooth = false): void => {
+    const fitted: Shape = fit === null ? shape : fitToHead(shape, fit);
+    model.add(material, fitted, bone, { smooth });
+  };
+  add(
     'skin',
     place(createEllipsoid(HEAD_RADII, 2), { pos: HEAD_CENTRE }),
-    bone,
-    { smooth: true },
+    true,
   );
   for (const side of [1, -1]) {
-    model.add(
+    add(
       'eye',
       place(createEllipsoid([0.043, 0.068, 0.02], 1), {
         pos: findHeadPoint(23 * side, 4, 0.985),
         rot: [4, 23 * side, 0],
       }),
-      bone,
     );
-    model.add(
+    add(
       'white',
       place(createEllipsoid([0.015, 0.02, 0.01], 0), {
         pos: findHeadPoint(23 * side + 3, -3, 1.035),
         rot: [0, 23 * side, 0],
       }),
-      bone,
     );
-    model.add(
+    add(
       'blush',
       place(createEllipsoid([0.042, 0.022, 0.01], 0), {
         pos: findHeadPoint(41 * side, 21, 0.995),
         rot: [21, 41 * side, 0],
       }),
-      bone,
     );
-    model.add(
+    add(
       'skin',
       place(createEllipsoid([0.03, 0.05, 0.04], 0), {
         pos: findHeadPoint(90 * side, 5, 0.98),
       }),
-      bone,
     );
   }
-  model.add(
+  add(
     'mouth',
     place(createEllipsoid([0.026, 0.013, 0.01], 0), {
       pos: findHeadPoint(0, 25, 0.995),
       rot: [25, 0, 0],
     }),
-    bone,
   );
 }
 
@@ -662,6 +696,46 @@ export function createHair(style: HairStyle): Hair {
           ...liftToHead([knot, twist]),
         ],
         accent: [...sweep(1), ...sweep(-1)],
+      };
+    }
+    case 'tufts': {
+      // Short, thick hair cut round the ears, with a ragged fringe over the
+      // brow, tufts that stick up all over the crown, and a cowlick standing
+      // up at the back of it.
+      const spots: Pair[] = [
+        [0, 24],
+        [64, 56],
+        [-58, 60],
+        [-12, 58],
+        [18, 66],
+        [0, 92],
+        [36, 82],
+        [-34, 86],
+      ];
+      const tufts: Shape[] = spots.map(([turn, tilt]: Pair) => {
+        const tilted: Shape = place(
+          place(createCone(0.085, 0, 0.1, 5), { pos: [0, 0.255, 0] }),
+          { rot: [-tilt, 0, 0] },
+        );
+        return place(tilted, { rot: [0, turn, 0] });
+      });
+      return {
+        hair: [
+          ...createHairCap([60, 60, 64, 72, 98, 108, 110, 108, 106], 0.05),
+          ...liftToHead(tufts),
+        ],
+        accent: liftToHead([
+          createTube(
+            [
+              [0, 0.27, -0.13],
+              [0.01, 0.33, -0.15],
+              [0.05, 0.355, -0.09],
+              [0.07, 0.33, -0.05],
+            ],
+            [0.035, 0.03, 0.02, 0],
+            5,
+          ),
+        ]),
       };
     }
     case 'puffs': {

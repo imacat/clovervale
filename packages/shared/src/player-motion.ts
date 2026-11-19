@@ -27,6 +27,7 @@ import type { ActionState, Interaction } from './actions.ts';
 import { findInteraction } from './interaction.ts';
 import { SIMULATION_RATE, findYaw, movePosition } from './movement.ts';
 import type { GroundVector } from './movement.ts';
+import { findTobyPose, pushAside, resolveWalk } from './toby.ts';
 import { VILLAGE_TERRAIN } from './village-layout.ts';
 
 /** How long one step of the simulation lasts, in seconds. */
@@ -137,9 +138,9 @@ export function createMotion(
  * A move changes the way the player wants to move.  An interaction makes
  * the player slash, drink from the fountain or talk to a villager, as
  * {@link findInteraction} tells from where it stands and which way it faces
- * at the step it starts, unless the player cannot interact then, as
- * {@link canInteract} tells, in which case it does none of them, then or
- * later.
+ * at the step it starts, and from where Toby is then, unless the player
+ * cannot interact then, as {@link canInteract} tells, in which case it does
+ * none of them, then or later.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.
@@ -162,46 +163,57 @@ export function applyInput(
 /**
  * Moves a player one step of the simulation forward.
  *
- * A player that slashes, drinks from the fountain or talks to a villager
- * stands still, without turning, for as long as that lasts, whichever way
- * it wants to move.  Any other player that wants to move walks that way,
- * facing it, and idles otherwise.  A walking player does not go through the
- * obstacles of the village, nor out of it: it slides along what it walks
- * into at an angle, and walks on the spot against what it walks straight
- * into.  A dead player stays exactly as it is.
+ * Toby is first where his course has him at the step, and a living player
+ * in his way is pushed aside, as {@link pushAside} tells, whatever it is
+ * doing.  Then a player that slashes, drinks from the fountain or talks to
+ * a villager stands still, without turning, for as long as that lasts,
+ * whichever way it wants to move.  Any other player that wants to move
+ * walks that way, facing it, and idles otherwise.  A walking player does
+ * not go through the obstacles of the village, nor through Toby, nor out of
+ * the village: it slides along what it walks into at an angle, and walks
+ * on the spot against what it walks straight into.  A dead player stays
+ * exactly as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
+ * @param {number} step - The number of the step, as the server counts
+ *   them, which tells where Toby is.
  * @returns {PlayerMotion} The motion after the step.
  */
-export function stepMotion(motion: PlayerMotion): PlayerMotion {
+export function stepMotion(motion: PlayerMotion, step: number): PlayerMotion {
   if (motion.action === 'Die') {
     return motion;
   }
-  let { actionSteps } = motion;
-  if (isInteraction(motion.action) && --actionSteps > 0) {
-    return { ...motion, actionSteps };
+  const toby: GroundVector = findTobyPose(step);
+  const pushed: GroundVector = pushAside(motion, toby, VILLAGE_TERRAIN);
+  const moved: PlayerMotion =
+    pushed === motion ? motion : { ...motion, x: pushed.x, z: pushed.z };
+  let { actionSteps } = moved;
+  if (isInteraction(moved.action) && --actionSteps > 0) {
+    return { ...moved, actionSteps };
   }
-  if (motion.isInteracting) {
-    const interaction: Interaction = findInteraction(motion);
+  if (moved.isInteracting) {
+    const interaction: Interaction = findInteraction(moved, step);
     return startAction(
       {
-        ...motion,
+        ...moved,
         isInteracting: false,
         actionSteps: INTERACTION_STEPS[interaction],
       },
       interaction,
     );
   }
-  const { direction } = motion;
+  const { direction } = moved;
   if (direction.x === 0 && direction.z === 0) {
-    return startAction({ ...motion, actionSteps }, 'Idle');
+    return startAction({ ...moved, actionSteps }, 'Idle');
   }
-  const { x, z } = VILLAGE_TERRAIN.resolveMove(
-    motion,
-    movePosition(motion, direction, STEP_SECONDS),
+  const { x, z } = resolveWalk(
+    moved,
+    movePosition(moved, direction, STEP_SECONDS),
+    toby,
+    VILLAGE_TERRAIN,
   );
   const yaw: number = findYaw(direction);
-  return startAction({ ...motion, x, z, yaw, actionSteps }, 'Walk');
+  return startAction({ ...moved, x, z, yaw, actionSteps }, 'Walk');
 }
 
 /**
@@ -257,7 +269,7 @@ export function relocateMotion(
 
 /**
  * Tells whether a player stays exactly as it is, step after step, until
- * its next input.
+ * its next input, unless Toby pushes it out of his way.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @returns {boolean} Whether the player idles, wanting nothing.

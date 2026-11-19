@@ -41,6 +41,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import {
+  SIMULATION_RATE,
+  TOBY_ACTIVITY_STEPS,
+  TOBY_FILE,
+  TOBY_RUN_SPEED,
   VILLAGE_PLACEMENTS,
   findPlacement,
   placePoint,
@@ -216,6 +220,10 @@ interface ClipMeasurements {
   readonly lowest: number;
   /** How far apart the first and the last poses are. */
   readonly seam: number;
+  /** The node matrices of the first pose. */
+  readonly start: readonly number[];
+  /** The node matrices of the last pose. */
+  readonly end: readonly number[];
   /** How far the first pose is from the first pose of `Idle`. */
   readonly startFromIdle: number;
   /** How far the last pose is from the first pose of `Idle`. */
@@ -224,6 +232,11 @@ interface ClipMeasurements {
   readonly hipsDrift: readonly [number, number];
   /** The mean speed along Z of each foot while on the ground, by bone name. */
   readonly footSpeeds: ReadonlyMap<string, number>;
+  /**
+   * The lowest point the hands reach, and how far in front of the feet the
+   * hands are then, in metres, if the model has hands.
+   */
+  readonly handReach: readonly [low: number, ahead: number] | null;
 }
 
 /** What a model measures when loaded and animated. */
@@ -272,6 +285,7 @@ const REQUIRED_FILES: readonly string[] = [
   'npc-nancy.glb',
   'npc-emma.glb',
   'npc-martha.glb',
+  TOBY_FILE,
   'wild-dog.glb',
   'weapon-shop.glb',
   'fountain.glb',
@@ -311,12 +325,84 @@ const OPTIONAL_CLIP_DURATIONS: Readonly<
   monster: {},
   static: {},
 };
+/** How long each activity of Toby lasts on his course, in seconds. */
+const CHILD_ACTIVITY_DURATIONS: Readonly<Record<string, number>> =
+  Object.fromEntries(
+    Object.entries(TOBY_ACTIVITY_STEPS).map(
+      ([activity, steps]: [string, number]) => [
+        activity,
+        steps / SIMULATION_RATE,
+      ],
+    ),
+  );
+/**
+ * The shortest and the longest each clip of Toby may last, in seconds:
+ * squatting down, standing up and turning round each as long as his course
+ * gives them, and no round of picking or stride of his run longer than his
+ * picking or his run.
+ */
+const CHILD_CLIP_DURATIONS: Readonly<
+  Record<string, readonly [number, number]>
+> = Object.fromEntries([
+  ['Idle', [0, Infinity]],
+  ...Object.entries(CHILD_ACTIVITY_DURATIONS).map(
+    ([activity, duration]: [string, number]): [string, [number, number]] => [
+      activity,
+      activity === 'Pick' || activity === 'Run'
+        ? [0, duration]
+        : [duration - 1e-6, duration],
+    ],
+  ),
+] satisfies [string, [number, number]][]);
+/**
+ * The clips of Toby that lead from one into another, by name, with the
+ * clips whose first frame each starts from and ends on, so that he goes on
+ * without a jump as his course takes him from one to the next.
+ */
+const CHILD_CLIP_CHAIN: Readonly<
+  Record<string, readonly [from: string, to: string]>
+> = {
+  Squat: ['Run', 'Pick'],
+  Rise: ['Pick', 'Idle'],
+  Turn: ['Idle', 'Run'],
+};
+/**
+ * The bounds of the height of Toby, in metres: clearly shorter than the
+ * grown-ups, which stand 1.5 m to 1.8 m tall.
+ */
+const CHILD_HEIGHT: readonly [number, number] = [1, 1.2];
+/**
+ * The highest the hands of Toby must come down to as he picks at the
+ * clover, in metres: among its leaves, a centimetre below the tops of the
+ * tallest, which reach up to 13 cm.
+ */
+const CLOVER_HEIGHT = 0.12;
+/**
+ * The least distance in front of the middle of his feet the hands of Toby
+ * must reach down at as he picks, in metres: over the patch of clover,
+ * whose edge lies just in front of his toes.
+ */
+const CLOVER_AHEAD = 0.12;
 /** The clips that loop. */
-const LOOPING_CLIPS: readonly string[] = ['Idle', 'Walk', 'Work'];
+const LOOPING_CLIPS: readonly string[] = [
+  'Idle',
+  'Walk',
+  'Work',
+  'Run',
+  'Pick',
+];
 /** The clips that end on the pose they start from. */
 const SETTLING_CLIPS: readonly string[] = ['Slash', 'Attack'];
-/** The distance a `Walk` cycle stands for, in metres. */
-const WALK_DISTANCE = 1.5;
+/**
+ * The speed each clip in which the feet tread the ground stands for, in
+ * metres per second, by the length of the clip in seconds: a `Walk` cycle
+ * stands for 1.5 m, and a `Run` of Toby for his speed.
+ */
+const TREADING_SPEEDS: Readonly<Record<string, (duration: number) => number>> =
+  {
+    Walk: (duration: number) => 1.5 / duration,
+    Run: () => TOBY_RUN_SPEED,
+  };
 /** The severities of the findings of the validator, by number. */
 const SEVERITIES: readonly string[] = ['error', 'warning', 'info', 'hint'];
 /** The greatest difference that counts as none, in metres. */
@@ -627,6 +713,7 @@ function measureClip(
   const speeds = new Map<string, number[]>();
   const hipsPath: Vector3[] = [];
   let lowest = Infinity;
+  let handReach: [number, number] | null = null;
   let previous: Vector3[] | null = null;
   let start: number[] = [];
   let end: number[] = [];
@@ -649,7 +736,14 @@ function measureClip(
     if (k === steps) {
       end = listNodeMatrices(root);
     }
-    if (clip.name === 'Walk') {
+    positions.forEach((position: Vector3, i: number) => {
+      const isHand: boolean =
+        boneNames[getItem(bones, i)]?.startsWith('Hand') === true;
+      if (isHand && (handReach === null || position.y < handReach[0])) {
+        handReach = [position.y, position.z];
+      }
+    });
+    if (clip.name in TREADING_SPEEDS) {
       boneNames.forEach((name: string, bone: number) => {
         if (!name.startsWith('Foot')) {
           return;
@@ -693,10 +787,13 @@ function measureClip(
     duration: clip.duration,
     lowest,
     seam: measureDifference(start, end),
+    start,
+    end,
     startFromIdle: measureDifference(start, idleStart),
     endFromIdle: measureDifference(end, idleStart),
     hipsDrift: [last.x - first.x, last.z - first.z],
     footSpeeds,
+    handReach,
   };
 }
 
@@ -895,7 +992,13 @@ async function checkModel(file: string): Promise<ModelResult> {
   check(min.y >= -TOLERANCE, 'rest pose reaches below the ground');
   check(min.y < 0.01, 'rest pose floats above the ground');
   const height: number = max.y;
-  if (kind === 'character' || kind === 'npc') {
+  if (file === TOBY_FILE) {
+    const [shortest, tallest] = CHILD_HEIGHT;
+    check(
+      height >= shortest && height <= tallest,
+      `height ${String(height)}`,
+    );
+  } else if (kind === 'character' || kind === 'npc') {
     check(height >= 1.5 && height <= 1.8, `height ${String(height)}`);
   } else if (kind === 'monster') {
     check(height >= 1 && height <= 2.5, `height ${String(height)}`);
@@ -982,7 +1085,8 @@ async function checkModel(file: string): Promise<ModelResult> {
       'more than four influences per vertex',
     );
     [skeletonHash, clipsHash] = hashRig(parsed);
-    const required = CLIP_DURATIONS[kind];
+    const required =
+      file === TOBY_FILE ? CHILD_CLIP_DURATIONS : CLIP_DURATIONS[kind];
     const durations = { ...OPTIONAL_CLIP_DURATIONS[kind], ...required };
     const clipNames: string[] = [...measured.clips.keys()];
     check(
@@ -1000,14 +1104,35 @@ async function checkModel(file: string): Promise<ModelResult> {
         clip.lowest >= -TOLERANCE,
         `${name} reaches ${String(clip.lowest)} below the ground`,
       );
+      const chain: readonly [string, string] | undefined =
+        file === TOBY_FILE ? CHILD_CLIP_CHAIN[name] : undefined;
+      // A clip that leads from one into another may move the hips, as the
+      // poses at its ends do.
       check(
         name === 'Die' ||
+          chain !== undefined ||
           (Math.abs(clip.hipsDrift[0]) < TOLERANCE &&
             Math.abs(clip.hipsDrift[1]) < TOLERANCE),
         `${name} drifts`,
       );
       if (LOOPING_CLIPS.includes(name)) {
         check(clip.seam < TOLERANCE, `${name} does not loop seamlessly`);
+      } else if (chain !== undefined) {
+        const [from, to] = chain;
+        const fromStart: readonly number[] =
+          measured.clips.get(from)?.start ?? [];
+        const toStart: readonly number[] =
+          measured.clips.get(to)?.start ?? [];
+        check(
+          fromStart.length > 0 &&
+            measureDifference(clip.start, fromStart) < TOLERANCE,
+          `${name} does not start from the first ${from} frame`,
+        );
+        check(
+          toStart.length > 0 &&
+            measureDifference(clip.end, toStart) < TOLERANCE,
+          `${name} does not end on the first ${to} frame`,
+        );
       } else {
         check(
           clip.startFromIdle < TOLERANCE,
@@ -1020,12 +1145,34 @@ async function checkModel(file: string): Promise<ModelResult> {
           `${name} does not end on the first Idle frame`,
         );
       }
+      const treading: number = TREADING_SPEEDS[name]?.(clip.duration) ?? 0;
       for (const [foot, speed] of clip.footSpeeds) {
         check(
-          Math.abs(speed + WALK_DISTANCE / clip.duration) < 0.05,
-          `${foot} slides: ${String(speed)} m/s on the ground`,
+          Math.abs(speed + treading) < 0.05,
+          `${foot} slides in ${name}: ${String(speed)} m/s on the ground`,
         );
       }
+    }
+    if (file === TOBY_FILE) {
+      const run: ClipMeasurements | undefined = measured.clips.get('Run');
+      const strides: number =
+        (CHILD_ACTIVITY_DURATIONS.Run ?? 0) / (run?.duration ?? Infinity);
+      check(
+        Math.abs(strides - Math.round(strides)) < 1e-6 && strides >= 1,
+        'Run does not fit a whole number of times into his run',
+      );
+      check(
+        (run?.footSpeeds.size ?? 0) === 2,
+        'Run does not set both feet on the ground',
+      );
+      const reach = measured.clips.get('Pick')?.handReach ?? null;
+      const centre: number = measured.feet?.getCenter(new Vector3()).z ?? 0;
+      check(
+        reach !== null &&
+          reach[0] <= CLOVER_HEIGHT &&
+          reach[1] - centre >= CLOVER_AHEAD,
+        'Pick does not reach down into the clover in front of him',
+      );
     }
   } else {
     check(

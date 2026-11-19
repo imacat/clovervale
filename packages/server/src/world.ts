@@ -194,10 +194,13 @@ export class World {
   /**
    * Moves the world one step of the simulation forward.
    *
-   * A player that slashes, drinks from the fountain or talks to a villager
-   * stands still, without turning, for as long as that lasts.  Any other
-   * player that wants to move walks that way, facing it, and idles
-   * otherwise.  The monster goes about its business.
+   * Toby runs his course, as the number of the step tells, and pushes
+   * every living player in his way aside.  A player that slashes, drinks
+   * from the fountain or talks to a villager stands still, without turning,
+   * for as long as that lasts.  Any other player that wants to move walks
+   * that way, facing it, and idles otherwise; Toby stands in its way as the
+   * obstacles do.  The monster goes about its business, and pays Toby no
+   * heed.
    *
    * A drink that starts at the step gives the player back
    * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
@@ -232,7 +235,7 @@ export class World {
     const slashers: Slasher[] = [];
     for (const player of this.#players.values()) {
       const before: PlayerMotion = player.mover.motion;
-      const applied: StampedInput[] = player.mover.step();
+      const applied: StampedInput[] = player.mover.step(this.#stepCount);
       const after: PlayerMotion = player.mover.motion;
       const isStarted: boolean = after.actionCount !== before.actionCount;
       if (isStarted && after.action === 'Drink') {

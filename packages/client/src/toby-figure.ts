@@ -1,0 +1,170 @@
+// The Clovervale project.
+// Copyright 2026 imacat.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Authors:
+//   imacat@mail.imacat.idv.tw (imacat), 2026/11/19
+// AI assistance: Claude Code (Anthropic)
+
+/**
+ * @module client/toby-figure Showing Toby as his course has him at a step
+ *   of the server.
+ */
+
+import { AnimationMixer, Box3, LoopRepeat, Vector3 } from 'three';
+import type { AnimationAction, AnimationClip, Object3D } from 'three';
+
+import { findTobyPose } from '@clovervale/shared';
+import type { TobyActivity, TobyPose } from '@clovervale/shared';
+
+import { IDLE_CLIP } from './clip-choice.ts';
+
+/** What the figure of Toby shows. */
+export interface TobyView {
+  /** The step of the server he is shown at, which may fall between two. */
+  readonly step: number;
+  /** Where he is shown along the X axis, in metres. */
+  readonly x: number;
+  /** Where he is shown along the Z axis, in metres. */
+  readonly z: number;
+  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  readonly yaw: number;
+  /** What he is doing. */
+  readonly activity: TobyActivity;
+  /** The name of the clip the figure plays, or `null` if it has none. */
+  readonly clip: string | null;
+}
+
+/**
+ * The activities of Toby that go on in a loop for as long as they last;
+ * the others are played once over their whole length.
+ */
+const LOOPING_ACTIVITIES: readonly TobyActivity[] = ['Pick', 'Run'];
+
+/** The name of the bone the head of the model goes with. */
+const HEAD_BONE = 'Head';
+
+/**
+ * The model of Toby, stood where his course has him and posed as he is
+ * there, wholly by the step of the server it shows him at.
+ *
+ * Each activity of his plays the clip of its name, from where he is in it:
+ * squatting down, standing up and turning round once over their length,
+ * picking at the clover over and over, and running over and over at the
+ * pace of his run, so that his feet keep to the ground he covers.  A model
+ * that lacks the clip of an activity idles instead.
+ */
+export class TobyFigure {
+  readonly #root: Object3D;
+  readonly #clips: ReadonlyMap<string, AnimationClip>;
+  readonly #mixer: AnimationMixer;
+  readonly #head: Object3D | null;
+  readonly #headRise: number | null;
+  #action: AnimationAction | null = null;
+  #view: TobyView | null = null;
+
+  /**
+   * Makes a model show Toby, which hides the model until told a step.
+   *
+   * @param {Object3D} root - The root of the model, standing in the
+   *   village.
+   * @param {readonly AnimationClip[]} clips - The clips of the model.
+   */
+  constructor(root: Object3D, clips: readonly AnimationClip[]) {
+    this.#root = root;
+    root.visible = false;
+    this.#clips = new Map(
+      clips.map((clip: AnimationClip) => [clip.name, clip]),
+    );
+    this.#mixer = new AnimationMixer(root);
+    this.#head = root.getObjectByName(HEAD_BONE) ?? null;
+    root.updateMatrixWorld(true);
+    const top: number = new Box3().setFromObject(root).max.y;
+    this.#headRise =
+      this.#head === null || !Number.isFinite(top)
+        ? null
+        : top - this.#head.getWorldPosition(new Vector3()).y;
+  }
+
+  /**
+   * Shows Toby as he is at a step of the server.
+   *
+   * @param {number} step - The number of the step, which may fall between
+   *   two steps.
+   */
+  show(step: number): void {
+    const pose: TobyPose = findTobyPose(step);
+    this.#root.visible = true;
+    this.#root.position.set(pose.x, 0, pose.z);
+    this.#root.rotation.y = (pose.yaw * Math.PI) / 180;
+    const clip: AnimationClip | undefined =
+      this.#clips.get(pose.activity) ?? this.#clips.get(IDLE_CLIP);
+    if (clip !== undefined) {
+      this.#pose(clip, pose);
+    }
+    const { x, z, yaw, activity } = pose;
+    this.#view = { step, x, z, yaw, activity, clip: clip?.name ?? null };
+  }
+
+  /**
+   * Describes Toby as he is shown now.
+   *
+   * @returns {TobyView | null} Where he is shown and what he does, or
+   *   `null` before he has been shown at any step.
+   */
+  describe(): TobyView | null {
+    return this.#view;
+  }
+
+  /**
+   * Finds the top of his head as he is shown now, as he stands, squats or
+   * runs.
+   *
+   * @returns {Vector3 | null} The point above where he stands, at the
+   *   height of the top of his head, or `null` before he has been shown at
+   *   any step, or if the model has no head bone, or nothing to show.
+   */
+  findHeadTop(): Vector3 | null {
+    if (this.#view === null || this.#head === null || this.#headRise === null) {
+      return null;
+    }
+    const head: Vector3 = this.#head.getWorldPosition(new Vector3());
+    return new Vector3(
+      this.#root.position.x,
+      head.y + this.#headRise,
+      this.#root.position.z,
+    );
+  }
+
+  /**
+   * Poses the model as a clip has it, at the moment of the clip that the
+   * pose of Toby falls on.
+   *
+   * @param {AnimationClip} clip - The clip.
+   * @param {TobyPose} pose - The pose of Toby.
+   */
+  #pose(clip: AnimationClip, pose: TobyPose): void {
+    const action: AnimationAction = this.#mixer.clipAction(clip);
+    if (action !== this.#action) {
+      this.#mixer.stopAllAction();
+      action.setLoop(LoopRepeat, Infinity);
+      action.play();
+      this.#action = action;
+    }
+    const isLooping: boolean =
+      LOOPING_ACTIVITIES.includes(pose.activity) || clip.name === IDLE_CLIP;
+    action.time = isLooping ? pose.elapsed % clip.duration : pose.elapsed;
+    this.#mixer.update(0);
+  }
+}

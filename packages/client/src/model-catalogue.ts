@@ -21,7 +21,7 @@
  * @module client/model-catalogue Knowing which model files the game uses.
  */
 
-import { APPEARANCE_COUNT } from '@clovervale/shared';
+import { APPEARANCE_COUNT, TOBY_FILE } from '@clovervale/shared';
 
 /** What a model stands for in the game. */
 export type ModelKind = 'character' | 'npc' | 'monster' | 'building' | 'prop';
@@ -58,6 +58,7 @@ const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
     ['npc-nancy.glb', 'npc'],
     ['npc-emma.glb', 'npc'],
     ['npc-martha.glb', 'npc'],
+    [TOBY_FILE, 'npc'],
     [MONSTER_FILE, 'monster'],
     [WEAPON_SHOP_FILE, 'building'],
     [FOUNTAIN_FILE, 'building'],

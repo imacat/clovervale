@@ -36,17 +36,28 @@ import {
   TALK_DURATION,
   TALK_REACH,
   TALK_STEPS,
+  TOBY_LOOP_STEPS,
+  TOBY_RADIUS,
   VILLAGE_BOUNDARY,
+  VILLAGE_TERRAIN,
   WALK_SPEED,
   applyInput,
   canInteract,
   createMotion,
   findPlacement,
+  findTobyPose,
+  findTurn,
   isResting,
   killMotion,
   stepMotion,
+  turnVector,
 } from '../src/index.ts';
-import type { PlayerInput, PlayerMotion } from '../src/index.ts';
+import type {
+  GroundVector,
+  PlayerInput,
+  PlayerMotion,
+  TobyPose,
+} from '../src/index.ts';
 
 /** The input that makes a player interact. */
 const INTERACT: PlayerInput = { type: 'interact' };
@@ -90,7 +101,7 @@ function steer(x: number, z: number): PlayerInput {
 function stepTimes(motion: PlayerMotion, count: number): PlayerMotion {
   let stepped: PlayerMotion = motion;
   for (let step = 0; step < count; step++) {
-    stepped = stepMotion(stepped);
+    stepped = stepMotion(stepped, 0);
   }
   return stepped;
 }
@@ -137,11 +148,11 @@ describe('a player who wants to move', () => {
     );
     const stopping: PlayerMotion = applyInput(walking, steer(0, 0));
     expect(isResting(stopping)).toBe(false);
-    const stopped: PlayerMotion = stepMotion(stopping);
+    const stopped: PlayerMotion = stepMotion(stopping, 0);
     expect(stopped).toMatchObject({ x: walking.x, yaw: 90, action: 'Idle' });
     expect(stopped.actionCount).toBe(2);
     expect(isResting(stopped)).toBe(true);
-    expect(stepMotion(stopped)).toEqual(stopped);
+    expect(stepMotion(stopped, 0)).toEqual(stopped);
   });
 
   it('is left as it was by an input', () => {
@@ -150,7 +161,7 @@ describe('a player who wants to move', () => {
       ...start,
       direction: { ...start.direction },
     };
-    stepMotion(applyInput(applyInput(start, steer(1, 0)), INTERACT));
+    stepMotion(applyInput(applyInput(start, steer(1, 0)), INTERACT), 0);
     expect(start).toEqual(before);
   });
 });
@@ -164,7 +175,7 @@ describe('a player who interacts', () => {
     );
     expect(asked.action).toBe('Idle');
     expect(isResting(asked)).toBe(false);
-    const slashing: PlayerMotion = stepMotion(asked);
+    const slashing: PlayerMotion = stepMotion(asked, 0);
     expect(slashing.action).toBe('Slash');
     expect(stepTimes(slashing, SLASH_STEPS - 1).action).toBe('Slash');
     const over: PlayerMotion = stepTimes(slashing, SLASH_STEPS);
@@ -204,6 +215,7 @@ describe('a player who interacts', () => {
   it('walks on after the slash the way it wants to move by then', () => {
     const slashing: PlayerMotion = stepMotion(
       applyInput(createMotion({ x: 0, z: 0 }, 0), INTERACT),
+      0,
     );
     const turned: PlayerMotion = applyInput(
       stepTimes(applyInput(slashing, steer(1, 0)), 3),
@@ -221,7 +233,7 @@ describe('a player who interacts', () => {
       applyInput(createMotion({ x: 0, z: 0 }, 0), INTERACT),
       SLASH_STEPS + 1,
     );
-    const again: PlayerMotion = stepMotion(applyInput(over, INTERACT));
+    const again: PlayerMotion = stepMotion(applyInput(over, INTERACT), 0);
     expect(again.action).toBe('Slash');
     expect(again.actionCount).toBe(3);
   });
@@ -232,7 +244,7 @@ describe('a player who interacts by the fountain', () => {
     expect(DRINK_STEPS / SIMULATION_RATE).toBeCloseTo(DRINK_DURATION);
     const asked: PlayerMotion = applyInput(BY_FOUNTAIN, INTERACT);
     expect(asked.action).toBe('Idle');
-    const drinking: PlayerMotion = stepMotion(asked);
+    const drinking: PlayerMotion = stepMotion(asked, 0);
     expect(drinking.action).toBe('Drink');
     expect(drinking.actionCount).toBe(1);
     expect(canInteract(drinking)).toBe(false);
@@ -266,19 +278,19 @@ describe('a player who interacts by the fountain', () => {
       yaw: BY_FOUNTAIN.yaw,
       action: 'Drink',
     });
-    const walking: PlayerMotion = stepMotion(drinking);
+    const walking: PlayerMotion = stepMotion(drinking, 0);
     expect(walking.action).toBe('Walk');
     expect(walking.x).toBeGreaterThan(BY_FOUNTAIN.x);
   });
 
   it('slashes facing away from the fountain', () => {
     const away: PlayerMotion = { ...BY_FOUNTAIN, yaw: 0 };
-    expect(stepMotion(applyInput(away, INTERACT)).action).toBe('Slash');
+    expect(stepMotion(applyInput(away, INTERACT), 0).action).toBe('Slash');
   });
 
   it('does not drink while it slashes', () => {
     const away: PlayerMotion = { ...BY_FOUNTAIN, yaw: 0 };
-    const slashing: PlayerMotion = stepMotion(applyInput(away, INTERACT));
+    const slashing: PlayerMotion = stepMotion(applyInput(away, INTERACT), 0);
     const turned: PlayerMotion = { ...slashing, yaw: 180 };
     expect(canInteract(turned)).toBe(false);
     expect(applyInput(turned, INTERACT)).toEqual(turned);
@@ -295,6 +307,7 @@ describe('a player who interacts by the fountain', () => {
   it('stops drinking when it dies', () => {
     const drinking: PlayerMotion = stepMotion(
       applyInput(BY_FOUNTAIN, INTERACT),
+      0,
     );
     const dead: PlayerMotion = stepTimes(killMotion(drinking), DRINK_STEPS);
     expect(dead.action).toBe('Die');
@@ -305,7 +318,7 @@ describe('a player who interacts by the fountain', () => {
 describe('a player who interacts by Nancy', () => {
   it('talks from the next step, for as long as a talk lasts', () => {
     expect(TALK_STEPS / SIMULATION_RATE).toBeCloseTo(TALK_DURATION);
-    const talking: PlayerMotion = stepMotion(applyInput(BY_NANCY, INTERACT));
+    const talking: PlayerMotion = stepMotion(applyInput(BY_NANCY, INTERACT), 0);
     expect(talking.action).toBe('Talk');
     expect(talking.actionCount).toBe(1);
     expect(canInteract(talking)).toBe(false);
@@ -326,7 +339,7 @@ describe('a player who interacts by Nancy', () => {
       yaw: BY_NANCY.yaw,
       action: 'Talk',
     });
-    expect(stepMotion(talking).action).toBe('Walk');
+    expect(stepMotion(talking, 0).action).toBe('Walk');
   });
 
   it('can talk again as soon as the talk is over', () => {
@@ -334,14 +347,14 @@ describe('a player who interacts by Nancy', () => {
       applyInput(BY_NANCY, INTERACT),
       TALK_STEPS + 1,
     );
-    const again: PlayerMotion = stepMotion(applyInput(over, INTERACT));
+    const again: PlayerMotion = stepMotion(applyInput(over, INTERACT), 0);
     expect(again.action).toBe('Talk');
     expect(again.actionCount).toBe(3);
   });
 
   it('slashes facing away from her', () => {
     const away: PlayerMotion = { ...BY_NANCY, yaw: 0 };
-    expect(stepMotion(applyInput(away, INTERACT)).action).toBe('Slash');
+    expect(stepMotion(applyInput(away, INTERACT), 0).action).toBe('Slash');
   });
 });
 
@@ -356,7 +369,7 @@ describe('a player who walks into the scenery', () => {
     expect(walked.x).toBeCloseTo(front, 9);
     expect(walked.z).toBe(-3.5);
     expect(walked).toMatchObject({ yaw: -90, action: 'Walk' });
-    expect(stepMotion(walked)).toMatchObject({ x: walked.x, z: walked.z });
+    expect(stepMotion(walked, 0)).toMatchObject({ x: walked.x, z: walked.z });
   });
 
   it('slides along what it walks into at an angle', () => {
@@ -402,6 +415,7 @@ describe('a player who dies', () => {
   it('stops slashing', () => {
     const slashing: PlayerMotion = stepMotion(
       applyInput(createMotion({ x: 0, z: 0 }, 0), INTERACT),
+      0,
     );
     const dead: PlayerMotion = stepTimes(killMotion(slashing), SLASH_STEPS);
     expect(dead.action).toBe('Die');
@@ -428,9 +442,205 @@ describe('a player who dies', () => {
       createMotion({ x: 0, z: 0 }, 0),
       steer(1, 0),
     );
-    const dead: PlayerMotion = killMotion(stepMotion(walking));
+    const dead: PlayerMotion = killMotion(stepMotion(walking, 0));
     expect(dead.direction).toEqual({ x: 1, z: 0 });
     const stopped: PlayerMotion = applyInput(dead, steer(0, 0));
     expect(stopped.direction).toEqual({ x: 0, z: 0 });
+  });
+});
+
+describe('a player and Toby', () => {
+  /** The steps of one whole loop of his course, from the first. */
+  const LOOP: readonly number[] = Array.from(
+    { length: TOBY_LOOP_STEPS },
+    (_, step: number) => step,
+  );
+
+  /**
+   * Finds the first step of a loop of his course at which he is as told.
+   *
+   * @param {(step: number) => boolean} isWanted - Tells whether he is as
+   *   told at a step.
+   * @returns {number} The step.
+   * @throws {Error} If he is never as told.
+   */
+  const findStep = (isWanted: (step: number) => boolean): number => {
+    const found: number | undefined = LOOP.find(isWanted);
+    if (found === undefined) {
+      throw new Error('Toby is never as told.');
+    }
+    return found;
+  };
+
+  /** The first step at which he picks at the clover at his first patch. */
+  const PICKING: number = findStep(
+    (step: number) => findTobyPose(step).activity === 'Pick',
+  );
+
+  /** The first step of his first run. */
+  const RUN_START: number = findStep(
+    (step: number) => findTobyPose(step).activity === 'Run',
+  );
+
+  /** The step after his first run, at the other end of it. */
+  const RUN_END: number = findStep(
+    (step: number) =>
+      step > RUN_START && findTobyPose(step).activity !== 'Run',
+  );
+
+  /** The way he runs on his first run, one metre long. */
+  const AHEAD: GroundVector = turnVector(
+    { x: 0, z: 1 },
+    findTurn(findTobyPose(RUN_START).yaw),
+  );
+
+  /**
+   * Measures how far a point lies from another along his first run.
+   *
+   * @param {GroundVector} point - The point.
+   * @param {GroundVector} from - The other point.
+   * @returns {number} The distance, in metres, negative if behind.
+   */
+  const measureAhead = (point: GroundVector, from: GroundVector): number =>
+    (point.x - from.x) * AHEAD.x + (point.z - from.z) * AHEAD.z;
+
+  /**
+   * Measures how far a player is from Toby at a step.
+   *
+   * @param {PlayerMotion} motion - The motion of the player.
+   * @param {number} step - The step.
+   * @returns {number} The distance between their centres, in metres.
+   */
+  const measureFromToby = (motion: PlayerMotion, step: number): number => {
+    const toby: TobyPose = findTobyPose(step);
+    return Math.hypot(motion.x - toby.x, motion.z - toby.z);
+  };
+
+  it('stops a player that walks into him while he picks at the clover', () => {
+    const toby: TobyPose = findTobyPose(PICKING);
+    const behind: GroundVector = turnVector(
+      { x: 0, z: -1 },
+      findTurn(toby.yaw),
+    );
+    let motion: PlayerMotion = applyInput(
+      createMotion({ x: toby.x + behind.x, z: toby.z + behind.z }, 0),
+      steer(-behind.x, -behind.z),
+    );
+    for (let step = PICKING; step < PICKING + SIMULATION_RATE; step++) {
+      motion = stepMotion(motion, step);
+      expect(measureFromToby(motion, step)).toBeGreaterThanOrEqual(
+        TOBY_RADIUS + PLAYER_RADIUS - 1e-9,
+      );
+    }
+    expect(motion.action).toBe('Walk');
+    expect(measureFromToby(motion, PICKING)).toBeCloseTo(
+      TOBY_RADIUS + PLAYER_RADIUS,
+      9,
+    );
+  });
+
+  it('is pushed aside by him as he runs, and he runs on as before', () => {
+    const middle: TobyPose = findTobyPose((RUN_START + RUN_END) / 2);
+    const start: PlayerMotion = createMotion(middle, 30);
+    let motion: PlayerMotion = start;
+    let isPushed = false;
+    for (let step = RUN_START; step <= RUN_END; step++) {
+      const before: PlayerMotion = motion;
+      motion = stepMotion(motion, step);
+      isPushed ||= motion.x !== before.x || motion.z !== before.z;
+      expect(measureFromToby(motion, step)).toBeGreaterThanOrEqual(
+        TOBY_RADIUS + PLAYER_RADIUS - 1e-9,
+      );
+      // Pushed straight aside, never along his way.
+      expect(measureAhead(motion, start)).toBeCloseTo(0, 9);
+      expect(motion).toMatchObject({ yaw: 30, action: 'Idle' });
+    }
+    expect(isPushed).toBe(true);
+    // Off his way, as far as his last push before he passed it took it.
+    const off: number = measureFromToby(motion, (RUN_START + RUN_END) / 2);
+    expect(off).toBeGreaterThan(0.5);
+    expect(off).toBeLessThanOrEqual(TOBY_RADIUS + PLAYER_RADIUS);
+    // He gets to the other end on time.
+    expect(findTobyPose(RUN_END)).toMatchObject({ activity: 'Squat' });
+  });
+
+  it('is pushed aside while it walks along his way towards him', () => {
+    const middle: TobyPose = findTobyPose((RUN_START + RUN_END) / 2);
+    const end: TobyPose = findTobyPose(RUN_END);
+    let motion: PlayerMotion = applyInput(
+      createMotion({ x: end.x, z: end.z + 0.1 }, 0),
+      steer(middle.x - end.x, middle.z - end.z),
+    );
+    for (let step = RUN_START; step <= RUN_END; step++) {
+      motion = stepMotion(motion, step);
+      expect(measureFromToby(motion, step)).toBeGreaterThanOrEqual(
+        TOBY_RADIUS + PLAYER_RADIUS - 1e-9,
+      );
+      expect(VILLAGE_TERRAIN.isClear(motion)).toBe(true);
+    }
+  });
+
+  it('is not pushed once it is dead', () => {
+    const middle: TobyPose = findTobyPose((RUN_START + RUN_END) / 2);
+    const dead: PlayerMotion = killMotion(createMotion(middle, 0));
+    let motion: PlayerMotion = dead;
+    for (let step = RUN_START; step <= RUN_END; step++) {
+      motion = stepMotion(motion, step);
+    }
+    expect(motion).toEqual(dead);
+  });
+
+  it('talks to him where he is at the step, as he runs', () => {
+    const step: number = RUN_START + SIMULATION_RATE / 5;
+    const toby: TobyPose = findTobyPose(step);
+    const asking: PlayerMotion = applyInput(
+      createMotion({ x: toby.x, z: toby.z - 1 }, 0),
+      INTERACT,
+    );
+    const talking: PlayerMotion = stepMotion(asking, step);
+    expect(talking.action).toBe('Talk');
+    // He is out of reach a second later.
+    const late: PlayerMotion = stepMotion(asking, step + SIMULATION_RATE);
+    expect(late.action).toBe('Slash');
+  });
+
+  it('talks to him from the very step he runs within reach', () => {
+    const step: number = RUN_START + 8;
+    const toby: TobyPose = findTobyPose(step);
+    // Ahead of him on his way, facing him as he comes.
+    const ahead: number = TALK_REACH - 0.05;
+    const asking: PlayerMotion = applyInput(
+      createMotion(
+        { x: toby.x + AHEAD.x * ahead, z: toby.z + AHEAD.z * ahead },
+        toby.yaw + 180,
+      ),
+      INTERACT,
+    );
+    expect(measureFromToby(asking, step - 1)).toBeGreaterThan(TALK_REACH);
+    expect(stepMotion(asking, step).action).toBe('Talk');
+    expect(stepMotion(asking, step - 1).action).toBe('Slash');
+  });
+
+  it('talks to him from where he pushes it to, as he pushes it', () => {
+    const step: number = RUN_START + 8;
+    const toby: TobyPose = findTobyPose(step);
+    // Just ahead of him on his way, facing a little back his way from
+    // square to it, on the side towards the fence.
+    const asking: PlayerMotion = applyInput(
+      createMotion(
+        { x: toby.x + AHEAD.x * 0.5, z: toby.z + AHEAD.z * 0.5 },
+        toby.yaw - 100,
+      ),
+      INTERACT,
+    );
+    expect(stepMotion(asking, step - 1).action).toBe('Slash');
+    const talking: PlayerMotion = stepMotion(asking, step);
+    expect(measureAhead(talking, asking)).toBeCloseTo(0, 9);
+    const pushed: number = Math.hypot(
+      talking.x - asking.x,
+      talking.z - asking.z,
+    );
+    expect(pushed).toBeGreaterThan(0.2);
+    expect(talking.action).toBe('Talk');
   });
 });

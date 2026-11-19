@@ -63,7 +63,8 @@ function findSpareSpots(index: number): Spot[] {
  * Martha the village chief stands on the porch of her house.  The village
  * sign stands by the gate, and the spawn stones of the monster are a little
  * way outside.  The characters and the monster have no place of their own,
- * as they stand wherever the server has them.  A prop the village has no
+ * as they stand wherever the server has them, and neither has Toby, who
+ * runs about between the cottage and the gate.  A prop the village has no
  * place for stands by itself to one side, where it stands in nobody's way.
  *
  * @param {readonly string[]} files - The file names of the models to

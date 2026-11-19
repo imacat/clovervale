@@ -26,6 +26,7 @@ import {
   SIMULATION_RATE,
   SNAPSHOT_RATE,
   interpolatePlaced,
+  measurePushReach,
 } from '@clovervale/shared';
 import type {
   MonsterState,
@@ -274,8 +275,9 @@ export class SnapshotTimeline {
    * earlier one tells to where the later one tells, by the time that has
    * passed between them, and is turned likewise, the shorter way round.  It
    * does what the earlier one tells, and is there only if the earlier one
-   * tells so.  A player that has moved further than it can walk stays where
-   * it was until the time of the later snapshot.  So does a monster.
+   * tells so.  A player that has moved further than it can walk, and than
+   * Toby can have pushed it, stays where it was until the time of the later
+   * snapshot.  So does a monster that has moved further than it can walk.
    *
    * Past the latest snapshot, everyone stays as it tells them.  Before the
    * earliest snapshot that is kept, there is nobody.
@@ -314,6 +316,8 @@ export class SnapshotTimeline {
         after.players,
         fraction,
         span,
+        (player: PlayerState) =>
+          measurePushReach(player, after.time / STEP_MILLISECONDS, span),
       ),
       monsters: interpolatePlaced(
         before.monsters,

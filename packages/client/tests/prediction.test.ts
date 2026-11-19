@@ -27,19 +27,30 @@ import { describe, expect, it } from 'vitest';
 import {
   AuthoritativePlayer,
   DEATH_DURATION,
+  PLAYER_RADIUS,
   SIMULATION_RATE,
   SLASH_STEPS,
   SNAPSHOT_RATE,
+  SPAWN_YAW,
+  TOBY_ENDS,
+  TOBY_LOOP_STEPS,
+  TOBY_RADIUS,
   WALK_SPEED,
+  applyInput,
   createMotion,
+  findSpawnPoint,
+  findTobyPose,
   killMotion,
+  stepMotion,
 } from '@clovervale/shared';
 import type {
+  GroundVector,
   InputProgress,
   PlayerInput,
   PlayerMotion,
   PlayerState,
   StampedInput,
+  TobyPose,
 } from '@clovervale/shared';
 
 import { PlayerPrediction, placeOwnPlayer } from '../src/prediction.ts';
@@ -64,6 +75,14 @@ const STOP: PlayerInput = steer(0, 0);
 
 /** Where the players of the tests start. */
 const START: PlayerMotion = createMotion({ x: 2, z: -3 }, 180);
+
+/** A snapshot on its way to the page, as far as the prediction goes. */
+interface SentSnapshot {
+  /** The number of steps the server had taken when it was taken. */
+  readonly step: number;
+  /** How far the player had got with the inputs of the page then. */
+  readonly progress: InputProgress;
+}
 
 /** An input of the page, and when the page has it. */
 interface TimedInput {
@@ -121,6 +140,36 @@ interface Outcome {
    * snapshots.
    */
   readonly lead: number;
+  /** The least room the player of the server ever had from Toby, in metres. */
+  readonly leastRoom: number;
+  /**
+   * Whether the server ever had the player where the step before would
+   * have had it but for Toby: pushed by him, or stopped by him.
+   */
+  readonly isHindered: boolean;
+  /** The inputs as the page stamped them, in order. */
+  readonly stamps: readonly StampedInput[];
+  /** The numbers of the steps of the server each input came into effect at. */
+  readonly applied: readonly number[];
+  /**
+   * The step of the server the page told the next step of the player was to
+   * be at, as it took each input in.
+   */
+  readonly nextSteps: readonly number[];
+  /** The step of the server Toby was drawn at, frame by frame. */
+  readonly drawnSteps: readonly DrawnStep[];
+  /** How far the largest correction moved the player, in metres. */
+  readonly largestCorrection: number;
+  /** What the latest snapshot the page heard told of the player. */
+  readonly latestTold: InputProgress | null;
+}
+
+/** The step of the server Toby is drawn at in a frame of the page. */
+interface DrawnStep {
+  /** The time of the frame on the clock of the page, in milliseconds. */
+  readonly time: number;
+  /** The number of the step, which may fall between two. */
+  readonly step: number;
 }
 
 /**
@@ -148,6 +197,13 @@ function steer(x: number, z: number): PlayerInput {
  * @param {readonly number[]} [deaths] - The numbers of the steps after
  *   which the server kills the player, from 1, which the page cannot
  *   foresee either.  None by default.
+ * @param {PlayerMotion} [start] - The motion of the player before its
+ *   first input, {@link START} by default.
+ * @param {number | null} [joining] - The number of steps the server has
+ *   taken when the player joins, for the page to start from the first
+ *   snapshot that tells of the player, with the times of the inputs and the
+ *   duration counted from then.  By default, `null`, the page starts at
+ *   time 0, with the server, before its first step.
  * @returns {Outcome} What came of it.
  */
 function play(
@@ -156,34 +212,72 @@ function play(
   duration: number,
   relocations: readonly Relocation[] = [],
   deaths: readonly number[] = [],
+  start: PlayerMotion = START,
+  joining: number | null = null,
 ): Outcome {
-  const server = new AuthoritativePlayer(START);
-  const prediction = new PlayerPrediction(START, 0);
+  const server = new AuthoritativePlayer(start);
+  let prediction: PlayerPrediction | null =
+    joining === null
+      ? new PlayerPrediction(start, 0, 0)
+      : null;
+  let origin: number = joining === null ? 0 : Infinity;
   const upward = new Map<number, StampedInput[]>();
-  const downward = new Map<number, InputProgress[]>();
+  const downward = new Map<number, SentSnapshot[]>();
   const pending: TimedInput[] = [...inputs];
-  let stepCount = 0;
+  let stepCount: number = joining ?? 0;
   let snapshotCount = 0;
   let lead = 0;
+  let leastRoom = Infinity;
+  let isHindered = false;
+  const stamps: StampedInput[] = [];
+  const applied: number[] = [];
+  const nextSteps: number[] = [];
+  const drawnSteps: DrawnStep[] = [];
+  let largestCorrection = 0;
+  let latestTold: InputProgress | null = null;
   const receiveInputs = (time: number): void => {
     for (const input of upward.get(time) ?? []) {
       server.receiveInput(input);
     }
     upward.delete(time);
   };
-  for (let time = 0; time <= duration; time++) {
-    while ((pending[0]?.time ?? Infinity) <= time) {
+  for (let time = 0; time <= origin + duration; time++) {
+    while (
+      prediction !== null &&
+      origin + (pending[0]?.time ?? Infinity) <= time
+    ) {
       const { input, lateness = 0 } = pending.shift() ?? { input: STOP };
       const arrival: number = time + link.uplink + lateness;
+      nextSteps.push(prediction.readNextStep(time));
       const stamped: StampedInput = prediction.issueInput(input, time);
+      stamps.push(stamped);
       upward.set(arrival, [...(upward.get(arrival) ?? []), stamped]);
     }
     if (link.stepsFirst !== true) {
       receiveInputs(time);
     }
     if (time >= link.phase && (time - link.phase) % STEP === 0) {
-      server.step();
+      const before: PlayerMotion = server.motion;
       stepCount++;
+      const taken: StampedInput[] = server.step(stepCount);
+      applied.push(...taken.map(() => stepCount));
+      const toby: TobyPose = findTobyPose(stepCount);
+      const after: PlayerMotion = server.motion;
+      leastRoom = Math.min(
+        leastRoom,
+        Math.hypot(after.x - toby.x, after.z - toby.z) -
+          TOBY_RADIUS -
+          PLAYER_RADIUS,
+      );
+      const free: PlayerMotion = stepAway(
+        taken.reduce(
+          (motion: PlayerMotion, input: StampedInput) =>
+            applyInput(motion, input),
+          before,
+        ),
+      );
+      isHindered ||=
+        before.action !== 'Die' && (free.x !== after.x || free.z !== after.z);
       if (deaths.includes(stepCount)) {
         server.kill();
       }
@@ -194,37 +288,105 @@ function play(
       }
       if (stepCount % STEPS_PER_SNAPSHOT === 0) {
         const arrival: number = time + link.downlink;
-        const sent: InputProgress[] = downward.get(arrival) ?? [];
-        downward.set(arrival, [...sent, server.progress]);
+        const sent: SentSnapshot[] = downward.get(arrival) ?? [];
+        downward.set(arrival, [
+          ...sent,
+          { step: stepCount, progress: server.progress },
+        ]);
       }
     }
     receiveInputs(time);
-    for (const progress of downward.get(time) ?? []) {
+    for (const { step, progress } of downward.get(time) ?? []) {
+      latestTold = progress;
+      if (prediction === null) {
+        prediction = new PlayerPrediction(progress.motion, step, time);
+        origin = time;
+        continue;
+      }
       const before: number = Math.hypot(
         prediction.motion.x - progress.motion.x,
         prediction.motion.z - progress.motion.z,
       );
-      prediction.reconcile(progress, time);
+      const corrections: number = prediction.correctionCount;
+      prediction.reconcile(progress, step, time);
+      if (prediction.correctionCount > corrections) {
+        largestCorrection = Math.max(
+          largestCorrection,
+          prediction.lastCorrection ?? 0,
+        );
+      }
       snapshotCount++;
       lead = Math.max(lead, before / STEP_LENGTH);
     }
     downward.delete(time);
-    if (time % link.frame === 0) {
+    if (prediction !== null && time % link.frame === 0) {
       prediction.readDrawn(time);
+      drawnSteps.push({ time, step: prediction.readDrawnStep(time) });
     }
   }
-  return { prediction, server, snapshotCount, lead };
+  if (prediction === null) {
+    throw new Error('The page never heard from the server.');
+  }
+  return {
+    prediction,
+    server,
+    snapshotCount,
+    lead,
+    leastRoom,
+    isHindered,
+    stamps,
+    applied,
+    nextSteps,
+    drawnSteps,
+    largestCorrection,
+    latestTold,
+  };
+}
+
+/**
+ * The steps at which Toby picks at the clover at each end of his run, in
+ * the order of the ends, when he stays at one end for seconds before and
+ * after.
+ */
+const PICKING_STEPS: readonly number[] = TOBY_ENDS.map((end: GroundVector) => {
+  for (let step = 0; step < TOBY_LOOP_STEPS; step++) {
+    const toby: TobyPose = findTobyPose(step);
+    if (toby.activity === 'Pick' && toby.x === end.x && toby.z === end.z) {
+      return step;
+    }
+  }
+  throw new Error('Toby never picks at the clover there.');
+});
+
+/**
+ * Moves a player one step forward as the server would with Toby out of its
+ * way, at the end of his run farther from it.
+ *
+ * @param {PlayerMotion} motion - The motion of the player.
+ * @returns {PlayerMotion} The motion after the step.
+ */
+function stepAway(motion: PlayerMotion): PlayerMotion {
+  const distances: number[] = TOBY_ENDS.map((end: GroundVector) =>
+    Math.hypot(motion.x - end.x, motion.z - end.z),
+  );
+  const far: number = (distances[0] ?? 0) < (distances[1] ?? 0) ? 1 : 0;
+  return stepMotion(motion, PICKING_STEPS[far] ?? 0);
 }
 
 /**
  * Moves the player of a server several steps of the simulation forward.
  *
  * @param {AuthoritativePlayer} player - The player.
+ * @param {number} from - The number of the first step.
  * @param {number} count - The number of steps.
  */
-function stepTimes(player: AuthoritativePlayer, count: number): void {
-  for (let step = 0; step < count; step++) {
-    player.step();
+function stepTimes(
+  player: AuthoritativePlayer,
+  from: number,
+  count: number,
+): void {
+  for (let step = from; step < from + count; step++) {
+    player.step(step);
   }
 }
 
@@ -349,9 +511,260 @@ const FOUNTAIN_VISIT: readonly TimedInput[] = [
   { time: 7000, input: STOP },
 ];
 
+/** Where a player appears at the spawn point in the way of Toby. */
+const BY_TOBY_SPAWN: PlayerMotion = createMotion(findSpawnPoint(30), SPAWN_YAW);
+
+/**
+ * Where a player appears at the spawn point across the plaza from that
+ * one, far from Toby.
+ */
+const FAR_SPAWN: PlayerMotion = createMotion(findSpawnPoint(31), SPAWN_YAW);
+
+/** The way Toby runs from the end of his run by the cottage, one metre long. */
+const RUN_WAY: GroundVector = (() => {
+  const [first, second] = TOBY_ENDS;
+  const length: number = Math.hypot(second.x - first.x, second.z - first.z);
+  return {
+    x: (second.x - first.x) / length,
+    z: (second.z - first.z) / length,
+  };
+})();
+
+/**
+ * The way square to his run towards the back of the village, away from the
+ * fence, one metre long.
+ */
+const OFF_RUN: GroundVector = { x: RUN_WAY.z, z: -RUN_WAY.x };
+
+/**
+ * Makes the input that steers a player along the run of Toby and square to
+ * it.
+ *
+ * @param {number} along - How much of the way goes along his run, towards
+ *   the gate.
+ * @param {number} off - How much goes square to it, away from the fence.
+ * @returns {PlayerInput} The input.
+ */
+function steerByRun(along: number, off: number): PlayerInput {
+  return steer(
+    RUN_WAY.x * along + OFF_RUN.x * off,
+    RUN_WAY.z * along + OFF_RUN.z * off,
+  );
+}
+
+/**
+ * Measures how far a point lies from the line of the run of Toby, on the
+ * side away from the fence.
+ *
+ * @param {GroundVector} point - The point.
+ * @returns {number} The distance, in metres, negative on the side of the
+ *   fence.
+ */
+function measureOffRun(point: GroundVector): number {
+  const [first] = TOBY_ENDS;
+  return (point.x - first.x) * OFF_RUN.x + (point.z - first.z) * OFF_RUN.z;
+}
+
+/**
+ * A walk from the spawn point in his way along his run, a little off its
+ * line, past him where he picks at the clover by the cottage, a rest
+ * beyond, and a walk back after he has run off, past him where he picks at
+ * the clover by the gate.
+ */
+const ALONG_HIS_RUN: readonly TimedInput[] = [
+  { time: 300, input: steerByRun(-1, 0) },
+  { time: 2400, input: STOP },
+  { time: 6000, input: steerByRun(1, 0) },
+  { time: 9600, input: STOP },
+];
+
+/**
+ * A walk from the spawn point in his way along his run towards the gate,
+ * with a slash by the way, and back towards the cottage, into him as he
+ * runs the other way, and towards the gate again with a talk to him where
+ * he picks at the clover there.
+ */
+const ABOUT_HIM: readonly TimedInput[] = [
+  { time: 300, input: steerByRun(1, 0) },
+  { time: 1300, input: INTERACT },
+  { time: 4000, input: steerByRun(-1, 0) },
+  { time: 7000, input: steerByRun(1, 0) },
+  { time: 9800, input: INTERACT },
+  { time: 11_000, input: STOP },
+];
+
+/**
+ * Where players appear at the spawn points nearest the run of Toby but out
+ * of his way.
+ */
+const BY_TOBY: readonly (readonly [string, PlayerMotion])[] = [14, 22, 28].map(
+  (index: number): [string, PlayerMotion] => [
+    `at spawn point ${String(index)}`,
+    createMotion(findSpawnPoint(index), SPAWN_YAW),
+  ],
+);
+
+/**
+ * Walks, each after a rest, away from the run of Toby and back a little,
+ * some of them shorter than a step, and a slash.
+ */
+const AFTER_RESTS: readonly TimedInput[] = [
+  { time: 1000, input: steer(1, 0) },
+  { time: 1475, input: STOP },
+  { time: 2230, input: steer(0, 1) },
+  { time: 2301, input: STOP },
+  { time: 3013, input: steer(1, 0) },
+  { time: 3020, input: STOP },
+  { time: 3900, input: INTERACT },
+  { time: 4800, input: steer(-1, 0) },
+  { time: 5390, input: STOP },
+];
+
+/** Many short walks to and fro, each after a rest as long as the walk. */
+const TO_AND_FRO: readonly TimedInput[] = Array.from(
+  { length: 80 },
+  (_: unknown, index: number): TimedInput => ({
+    time: 1000 + index * 263,
+    input: [steer(1, 0), STOP, steer(-1, 0), STOP][index % 4] ?? STOP,
+  }),
+);
+
+/**
+ * Tells how many steps the server has taken when a player joins over a
+ * link, to start the players over the links at different points of the
+ * course of Toby.
+ *
+ * @param {Link} link - The link.
+ * @returns {number} The number of steps.
+ */
+function findJoiningStep(link: Link): number {
+  return (link.uplink + 3 * link.downlink + 7 * link.phase) % TOBY_LOOP_STEPS;
+}
+
+/**
+ * Walks away from the run of Toby and back a little, each after a rest of
+ * two seconds, and a turn on the first walk that reaches the server late.
+ */
+const LATE_THEN_REST: readonly TimedInput[] = [
+  { time: 300, input: steer(1, 0) },
+  { time: 700, input: steer(0.6, -0.8), lateness: 300 },
+  { time: 1000, input: STOP },
+  { time: 3000, input: steer(-1, 0) },
+  { time: 3400, input: STOP },
+  { time: 5400, input: steer(0, -1) },
+  { time: 5800, input: STOP },
+];
+
+/** Short walks to and fro by his run, each after a rest. */
+const STOPS_AND_STARTS: readonly TimedInput[] = Array.from(
+  { length: 24 },
+  (_: unknown, index: number): TimedInput => ({
+    time: 500 + index * 700,
+    input: [steer(1, 0), STOP, steer(-1, 0), STOP][index % 4] ?? STOP,
+  }),
+);
+
+/**
+ * Makes short walks to and fro, each after a rest of two seconds, as the
+ * time the inputs take to reach the server changes halfway through them.
+ *
+ * @param {number} early - How much longer than over the link the inputs of
+ *   the first half take to reach the server, in whole milliseconds.
+ * @param {number} late - How much longer than over the link the inputs of
+ *   the second half take to reach the server, in whole milliseconds.
+ * @returns {TimedInput[]} The inputs.
+ */
+function inventDelayChange(early: number, late: number): TimedInput[] {
+  return Array.from(
+    { length: 24 },
+    (_: unknown, index: number): TimedInput => ({
+      time: 500 + Math.floor(index / 2) * 2000 + (index % 2) * 400,
+      input: index % 2 === 1 ? STOP : steer(index % 4 === 0 ? 1 : -1, 0),
+      lateness: index < 12 ? early : late,
+    }),
+  );
+}
+
+/** The steady links the tests by Toby are played over. */
+const TOBY_LINKS: readonly Link[] = [
+  { uplink: 0, downlink: 0, phase: 0, frame: 16 },
+  { uplink: 37, downlink: 13, phase: 17, frame: 17 },
+  { uplink: 120, downlink: 100, phase: 49, frame: 16 },
+  { uplink: 250, downlink: 250, phase: 25, frame: 18 },
+  { uplink: 500, downlink: 500, phase: 1, frame: 16 },
+];
+
+describe('a prediction by Toby', () => {
+  it('times its inputs by him as it does far from him, after a rest', () => {
+    const link: Link = { uplink: 80, downlink: 80, phase: 0, frame: 16 };
+    const near: Outcome = play(
+      link,
+      LATE_THEN_REST,
+      8000,
+      [],
+      [],
+      BY_TOBY_SPAWN,
+    );
+    const far: Outcome = play(link, LATE_THEN_REST, 8000, [], [], FAR_SPAWN);
+    expect(near.isHindered).toBe(false);
+    expect(near.stamps).toEqual(far.stamps);
+    expect(near.applied).toEqual(far.applied);
+    expect(near.prediction.correctionCount).toBe(
+      far.prediction.correctionCount,
+    );
+    // The rest gives back the time the late input cost.
+    const [, , , setOff] = near.stamps;
+    const sent: number = (LATE_THEN_REST[3]?.time ?? 0) + link.uplink;
+    expect(setOff?.after).toBeGreaterThan(0);
+    expect(near.applied[3]).toBe(Math.ceil((sent - link.phase) / STEP) + 1);
+  });
+
+  it('leaves it to the server to push a player that rests in his way', () => {
+    for (const link of TOBY_LINKS) {
+      // It appears in his way, and stays there.
+      const outcome: Outcome = play(link, [], 9000, [], [], BY_TOBY_SPAWN);
+      const told = JSON.stringify(link);
+      expect(measureOffRun(BY_TOBY_SPAWN), told).toBeLessThan(0.5);
+      expect(outcome.isHindered, told).toBe(true);
+      expect(outcome.prediction.correctionCount, told).toBeGreaterThan(0);
+      expect(outcome.prediction.motion, told).toEqual(outcome.server.motion);
+      // Off his way, where the server pushed it.
+      expect(measureOffRun(outcome.prediction.motion), told).toBeGreaterThan(
+        0.5,
+      );
+    }
+  });
+
+  it('draws him at an even pace, the player resting or not', () => {
+    for (const link of TOBY_LINKS) {
+      const { drawnSteps }: Outcome = play(
+        link,
+        STOPS_AND_STARTS,
+        30_000,
+        [],
+        [],
+        BY_TOBY_SPAWN,
+      );
+      const told = JSON.stringify(link);
+      drawnSteps.slice(1).forEach((drawn: DrawnStep, index: number) => {
+        const before: DrawnStep = drawnSteps[index] ?? drawn;
+        const pace: number =
+          ((drawn.step - before.step) * STEP) / (drawn.time - before.time);
+        expect(pace, `${told} at ${String(drawn.time)}`).toBeGreaterThan(0.85);
+        expect(pace, `${told} at ${String(drawn.time)}`).toBeLessThan(1.15);
+      });
+      // In the end, at the step the player is drawn at as it walks.
+      const last: DrawnStep = drawnSteps.at(-1) ?? { time: 0, step: 0 };
+      const walked: number =
+        (last.time + link.uplink - link.phase) / STEP + 0.5;
+      expect(Math.abs(last.step - walked), told).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 describe('the prediction of the player of the page', () => {
   it('starts as the server tells, with nothing to correct', () => {
-    const prediction = new PlayerPrediction(START, 1000);
+    const prediction = new PlayerPrediction(START, 0, 1000);
     expect(prediction.motion).toEqual(START);
     expect(prediction.readDrawn(1500)).toEqual(START);
     expect(prediction.correctionCount).toBe(0);
@@ -359,7 +772,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('moves the player at once on an input, when it rests', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.issueInput(steer(1, 0), 1234);
     expect(prediction.motion.action).toBe('Walk');
     expect(prediction.motion.x).toBeCloseTo(START.x + STEP_LENGTH);
@@ -367,7 +780,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('moves the player on at the rate of the server', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.issueInput(steer(1, 0), 1234);
     prediction.advance(1234 + STEP - 1);
     expect(prediction.motion.x).toBeCloseTo(START.x + STEP_LENGTH);
@@ -378,7 +791,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('shows an input at the next step of a player that moves', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput(steer(0, 1), 1020);
     expect(prediction.motion.yaw).toBeCloseTo(90);
@@ -390,7 +803,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('never takes two steps less than a step apart', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput(STOP, 1010);
     prediction.advance(1050);
@@ -403,7 +816,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('starts a slash at once, and stands still for as long as it lasts', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.issueInput(steer(0, 1), 1000);
     prediction.advance(1100);
     const walking: PlayerMotion = prediction.motion;
@@ -425,7 +838,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('drinks at the fountain, and slashes by it facing away', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     const pending: TimedInput[] = [...FOUNTAIN_VISIT];
     const actions: string[] = [];
     for (let time = 0; time <= 9000; time++) {
@@ -456,7 +869,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('tells when the latest input shows', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     expect(prediction.inputStepTime).toBeNull();
     prediction.issueInput(steer(1, 0), 1000);
     expect(prediction.inputStepTime).toBe(1000);
@@ -468,7 +881,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('numbers its inputs, and tells the steps between them', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     const inputs: StampedInput[] = [
       prediction.issueInput(steer(1, 0), 1000),
       prediction.issueInput(steer(0, 1), 1120),
@@ -491,7 +904,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('draws the player gliding from step to step', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.issueInput(steer(1, 0), 1000);
     expect(prediction.readDrawn(1000).x).toBe(START.x);
     expect(prediction.readDrawn(1000).action).toBe('Walk');
@@ -508,6 +921,64 @@ describe('the prediction of the player of the page', () => {
     );
     expect(prediction.readDrawn(1100)).toEqual(prediction.motion);
     expect(prediction.readDrawn(9000)).toEqual(prediction.motion);
+  });
+
+  it('counts the steps of the server on from where it starts', () => {
+    const prediction = new PlayerPrediction(START, 100, 0);
+    expect(prediction.step).toBe(100);
+    prediction.issueInput(steer(1, 0), 1000);
+    expect(prediction.step).toBe(121);
+    prediction.advance(1100);
+    expect(prediction.step).toBe(123);
+  });
+
+  it('takes the count of the steps of the server from what it tells', () => {
+    const prediction = new PlayerPrediction(START, 100, 0);
+    const input: StampedInput = prediction.issueInput(steer(1, 0), 1000);
+    prediction.advance(1100);
+    const server = new AuthoritativePlayer(START);
+    server.receiveInput(input);
+    stepTimes(server, 129, 2);
+    prediction.reconcile(server.progress, 130, 1100);
+    expect(prediction.correctionCount).toBe(0);
+    expect(prediction.step).toBe(131);
+    prediction.advance(1150);
+    expect(prediction.step).toBe(132);
+  });
+
+  it('tells the step of the server its next step is to be', () => {
+    const prediction = new PlayerPrediction(START, 100, 0);
+    // At rest, the step that takes in an input sent then.
+    expect(prediction.readNextStep(1000)).toBe(121);
+    prediction.issueInput(steer(1, 0), 1000);
+    expect(prediction.step).toBe(121);
+    // Walking, the step after its last one.
+    expect(prediction.readNextStep(1020)).toBe(122);
+    prediction.issueInput(STOP, 1020);
+    expect(prediction.readNextStep(1049)).toBe(122);
+    prediction.advance(1050);
+    expect(prediction.step).toBe(122);
+    expect(prediction.motion.action).toBe('Idle');
+    // At rest again, less than a step after its last one.
+    expect(prediction.readNextStep(1060)).toBe(123);
+    prediction.issueInput(INTERACT, 1060);
+    expect(prediction.readNextStep(1070)).toBe(123);
+    expect(prediction.motion.action).toBe('Idle');
+    prediction.advance(1100);
+    expect(prediction.step).toBe(123);
+    expect(prediction.motion.action).toBe('Slash');
+  });
+
+  it('shows the step of the server Toby is at, as it draws the player', () => {
+    const prediction = new PlayerPrediction(START, 100, 0);
+    expect(prediction.readDrawnStep(0)).toBe(100);
+    expect(prediction.readDrawnStep(1000)).toBe(120);
+    prediction.issueInput(steer(1, 0), 1000);
+    expect(prediction.readDrawnStep(1000)).toBe(120);
+    expect(prediction.readDrawnStep(1025)).toBe(120.5);
+    prediction.issueInput(STOP, 1030);
+    expect(prediction.readDrawnStep(1050)).toBe(121);
+    expect(prediction.readDrawnStep(3050)).toBe(161);
   });
 });
 
@@ -569,6 +1040,35 @@ describe('a prediction set right by the server', () => {
     const near: Outcome = play(direct, inputs, 4000);
     expect(near.lead).toBeLessThanOrEqual(2);
   });
+
+  it.each([
+    ['slows down', 0, 250],
+    ['speeds up', 250, 0],
+  ])(
+    'times its inputs right again soon after the link to the server %s',
+    (_: string, early: number, late: number) => {
+      const inputs: TimedInput[] = inventDelayChange(early, late);
+      const change: number = inputs.length / 2;
+      for (const link of LINKS) {
+        const outcome: Outcome = play(link, inputs, 26_000);
+        const told = JSON.stringify(link);
+        // Far from Toby, the steps the inputs come into effect at do not
+        // move the player.
+        expect(outcome.prediction.correctionCount, told).toBe(0);
+        expect(outcome.prediction.motion, told).toEqual(outcome.server.motion);
+        expect(outcome.server.progress.sequence, told).toBe(inputs.length);
+        // The first walk after the change comes into effect at another step
+        // than the page told, and those after the next rest at the very
+        // step.
+        expect(outcome.nextSteps[change], told).not.toBe(
+          outcome.applied[change],
+        );
+        expect(outcome.nextSteps.slice(change + 2), told).toEqual(
+          outcome.applied.slice(change + 2),
+        );
+      }
+    },
+  );
 
   it('counts a correction when an input reaches the server late', () => {
     const inputs: TimedInput[] = [
@@ -677,9 +1177,10 @@ describe('a prediction set right by the server', () => {
   );
 
   it('keeps the player where it fell while it is dead', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.reconcile(
       { sequence: 0, steps: 2, motion: killMotion(START) },
+      2,
       100,
     );
     prediction.issueInput(steer(1, 0), 200);
@@ -693,9 +1194,10 @@ describe('a prediction set right by the server', () => {
   });
 
   it('comes back walking as the keys held through death tell', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.reconcile(
       { sequence: 0, steps: 2, motion: killMotion(START) },
+      2,
       100,
     );
     prediction.issueInput(steer(1, 0), 200);
@@ -705,11 +1207,11 @@ describe('a prediction set right by the server', () => {
     server.kill();
     server.receiveInput({ ...steer(1, 0), sequence: 1, after: 0 });
     server.receiveInput({ ...INTERACT, sequence: 2, after: 0 });
-    stepTimes(server, DEATH_STEPS - 5);
+    stepTimes(server, 1, DEATH_STEPS - 5);
     server.relocate({ x: -1, z: 4 }, 180);
-    stepTimes(server, 5);
+    stepTimes(server, DEATH_STEPS - 4, 5);
     // The page is ahead of the server, on the same line.
-    prediction.reconcile(server.progress, 2600);
+    prediction.reconcile(server.progress, DEATH_STEPS, 2600);
     expect(prediction.motion).toMatchObject({ z: 4, action: 'Walk' });
     expect(prediction.motion.x).toBeGreaterThan(server.motion.x);
     prediction.advance(2800);
@@ -718,19 +1220,19 @@ describe('a prediction set right by the server', () => {
   });
 
   it('takes the word of the server for where the player is', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     const moved: PlayerMotion = { ...START, x: START.x + 3, z: START.z - 4 };
-    prediction.reconcile({ sequence: 0, steps: 8, motion: moved }, 500);
+    prediction.reconcile({ sequence: 0, steps: 8, motion: moved }, 8, 500);
     expect(prediction.motion).toEqual(moved);
     expect(prediction.readDrawn(500)).toEqual(moved);
     expect(prediction.correctionCount).toBe(1);
     expect(prediction.lastCorrection).toBeCloseTo(5);
-    prediction.reconcile({ sequence: 0, steps: 10, motion: moved }, 600);
+    prediction.reconcile({ sequence: 0, steps: 10, motion: moved }, 10, 600);
     expect(prediction.correctionCount).toBe(1);
   });
 
   it('moves what the server tells on by the inputs it has not got to', () => {
-    const prediction = new PlayerPrediction(START, 0);
+    const prediction = new PlayerPrediction(START, 0, 0);
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput(steer(0, 1), 1120);
     prediction.advance(1200);
@@ -742,13 +1244,183 @@ describe('a prediction set right by the server', () => {
       actionCount: 1,
       direction: { x: 1, z: 0 },
     };
-    prediction.reconcile({ sequence: 1, steps: 1, motion: moved }, 1200);
+    prediction.reconcile({ sequence: 1, steps: 1, motion: moved }, 25, 1200);
     expect(prediction.correctionCount).toBe(1);
     expect(prediction.lastCorrection).toBeCloseTo(1);
     expect(prediction.motion.x).toBeCloseTo(START.x + 1 + STEP_LENGTH * 3);
     expect(prediction.motion.z).toBeCloseTo(START.z + STEP_LENGTH * 2);
     expect(prediction.motion.yaw).toBeCloseTo(0);
   });
+});
+
+describe('a prediction set right by the server, by Toby', () => {
+  it.each([
+    ['a walk along his run', ALONG_HIS_RUN, 11_000],
+    ['a walk about him, with a talk or a slash', ABOUT_HIM, 12_800],
+  ])(
+    'never needs a correction over a steady link, for %s',
+    (_: string, inputs: readonly TimedInput[], duration: number) => {
+      for (const link of LINKS) {
+        for (const stepsFirst of [false, true]) {
+          const outcome: Outcome = play(
+            { ...link, stepsFirst },
+            inputs,
+            duration,
+            [],
+            [],
+            BY_TOBY_SPAWN,
+          );
+          const told = JSON.stringify({ ...link, stepsFirst });
+          expect(outcome.isHindered, told).toBe(true);
+          expect(outcome.leastRoom, told).toBeGreaterThan(-1e-9);
+          expect(outcome.prediction.correctionCount, told).toBe(0);
+          expect(outcome.prediction.motion, told).toEqual(
+            outcome.server.motion,
+          );
+          expect(outcome.server.progress.sequence).toBe(inputs.length);
+        }
+      }
+    },
+  );
+
+  it('rarely needs a correction setting off from rest into him, and small', () => {
+    const random: () => number = createRandom(1121);
+    const runs = 300;
+    let hinderedCount = 0;
+    let correctedCount = 0;
+    let largest = 0;
+    for (let run = 0; run < runs; run++) {
+      const delay: number = Math.floor(random() * 200);
+      const link: Link = {
+        uplink: delay + Math.floor(random() * 5),
+        downlink: delay + Math.floor(random() * 5),
+        phase: Math.floor(random() * STEP),
+        frame: 16,
+        stepsFirst: random() < 0.5,
+      };
+      // A walk from the spawn point in his way to rest beside his run, out
+      // of his way, and a walk across his way from there, at any point of
+      // his course, on towards the fence.
+      const [first] = TOBY_ENDS;
+      const along: number = 0.8 + random() * 2.8;
+      const beside: GroundVector = {
+        x: first.x + RUN_WAY.x * along + OFF_RUN.x * 0.7,
+        z: first.z + RUN_WAY.z * along + OFF_RUN.z * 0.7,
+      };
+      const distance: number = Math.hypot(
+        beside.x - BY_TOBY_SPAWN.x,
+        beside.z - BY_TOBY_SPAWN.z,
+      );
+      const walk: number = (distance / WALK_SPEED) * 1000;
+      const setOff: number =
+        1800 + walk + Math.floor(random() * TOBY_LOOP_STEPS * STEP);
+      const inputs: TimedInput[] = [
+        {
+          time: 300,
+          input: steer(
+            (beside.x - BY_TOBY_SPAWN.x) / distance,
+            (beside.z - BY_TOBY_SPAWN.z) / distance,
+          ),
+        },
+        { time: 300 + walk, input: STOP },
+        { time: setOff, input: steerByRun(0, -1) },
+        { time: setOff + 1500, input: STOP },
+      ];
+      // Until the server can have told of the stop.
+      const end: number = setOff + 1500 + link.uplink + link.downlink;
+      const outcome: Outcome = play(link, inputs, end, [], [], BY_TOBY_SPAWN);
+      hinderedCount += outcome.isHindered ? 1 : 0;
+      correctedCount += outcome.prediction.correctionCount > 0 ? 1 : 0;
+      largest = Math.max(largest, outcome.largestCorrection);
+    }
+    expect(hinderedCount).toBeGreaterThan(runs / 12);
+    expect(correctedCount).toBeLessThan(runs / 20);
+    // Less than two steps of his run.
+    expect(largest).toBeLessThan(0.25);
+  });
+
+  it.each([
+    ['appearing by him', null],
+    ['joining at any point of his course', 0],
+  ])(
+    'sets the player where the server last told, for whatever it does %s',
+    (_: string, joining: number | null) => {
+      const random: () => number = createRandom(joining === null ? 1119 : 1120);
+      let hinderedCount = 0;
+      for (let run = 0; run < 100; run++) {
+        const inputs: TimedInput[] = inventInputs(random, 40);
+        const link: Link = {
+          uplink: Math.floor(random() * 400),
+          downlink: Math.floor(random() * 400),
+          phase: Math.floor(random() * STEP),
+          frame: 5 + Math.floor(random() * 40),
+          stepsFirst: random() < 0.5,
+        };
+        const starts: PlayerMotion[] = [
+          BY_TOBY_SPAWN,
+          ...BY_TOBY.map(
+            ([, motion]: readonly [string, PlayerMotion]) => motion,
+          ),
+        ];
+        const start: PlayerMotion = starts[run % starts.length] ?? START;
+        const end: number = (inputs.at(-1)?.time ?? 0) + 2000;
+        const outcome: Outcome = play(
+          link,
+          inputs,
+          end,
+          [],
+          [],
+          start,
+          joining === null ? null : Math.floor(random() * TOBY_LOOP_STEPS),
+        );
+        const told = `run ${String(run)}: ${JSON.stringify(link)}`;
+        // At rest, with every input in effect.
+        expect(outcome.latestTold?.sequence, told).toBe(inputs.length);
+        expect(outcome.prediction.motion, told).toEqual(
+          outcome.latestTold?.motion,
+        );
+        hinderedCount += outcome.isHindered ? 1 : 0;
+      }
+      expect(hinderedCount).toBeGreaterThan(5);
+    },
+  );
+
+  it.each(
+    BY_TOBY.flatMap(([where, start]: readonly [string, PlayerMotion]) => [
+      [where, 'walks after rests', start, AFTER_RESTS, 7000],
+      [where, 'turns in quick succession', start, QUICK_TURNS, 3000],
+      [where, 'walks to and fro between rests', start, TO_AND_FRO, 23_000],
+    ]),
+  )(
+    'never needs a correction over a steady link, joining %s, as it %s',
+    (
+      _where: string,
+      _what: string,
+      start: PlayerMotion,
+      inputs: readonly TimedInput[],
+      duration: number,
+    ) => {
+      for (const link of LINKS) {
+        for (const stepsFirst of [false, true]) {
+          const outcome: Outcome = play(
+            { ...link, stepsFirst },
+            inputs,
+            duration,
+            [],
+            [],
+            start,
+            findJoiningStep(link),
+          );
+          const told = JSON.stringify({ ...link, stepsFirst });
+          expect(outcome.prediction.correctionCount, told).toBe(0);
+          expect(outcome.prediction.motion, told).toEqual(
+            outcome.server.motion,
+          );
+          expect(outcome.server.progress.sequence).toBe(inputs.length);
+        }
+      }
+    },
+  );
 });
 
 describe('placeOwnPlayer', () => {

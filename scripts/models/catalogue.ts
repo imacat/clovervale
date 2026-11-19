@@ -31,6 +31,7 @@ import { VARIANTS, buildCharacter } from './characters.ts';
 import { buildNpcEmma } from './npc-emma.ts';
 import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
+import { buildNpcToby } from './npc-toby.ts';
 import {
   buildBush,
   buildClover,
@@ -72,6 +73,7 @@ export function listModels(): ModelEntry[] {
     { name: 'npc-nancy', build: buildNpcNancy },
     { name: 'npc-emma', build: buildNpcEmma },
     { name: 'npc-martha', build: buildNpcMartha },
+    { name: 'npc-toby', build: buildNpcToby },
     { name: 'wild-dog', build: buildWildDog },
     { name: 'weapon-shop', build: buildWeaponShop },
     { name: 'fountain', build: buildFountain },

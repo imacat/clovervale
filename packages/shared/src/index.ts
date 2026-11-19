@@ -150,6 +150,21 @@ export type {
   Turn,
 } from './terrain.ts';
 export {
+  TOBY_ACTIVITIES,
+  TOBY_ACTIVITY_STEPS,
+  TOBY_CLOVERS,
+  TOBY_ENDS,
+  TOBY_FILE,
+  TOBY_LOOP_STEPS,
+  TOBY_RADIUS,
+  TOBY_RUN_SPEED,
+  findTobyPose,
+  measurePushReach,
+  pushAside,
+  resolveWalk,
+} from './toby.ts';
+export type { TobyActivity, TobyPose } from './toby.ts';
+export {
   FOUNTAIN_RIM_RADIUS,
   VILLAGE_BOUNDARY,
   VILLAGE_PLACEMENTS,
@@ -164,5 +179,5 @@ export {
   SPAWN_YAW,
   findSpawnPoint,
 } from './village.ts';
-export { VILLAGERS } from './villagers.ts';
+export { VILLAGERS, locateVillager } from './villagers.ts';
 export type { Villager, VillagerId } from './villagers.ts';

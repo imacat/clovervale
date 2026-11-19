@@ -26,9 +26,9 @@ import type { Interaction } from './actions.ts';
 import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
 import type { Pose } from './terrain.ts';
-import { FOUNTAIN_RIM_RADIUS, findPlacement } from './village-layout.ts';
+import { FOUNTAIN_RIM_RADIUS } from './village-layout.ts';
 import { PLAZA_CENTRE } from './village.ts';
-import { VILLAGERS } from './villagers.ts';
+import { VILLAGERS, locateVillager } from './villagers.ts';
 import type { Villager } from './villagers.ts';
 
 /**
@@ -59,8 +59,13 @@ export const TALK_REACH = 1.6;
 interface Interactable {
   /** What a player does with it. */
   readonly interaction: Interaction;
-  /** Where its centre stands. */
-  readonly centre: GroundVector;
+  /**
+   * Finds where its centre stands at a step of the simulation.
+   *
+   * @param {number} step - The number of the step.
+   * @returns {GroundVector} Where its centre stands.
+   */
+  readonly locate: (step: number) => GroundVector;
   /**
    * The farthest a player can stand from its centre to interact with it,
    * from centre to centre, in metres.
@@ -77,13 +82,13 @@ interface Interactable {
 const INTERACTABLES: readonly Interactable[] = [
   {
     interaction: 'Drink',
-    centre: PLAZA_CENTRE,
+    locate: (): GroundVector => PLAZA_CENTRE,
     reach: FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH,
   },
   ...VILLAGERS.map(
     (villager: Villager): Interactable => ({
       interaction: 'Talk',
-      centre: findPlacement(villager.file),
+      locate: (step: number): GroundVector => locateVillager(villager, step),
       reach: TALK_REACH,
       villager,
     }),
@@ -91,45 +96,52 @@ const INTERACTABLES: readonly Interactable[] = [
 ];
 
 /**
- * Finds what a player does when it interacts with the world, standing as
- * it does.
+ * Finds what a player does when it interacts with the world at a step of
+ * the simulation, standing as it does.
  *
  * Something is within reach of the player if its centre is no more than
  * {@link INTERACTION_HALF_ANGLE} to either side of the way the player
  * faces: the fountain if the player stands within {@link FOUNTAIN_REACH} of
  * its rim, and a villager if the player stands within {@link TALK_REACH} of
- * it.
+ * where the villager is at the step.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @param {number} step - The number of the step.
  * @returns {Interaction} A drink, if the fountain is within reach, or else
  *   a talk, if a villager is, or else a slash.
  */
-export function findInteraction(pose: Pose): Interaction {
-  return findInteractable(pose)?.interaction ?? 'Slash';
+export function findInteraction(pose: Pose, step: number): Interaction {
+  return findInteractable(pose, step)?.interaction ?? 'Slash';
 }
 
 /**
- * Finds the villager a player talks to when it interacts with the world,
- * standing as it does, as {@link findInteraction} tells.
+ * Finds the villager a player talks to when it interacts with the world at
+ * a step of the simulation, standing as it does, as {@link findInteraction}
+ * tells.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @param {number} step - The number of the step.
  * @returns {Villager | null} The villager, or `null` if the player does not
  *   talk.
  */
-export function findVillager(pose: Pose): Villager | null {
-  return findInteractable(pose)?.villager ?? null;
+export function findVillager(pose: Pose, step: number): Villager | null {
+  return findInteractable(pose, step)?.villager ?? null;
 }
 
 /**
- * Finds what a player interacts with, standing as it does.
+ * Finds what a player interacts with at a step, standing as it does.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @param {number} step - The number of the step.
  * @returns {Interactable | undefined} The first of
  *   {@link INTERACTABLES} within reach of the player, if any.
  */
-function findInteractable(pose: Pose): Interactable | undefined {
+function findInteractable(
+  pose: Pose,
+  step: number,
+): Interactable | undefined {
   return INTERACTABLES.find((interactable: Interactable) =>
-    isWithinReach(pose, interactable),
+    isWithinReach(pose, interactable.locate(step), interactable.reach),
   );
 }
 
@@ -137,15 +149,22 @@ function findInteractable(pose: Pose): Interactable | undefined {
  * Tells whether a player can interact with something.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
- * @param {Interactable} interactable - What it is to interact with.
- * @returns {boolean} Whether the player stands within the reach of its
+ * @param {GroundVector} centre - Where the centre of what it is to interact
+ *   with stands.
+ * @param {number} reach - The farthest the player can stand from that
+ *   centre to interact with it, from centre to centre, in metres.
+ * @returns {boolean} Whether the player stands within the reach of the
  *   centre, facing it closely enough.
  */
-function isWithinReach(pose: Pose, interactable: Interactable): boolean {
-  const dx: number = interactable.centre.x - pose.x;
-  const dz: number = interactable.centre.z - pose.z;
+function isWithinReach(
+  pose: Pose,
+  centre: GroundVector,
+  reach: number,
+): boolean {
+  const dx: number = centre.x - pose.x;
+  const dz: number = centre.z - pose.z;
   const distance: number = Math.hypot(dx, dz);
-  if (distance > interactable.reach) {
+  if (distance > reach) {
     return false;
   }
   if (distance === 0) {

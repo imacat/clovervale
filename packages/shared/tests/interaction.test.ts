@@ -30,10 +30,13 @@ import {
   INTERACTION_HALF_ANGLE,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
+  SIMULATION_RATE,
   TALK_REACH,
+  TOBY_LOOP_STEPS,
   VILLAGE_TERRAIN,
   findInteraction,
   findPlacement,
+  findTobyPose,
   findTurn,
   findVillager,
   turnVector,
@@ -104,103 +107,143 @@ function listPosesFacingEmma(): Pose[] {
 describe('findInteraction', () => {
   it('drinks by the rim of the fountain, facing it', () => {
     const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
-    expect(findInteraction({ x: PLAZA_CENTRE.x, z, yaw: 180 })).toBe('Drink');
+    expect(findInteraction({ x: PLAZA_CENTRE.x, z, yaw: 180 }, 0)).toBe(
+      'Drink',
+    );
   });
 
   it('drinks as far from the rim as the fountain reaches', () => {
     const x: number = PLAZA_CENTRE.x + REACH - 1e-9;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: -90 })).toBe('Drink');
+    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: -90 }, 0)).toBe(
+      'Drink',
+    );
   });
 
   it('slashes beyond the reach of the fountain, facing it', () => {
     const x: number = PLAZA_CENTRE.x + REACH + 0.01;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: -90 })).toBe('Slash');
+    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: -90 }, 0)).toBe(
+      'Slash',
+    );
   });
 
   it('drinks facing to one side of the fountain within the angle', () => {
     const x: number = PLAZA_CENTRE.x + REACH - 0.1;
     const yaw: number = -90 + INTERACTION_HALF_ANGLE - 1;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw })).toBe('Drink');
+    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw }, 0)).toBe('Drink');
   });
 
   it('slashes by the fountain, facing too far to one side of it', () => {
     const x: number = PLAZA_CENTRE.x + REACH - 0.1;
     const yaw: number = -90 - INTERACTION_HALF_ANGLE - 1;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw })).toBe('Slash');
+    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw }, 0)).toBe('Slash');
   });
 
   it('slashes by the fountain, facing away from it', () => {
     const x: number = PLAZA_CENTRE.x + REACH - 0.1;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: 90 })).toBe('Slash');
+    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: 90 }, 0)).toBe('Slash');
   });
 
   it('slashes away from anything to interact with', () => {
-    expect(findInteraction({ x: 11, z: 9, yaw: 0 })).toBe('Slash');
+    expect(findInteraction({ x: 11, z: 9, yaw: 0 }, 0)).toBe('Slash');
   });
 });
 
 describe('findInteraction by Nancy', () => {
   it('talks to her as far from her as she can be talked to', () => {
-    expect(findInteraction(standByNancy(TALK_REACH - 1e-9, 180))).toBe('Talk');
+    expect(findInteraction(standByNancy(TALK_REACH - 1e-9, 180), 0)).toBe(
+      'Talk',
+    );
   });
 
   it('talks to her facing to one side of her within the angle', () => {
     const yaw: number = 180 + INTERACTION_HALF_ANGLE - 1;
-    expect(findInteraction(standByNancy(TALK_REACH - 0.1, yaw))).toBe('Talk');
+    expect(findInteraction(standByNancy(TALK_REACH - 0.1, yaw), 0)).toBe(
+      'Talk',
+    );
   });
 
   it('slashes beyond her reach, facing her', () => {
-    expect(findInteraction(standByNancy(TALK_REACH + 0.01, 180))).toBe(
+    expect(findInteraction(standByNancy(TALK_REACH + 0.01, 180), 0)).toBe(
       'Slash',
     );
   });
 
   it('slashes by her, facing away from her', () => {
-    expect(findInteraction(standByNancy(TALK_REACH - 0.1, 0))).toBe('Slash');
+    expect(findInteraction(standByNancy(TALK_REACH - 0.1, 0), 0)).toBe('Slash');
   });
 });
 
 describe('findInteraction by Emma the smith', () => {
   it('slashes facing her close by, as she does not talk', () => {
     for (const pose of listPosesFacingEmma()) {
-      expect(findInteraction(pose)).toBe('Slash');
-      expect(findVillager(pose)).toBeNull();
+      expect(findInteraction(pose, 0)).toBe('Slash');
+      expect(findVillager(pose, 0)).toBeNull();
     }
   });
 });
 
 describe('findInteraction by Martha the village chief', () => {
   it('talks to her from in front of her on the porch, facing her', () => {
-    expect(findInteraction(standBeforeMartha())).toBe('Talk');
+    expect(findInteraction(standBeforeMartha(), 0)).toBe('Talk');
   });
 
   it('slashes in front of her, facing away from her', () => {
     const pose: Pose = standBeforeMartha();
-    expect(findInteraction({ ...pose, yaw: MARTHA.yaw })).toBe('Slash');
+    expect(findInteraction({ ...pose, yaw: MARTHA.yaw }, 0)).toBe('Slash');
   });
 });
 
 describe('findVillager', () => {
   it('finds Nancy, facing her', () => {
-    expect(findVillager(standByNancy(TALK_REACH - 0.1, 180))).toEqual({
+    expect(findVillager(standByNancy(TALK_REACH - 0.1, 180), 0)).toEqual({
       id: 'nancy',
       file: 'npc-nancy.glb',
     });
   });
 
   it('finds Martha, facing her on the porch', () => {
-    expect(findVillager(standBeforeMartha())).toEqual({
+    expect(findVillager(standBeforeMartha(), 0)).toEqual({
       id: 'martha',
       file: 'npc-martha.glb',
     });
   });
 
   it('finds nobody by her, facing away from her', () => {
-    expect(findVillager(standByNancy(TALK_REACH - 0.1, 0))).toBeNull();
+    expect(findVillager(standByNancy(TALK_REACH - 0.1, 0), 0)).toBeNull();
   });
 
   it('finds nobody by the fountain, facing it', () => {
     const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
-    expect(findVillager({ x: PLAZA_CENTRE.x, z, yaw: 180 })).toBeNull();
+    expect(findVillager({ x: PLAZA_CENTRE.x, z, yaw: 180 }, 0)).toBeNull();
+  });
+});
+
+describe('findVillager by Toby', () => {
+  /** The steps of one whole loop of his course, from the first. */
+  const LOOP: readonly number[] = Array.from(
+    { length: TOBY_LOOP_STEPS },
+    (_, step: number) => step,
+  );
+
+  /** A step in the middle of a run of his. */
+  const RUNNING: number =
+    LOOP.findIndex((step: number) => findTobyPose(step).activity === 'Run') +
+    SIMULATION_RATE;
+
+  it('finds him where he is at the step, facing him, as he runs', () => {
+    const toby: Pose = findTobyPose(RUNNING);
+    const facing: Pose = { x: toby.x, z: toby.z + TALK_REACH - 0.1, yaw: 180 };
+    expect(findVillager(facing, RUNNING)).toEqual({
+      id: 'toby',
+      file: 'npc-toby.glb',
+    });
+    expect(findInteraction(facing, RUNNING)).toBe('Talk');
+  });
+
+  it('finds nobody where he was, once he has run on', () => {
+    const toby: Pose = findTobyPose(RUNNING);
+    const facing: Pose = { x: toby.x, z: toby.z + TALK_REACH - 0.1, yaw: 180 };
+    expect(findVillager(facing, RUNNING + SIMULATION_RATE)).toBeNull();
+    expect(findInteraction(facing, RUNNING + SIMULATION_RATE)).toBe('Slash');
   });
 });

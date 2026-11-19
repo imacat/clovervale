@@ -224,6 +224,30 @@ export function createPlayerFigure(
 }
 
 /**
+ * Makes a model to show a villager who goes about the village with, ready
+ * to stand in it.
+ *
+ * @param {readonly LoadedModel[]} models - The models.
+ * @param {string} file - The file name of the model of the villager.
+ * @returns {Figure | null} A copy of the model, or `null` if the model is
+ *   not among the models.
+ */
+export function createVillagerFigure(
+  models: readonly LoadedModel[],
+  file: string,
+): Figure | null {
+  const model: LoadedModel | undefined = models.find(
+    (candidate: LoadedModel) => candidate.file === file,
+  );
+  if (model === undefined) {
+    return null;
+  }
+  const root: Object3D = clone(model.root);
+  prepareModel(root);
+  return { root, clips: model.clips };
+}
+
+/**
  * Makes a model to show the monster with, ready to stand in the village.
  *
  * @param {readonly LoadedModel[]} models - The models.

@@ -131,6 +131,13 @@ export const EN_MESSAGES = {
     "Welcome to Clovervale. I'm {name}, the village chief. If there's anything I can help you with, just come and find me.",
   'villager.martha.line.2':
     'That well ran dry long ago. I boarded it up so that none of the children would fall in.',
+  'villager.toby.name': 'Toby',
+  'villager.toby.line.1':
+    "Mummy says I mustn't go outside. There are wild dogs out there.",
+  'villager.toby.line.2':
+    'If you want something, go and see the village chief. She lives in the biggest house!',
+  'villager.toby.line.3':
+    "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
 } as const;
 
 /** A message of the page. */

@@ -21,9 +21,14 @@
  * @module client/main The entry point of the browser client.
  */
 
+import type { Vector3 } from 'three';
+
 import {
   NOON,
   PROTOCOL_VERSION,
+  SIMULATION_RATE,
+  TOBY_FILE,
+  VILLAGERS,
   VILLAGE_TERRAIN,
   createInteractMessage,
   decodeServerMessage,
@@ -93,6 +98,7 @@ import { createObstacleOutlines } from './obstacle-outlines.ts';
 import { createPanel } from './panel.ts';
 import type { Panel } from './panel.ts';
 import { PlayerFigures } from './player-figures.ts';
+import type { Figure } from './player-figures.ts';
 import { MoveKeys, findKeyCommand } from './player-input.ts';
 import type { KeyCommand } from './player-input.ts';
 import {
@@ -108,11 +114,13 @@ import { resolveServerUrl } from './server-url.ts';
 import { SpeechBubble, findHeadTop } from './speech-bubble.ts';
 import './style.css';
 import { TalkWatch } from './talk-watch.ts';
+import { TobyFigure } from './toby-figure.ts';
 import { Translator } from './translator.ts';
 import {
   createMonsterFigure,
   createPlayerFigure,
   createVillageScene,
+  createVillagerFigure,
   populateVillage,
 } from './village-scene.ts';
 import { showScene } from './viewport.ts';
@@ -123,6 +131,14 @@ import { WindowGlow } from './window-glow.ts';
 const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 /** The URL of the music of the village, relative to the page. */
 const MUSIC_URL = `${import.meta.env.BASE_URL}music/${MUSIC_FILE}`;
+
+/** How long one step of the simulation lasts, in milliseconds. */
+const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
+
+/** Toby, the child who goes about by the gate, as a villager. */
+const TOBY_VILLAGER: Villager | undefined = VILLAGERS.find(
+  (villager: Villager) => villager.file === TOBY_FILE,
+);
 
 /** The colour of the number of a hit on the player of the page. */
 const OWN_HIT_COLOUR = '#ff4b3e';
@@ -178,6 +194,8 @@ let fountainGlow: FountainGlow | null = null;
 let forgeGlow: ForgeGlow | null = null;
 /** The light in the windows of the houses, once their models are shown. */
 let windowGlow: WindowGlow | null = null;
+/** Toby, once his model has been loaded. */
+let toby: TobyFigure | null = null;
 
 /** The time of day of the world, as the page reckons it. */
 const dayClock = new DayClock();
@@ -245,6 +263,7 @@ Object.defineProperty(window, 'clovervale', {
     listShownHits: () => [...shownHits],
     listShownHeals: () => [...shownHeals],
     describeSpeech: () => speech.describe(),
+    describeToby: () => toby?.describe() ?? null,
     describeTimeOfDay: () => ({
       world: dayClock.read(performance.now()),
       shown: shownTime,
@@ -277,6 +296,11 @@ async function showModels(): Promise<void> {
   models = loaded.models;
   actors.push(...populateVillage(scene, models));
   windowGlow = new WindowGlow(scene);
+  const child: Figure | null = createVillagerFigure(models, TOBY_FILE);
+  if (child !== null) {
+    scene.add(child.root);
+    toby = new TobyFigure(child.root, child.clips);
+  }
   const fountain: LoadedModel | undefined = models.find(
     (model: LoadedModel) => model.file === FOUNTAIN_FILE,
   );
@@ -429,9 +453,13 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * the player the panel has it follow, as it is shown.  The player of the
  * page is shown as predicted, or like the others.  The others and the
  * monsters are shown either smoothly, as they were a while ago, or exactly
- * as the latest snapshot tells them, and so are the hits among them.  Once
- * the player of the page starts to talk to a villager, as predicted, what
- * the villager says is shown above its head.
+ * as the latest snapshot tells them, and so are the hits among them.  Toby
+ * is shown as he is at the step of the server the player of the page is
+ * shown at as it walks, running on evenly whether it walks or rests, while
+ * the player of the page is shown as predicted, and as he is when the others
+ * are shown otherwise.  Once the player of the page starts to talk to a
+ * villager, as predicted, what the villager says is shown above its head,
+ * and follows the head of Toby as he goes on and squats.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -451,20 +479,34 @@ function showPlayers(): void {
     const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
     view = { ...view, players };
   }
+  const shownStep: number | null =
+    panel.prediction.isEnabled && prediction !== null
+      ? prediction.readDrawnStep(now)
+      : view.time === null
+        ? null
+        : view.time / STEP_MILLISECONDS;
+  if (shownStep !== null) {
+    toby?.show(shownStep);
+  }
   figures.showPlayers(view.players);
   monsterFigures.showMonsters(view.monsters);
   showEvents(view);
   panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
   panel.showPrediction(describePrediction(translator, prediction));
   const predicted: PlayerMotion | null = prediction?.motion ?? null;
-  prompt.show(describePrompt(translator, predicted));
-  panel.showInteraction(describeSpaceKey(translator, predicted));
-  const villager: Villager | null = talks.noticeTalk(predicted);
+  // An interaction would start at the next step of the player.
+  const nextStep: number = prediction?.readNextStep(now) ?? 0;
+  prompt.show(describePrompt(translator, predicted, nextStep));
+  panel.showInteraction(describeSpaceKey(translator, predicted, nextStep));
+  const villager: Villager | null = talks.noticeTalk(
+    predicted,
+    prediction?.step ?? 0,
+  );
   if (villager !== null) {
-    const model: LoadedModel | undefined = models.find(
-      (candidate: LoadedModel) => candidate.file === villager.file,
-    );
-    speech.say(villager, findHeadTop(villager, model?.root ?? null));
+    speech.say(villager, findShownHead(villager, shownStep ?? 0));
+  }
+  if (TOBY_VILLAGER !== undefined && shownStep !== null) {
+    speech.follow(TOBY_VILLAGER, findShownHead(TOBY_VILLAGER, shownStep));
   }
   const followedId: number | null = panel.camera.followedId ?? ownId;
   const followed: PlayerState | undefined = view.players.find(
@@ -473,6 +515,26 @@ function showPlayers(): void {
   if (followed !== undefined) {
     viewport.follow(followed);
   }
+}
+
+/**
+ * Finds the top of the head of a villager as it is shown.
+ *
+ * @param {Villager} villager - The villager.
+ * @param {number} step - The step of the server the villager is shown at,
+ *   which may fall between two.
+ * @returns {Vector3} The top of its head.
+ */
+function findShownHead(villager: Villager, step: number): Vector3 {
+  const shown: Vector3 | null =
+    villager.file === TOBY_FILE ? (toby?.findHeadTop() ?? null) : null;
+  if (shown !== null) {
+    return shown;
+  }
+  const model: LoadedModel | undefined = models.find(
+    (candidate: LoadedModel) => candidate.file === villager.file,
+  );
+  return findHeadTop(villager, model?.root ?? null, step);
 }
 
 /**
@@ -515,9 +577,13 @@ function receiveMessage(data: string): void {
         listCameraChoices(translator, ownId, message.players),
       );
       if (prediction === null) {
-        prediction = new PlayerPrediction(message.own.motion, now);
+        prediction = new PlayerPrediction(
+          message.own.motion,
+          message.step,
+          now,
+        );
       } else {
-        prediction.reconcile(message.own, now);
+        prediction.reconcile(message.own, message.step, now);
       }
       panel.showReadout(describeSnapshot(translator, ownId, message.players));
       panel.showMonster(describeMonster(translator, message.monsters));

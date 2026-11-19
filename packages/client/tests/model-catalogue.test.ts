@@ -23,8 +23,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { VILLAGE_PLACEMENTS } from '@clovervale/shared';
-import type { Placement } from '@clovervale/shared';
+import { VILLAGERS, VILLAGE_PLACEMENTS } from '@clovervale/shared';
+import type { Placement, Villager } from '@clovervale/shared';
 
 import {
   REQUIRED_MODEL_FILES,
@@ -94,6 +94,14 @@ describe('planModels', () => {
     ).filter((file: string) => file.startsWith('npc-'));
     expect(npcs).toContain('npc-emma.glb');
     expect(planModels([]).missing).toEqual(expect.arrayContaining(npcs));
+  });
+
+  it('reports every villager, who can be talked to wherever it is', () => {
+    const files: string[] = VILLAGERS.map(
+      (villager: Villager) => villager.file,
+    );
+    expect(files).toContain('npc-toby.glb');
+    expect(planModels([]).missing).toEqual(expect.arrayContaining(files));
   });
 
   it('does not miss the optional props', () => {

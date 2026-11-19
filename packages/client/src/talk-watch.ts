@@ -22,7 +22,7 @@
  *   talk to a villager.
  */
 
-import { findVillager } from '@clovervale/shared';
+import { TALK_STEPS, findVillager } from '@clovervale/shared';
 import type { PlayerMotion, Villager } from '@clovervale/shared';
 
 /** What notices each talk of the player of the page once. */
@@ -36,14 +36,17 @@ export class TalkWatch {
    *
    * @param {PlayerMotion | null} motion - The motion of the player now, or
    *   `null` while there is none.
-   * @returns {Villager | null} The villager the player talks to, if the
-   *   motion shows a talk not noticed before, or `null` otherwise.
+   * @param {number} step - The number of the step of the server the motion
+   *   is after.
+   * @returns {Villager | null} The villager the player talks to, where it
+   *   was at the step the talk started, if the motion shows a talk not
+   *   noticed before, or `null` otherwise.
    */
-  noticeTalk(motion: PlayerMotion | null): Villager | null {
+  noticeTalk(motion: PlayerMotion | null, step: number): Villager | null {
     if (motion?.action !== 'Talk' || motion.actionCount === this.#talkCount) {
       return null;
     }
     this.#talkCount = motion.actionCount;
-    return findVillager(motion);
+    return findVillager(motion, step - (TALK_STEPS - motion.actionSteps));
   }
 }

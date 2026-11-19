@@ -21,11 +21,15 @@
  * @module shared/villagers The villagers a player can talk to.
  */
 
+import type { GroundVector } from './movement.ts';
+import { TOBY_FILE, findTobyPose } from './toby.ts';
+import { findPlacement } from './village-layout.ts';
+
 /**
  * The identifier of a villager, which never changes, for the client to
  * find what the villager is called and what it says.
  */
-export type VillagerId = 'nancy' | 'martha';
+export type VillagerId = 'nancy' | 'martha' | 'toby';
 
 /** A villager a player can talk to. */
 export interface Villager {
@@ -33,7 +37,7 @@ export interface Villager {
   readonly id: VillagerId;
   /**
    * The file name of the model of the villager, which the village has a
-   * place for.
+   * place for, unless the villager goes about the village.
    */
   readonly file: string;
 }
@@ -42,4 +46,26 @@ export interface Villager {
 export const VILLAGERS: readonly Villager[] = [
   { id: 'nancy', file: 'npc-nancy.glb' },
   { id: 'martha', file: 'npc-martha.glb' },
+  { id: 'toby', file: TOBY_FILE },
 ];
+
+/**
+ * Finds where a villager stands at a step of the simulation.
+ *
+ * @param {Villager} villager - The villager.
+ * @param {number} step - The number of the step, which may fall between
+ *   two steps.
+ * @returns {GroundVector} Where Toby is at the step, as he runs his course,
+ *   or where the village has a place for any other villager.
+ */
+export function locateVillager(
+  villager: Villager,
+  step: number,
+): GroundVector {
+  if (villager.file === TOBY_FILE) {
+    const { x, z } = findTobyPose(step);
+    return { x, z };
+  }
+  const { x, z } = findPlacement(villager.file);
+  return { x, z };
+}

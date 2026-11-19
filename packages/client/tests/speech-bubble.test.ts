@@ -25,8 +25,8 @@
 import { BoxGeometry, Mesh, Object3D, Sprite, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { VILLAGERS, findPlacement } from '@clovervale/shared';
-import type { Placement, Villager } from '@clovervale/shared';
+import { VILLAGERS, findPlacement, findTobyPose } from '@clovervale/shared';
+import type { Placement, TobyPose, Villager } from '@clovervale/shared';
 
 import {
   CHARACTER_READING_SPEED,
@@ -73,6 +73,24 @@ const MARTHA_LINES: readonly string[] = [
 const MARTHA_LINES_ZH_TW: readonly string[] = [
   '歡迎來到四葉谷，我是村長瑪莎，有什麼事都可以來找我幫忙。',
   '那口井早就乾了，我封起來，免得小孩掉下去。',
+];
+
+/** Toby, the child who goes about by the gate, who has three lines. */
+const TOBY: Villager = findVillagerOf('npc-toby.glb');
+
+/** What Toby says, in English. */
+const TOBY_LINES: readonly string[] = [
+  "Mummy says I mustn't go outside. There are wild dogs out there.",
+  'If you want something, go and see the village chief. She lives in the ' +
+    'biggest house!',
+  "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
+];
+
+/** What Toby says, in Traditional Chinese. */
+const TOBY_LINES_ZH_TW: readonly string[] = [
+  '媽媽說不可以出去，外面有野狗。',
+  '有事要找村長喔，她住在最大的那間房子。',
+  '我在找四葉的！找到就會有好運喔。',
 ];
 
 /** What Nancy says, in English. */
@@ -256,14 +274,27 @@ describe('findHeadTop', () => {
     body.position.y = 0.8;
     root.add(body);
     root.position.set(SPOT.x, 0, SPOT.z);
-    const top: Vector3 = findHeadTop(NANCY, root);
+    const top: Vector3 = findHeadTop(NANCY, root, 0);
     expect(top.x).toBeCloseTo(SPOT.x);
     expect(top.y).toBeCloseTo(1.6);
     expect(top.z).toBeCloseTo(SPOT.z);
   });
 
+  it('finds the top of Toby where he is at the step', () => {
+    const root = new Object3D();
+    const body = new Mesh(new BoxGeometry(0.4, 1.1, 0.4));
+    body.position.y = 0.55;
+    root.add(body);
+    const toby: TobyPose = findTobyPose(150);
+    root.position.set(toby.x, 0, toby.z);
+    const top: Vector3 = findHeadTop(TOBY, root, 150);
+    expect(top.x).toBeCloseTo(toby.x);
+    expect(top.y).toBeCloseTo(1.1);
+    expect(top.z).toBeCloseTo(toby.z);
+  });
+
   it('takes a usual height where the villager stands without its model', () => {
-    const top: Vector3 = findHeadTop(NANCY, null);
+    const top: Vector3 = findHeadTop(NANCY, null, 0);
     expect(top.x).toBeCloseTo(SPOT.x);
     expect(top.y).toBeGreaterThan(1);
     expect(top.z).toBeCloseTo(SPOT.z);
@@ -413,5 +444,46 @@ describe('SpeechBubble with a villager who has several lines', () => {
       name: '瑪莎',
       line: MARTHA_LINES_ZH_TW[index],
     });
+  });
+});
+
+describe('SpeechBubble with Toby', () => {
+  it('says each of his lines, in English and in Traditional Chinese', async () => {
+    const numbers: readonly number[] = [0, 0.99, 0.5, 0.25, 0.75, 0.1, 0.9];
+    const { bubble } = createBubble(undefined, createSequence(numbers));
+    expect(new Set(talkRepeatedly(bubble, TOBY, 12))).toEqual(
+      new Set(TOBY_LINES),
+    );
+    const zhTw: Translator = await createTranslator('zh-TW');
+    const chinese = createBubble(zhTw, createSequence(numbers));
+    expect(new Set(talkRepeatedly(chinese.bubble, TOBY, 12))).toEqual(
+      new Set(TOBY_LINES_ZH_TW),
+    );
+    expect(chinese.bubble.describe()?.name).toBe('托比');
+  });
+
+  it('follows him as he runs on while he speaks', () => {
+    const { parent, bubble } = createBubble();
+    const start: TobyPose = findTobyPose(120);
+    const later: TobyPose = findTobyPose(130);
+    expect([start.activity, later.activity]).toEqual(['Run', 'Run']);
+    bubble.say(TOBY, new Vector3(start.x, 1.1, start.z));
+    const before: number | undefined = bubble.describe()?.y;
+    bubble.follow(TOBY, new Vector3(later.x, 1.1, later.z));
+    expect(bubble.describe()).toMatchObject({
+      x: later.x,
+      y: before,
+      z: later.z,
+    });
+    expect(parent.children).toHaveLength(1);
+    // Another villager does not take his bubble with her.
+    bubble.follow(NANCY, HEAD);
+    expect(bubble.describe()).toMatchObject({ x: later.x, z: later.z });
+  });
+
+  it('follows nobody once the bubble is over', () => {
+    const { bubble } = createBubble();
+    bubble.follow(TOBY, new Vector3(-10.5, 1.1, -0.2));
+    expect(bubble.describe()).toBeNull();
   });
 });

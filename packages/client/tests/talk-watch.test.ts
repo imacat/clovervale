@@ -25,14 +25,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  SIMULATION_RATE,
   TALK_REACH,
   TALK_STEPS,
+  TOBY_LOOP_STEPS,
   applyInput,
   createMotion,
   findPlacement,
+  findTobyPose,
   stepMotion,
 } from '@clovervale/shared';
-import type { PlayerMotion } from '@clovervale/shared';
+import type { PlayerMotion, TobyPose } from '@clovervale/shared';
 
 import { TalkWatch } from '../src/talk-watch.ts';
 
@@ -52,7 +55,7 @@ const BY_NANCY: PlayerMotion = createMotion(
  * @returns {PlayerMotion} The motion after the step.
  */
 function interact(motion: PlayerMotion): PlayerMotion {
-  return stepMotion(applyInput(motion, { type: 'interact' }));
+  return stepMotion(applyInput(motion, { type: 'interact' }), 0);
 }
 
 /**
@@ -60,12 +63,17 @@ function interact(motion: PlayerMotion): PlayerMotion {
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {number} count - The number of steps.
+ * @param {number} [from] - The number of the first step, 0 by default.
  * @returns {PlayerMotion} The motion after the steps.
  */
-function stepTimes(motion: PlayerMotion, count: number): PlayerMotion {
+function stepTimes(
+  motion: PlayerMotion,
+  count: number,
+  from = 0,
+): PlayerMotion {
   let stepped: PlayerMotion = motion;
-  for (let step = 0; step < count; step++) {
-    stepped = stepMotion(stepped);
+  for (let step = from; step < from + count; step++) {
+    stepped = stepMotion(stepped, step);
   }
   return stepped;
 }
@@ -73,28 +81,50 @@ function stepTimes(motion: PlayerMotion, count: number): PlayerMotion {
 describe('TalkWatch', () => {
   it('notices a talk once, as it starts, with whom it is', () => {
     const watch = new TalkWatch();
-    expect(watch.noticeTalk(BY_NANCY)).toBeNull();
+    expect(watch.noticeTalk(BY_NANCY, 0)).toBeNull();
     const talking: PlayerMotion = interact(BY_NANCY);
-    expect(watch.noticeTalk(talking)?.id).toBe('nancy');
-    expect(watch.noticeTalk(talking)).toBeNull();
-    expect(watch.noticeTalk(stepMotion(talking))).toBeNull();
+    expect(watch.noticeTalk(talking, 0)?.id).toBe('nancy');
+    expect(watch.noticeTalk(talking, 0)).toBeNull();
+    expect(watch.noticeTalk(stepMotion(talking, 0), 0)).toBeNull();
   });
 
   it('notices the next talk as well', () => {
     const watch = new TalkWatch();
     const first: PlayerMotion = interact(BY_NANCY);
-    watch.noticeTalk(first);
+    watch.noticeTalk(first, 0);
     const over: PlayerMotion = stepTimes(first, TALK_STEPS);
     expect(over.action).toBe('Idle');
-    expect(watch.noticeTalk(over)).toBeNull();
+    expect(watch.noticeTalk(over, 0)).toBeNull();
     const second: PlayerMotion = interact(over);
     expect(second.action).toBe('Talk');
-    expect(watch.noticeTalk(second)?.id).toBe('nancy');
+    expect(watch.noticeTalk(second, 0)?.id).toBe('nancy');
   });
 
   it('notices no slash, and nothing without a player', () => {
     const watch = new TalkWatch();
-    expect(watch.noticeTalk(interact({ ...BY_NANCY, yaw: 0 }))).toBeNull();
-    expect(watch.noticeTalk(null)).toBeNull();
+    expect(watch.noticeTalk(interact({ ...BY_NANCY, yaw: 0 }), 0)).toBeNull();
+    expect(watch.noticeTalk(null, 0)).toBeNull();
+  });
+
+  it('notices a talk to Toby where he was as it started', () => {
+    let step = 0;
+    while (findTobyPose(step).activity !== 'Run') {
+      step = (step + 1) % TOBY_LOOP_STEPS;
+    }
+    step += SIMULATION_RATE / 2;
+    const toby: TobyPose = findTobyPose(step);
+    const facing: PlayerMotion = createMotion(
+      { x: toby.x, z: toby.z - TALK_REACH + 0.2 },
+      0,
+    );
+    const talking: PlayerMotion = stepMotion(
+      applyInput(facing, { type: 'interact' }),
+      step,
+    );
+    expect(talking.action).toBe('Talk');
+    // Noticed only some steps later, when he has run on out of reach.
+    const later: PlayerMotion = stepTimes(talking, TALK_STEPS - 1, step + 1);
+    const watch = new TalkWatch();
+    expect(watch.noticeTalk(later, step + TALK_STEPS - 1)?.id).toBe('toby');
   });
 });

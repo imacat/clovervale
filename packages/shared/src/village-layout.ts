@@ -200,6 +200,8 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [15, -10.5, 260],
   ],
   'prop-clover.glb': [
+    // The patch Toby squats by at the end of his run by the gate, where the
+    // second of TOBY_CLOVERS is.
     [-3.6, 3.4, 0],
     [-3.4, 6.4, 50],
     [-5.6, 9.2, 100],
@@ -207,6 +209,8 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [-3.6, 10.5, 200],
     [-2.6, -10.2, 250],
     [2.6, -10.3, 300],
+    // The patch Toby squats by at the end of his run by the cottage, where
+    // the first of TOBY_CLOVERS is.
     [-8, -0.2, 350],
     [7.4, 0.4, 40],
     [-13.5, -9.5, 90],

@@ -47,6 +47,8 @@ export interface Prompt {
  * @param {Translator} translator - The translator of the text of the page.
  * @param {PlayerMotion | null} motion - The motion of the player as
  *   predicted, or `null` while there is none.
+ * @param {number} step - The number of the step of the server an
+ *   interaction would start at, which tells where Toby would be then.
  * @returns {string} What the player does, that it does nothing while it
  *   cannot interact, as while it is dead, or `–` while there is no player,
  *   in the language of the page.
@@ -54,6 +56,7 @@ export interface Prompt {
 export function describeSpaceKey(
   translator: Translator,
   motion: PlayerMotion | null,
+  step: number,
 ): string {
   if (motion === null) {
     return UNKNOWN;
@@ -61,12 +64,12 @@ export function describeSpaceKey(
   if (!canInteract(motion)) {
     return translator.translate('spaceKey.nothing');
   }
-  const villager: Villager | null = findVillager(motion);
+  const villager: Villager | null = findVillager(motion, step);
   if (villager !== null) {
     const { name } = describeVillager(translator, villager);
     return translator.translate('spaceKey.talk', { name });
   }
-  return findInteraction(motion) === 'Drink'
+  return findInteraction(motion, step) === 'Drink'
     ? translator.translate('spaceKey.drink')
     : translator.translate('spaceKey.slash');
 }
@@ -78,6 +81,8 @@ export function describeSpaceKey(
  * @param {Translator} translator - The translator of the text of the page.
  * @param {PlayerMotion | null} motion - The motion of the player as
  *   predicted, or `null` while there is none.
+ * @param {number} step - The number of the step of the server an
+ *   interaction would start at, which tells where Toby would be then.
  * @returns {string | null} The prompt, in the language of the page, or
  *   `null` while the space bar makes the player slash or do nothing, or
  *   there is no player.
@@ -85,16 +90,17 @@ export function describeSpaceKey(
 export function describePrompt(
   translator: Translator,
   motion: PlayerMotion | null,
+  step: number,
 ): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;
   }
-  const villager: Villager | null = findVillager(motion);
+  const villager: Villager | null = findVillager(motion, step);
   if (villager !== null) {
     const { name } = describeVillager(translator, villager);
     return translator.translate('prompt.talk', { name });
   }
-  if (findInteraction(motion) === 'Drink') {
+  if (findInteraction(motion, step) === 'Drink') {
     return translator.translate('prompt.drink');
   }
   return null;

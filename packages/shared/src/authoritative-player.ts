@@ -186,10 +186,12 @@ export class AuthoritativePlayer {
    * An input that has waited for {@link INPUT_WAIT_LIMIT} steps comes into
    * effect whether its turn has come or not.
    *
+   * @param {number} step - The number of the step, as the server counts
+   *   them, which tells where Toby is.
    * @returns {StampedInput[]} The inputs that came into effect at the step,
    *   in the order they did.
    */
-  step(): StampedInput[] {
+  step(step: number): StampedInput[] {
     const applied: StampedInput[] = [];
     for (
       let next: WaitingInput | undefined = this.#waiting[0];
@@ -206,7 +208,7 @@ export class AuthoritativePlayer {
     for (const waiting of this.#waiting) {
       waiting.waited++;
     }
-    this.#motion = stepMotion(this.#motion);
+    this.#motion = stepMotion(this.#motion, step);
     this.#steps++;
     return applied;
   }

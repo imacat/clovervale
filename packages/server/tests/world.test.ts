@@ -30,6 +30,7 @@ import {
   FOUNTAIN_HEALING,
   MONSTER_HEALTH,
   PLAYER_HEALTH,
+  PLAYER_RADIUS,
   PLAZA_CENTRE,
   SIMULATION_RATE,
   SLASH_DAMAGE,
@@ -37,11 +38,15 @@ import {
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   TALK_STEPS,
+  TOBY_ENDS,
+  TOBY_LOOP_STEPS,
+  TOBY_RADIUS,
   WALK_SPEED,
   createInteractMessage,
   createMoveMessage,
   findPlacement,
   findSpawnPoint,
+  findTobyPose,
   findVillagePath,
   isWithinStrike,
 } from '@clovervale/shared';
@@ -1233,5 +1238,38 @@ describe('the events of the world', () => {
     });
     const steps: number[] = events.map((event: GameEvent) => event.step);
     expect(steps).toEqual([...steps].sort((a: number, b: number) => a - b));
+  });
+});
+
+describe('Toby in the world', () => {
+  it('pushes a player out of his way as he is at each step', () => {
+    const world = new RecordingWorld(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    const [first, second] = TOBY_ENDS;
+    const middle: GroundVector = {
+      x: (first.x + second.x) / 2,
+      z: (first.z + second.z) / 2,
+    };
+    walkPlayer(world, id, middle);
+    const stopped: PlayerState = findPlayer(world, id);
+    expect(measureDistance(stopped, middle)).toBeLessThan(STEP_DISTANCE);
+    for (let step = 0; step < TOBY_LOOP_STEPS; step++) {
+      world.step();
+      const toby: GroundVector = findTobyPose(world.stepCount);
+      expect(measureDistance(findPlayer(world, id), toby)).toBeGreaterThan(
+        TOBY_RADIUS + PLAYER_RADIUS - 1e-9,
+      );
+    }
+    const pushed: PlayerState = findPlayer(world, id);
+    expect(pushed.action).toBe('Idle');
+    // Straight aside, square to his run.
+    const along: GroundVector = {
+      x: (second.x - first.x) / measureDistance(first, second),
+      z: (second.z - first.z) / measureDistance(first, second),
+    };
+    expect(
+      (pushed.x - stopped.x) * along.x + (pushed.z - stopped.z) * along.z,
+    ).toBeCloseTo(0, 9);
+    expect(measureDistance(pushed, stopped)).toBeGreaterThan(0.2);
   });
 });

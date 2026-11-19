@@ -25,12 +25,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
   SIMULATION_RATE,
+  TOBY_ENDS,
+  TOBY_LOOP_STEPS,
+  WALK_SPEED,
   createMotion,
   createSnapshotMessage,
+  stepMotion,
 } from '@clovervale/shared';
 import type {
   InputProgress,
   MonsterState,
+  PlayerMotion,
   PlayerState,
 } from '@clovervale/shared';
 
@@ -95,6 +100,32 @@ function findOnly(view: PlayersView): PlayerState {
     throw new Error(`${String(view.players.length)} players are in view.`);
   }
   return only;
+}
+
+/**
+ * Finds the snapshot after which a player has moved furthest since the
+ * snapshot before, among the places of the player after each step.
+ *
+ * @param {readonly PlayerState[]} places - The player after each step,
+ *   from step 1.
+ * @returns {number} The number of the step of the snapshot, which is even.
+ */
+function findFurthestPush(places: readonly PlayerState[]): number {
+  let furthest = 0;
+  let found = 2;
+  for (let step = 4; step <= places.length; step += 2) {
+    const before: PlayerState | undefined = places[step - 3];
+    const after: PlayerState | undefined = places[step - 1];
+    if (before === undefined || after === undefined) {
+      continue;
+    }
+    const distance: number = Math.hypot(after.x - before.x, after.z - before.z);
+    if (distance > furthest) {
+      furthest = distance;
+      found = step;
+    }
+  }
+  return found;
 }
 
 describe('ServerClock', () => {
@@ -332,6 +363,44 @@ describe('SnapshotTimeline', () => {
     expect(timeline.readPast(350, 200).players).toEqual([PLAYER]);
     expect(timeline.readPast(399, 200).players).toEqual([PLAYER]);
     expect(timeline.readPast(400, 200).players).toEqual([far]);
+  });
+
+  it('glides a player that Toby pushes aside', () => {
+    const [first, second] = TOBY_ENDS;
+    let motion: PlayerMotion = createMotion(
+      { x: (first.x + second.x) / 2, z: (first.z + second.z) / 2 },
+      0,
+    );
+    const places: PlayerState[] = [];
+    for (let step = 1; step <= TOBY_LOOP_STEPS; step++) {
+      motion = stepMotion(motion, step);
+      places.push({ ...PLAYER, x: motion.x, z: motion.z, yaw: motion.yaw });
+    }
+    // The step after which the player has been pushed furthest since the
+    // snapshot before.
+    const step: number = findFurthestPush(places);
+    const before: PlayerState = places[step - 3] ?? PLAYER;
+    const after: PlayerState = places[step - 1] ?? PLAYER;
+    expect(Math.hypot(after.x - before.x, after.z - before.z)).toBeGreaterThan(
+      (WALK_SPEED * 2 * STEP) / 1000,
+    );
+    const timeline = new SnapshotTimeline();
+    receiveAtOnce(timeline, step - 2, [before]);
+    receiveAtOnce(timeline, step, [after]);
+    const halfway: PlayerState = findOnly(
+      timeline.readPast((step - 1) * STEP + 200, 200),
+    );
+    expect(halfway.x).toBeCloseTo((before.x + after.x) / 2, 9);
+    expect(halfway.z).toBeCloseTo((before.z + after.z) / 2, 9);
+  });
+
+  it('does not glide a player across a jump as short as a push', () => {
+    const timeline = new SnapshotTimeline();
+    const near: PlayerState = { ...PLAYER, x: PLAYER.x + 0.4 };
+    receiveAtOnce(timeline, 2, [PLAYER]);
+    receiveAtOnce(timeline, 4, [near]);
+    expect(timeline.readPast(350, 200).players).toEqual([PLAYER]);
+    expect(timeline.readPast(400, 200).players).toEqual([near]);
   });
 
   it('glides a player that walks while a snapshot is missing', () => {

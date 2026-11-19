@@ -29,10 +29,12 @@ import {
   PLAYER_RADIUS,
   PLAZA_CENTRE,
   TALK_REACH,
+  TOBY_LOOP_STEPS,
   VILLAGE_TERRAIN,
   applyInput,
   createMotion,
   findPlacement,
+  findTobyPose,
   findTurn,
   killMotion,
   stepMotion,
@@ -42,6 +44,7 @@ import type {
   GroundVector,
   Placement,
   PlayerMotion,
+  TobyPose,
 } from '@clovervale/shared';
 
 import {
@@ -130,89 +133,125 @@ async function createTranslator(
 
 describe('describePrompt', () => {
   it('tells a player by the fountain, facing it, that it can drink', () => {
-    expect(describePrompt(EN, BY_FOUNTAIN)).toBe(
+    expect(describePrompt(EN, BY_FOUNTAIN, 0)).toBe(
       'Press Space to drink from the fountain',
     );
   });
 
   it('tells a player by Nancy, facing her, that it can talk to her', () => {
-    expect(describePrompt(EN, BY_NANCY)).toBe('Press Space to talk to Nancy');
+    expect(describePrompt(EN, BY_NANCY, 0)).toBe(
+      'Press Space to talk to Nancy',
+    );
   });
 
   it('tells a player by Martha, facing her, that it can talk to her', async () => {
     const byMartha: PlayerMotion = standByMartha();
-    expect(describePrompt(EN, byMartha)).toBe('Press Space to talk to Martha');
-    expect(describeSpaceKey(EN, byMartha)).toBe('talk to Martha');
+    expect(describePrompt(EN, byMartha, 0)).toBe(
+      'Press Space to talk to Martha',
+    );
+    expect(describeSpaceKey(EN, byMartha, 0)).toBe('talk to Martha');
     const zhTw: Translator = await createTranslator('zh-TW');
-    expect(describePrompt(zhTw, byMartha)).toBe('按空白鍵與瑪莎交談');
+    expect(describePrompt(zhTw, byMartha, 0)).toBe('按空白鍵與瑪莎交談');
     const zhCn: Translator = await createTranslator('zh-CN');
-    expect(describePrompt(zhCn, byMartha)).toBe('按空格键与玛莎交谈');
+    expect(describePrompt(zhCn, byMartha, 0)).toBe('按空格键与玛莎交谈');
     const ja: Translator = await createTranslator('ja');
-    expect(describePrompt(ja, byMartha)).toBe('スペースキーでマーサと話す');
+    expect(describePrompt(ja, byMartha, 0)).toBe('スペースキーでマーサと話す');
   });
 
   it('tells it in the language of the page, in its word order', async () => {
     const zhTw: Translator = await createTranslator('zh-TW');
-    expect(describePrompt(zhTw, BY_NANCY)).toBe('按空白鍵與南茜交談');
-    expect(describePrompt(zhTw, BY_FOUNTAIN)).toBe('按空白鍵喝噴泉的水');
+    expect(describePrompt(zhTw, BY_NANCY, 0)).toBe('按空白鍵與南茜交談');
+    expect(describePrompt(zhTw, BY_FOUNTAIN, 0)).toBe('按空白鍵喝噴泉的水');
     const zhCn: Translator = await createTranslator('zh-CN');
-    expect(describePrompt(zhCn, BY_NANCY)).toBe('按空格键与南茜交谈');
+    expect(describePrompt(zhCn, BY_NANCY, 0)).toBe('按空格键与南茜交谈');
     const ja: Translator = await createTranslator('ja');
-    expect(describePrompt(ja, BY_NANCY)).toBe('スペースキーでナンシーと話す');
+    expect(describePrompt(ja, BY_NANCY, 0)).toBe('スペースキーでナンシーと話す');
   });
 
   it('tells nothing to a player by Emma the smith, facing her', () => {
-    expect(describePrompt(EN, BY_EMMA)).toBeNull();
-    expect(describeSpaceKey(EN, BY_EMMA)).toBe('slash');
+    expect(describePrompt(EN, BY_EMMA, 0)).toBeNull();
+    expect(describeSpaceKey(EN, BY_EMMA, 0)).toBe('slash');
   });
 
   it('tells nothing while the player talks already', () => {
     const talking: PlayerMotion = stepMotion(
       applyInput(BY_NANCY, { type: 'interact' }),
+      0,
     );
     expect(talking.action).toBe('Talk');
-    expect(describePrompt(EN, talking)).toBeNull();
+    expect(describePrompt(EN, talking, 0)).toBeNull();
   });
 
   it('tells nothing while the space bar makes the player slash', () => {
-    expect(describePrompt(EN, FACING_AWAY)).toBeNull();
+    expect(describePrompt(EN, FACING_AWAY, 0)).toBeNull();
   });
 
   it('tells nothing while the player drinks already', () => {
     const drinking: PlayerMotion = stepMotion(
       applyInput(BY_FOUNTAIN, { type: 'interact' }),
+      0,
     );
     expect(drinking.action).toBe('Drink');
-    expect(describePrompt(EN, drinking)).toBeNull();
+    expect(describePrompt(EN, drinking, 0)).toBeNull();
   });
 
   it('tells nothing to a dead player, or without a player', () => {
-    expect(describePrompt(EN, killMotion(BY_FOUNTAIN))).toBeNull();
-    expect(describePrompt(EN, null)).toBeNull();
+    expect(describePrompt(EN, killMotion(BY_FOUNTAIN), 0)).toBeNull();
+    expect(describePrompt(EN, null, 0)).toBeNull();
   });
 });
 
 describe('describeSpaceKey', () => {
   it('tells what the space bar makes the player do', () => {
-    expect(describeSpaceKey(EN, BY_FOUNTAIN)).toBe('drink from the fountain');
-    expect(describeSpaceKey(EN, FACING_AWAY)).toBe('slash');
-    expect(describeSpaceKey(EN, BY_NANCY)).toBe('talk to Nancy');
+    expect(describeSpaceKey(EN, BY_FOUNTAIN, 0)).toBe(
+      'drink from the fountain',
+    );
+    expect(describeSpaceKey(EN, FACING_AWAY, 0)).toBe('slash');
+    expect(describeSpaceKey(EN, BY_NANCY, 0)).toBe('talk to Nancy');
   });
 
   it('tells it in the language of the page', async () => {
     const zhTw: Translator = await createTranslator('zh-TW');
-    expect(describeSpaceKey(zhTw, BY_NANCY)).toBe('與南茜交談');
-    expect(describeSpaceKey(zhTw, FACING_AWAY)).toBe('揮砍');
-    expect(describeSpaceKey(zhTw, killMotion(BY_FOUNTAIN))).toBe('無');
+    expect(describeSpaceKey(zhTw, BY_NANCY, 0)).toBe('與南茜交談');
+    expect(describeSpaceKey(zhTw, FACING_AWAY, 0)).toBe('揮砍');
+    expect(describeSpaceKey(zhTw, killMotion(BY_FOUNTAIN), 0)).toBe('無');
     const ja: Translator = await createTranslator('ja');
-    expect(describeSpaceKey(ja, BY_NANCY)).toBe('ナンシーと話す');
+    expect(describeSpaceKey(ja, BY_NANCY, 0)).toBe('ナンシーと話す');
   });
 
   it('tells that it does nothing while the player cannot interact', () => {
-    expect(describeSpaceKey(EN, killMotion(BY_FOUNTAIN))).toBe('nothing');
+    expect(describeSpaceKey(EN, killMotion(BY_FOUNTAIN), 0)).toBe('nothing');
   });
 
   it('tells nothing is known without a player', () => {
-    expect(describeSpaceKey(EN, null)).toBe('–');
+    expect(describeSpaceKey(EN, null, 0)).toBe('–');
+  });
+});
+
+describe('describePrompt by Toby', () => {
+  it('names him where he is at the step, in every language', async () => {
+    let step = 0;
+    while (findTobyPose(step).activity !== 'Pick') {
+      step = (step + 1) % TOBY_LOOP_STEPS;
+    }
+    const toby: TobyPose = findTobyPose(step);
+    const facing: PlayerMotion = createMotion(
+      { x: toby.x, z: toby.z - 1 },
+      0,
+    );
+    expect(describePrompt(EN, facing, step)).toBe(
+      'Press Space to talk to Toby',
+    );
+    expect(describeSpaceKey(EN, facing, step)).toBe('talk to Toby');
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describePrompt(zhTw, facing, step)).toBe('按空白鍵與托比交談');
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describePrompt(zhCn, facing, step)).toBe('按空格键与托比交谈');
+    const ja: Translator = await createTranslator('ja');
+    expect(describePrompt(ja, facing, step)).toBe('スペースキーでトビーと話す');
+    // Once he has run off, the space bar slashes.
+    const gone: number = step + TOBY_LOOP_STEPS / 2;
+    expect(findTobyPose(gone).x).not.toBe(toby.x);
+    expect(describePrompt(EN, facing, gone)).toBeNull();
   });
 });

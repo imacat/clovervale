@@ -368,7 +368,7 @@ export function createPanel(
     ...describePrediction(translator, null),
   };
   const spaceKey: { interaction: string } = {
-    interaction: describeSpaceKey(translator, null),
+    interaction: describeSpaceKey(translator, null, 0),
   };
   const slash: Record<keyof SlashReadout, string> = {
     ...describeSlash(translator, null),

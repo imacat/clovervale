@@ -39,6 +39,13 @@ import type { Readable } from 'node:stream';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { inflateSync } from 'node:zlib';
 
+import {
+  SIMULATION_RATE,
+  TOBY_ACTIVITIES,
+  findTobyPose,
+} from '@clovervale/shared';
+import type { TobyActivity, TobyPose } from '@clovervale/shared';
+
 /** A message received from the browser over WebDriver BiDi. */
 interface BidiMessage {
   /** The kind of message: `success`, `error` or `event`. */
@@ -254,6 +261,30 @@ interface TimeOfDayView {
   /**
    * The moment the page told the time of day, in milliseconds since the
    * Unix epoch, on the clock of the browser, which all its pages share.
+   */
+  readonly moment: number;
+}
+
+/** How a page shows Toby, and when it tells that. */
+interface TobyLook {
+  /** How the page shows Toby, or `null` while it does not show him. */
+  readonly toby: {
+    /** The step of the server he is shown at, which may fall between two. */
+    readonly step: number;
+    /** Where he is shown along the X axis, in metres. */
+    readonly x: number;
+    /** Where he is shown along the Z axis, in metres. */
+    readonly z: number;
+    /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+    readonly yaw: number;
+    /** What he is doing. */
+    readonly activity: TobyActivity;
+    /** The name of the clip his model plays, or `null` if it has none. */
+    readonly clip: string | null;
+  } | null;
+  /**
+   * The moment the page told it, in milliseconds since the Unix epoch, on
+   * the clock of the browser, which all its pages share.
    */
   readonly moment: number;
 }
@@ -536,6 +567,32 @@ const DAY_WATCH_DURATION = 3000;
  */
 const DAY_PACE_TOLERANCE = 0.25;
 
+/** How long one step of the simulation lasts, in milliseconds. */
+const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
+/**
+ * How far apart the steps two pages show Toby at for one and the same
+ * moment may be, in steps: a quarter of a second's worth, for the time a
+ * snapshot takes to reach each page.
+ */
+const SAME_TOBY_STEPS = 5;
+/**
+ * How long Toby may take to be seen to move, in milliseconds: more than
+ * he ever stays at one end of his run.
+ */
+const TOBY_MOVE_TIMEOUT = 15_000;
+/**
+ * The most the steps a page shows Toby at may run fast or slow, as a share
+ * of the time that passes.
+ */
+const TOBY_PACE_TOLERANCE = 0.25;
+
+/**
+ * The least time over which the pace of the steps a page shows Toby at is
+ * measured, in milliseconds: long enough that the time from the frame
+ * that last showed him to each reading makes little odds.
+ */
+const TOBY_PACE_SPAN = 3000;
+
 /**
  * The keys that walk a player each way in the first view, by the turn of
  * the way from +Z towards +X, in steps of 45 degrees from 0.
@@ -588,6 +645,12 @@ const TIME_OF_DAY_EXPRESSION = `(() => {
     moment: performance.timeOrigin + performance.now(),
   });
 })()`;
+
+/** Reads how a page shows Toby, and the moment it tells that, as JSON. */
+const TOBY_EXPRESSION = `(() => JSON.stringify({
+  toby: window.clovervale.describeToby(),
+  moment: performance.timeOrigin + performance.now(),
+}))()`;
 
 /** Reads the action the panel of the client displays. */
 const PANEL_ACTION_EXPRESSION = `(() => {
@@ -3514,6 +3577,153 @@ async function checkDayAgreement(
 }
 
 /**
+ * Reads how a page shows Toby.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<TobyLook>} How the page shows him.
+ */
+async function readTobyLook(
+  session: BidiSession,
+  context: string,
+): Promise<TobyLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, TOBY_EXPRESSION),
+  ) as TobyLook;
+}
+
+/**
+ * Describes how a page shows Toby, for the error messages.
+ *
+ * @param {TobyLook} look - How the page shows him.
+ * @returns {string} The description.
+ */
+function describeTobyLook(look: TobyLook): string {
+  const { toby } = look;
+  if (toby === null) {
+    return 'does not show Toby';
+  }
+  return (
+    `shows Toby at step ${toby.step.toFixed(2)}, at x ` +
+    `${toby.x.toFixed(3)}, z ${toby.z.toFixed(3)}, facing ` +
+    `${toby.yaw.toFixed(1)}, doing "${toby.activity}" with the clip ` +
+    `"${String(toby.clip)}"`
+  );
+}
+
+/**
+ * Checks that two pages show Toby alike, where the shared course has him
+ * at the step each shows him at, to the last bit, doing what the course
+ * has him do with the clip of that name, at steps that agree for the same
+ * moment, and that he moves on at the pace of the server.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} first - The browsing context of one page.
+ * @param {string} second - The browsing context of the other page.
+ * @returns {Promise<void>} A promise settled once both pages have passed.
+ * @throws {Error} If the pages do not show him so.
+ */
+async function checkToby(
+  session: BidiSession,
+  first: string,
+  second: string,
+): Promise<void> {
+  const pages: readonly (readonly [string, string])[] = [
+    [first, 'first'],
+    [second, 'second'],
+  ];
+  const isShownRightly = (look: TobyLook): boolean => {
+    const { toby } = look;
+    if (toby === null) {
+      return false;
+    }
+    const pose: TobyPose = findTobyPose(toby.step);
+    return (
+      toby.x === pose.x &&
+      toby.z === pose.z &&
+      toby.yaw === pose.yaw &&
+      toby.activity === pose.activity &&
+      toby.clip === pose.activity
+    );
+  };
+  for (const [context, name] of pages) {
+    await waitFor(
+      () => readTobyLook(session, context),
+      isShownRightly,
+      ACTION_TIMEOUT,
+      (look: TobyLook) =>
+        `The ${name} page ${describeTobyLook(look)}, where his course has ` +
+        `him at x ${String(findTobyPose(look.toby?.step ?? 0).x)}, z ` +
+        `${String(findTobyPose(look.toby?.step ?? 0).z)}, doing ` +
+        `"${findTobyPose(look.toby?.step ?? 0).activity}".`,
+    );
+  }
+  const readBoth = async (): Promise<[TobyLook, TobyLook]> => [
+    await readTobyLook(session, first),
+    await readTobyLook(session, second),
+  ];
+  const [early, late] = await readBoth();
+  const carried: number =
+    (early.toby?.step ?? NaN) +
+    (late.moment - early.moment) / STEP_MILLISECONDS;
+  if (!(Math.abs(carried - (late.toby?.step ?? NaN)) <= SAME_TOBY_STEPS)) {
+    throw new Error(
+      `The first page ${describeTobyLook(early)}, and the second page, ` +
+        `${(late.moment - early.moment).toFixed(1)} ms after, ` +
+        `${describeTobyLook(late)}.`,
+    );
+  }
+  for (const [context, name] of pages) {
+    const before: TobyLook = await readTobyLook(session, context);
+    const moved: TobyLook = await waitFor(
+      () => readTobyLook(session, context),
+      (look: TobyLook) =>
+        isShownRightly(look) &&
+        (look.toby?.x !== before.toby?.x || look.toby?.z !== before.toby?.z),
+      TOBY_MOVE_TIMEOUT,
+      (look: TobyLook) =>
+        `Toby does not move in the ${name} page, which first ` +
+        `${describeTobyLook(before)}, and then ${describeTobyLook(look)}.`,
+    );
+    const later: TobyLook = await waitFor(
+      () => readTobyLook(session, context),
+      (look: TobyLook) =>
+        isShownRightly(look) && look.moment - before.moment >= TOBY_PACE_SPAN,
+      TOBY_PACE_SPAN + TOBY_MOVE_TIMEOUT,
+      (look: TobyLook) =>
+        `In the ${name} page, Toby is not shown rightly ` +
+        `${(look.moment - moved.moment).toFixed(1)} ms after he moves: ` +
+        `the page ${describeTobyLook(look)}.`,
+    );
+    const elapsed: number = later.moment - before.moment;
+    const stepped: number =
+      (later.toby?.step ?? NaN) - (before.toby?.step ?? NaN);
+    const expected: number = elapsed / STEP_MILLISECONDS;
+    if (!(Math.abs(stepped - expected) <= expected * TOBY_PACE_TOLERANCE)) {
+      throw new Error(
+        `In the ${name} page, Toby goes on by ${stepped.toFixed(1)} steps ` +
+          `in ${elapsed.toFixed(1)} ms, instead of ${expected.toFixed(1)}.`,
+      );
+    }
+  }
+  const seen = new Set<TobyActivity>();
+  const deadline: number = Date.now() + TOBY_MOVE_TIMEOUT;
+  while (seen.size < TOBY_ACTIVITIES.length && Date.now() < deadline) {
+    const { toby } = await readTobyLook(session, first);
+    if (toby !== null) {
+      seen.add(toby.activity);
+    }
+    await sleep(POLL_INTERVAL);
+  }
+  if (seen.size < TOBY_ACTIVITIES.length) {
+    throw new Error(
+      `Over ${String(TOBY_MOVE_TIMEOUT / 1000)} seconds, the first page ` +
+        `shows Toby only ${[...seen].join(', ')}.`,
+    );
+  }
+}
+
+/**
  * Checks the built client in two pages connected to one server: that each
  * draws its scene, shows the models it has and connects, that what the
  * player of one page does with the keyboard shows in the other page,
@@ -3524,14 +3734,15 @@ async function checkDayAgreement(
  * of a player near the monster lowers its health in both pages, each of
  * which shows the hit once, that a hurt player that drinks from the
  * fountain gets health back in both pages, each of which shows the heal
- * once, without a correction behind a slow connection, that a player that
- * talks to Nancy sees what she says above her head in its own page alone,
- * for a while, without a slash or a correction, that a page words its
- * text in the language chosen in its panel at once, and that the camera
- * of a page follows the player of the other page when its panel is set
- * to, until that player leaves.  The server holds its clock at noon, which
- * both pages tell, and a page that previews midnight in its panel shows
- * the village clearly darker, yet far from black, while the other goes on
+ * once, without a correction behind a slow connection, that both pages
+ * show Toby going round his course alike, that a player that talks to
+ * Nancy sees what she says above her head in its own page alone, for a
+ * while, without a slash or a correction, that a page words its text in
+ * the language chosen in its panel at once, and that the camera of a page
+ * follows the player of the other page when its panel is set to, until
+ * that player leaves.  The server holds its clock at noon, which both
+ * pages tell, and a page that previews midnight in its panel shows the
+ * village clearly darker, yet far from black, while the other goes on
  * showing noon.  On another server, whose day runs, two pages, one
  * joining later than the other, tell the same time of day as it goes on.
  *
@@ -3594,6 +3805,7 @@ async function checkClient(): Promise<void> {
       );
     }
 
+    await checkToby(session, first, second);
     await checkNight(session, first, second);
     await checkWalk(session, first, second, id);
     await checkMotion(session, first, second, id, false, 'd');
@@ -3646,10 +3858,10 @@ try {
     'Browser check passed: two clients draw their scenes, connect, show ' +
       'each other what their players do, predict their own, have their ' +
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
-      'the monster, show each hit once, heal at the fountain, hear what ' +
-      'Nancy says, speak the language chosen, have the camera follow ' +
-      'another player, darken at night, preview a time of day on their ' +
-      'own, and agree on the time of day.',
+      'the monster, show each hit once, heal at the fountain, show Toby ' +
+      'alike, hear what Nancy says, speak the language chosen, have the ' +
+      'camera follow another player, darken at night, preview a time of ' +
+      'day on their own, and agree on the time of day.',
   );
 } catch (error: unknown) {
   const reason: string = error instanceof Error ? error.message : String(error);

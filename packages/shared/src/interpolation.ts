@@ -64,14 +64,17 @@ export function interpolateYaw(
 /**
  * Places everything part of the way from where one snapshot tells to where
  * the next tells, turned likewise, the shorter way round.  Anything that
- * has moved further than it can walk in the time between them stays where
- * the earlier one tells.
+ * has moved further than it can walk in the time between them, and than it
+ * can have been moved otherwise, stays where the earlier one tells.
  *
  * @param {readonly T[]} before - Everything as the earlier snapshot tells.
  * @param {readonly T[]} after - Everything as the later snapshot tells.
  * @param {number} fraction - How much of the time between them has passed,
  *   from 0 to 1.
  * @param {number} span - The time between them, in milliseconds.
+ * @param {(item: T) => number} [findLeeway] - How far beyond its walk each
+ *   thing can have been moved in that time, in metres, by where the later
+ *   snapshot tells it is.  Nothing is by default.
  * @returns {T[]} Everything the earlier snapshot tells, in its order, and
  *   otherwise as it tells.
  * @template T
@@ -81,6 +84,7 @@ export function interpolatePlaced<T extends Placed>(
   after: readonly T[],
   fraction: number,
   span: number,
+  findLeeway: (item: T) => number = () => 0,
 ): T[] {
   const reach: number = (WALK_SPEED * JUMP_FACTOR * span) / 1000;
   return before.map((item: T) => {
@@ -89,7 +93,7 @@ export function interpolatePlaced<T extends Placed>(
     );
     if (
       next === undefined ||
-      Math.hypot(next.x - item.x, next.z - item.z) > reach
+      Math.hypot(next.x - item.x, next.z - item.z) > reach + findLeeway(next)
     ) {
       return item;
     }
