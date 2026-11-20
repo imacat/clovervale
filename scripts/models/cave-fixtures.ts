@@ -37,11 +37,15 @@ import type { Pair, Shape, Triple } from './geometry.ts';
 import { Model } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
-/** The distance between two bars of a cell, from axis to axis, in metres. */
-const BAR_SPACING = 0.16;
+/**
+ * About the distance between two bars of a cell, from axis to axis, in
+ * metres: the bars are spread evenly across the opening, as near this
+ * apart as they fit.
+ */
+const BAR_SPACING = 0.34;
 
 /** The radius of a bar of a cell, in metres. */
-const BAR_RADIUS = 0.022;
+const BAR_RADIUS = 0.036;
 
 /** The height of the bars of a cell, in metres. */
 const BAR_HEIGHT = 2.2;
@@ -79,7 +83,7 @@ const STAVES = 10;
 
 /**
  * Builds the row of iron bars that closes off a cell from the passage,
- * across its whole opening: thin dark bars of six sides, an edge turned to
+ * across its whole opening: stout dark bars of six sides, an edge turned to
  * the passage to catch the torchlight, held by three flat bands that run
  * into the rock at either end, with rust creeping up the foot of some of
  * the bars.  The passage lies along +Z.
@@ -92,10 +96,13 @@ export function buildCaveBars(): BuiltModel {
   model.setMaterial('ironDark', '#24211f', { roughness: 0.5, metallic: 0.75 });
   model.setMaterial('rust', '#5e3b26', { roughness: 0.85, metallic: 0.2 });
   const half: number = (CAVE_CELLS[0].east - CAVE_CELLS[0].west) / 2;
+  // The same number of bars on either side of the middle, evenly spread,
+  // with half a spacing between the outermost bars and the rock.
   const count: number = Math.round(half / BAR_SPACING);
+  const spacing: number = half / count;
   for (let index = 0; index < count; index++) {
     for (const side of [-1, 1]) {
-      const x: number = side * (BAR_SPACING / 2 + index * BAR_SPACING);
+      const x: number = side * (spacing / 2 + index * spacing);
       model.add(
         'iron',
         place(
@@ -133,7 +140,7 @@ export function buildCaveBars(): BuiltModel {
   for (const y of BAND_HEIGHTS) {
     model.add(
       'ironDark',
-      place(createBox(2 * half, 0.07, 0.04), { pos: [0, y, 0] }),
+      place(createBox(2 * half, 0.1, 0.09), { pos: [0, y, 0] }),
     );
   }
   model.centreFootprint();

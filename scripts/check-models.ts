@@ -544,7 +544,7 @@ const EDWIN_SAMPLES = 48;
  * The least room between the axis of a bar of a cell and anything of the
  * prisoner but his fists, along the ground, in metres: the radius of a bar.
  */
-const BAR_CLEARANCE = 0.022;
+const BAR_CLEARANCE = 0.036;
 /** The magic number of a binary glTF file. */
 const GLB_MAGIC = 0x46546c67;
 /** The type of the JSON chunk of a binary glTF file. */

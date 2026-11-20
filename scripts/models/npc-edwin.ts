@@ -77,16 +77,21 @@ const STANCE = 0.11;
 
 /**
  * How far out to the side the bars he holds stand, in metres, as the cave
- * stands him: the second bar on either side of the middle of the row.
+ * stands him: the first bar on either side of the middle of the row.
  */
-const BAR_X = 0.24;
+const BAR_X = 1 / 6;
 
 /**
  * Where the left wrist holds its bar, in model space; the right wrist holds
- * the mirror bar.  The fist, a little in front of the wrist with the hand
- * turned forward, closes round the bar, a little above the shoulder.
+ * the mirror bar.  The fist, a little in front of the wrist and in towards
+ * the middle with the hand turned forward, closes round the bar, a little
+ * above the shoulder.
  */
-const WRIST_ON_BAR: Triple = [BAR_X, 0.92, CAVE_EDWIN_BEHIND_BARS - 0.015];
+const WRIST_ON_BAR: Triple = [
+  BAR_X + 0.02,
+  0.92,
+  CAVE_EDWIN_BEHIND_BARS - 0.015,
+];
 
 /** The pitch of the hands, turned forward to hold the bars. */
 const HAND_PITCH = -90;
