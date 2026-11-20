@@ -90,6 +90,8 @@ import type { PlayersView } from './interpolation.ts';
 import { InventoryBag } from './inventory-bag.ts';
 import type { BagResponse, ItemRequest } from './inventory-bag.ts';
 import { ItemFigures } from './item-figures.ts';
+import { createItemNotices, findGainedItems } from './item-notices.ts';
+import type { ItemNotices } from './item-notices.ts';
 import {
   chooseLanguage,
   findLanguageStorage,
@@ -262,6 +264,8 @@ const bagView: BagView = createBagView(
     carryOutItemAction(request);
   },
 );
+/** The notices of the items the player of the page gets. */
+const itemNotices: ItemNotices = createItemNotices(document.body, translator);
 const { scene, daylight } = createVillageScene();
 const cave: CaveScene = createCaveScene();
 /** The map the player of the page is in, as the server last told. */
@@ -744,6 +748,9 @@ function receiveMessage(data: string): void {
         items: message.items,
         looted: message.looted,
       };
+      for (const kind of findGainedItems(inventory, message.inventory)) {
+        itemNotices.show(kind);
+      }
       inventory = message.inventory;
       itemFigures.show(worldItems);
       cave.showLooted(message.looted);

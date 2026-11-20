@@ -654,14 +654,14 @@ describe('describePrompt in the cave', () => {
       items: [{ id: 1, kind, x: 9.25, z: 0.6 }],
     });
     expect(describePrompt(EN, motion, 0, world('sword'), [], 'cave')).toBe(
-      'Press Space to pick up the sword',
+      'Press Space to pick up the short sword',
     );
     expect(
       describePrompt(EN, motion, 0, world('leather-armour'), [], 'cave'),
     ).toBe('Press Space to pick up the leather armour');
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(describePrompt(zhTw, motion, 0, world('sword'), [], 'cave')).toBe(
-      '按空白鍵拾取劍',
+      '按空白鍵拾取短劍',
     );
     expect(
       describePrompt(zhTw, motion, 0, world('leather-armour'), [], 'cave'),

@@ -69,6 +69,44 @@ canvas {
 }
 
 /*
+ * The notices of the items the player gets, one under another, above the
+ * prompt at the foot of the page, each fading out after a few seconds.
+ */
+.item-notices {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.item-notice {
+  padding: 4px 12px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 45%);
+  color: #ffe14d;
+  font: 14px sans-serif;
+  white-space: nowrap;
+  animation: item-notice-fade 3.5s ease-in forwards;
+}
+
+@keyframes item-notice-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+/*
  * The bag of the player in the bottom left corner, clear of the prompt at
  * the foot of the page and of the panel on the right, and above its icon,
  * while it is open, its slots and the menu of an item.
@@ -204,6 +242,13 @@ canvas {
 .bag-action.is-cursor {
   background: #ffe14d;
   color: #1a1a1a;
+}
+
+/* The name of the item the cursor is on, its line kept for an empty slot. */
+.bag-item-name {
+  min-height: 1.2em;
+  margin-top: 6px;
+  line-height: 1.2em;
 }
 
 .bag-hint {

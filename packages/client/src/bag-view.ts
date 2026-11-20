@@ -26,6 +26,7 @@
 import { INVENTORY_SIZE } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
+import { nameItem } from './interaction-prompt.ts';
 import { BAG_COLUMNS, ITEM_ACTIONS, describeSlots } from './inventory-bag.ts';
 import type {
   InventoryBag,
@@ -245,7 +246,8 @@ function createClickable(
  * above it, while the bag is open, its title, its slots in a square grid,
  * each item drawn small as what it is,
  * with its cursor, the menu of the item the cursor is on while it is open,
- * and a line that tells the keys.  A click on the icon, a slot or an action
+ * a line under the slots that names the item the cursor is on, blank for
+ * an empty slot, and a line that tells the keys.  A click on the icon, a slot or an action
  * of the menu does to the bag what {@link InventoryBag} tells; no click on
  * any part of the bag reaches the game underneath.  What the bag shows is
  * worded again in each language the page comes to speak.
@@ -315,9 +317,11 @@ export function createBagView(
     },
   );
   body.append(grid, menu);
+  const itemName: HTMLDivElement = document.createElement('div');
+  itemName.className = 'bag-item-name';
   const hint: HTMLDivElement = document.createElement('div');
   hint.className = 'bag-hint';
-  frame.append(title, body, hint);
+  frame.append(title, body, itemName, hint);
   const icon: HTMLDivElement = createClickable('bag-icon', () => {
     bag.clickIcon();
     render();
@@ -338,6 +342,8 @@ export function createBagView(
     frame.hidden = !bag.isOpen;
     title.textContent = name;
     hint.textContent = translator.translate('inventory.hint');
+    const kind: ItemKindId | null = bag.cursorItem;
+    itemName.textContent = kind === null ? '' : nameItem(translator, kind);
     describeSlots(translator, shown ?? []).forEach(
       (view: SlotView, index: number) => {
         const slot: HTMLDivElement | undefined = slots[index];

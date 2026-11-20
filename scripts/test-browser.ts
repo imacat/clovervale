@@ -139,6 +139,10 @@ interface CaveLook {
   readonly isBagOpen: boolean;
   /** The kind of the item in each slot of the bag, or `''` if it is empty. */
   readonly slots: readonly string[];
+  /** The name the bag shows of the item under its cursor, or `''`. */
+  readonly bagItemName: string;
+  /** The notices of the items got that the page shows, the earliest first. */
+  readonly notices: readonly string[];
 }
 
 /** A page as it is at one moment: what it tells, and what it draws. */
@@ -667,6 +671,22 @@ const LANGUAGE_NAMES: readonly string[] = [
 const ZH_TW_NAME = '正體中文';
 /** The name of English, as the language control offers it. */
 const EN_NAME = 'English';
+/** The notice of the sword got from a chest. */
+const SWORD_NOTICE = 'You got the short sword';
+/** The notice of the leather armour got, in Traditional Chinese. */
+const ZH_TW_ARMOUR_NOTICE = '取得皮甲';
+/** The name of the sword in Traditional Chinese. */
+const ZH_TW_SWORD = '短劍';
+/**
+ * The expression that clicks the slot of the sword in the bag of a page,
+ * and gives the number of the slot, or -1.
+ */
+const SWORD_SLOT_CLICK_EXPRESSION = `(() => {
+  const slots = [...document.querySelectorAll('.bag-slot')];
+  const index = slots.findIndex((slot) => slot.dataset.kind === 'sword');
+  slots[index]?.click();
+  return String(index);
+})()`;
 /** The name of the language control of the panel in Traditional Chinese. */
 const ZH_TW_LANGUAGE_CONTROL = '語言';
 /** The title of the page and of the panel in Traditional Chinese. */
@@ -1078,6 +1098,10 @@ function createCaveExpression(id: number): string {
       })(),
       slots: [...document.querySelectorAll('.bag-slot')]
         .map((slot) => slot.dataset.kind ?? ''),
+      bagItemName:
+        document.querySelector('.bag-item-name')?.textContent ?? '',
+      notices: [...document.querySelectorAll('.item-notice')]
+        .map((notice) => notice.textContent),
     });
   })()`;
 }
@@ -3942,7 +3966,8 @@ function describeCaveLook(look: CaveLook): string {
     `the ${look.map} ${player}, the players ${JSON.stringify(look.figures)}, ` +
     `the space bar to "${look.spaceKey}", ${prompt}, ${speech}, the ` +
     `containers open ${JSON.stringify(look.containers)}, the bag ` +
-    `${look.isBagOpen ? 'open' : 'closed'} with ${JSON.stringify(look.slots)}`
+    `${look.isBagOpen ? 'open' : 'closed'} with ${JSON.stringify(look.slots)} ` +
+    `naming "${look.bagItemName}", the notices ${JSON.stringify(look.notices)}`
   );
 }
 
@@ -4289,7 +4314,10 @@ async function saveStoreView(
  * shows in the bag, and the space bar does nothing more there.  It loots
  * the barrel with a clover in the corner, and the chest of the south store
  * room, and opens its bag, which shows the sword, the leather armour and a
- * clover, worded in Traditional Chinese for a moment, and closes it.  It
+ * clover, worded in Traditional Chinese for a moment, with the name of the
+ * sword under the slots once its slot is clicked, and closes it.  Each
+ * item looted is told in a notice, in Traditional Chinese too once it is
+ * chosen.  It
  * ends on the middle of the passage, before the store rooms.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -4415,7 +4443,11 @@ async function checkCaveChambers(
     id,
     northChest ?? 0,
   );
-  if (!looted.slots.includes('sword') || looted.spaceKey !== EMPTY_CHEST_KEY) {
+  if (
+    !looted.slots.includes('sword') ||
+    looted.spaceKey !== EMPTY_CHEST_KEY ||
+    !looted.notices.includes(SWORD_NOTICE)
+  ) {
     throw new Error(
       `With the chest of the north store room looted, the first page ` +
         `tells ${describeCaveLook(looted)}.`,
@@ -4471,6 +4503,18 @@ async function checkCaveChambers(
     'up to the chest of the south store room',
   );
   await lootContainer(session, context, id, southChest ?? 0);
+  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
+  await waitFor(
+    look,
+    (seen: CaveLook) => seen.notices.includes(ZH_TW_ARMOUR_NOTICE),
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With the leather armour looted and "${ZH_TW_NAME}" chosen, the ` +
+      `first page tells ${describeCaveLook(seen)}.`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'item-notice.png');
+  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
 
   // The bag, with what was taken.
   await sendKey(session, context, 'keyDown', 'i');
@@ -4487,6 +4531,19 @@ async function checkCaveChambers(
   await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
   await sleep(VIEW_SETTLE_DURATION);
   await saveView(session, context, 'cave-bag.png');
+  await evaluateInPage(session, context, SWORD_SLOT_CLICK_EXPRESSION);
+  await sendKey(session, context, 'keyDown', BAG_KEYS.escape);
+  await sendKey(session, context, 'keyUp', BAG_KEYS.escape);
+  await waitFor(
+    look,
+    (seen: CaveLook) => seen.isBagOpen && seen.bagItemName === ZH_TW_SWORD,
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With the slot of the sword clicked in its open bag, the first page ` +
+      `tells ${describeCaveLook(seen)}.`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'bag-name.png');
   await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
   await sendKey(session, context, 'keyDown', 'i');
   await sendKey(session, context, 'keyUp', 'i');

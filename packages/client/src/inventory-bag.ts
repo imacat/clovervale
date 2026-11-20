@@ -154,6 +154,15 @@ export class InventoryBag {
   }
 
   /**
+   * The kind of the item in the slot the cursor of the bag is on.
+   *
+   * @returns {ItemKindId | null} The kind, or `null` if the slot is empty.
+   */
+  get cursorItem(): ItemKindId | null {
+    return this.#inventory[this.#cursor] ?? null;
+  }
+
+  /**
    * The action the cursor of the menu is on, while the menu is open.
    *
    * @returns {number | null} The place of the action among the

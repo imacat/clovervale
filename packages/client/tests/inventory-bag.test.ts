@@ -245,6 +245,34 @@ describe('the bag under the mouse', () => {
   });
 });
 
+describe('the item under the cursor of the bag', () => {
+  it('follows the cursor as the arrow keys and clicks move it', () => {
+    const bag = new InventoryBag();
+    bag.noticeInventory(['clover', 'sword']);
+    bag.pressKey('KeyI');
+    expect(bag.cursorItem).toBe('clover');
+    bag.pressKey('ArrowRight');
+    expect(bag.cursorItem).toBe('sword');
+    bag.clickSlot(0);
+    expect(bag.cursorItem).toBe('clover');
+  });
+
+  it('is none on an empty slot', () => {
+    const bag = openBag(1);
+    bag.pressKey('ArrowDown');
+    expect(bag.cursorItem).toBeNull();
+  });
+
+  it('follows the items as they close up under the cursor', () => {
+    const bag = new InventoryBag();
+    bag.noticeInventory(['clover', 'sword', 'leather-armour']);
+    bag.pressKey('KeyI');
+    bag.pressKey('ArrowRight');
+    bag.noticeInventory(['clover', 'leather-armour']);
+    expect(bag.cursorItem).toBe('leather-armour');
+  });
+});
+
 describe('describeSlots', () => {
   it('shows every slot, the filled ones first, by the names of the items', () => {
     const slots: SlotView[] = describeSlots(EN, ['clover', 'clover']);
