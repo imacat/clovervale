@@ -24,7 +24,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  MONSTER_HEALTH,
+  MONSTER_KINDS,
   NOON,
   PLAYER_HEALTH,
   findPhaseTime,
@@ -162,6 +162,7 @@ describe('describeMonster', () => {
   it('tells the monster as the snapshot tells it', () => {
     const monster: MonsterState = {
       id: 1,
+      kind: 'village-dog',
       x: 10.256,
       z: 8.001,
       yaw: 45,
@@ -173,14 +174,32 @@ describe('describeMonster', () => {
     expect(describeMonster(EN, [monster])).toEqual({
       mode: 'chase',
       action: 'Attack',
-      health: `40 / ${String(MONSTER_HEALTH)}`,
+      health: `40 / ${String(MONSTER_KINDS['village-dog'].health)}`,
       position: '10.26, 8.00',
     });
+  });
+
+  it('tells the health of a monster against the full health of its kind', () => {
+    const monster: MonsterState = {
+      id: 2,
+      kind: 'cave-dog',
+      x: 9.25,
+      z: 0,
+      yaw: 90,
+      action: 'Idle',
+      actionCount: 0,
+      health: 40,
+      mode: 'idle',
+    };
+    expect(describeMonster(EN, [monster]).health).toBe(
+      `40 / ${String(MONSTER_KINDS['cave-dog'].health)}`,
+    );
   });
 
   it('tells it in the language of the page', async () => {
     const monster: MonsterState = {
       id: 1,
+      kind: 'village-dog',
       x: 0,
       z: 0,
       yaw: 0,

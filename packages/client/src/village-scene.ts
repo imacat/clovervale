@@ -248,11 +248,11 @@ export function createVillagerFigure(
 }
 
 /**
- * Makes a model to show the monster with, ready to stand in the village.
+ * Makes a model to show a wild dog with, ready to stand in any map.
  *
  * @param {readonly LoadedModel[]} models - The models.
- * @returns {Figure | null} A copy of the monster, or `null` if the monster
- *   is not among the models.
+ * @returns {Figure | null} A copy of the wild dog, or `null` if the wild
+ *   dog is not among the models.
  */
 export function createMonsterFigure(
   models: readonly LoadedModel[],

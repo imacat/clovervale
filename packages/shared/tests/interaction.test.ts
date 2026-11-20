@@ -402,6 +402,7 @@ const BURROW: Placement = findPlacement('prop-spawn-stones.glb');
 function placeDog(point: GroundVector, isDead = false): MonsterState {
   return {
     id: 1,
+    kind: 'village-dog',
     x: point.x,
     z: point.z,
     yaw: 0,

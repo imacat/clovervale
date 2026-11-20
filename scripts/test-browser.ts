@@ -41,9 +41,11 @@ import { inflateSync } from 'node:zlib';
 
 import {
   CAVE_CONTAINERS,
+  CAVE_DOG_HOMES,
   CAVE_LANDING,
   CAVE_ROPE,
   SIMULATION_RATE,
+  SLASH_REACH,
   TOBY_ACTIVITIES,
   VILLAGERS,
   WELL_STAND,
@@ -112,6 +114,24 @@ interface PageState {
   readonly figures: readonly FigureView[];
 }
 
+/** A monster in the latest snapshot of a page. */
+interface CaveMonsterView {
+  /** The identifier of the monster. */
+  readonly id: number;
+  /** The kind of the monster. */
+  readonly kind: string;
+  /** The position along the X axis, in metres. */
+  readonly x: number;
+  /** The position along the Z axis, in metres. */
+  readonly z: number;
+  /** What the monster is doing. */
+  readonly action: string;
+  /** The health of the monster. */
+  readonly health: number;
+  /** What the monster is up to. */
+  readonly mode: string;
+}
+
 /** How a page shows the map its player is in, and what it can do there. */
 interface CaveLook {
   /** The map the page shows. */
@@ -122,9 +142,14 @@ interface CaveLook {
     readonly z: number;
     readonly yaw: number;
     readonly action: string;
+    readonly health: number;
   } | null;
-  /** The monster in the latest snapshot, if it is there. */
+  /** The first monster in the latest snapshot, if there is one. */
   readonly monster: { readonly x: number; readonly z: number } | null;
+  /** The monsters in the latest snapshot. */
+  readonly monsters: readonly CaveMonsterView[];
+  /** The latest hits the page has shown, the latest last. */
+  readonly hits: readonly HitView[];
   /** The identifiers of the players the page shows. */
   readonly figures: readonly number[];
   /** What the space bar does, as the panel tells. */
@@ -1087,6 +1112,8 @@ function createCaveExpression(id: number): string {
       own: window.clovervale.listLatestPlayers()
         .find((player) => player.id === ${String(id)}) ?? null,
       monster: window.clovervale.listLatestMonsters()[0] ?? null,
+      monsters: window.clovervale.listLatestMonsters(),
+      hits: window.clovervale.listShownHits(),
       figures: window.clovervale.describeFigures().map((figure) => figure.id),
       spaceKey: panel['Space key'] ?? '',
       prompt: prompt === null || prompt.hidden ? null : prompt.textContent,
@@ -3955,7 +3982,16 @@ function describeCaveLook(look: CaveLook): string {
     own === null
       ? 'without the player'
       : `with the player at x ${own.x.toFixed(2)}, z ${own.z.toFixed(2)}, ` +
-        `facing ${own.yaw.toFixed(0)} degrees, doing "${own.action}"`;
+        `facing ${own.yaw.toFixed(0)} degrees, doing "${own.action}", ` +
+        `health ${String(own.health)}`;
+  const monsters: string = look.monsters
+    .map(
+      (monster: CaveMonsterView) =>
+        `${monster.kind} ${String(monster.id)} ${monster.mode} at x ` +
+        `${monster.x.toFixed(2)}, z ${monster.z.toFixed(2)}, health ` +
+        String(monster.health),
+    )
+    .join('; ');
   const prompt: string =
     look.prompt === null ? 'no prompt' : `the prompt "${look.prompt}"`;
   const speech: string =
@@ -3964,6 +4000,7 @@ function describeCaveLook(look: CaveLook): string {
       : `a bubble of ${look.speech.name} saying "${look.speech.line}"`;
   return (
     `the ${look.map} ${player}, the players ${JSON.stringify(look.figures)}, ` +
+    `the monsters [${monsters}], ` +
     `the space bar to "${look.spaceKey}", ${prompt}, ${speech}, the ` +
     `containers open ${JSON.stringify(look.containers)}, the bag ` +
     `${look.isBagOpen ? 'open' : 'closed'} with ${JSON.stringify(look.slots)} ` +
@@ -4322,8 +4359,8 @@ async function saveStoreView(
  *
  * @param {BidiSession} session - The session with the browser.
  * @param {string} context - The browsing context of the page of the
- *   player, which stands at the landing, facing west, with the camera
- *   looking that way.
+ *   player, which stands on the passage east of the prisoner, facing west,
+ *   with the camera looking that way.
  * @param {number} id - The identifier of the player.
  * @returns {Promise<void>} A promise settled once the player has passed.
  * @throws {Error} If the page does not show it so.
@@ -4566,15 +4603,106 @@ async function checkCaveChambers(
 }
 
 /**
+ * Has the player of a page in its cave fight a wild dog of the cave until
+ * the page tells the dog is dead.  The player stands where it is, and
+ * presses the space bar for a slash whenever the page tells it is not
+ * slashing already and the dog stands alive within the reach of a slash,
+ * after a tap of the keys that turn it towards the dog if it does not face
+ * it.  A dog that comes to the player is never out of the reach of its
+ * slashes for long, as the dog stops in front of it to bite.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page, whose camera
+ *   looks west down the passage.
+ * @param {number} id - The identifier of the player.
+ * @param {number} dogId - The identifier of the dog.
+ * @param {string | null} shot - The file name to save the view under once
+ *   the page shows the second hit of the player on the dog, or `null` to
+ *   save none.
+ * @returns {Promise<CaveLook>} How the page shows them once the dog is
+ *   dead.
+ * @throws {Error} If the dog is not dead in time, or the player dies.
+ */
+async function fightCaveDog(
+  session: BidiSession,
+  context: string,
+  id: number,
+  dogId: number,
+  shot: string | null,
+): Promise<CaveLook> {
+  const describeProblem = (seen: CaveLook): string =>
+    `Fighting dog ${String(dogId)} of the cave, the first page tells ` +
+    `${describeCaveLook(seen)}.`;
+  const deadline: number = Date.now() + MONSTER_TIMEOUT * 2;
+  let isShot: boolean = shot === null;
+  for (;;) {
+    const seen: CaveLook = await readCaveLook(session, context, id);
+    const dog: CaveMonsterView | undefined = seen.monsters.find(
+      (monster: CaveMonsterView) => monster.id === dogId,
+    );
+    const own: CaveLook['own'] = seen.own;
+    if (dog?.mode === 'dead') {
+      return seen;
+    }
+    if (own === null || own.action === 'Die' || Date.now() > deadline) {
+      throw new Error(describeProblem(seen));
+    }
+    const hits: number = seen.hits.filter(
+      (hit: HitView) =>
+        hit.attacker.kind === 'player' &&
+        hit.attacker.id === id &&
+        hit.target.kind === 'monster' &&
+        hit.target.id === dogId,
+    ).length;
+    if (!isShot && hits >= 2 && shot !== null) {
+      await saveView(session, context, shot);
+      isShot = true;
+    }
+    if (
+      dog !== undefined &&
+      own.action !== 'Slash' &&
+      Math.hypot(dog.x - own.x, dog.z - own.z) <= SLASH_REACH - 0.1
+    ) {
+      const turn: number =
+        (Math.round(
+          (Math.atan2(dog.x - own.x, dog.z - own.z) * 4) / Math.PI,
+        ) +
+          8) %
+        8;
+      const isFacing: boolean =
+        Math.abs(((own.yaw - turn * 45 + 540) % 360) - 180) <= 45;
+      if (!isFacing) {
+        // The camera looks west, which turns the keys a quarter round
+        // from the first view of the village.
+        const keys: readonly string[] = TURN_KEYS[(turn + 6) % 8] ?? [];
+        for (const key of keys) {
+          await sendKey(session, context, 'keyDown', key);
+        }
+        await sleep(TAP_DURATION);
+        for (const key of keys) {
+          await sendKey(session, context, 'keyUp', key);
+        }
+      }
+      await sendKey(session, context, 'keyDown', ' ');
+      await sendKey(session, context, 'keyUp', ' ');
+    }
+    await sleep(POLL_INTERVAL);
+  }
+}
+
+/**
  * Checks that a player goes down into a cave of its own at the burrow of
  * the wild dog among the spawn stones, and climbs back up out of it by the
  * rope at the bottom of the old well shaft.  In the burrow, its page tells
  * the space bar goes down, and once the space bar is pressed, the page
  * shows the cave, lit by its torches, with the player at the landing at the
- * foot of the slope, alone, while the other page no longer shows the
- * player.  The player talks to the prisoner and loots the store rooms, as
- * {@link checkCaveChambers} tells, and walks on west down the passage to
- * the rope, where its
+ * foot of the slope, alone but for the two wild dogs of the cave, while the
+ * other page no longer shows the player.  The dog by the cells notices the
+ * player at once, and the player kills it there with its slashes, as
+ * {@link fightCaveDog} tells; it then walks west until the other dog
+ * notices it, and kills that one too.  The player talks to the prisoner
+ * and loots the store rooms, as {@link checkCaveChambers} tells, and walks
+ * on west down the passage to the rope, where its
  * page tells the space bar climbs up, and once it is pressed, both pages
  * show the player beside the old well in the yard of the chief's house.
  *
@@ -4688,7 +4816,11 @@ async function checkCave(
       isNear(own.own, CAVE_LANDING) &&
       own.figures.length === 1 &&
       own.figures[0] === id &&
-      own.monster === null &&
+      own.monsters.length === CAVE_DOG_HOMES.length &&
+      own.monsters.every(
+        (monster: CaveMonsterView) =>
+          monster.kind === 'cave-dog' && monster.mode !== 'dead',
+      ) &&
       !other.figures.includes(id),
     ACTION_TIMEOUT,
     ([own, other]: [CaveLook, CaveLook]) =>
@@ -4705,8 +4837,23 @@ async function checkCave(
         `${brightness.toFixed(1)}, ${describeCaveLook(below)}.`,
     );
   }
+  await saveView(session, actor, 'cave-dogs.png');
+  await fightCaveDog(session, actor, id, 1, 'cave-dog-fight.png');
   await saveView(session, actor, 'cave-landing.png');
   await saveCaveViews(session, actor);
+  await walkInCave(
+    session,
+    actor,
+    id,
+    'w',
+    (shown: CaveLook) =>
+      shown.monsters.some(
+        (monster: CaveMonsterView) =>
+          monster.id === 2 && monster.mode === 'chase',
+      ),
+    'until the other dog notices it',
+  );
+  await fightCaveDog(session, actor, id, 2, null);
   await checkCaveChambers(session, actor, id);
 
   await sendKey(session, actor, 'keyDown', 'w');
@@ -5290,7 +5437,8 @@ try {
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, show Toby ' +
       'alike, hear what Nancy says, speak the language chosen, pick, ' +
-      'carry and put down a clover, go down into a cave of their own, talk ' +
+      'carry and put down a clover, go down into a cave of their own, kill ' +
+      'its two wild dogs, talk ' +
       'to the prisoner through his bars, loot the store rooms, and climb ' +
       'back up, have the ' +
       'camera follow another player, darken at night, preview a time of ' +

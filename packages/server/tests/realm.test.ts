@@ -26,15 +26,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CAVE_CONTAINERS,
+  CAVE_DOG_HOMES,
   CAVE_LANDING,
   CAVE_ROPE,
   CAVE_TERRAIN,
   CLOVER_PATCHES,
   DEATH_DURATION,
+  MONSTER_KINDS,
   PLAYER_HEALTH,
   SIMULATION_RATE,
   SLASH_DURATION,
   NavigationGraph,
+  SLASH_DAMAGE,
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   WALK_SPEED,
@@ -48,6 +51,7 @@ import {
 } from '@clovervale/shared';
 import type {
   CaveContainer,
+  GameEvent,
   GroundVector,
   MonsterState,
   PlayerInput,
@@ -174,6 +178,33 @@ function listCompany(realm: Realm, id: number): number[] {
  */
 function findDog(realm: Realm, id: number): MonsterState | undefined {
   return realm.findWorld(id)?.listMonsters()[0];
+}
+
+/**
+ * Waits, with a player of a realm in its cave standing still, until the
+ * first wild dog of the cave has come to it, and turns the player to face
+ * it.
+ *
+ * @param {Realm} realm - The realm.
+ * @param {number} id - The identifier of the player, in its cave.
+ * @returns {MonsterState} The dog, as it stands by the player.
+ * @throws {Error} If the dog does not come.
+ */
+function awaitCaveDog(realm: Realm, id: number): MonsterState {
+  for (let step = 0; step < 20 * SIMULATION_RATE; step++) {
+    const dog: MonsterState | undefined = findDog(realm, id);
+    const { x, z }: PlayerState = findPlayer(realm, id);
+    if (
+      dog?.mode === 'chase' &&
+      dog.action !== 'Walk' &&
+      Math.hypot(dog.x - x, dog.z - z) <= 1.2
+    ) {
+      turnPlayer(realm, id, dog);
+      return dog;
+    }
+    realm.step();
+  }
+  throw new Error('The dog of the cave does not come.');
 }
 
 /**
@@ -307,6 +338,27 @@ function addDigger(realm: Realm): number {
   const { id }: PlayerState = realm.addPlayer();
   walkInVillage(realm, id, BURROW);
   return id;
+}
+
+/**
+ * Lets two new players into a realm, and walks them together to the
+ * burrow of the wild dog, so that either can go down at once.
+ *
+ * @param {Realm} realm - The realm.
+ * @returns {[number, number]} The identifiers of the players, standing in
+ *   the burrow.
+ */
+function addDiggers(realm: Realm): [number, number] {
+  const ids: number[] = [realm.addPlayer().id, realm.addPlayer().id];
+  walkTogether(
+    realm,
+    ids.map((id: number): [number, GroundVector[]] => [
+      id,
+      findVillagePath(findPlayer(realm, id), BURROW) ?? [],
+    ]),
+  );
+  const [first = NaN, second = NaN] = ids;
+  return [first, second];
 }
 
 /**
@@ -517,14 +569,33 @@ describe('a player at the burrow of the wild dog', () => {
 describe('the caves of the realm', () => {
   it('are one for each player, apart from each other', () => {
     const realm = new Realm(createRandom());
-    const first: number = addDigger(realm);
+    const [first, second] = addDiggers(realm);
     goDown(realm, first);
-    const second: number = addDigger(realm);
     goDown(realm, second);
     expect(realm.caveCount).toBe(2);
     expect(realm.findWorld(first)).not.toBe(realm.findWorld(second));
     expect(listCompany(realm, first)).toEqual([first]);
     expect(listCompany(realm, second)).toEqual([second]);
+  });
+
+  it('have wild dogs of their own, which a slash in another leaves alone', () => {
+    const realm = new Realm(createRandom());
+    const [first, second] = addDiggers(realm);
+    goDown(realm, first);
+    goDown(realm, second);
+    awaitCaveDog(realm, first);
+    giveInput(realm, first, { type: 'interact' });
+    realm.step();
+    const health: number = MONSTER_KINDS['cave-dog'].health;
+    expect(findDog(realm, first)?.health).toBe(health - SLASH_DAMAGE);
+    expect(
+      realm
+        .findWorld(second)
+        ?.listMonsters()
+        .map((dog: MonsterState) => [dog.id, dog.health]),
+    ).toEqual(
+      CAVE_DOG_HOMES.map((_, index: number) => [index + 1, health]),
+    );
   });
 
   it('are fresh every time a player goes down', () => {
@@ -616,14 +687,40 @@ describe('a player at the rope in the cave', () => {
 });
 
 describe('a player who dies in the cave', () => {
-  it('comes back on the plaza after a death, and its cave is gone', () => {
+  it('dies to the dogs, comes back on the plaza, and its cave is gone', () => {
     const realm = new Realm(createRandom());
     const id: number = addDigger(realm);
     goDown(realm, id);
-    realm.findWorld(id)?.hurtPlayer(id, PLAYER_HEALTH);
-    realm.step();
-    expect(findPlayer(realm, id)).toMatchObject({ action: 'Die', health: 0 });
-    stepTimes(realm, DEATH_STEPS - 2);
+    const cave: World | null = realm.findWorld(id);
+    const arrival: PlayerState = findPlayer(realm, id);
+    let fallen: PlayerState = arrival;
+    for (let step = 0; step < 60 * SIMULATION_RATE; step++) {
+      realm.step();
+      fallen = findPlayer(realm, id);
+      if (fallen.health === 0) {
+        break;
+      }
+    }
+    expect(fallen).toMatchObject({ action: 'Die', health: 0 });
+    const hits: GameEvent[] = cave?.takeEvents() ?? [];
+    expect(hits.length).toBeGreaterThan(0);
+    for (const hit of hits) {
+      expect(hit).toMatchObject({
+        type: 'hit',
+        attacker: { kind: 'monster' },
+        target: { kind: 'player', id },
+      });
+    }
+    expect(
+      hits.map((hit: GameEvent) => (hit.type === 'hit' ? hit.damage : NaN)),
+    ).toEqual([
+      ...new Array<number>(hits.length - 1).fill(
+        MONSTER_KINDS['cave-dog'].biteDamage,
+      ),
+      arrival.health -
+        (hits.length - 1) * MONSTER_KINDS['cave-dog'].biteDamage,
+    ]);
+    stepTimes(realm, DEATH_STEPS - 1);
     expect(realm.findMap(id)).toBe('cave');
     realm.step();
     expect(realm.findMap(id)).toBe('village');
@@ -639,6 +736,15 @@ describe('a player who dies in the cave', () => {
         (point: GroundVector) => point.x === player.x && point.z === player.z,
       ),
     ).toBe(true);
+    walkInVillage(realm, id, BURROW);
+    goDown(realm, id);
+    expect(realm.findWorld(id)).not.toBe(cave);
+    expect(
+      realm
+        .findWorld(id)
+        ?.listMonsters()
+        .map((dog: MonsterState) => dog.health),
+    ).toEqual(CAVE_DOG_HOMES.map(() => MONSTER_KINDS['cave-dog'].health));
   });
 });
 
@@ -666,7 +772,9 @@ describe('what the realm has sent to each player', () => {
     expect(snapshot?.players.map((player: PlayerState) => player.id)).toEqual([
       other,
     ]);
-    expect(snapshot?.monsters).toHaveLength(1);
+    expect(snapshot?.monsters).toEqual([
+      expect.objectContaining({ id: 1, kind: 'village-dog' }),
+    ]);
     expect(snapshot?.clovers).toHaveLength(CLOVER_PATCHES.length);
     expect(snapshot?.step).toBe(realm.stepCount);
   });
@@ -680,9 +788,23 @@ describe('what the realm has sent to each player', () => {
       realm.composeMessages().get(id) ?? [];
     expect(messages[0]).toEqual({ type: 'map', map: 'cave' });
     const [snapshot] = listSnapshots(messages);
+    expect(
+      snapshot?.monsters.map(({ id: dogId, kind, x, z }: MonsterState) => ({
+        id: dogId,
+        kind,
+        x,
+        z,
+      })),
+    ).toEqual(
+      CAVE_DOG_HOMES.map((home: GroundVector, index: number) => ({
+        id: index + 1,
+        kind: 'cave-dog',
+        x: home.x,
+        z: home.z,
+      })),
+    );
     expect(snapshot).toMatchObject({
       step: realm.stepCount,
-      monsters: [],
       clovers: [],
       items: [],
       looted: [],

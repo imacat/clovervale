@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/health-bar A bar above a player or the monster that shows
+ * @module client/health-bar A bar above a player or a monster that shows
  *   how much health it has.
  */
 

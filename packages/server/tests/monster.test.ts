@@ -24,24 +24,35 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  MONSTER_HEALTH,
+  MONSTER_KINDS,
   SIMULATION_RATE,
   VILLAGE_TERRAIN,
+  findPlacement,
 } from '@clovervale/shared';
-import type { GroundVector, MonsterState } from '@clovervale/shared';
+import type {
+  GroundVector,
+  MonsterKind,
+  MonsterState,
+} from '@clovervale/shared';
 
 import {
   MONSTER_APPROACH_DISTANCE,
-  MONSTER_ATTACK_INTERVAL,
   MONSTER_CORPSE_DURATION,
-  MONSTER_HOME,
-  MONSTER_HOME_YAW,
-  MONSTER_RESPAWN_DELAY,
+  MONSTER_SPAWNS,
   MONSTER_STRIKE_DELAY,
-  MONSTER_WANDER_RADIUS,
   Monster,
 } from '../src/monster.ts';
-import type { Quarry } from '../src/monster.ts';
+import type { MonsterSpawn, Quarry } from '../src/monster.ts';
+
+/** The numbers of the wild dog of the village. */
+const DOG: MonsterKind = MONSTER_KINDS['village-dog'];
+
+/** Where the wild dog of the village lives, and how it faces there. */
+const HOME: MonsterSpawn['home'] = MONSTER_SPAWNS.village[0]?.home ?? {
+  x: NaN,
+  z: NaN,
+  yaw: NaN,
+};
 
 /** A player near the home of the monster, where nothing stands. */
 const NEAR_PLAYER: Quarry = { id: 5, x: 8, z: 9 };
@@ -60,6 +71,20 @@ function createRandom(): () => number {
     seed = (seed * 16807) % 2147483647;
     return seed / 2147483647;
   };
+}
+
+/**
+ * Brings the wild dog of the village to life, as the village has it.
+ *
+ * @returns {Monster} The dog.
+ * @throws {Error} If the village has no monster.
+ */
+function createVillageDog(): Monster {
+  const [spawn] = MONSTER_SPAWNS.village;
+  if (spawn === undefined) {
+    throw new Error('The village has no monster.');
+  }
+  return new Monster(1, 'village', spawn, createRandom());
 }
 
 /**
@@ -110,36 +135,65 @@ function stepTimes(
   return strikes;
 }
 
+describe('the wild dog of the village', () => {
+  it('is the one monster of the village', () => {
+    expect(MONSTER_SPAWNS.village.map((spawn) => spawn.kind)).toEqual([
+      'village-dog',
+    ]);
+  });
+
+  it('keeps its numbers', () => {
+    expect(DOG).toEqual({
+      health: 60,
+      biteDamage: 15,
+      biteInterval: 1.5,
+      chaseSpeed: 1.3,
+      wanderSpeed: 0.8,
+      wanderRadius: 3,
+      noticeRange: 5,
+      leashRange: 8,
+      respawnDelay: 10,
+    });
+  });
+
+  it('lives at the mouth of its burrow among the spawn stones', () => {
+    const stones = findPlacement('prop-spawn-stones.glb');
+    expect(HOME).toEqual({ x: stones.x, z: stones.z, yaw: stones.yaw - 72 });
+  });
+});
+
 describe('a monster left alone', () => {
   it('starts idling at its home at full health', () => {
-    expect(new Monster(createRandom()).state).toMatchObject({
-      x: MONSTER_HOME.x,
-      z: MONSTER_HOME.z,
-      yaw: MONSTER_HOME_YAW,
+    expect(createVillageDog().state).toMatchObject({
+      id: 1,
+      kind: 'village-dog',
+      x: HOME.x,
+      z: HOME.z,
+      yaw: HOME.yaw,
       action: 'Idle',
-      health: MONSTER_HEALTH,
+      health: DOG.health,
       mode: 'idle',
     });
   });
 
   it('wanders near its home, clear of the obstacles', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     const modes = new Set<string>();
     let farthest = 0;
     for (let step = 0; step < 60 * SIMULATION_RATE; step++) {
       monster.step([]);
       const state: MonsterState = readState(monster);
       modes.add(state.mode);
-      farthest = Math.max(farthest, measureDistance(state, MONSTER_HOME));
+      farthest = Math.max(farthest, measureDistance(state, HOME));
       expect(VILLAGE_TERRAIN.isClear(state)).toBe(true);
     }
     expect([...modes].sort()).toEqual(['idle', 'wander']);
     expect(farthest).toBeGreaterThan(0);
-    expect(farthest).toBeLessThanOrEqual(MONSTER_WANDER_RADIUS);
+    expect(farthest).toBeLessThanOrEqual(DOG.wanderRadius);
   });
 
   it('pays no heed to a player far from its home', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     for (let step = 0; step < 20 * SIMULATION_RATE; step++) {
       monster.step([FAR_PLAYER]);
       expect(readState(monster).mode).not.toBe('chase');
@@ -149,7 +203,7 @@ describe('a monster left alone', () => {
 
 describe('a monster with a player near', () => {
   it('chases the player and stops near it, facing it', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     monster.step([NEAR_PLAYER]);
     expect(readState(monster)).toMatchObject({ mode: 'chase' });
     stepTimes(monster, 5 * SIMULATION_RATE, [NEAR_PLAYER]);
@@ -162,7 +216,7 @@ describe('a monster with a player near', () => {
   });
 
   it('strikes once in every attack, partway through', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     const strikes: number[] = [];
     let attackStart: number | null = null;
     let lastCount: number = readState(monster).actionCount;
@@ -183,7 +237,7 @@ describe('a monster with a player near', () => {
     expect(strikes.length).toBeGreaterThan(2);
     for (let index = 1; index < strikes.length; index++) {
       expect((strikes[index] ?? 0) - (strikes[index - 1] ?? 0)).toBe(
-        MONSTER_ATTACK_INTERVAL * SIMULATION_RATE,
+        DOG.biteInterval * SIMULATION_RATE,
       );
     }
   });
@@ -192,7 +246,7 @@ describe('a monster with a player near', () => {
     // The player is on the other side of the fence south of the monster,
     // where it goes once the monster has noticed it.
     const behind: Quarry = { id: 5, x: 8.5, z: 2 };
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     monster.step([NEAR_PLAYER]);
     let isNear = false;
     for (let step = 0; step < 30 * SIMULATION_RATE && !isNear; step++) {
@@ -205,7 +259,7 @@ describe('a monster with a player near', () => {
   });
 
   it('gives up once the player is far from its home, and goes back', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     stepTimes(monster, 5 * SIMULATION_RATE, [NEAR_PLAYER]);
     const modes = new Set<string>();
     for (let step = 0; step < 10 * SIMULATION_RATE; step++) {
@@ -215,13 +269,13 @@ describe('a monster with a player near', () => {
     expect(modes).toContain('return');
     const state: MonsterState = readState(monster);
     expect(state.mode).not.toBe('chase');
-    expect(measureDistance(state, MONSTER_HOME)).toBeLessThanOrEqual(
-      MONSTER_WANDER_RADIUS,
+    expect(measureDistance(state, HOME)).toBeLessThanOrEqual(
+      DOG.wanderRadius,
     );
   });
 
   it('gives up once the player is gone', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     stepTimes(monster, SIMULATION_RATE, [NEAR_PLAYER]);
     monster.step([]);
     expect(readState(monster).mode).toBe('return');
@@ -230,10 +284,10 @@ describe('a monster with a player near', () => {
 
 describe('a monster that is hit', () => {
   it('loses the health the hit takes, and chases whoever hit it', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     expect(monster.takeHit(20, 9)).toBe(20);
     expect(readState(monster)).toMatchObject({
-      health: MONSTER_HEALTH - 20,
+      health: DOG.health - 20,
       mode: 'chase',
     });
     // The player that hit it is the one it chases, not the nearer one.
@@ -245,8 +299,8 @@ describe('a monster that is hit', () => {
   });
 
   it('dies once it has no health left, and loses no more', () => {
-    const monster = new Monster(createRandom());
-    expect(monster.takeHit(MONSTER_HEALTH - 10, 9)).toBe(MONSTER_HEALTH - 10);
+    const monster = createVillageDog();
+    expect(monster.takeHit(DOG.health - 10, 9)).toBe(DOG.health - 10);
     expect(monster.takeHit(20, 9)).toBe(10);
     expect(monster.isAlive).toBe(false);
     expect(readState(monster)).toMatchObject({
@@ -258,9 +312,9 @@ describe('a monster that is hit', () => {
   });
 
   it('lies dead without striking, is gone, and comes back at home', () => {
-    const monster = new Monster(createRandom());
+    const monster = createVillageDog();
     stepTimes(monster, 5 * SIMULATION_RATE, [NEAR_PLAYER]);
-    monster.takeHit(MONSTER_HEALTH, 9);
+    monster.takeHit(DOG.health, 9);
     const corpse: MonsterState = readState(monster);
     const corpseSteps: number = MONSTER_CORPSE_DURATION * SIMULATION_RATE;
     expect(stepTimes(monster, corpseSteps - 1, [NEAR_PLAYER])).toEqual([]);
@@ -268,17 +322,17 @@ describe('a monster that is hit', () => {
     monster.step([NEAR_PLAYER]);
     expect(monster.state).toBeNull();
     const goneSteps: number =
-      (MONSTER_RESPAWN_DELAY - MONSTER_CORPSE_DURATION) * SIMULATION_RATE;
+      (DOG.respawnDelay - MONSTER_CORPSE_DURATION) * SIMULATION_RATE;
     stepTimes(monster, goneSteps - 1, []);
     expect(monster.state).toBeNull();
     monster.step([]);
     expect(monster.isAlive).toBe(true);
     expect(monster.state).toMatchObject({
-      x: MONSTER_HOME.x,
-      z: MONSTER_HOME.z,
-      yaw: MONSTER_HOME_YAW,
+      x: HOME.x,
+      z: HOME.z,
+      yaw: HOME.yaw,
       action: 'Idle',
-      health: MONSTER_HEALTH,
+      health: DOG.health,
       mode: 'idle',
     });
   });

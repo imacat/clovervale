@@ -474,6 +474,7 @@ describe('SnapshotTimeline', () => {
     const timeline = new SnapshotTimeline();
     const monster: MonsterState = {
       id: 1,
+      kind: 'village-dog',
       x: 10,
       z: 8,
       yaw: 0,
@@ -504,6 +505,7 @@ describe('SnapshotTimeline', () => {
     const timeline = new SnapshotTimeline();
     const monster: MonsterState = {
       id: 1,
+      kind: 'village-dog',
       x: 10,
       z: 8,
       yaw: 0,

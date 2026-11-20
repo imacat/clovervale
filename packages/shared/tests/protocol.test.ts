@@ -63,6 +63,7 @@ const PLAYER: PlayerState = {
 /** A monster to put in snapshots. */
 const MONSTER: MonsterState = {
   id: 1,
+  kind: 'village-dog',
   x: 10.5,
   z: 8.25,
   yaw: 135,
@@ -169,6 +170,37 @@ describe('the server message codec', () => {
       own: OWN,
       slash: null,
     });
+  });
+
+  it('decodes a snapshot message with several monsters of each kind', () => {
+    const monsters: MonsterState[] = [
+      { ...MONSTER, kind: 'cave-dog' },
+      { ...MONSTER, id: 2, kind: 'cave-dog', mode: 'dead', health: 0 },
+      { ...MONSTER, id: 3 },
+    ];
+    const message = createSnapshotMessage(42, [PLAYER], monsters, OWN);
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'snapshot',
+      ...NOTHING_TO_PICK,
+      step: 42,
+      players: [PLAYER],
+      monsters,
+      own: OWN,
+      slash: null,
+    });
+  });
+
+  it('rejects a snapshot message with two monsters of one identifier', () => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      ...NOTHING_TO_PICK,
+      step: 4,
+      players: [PLAYER],
+      monsters: [MONSTER, { ...MONSTER, kind: 'cave-dog' }],
+      own: OWN,
+      slash: null,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
   });
 
   it('decodes a snapshot message that tells how a slash was judged', () => {
@@ -409,6 +441,7 @@ describe('the server message codec', () => {
 
   it.each([
     ['an identifier', { id: 1.5 }],
+    ['a known kind', { kind: 'wolf' }],
     ['a position', { z: null }],
     ['a known action', { action: 'Slash' }],
     ['an action count', { actionCount: '9' }],

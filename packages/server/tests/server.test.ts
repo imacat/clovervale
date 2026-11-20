@@ -42,7 +42,7 @@ import {
   CLOVER_PATCHES,
   DEFAULT_DAY_LENGTH,
   DEFAULT_DAY_ORIGIN,
-  MONSTER_HEALTH,
+  MONSTER_KINDS,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
   SLASH_DURATION,
@@ -396,7 +396,10 @@ describe('the game server', () => {
     const [second] = await connectPeer();
     const seen: TimedSnapshot = await first.receiveSnapshotWhere(isPair);
     expect(seen.monsters).toEqual([
-      expect.objectContaining({ health: MONSTER_HEALTH }),
+      expect.objectContaining({
+        kind: 'village-dog',
+        health: MONSTER_KINDS['village-dog'].health,
+      }),
     ]);
     const other: TimedSnapshot = await second.receiveSnapshotWhere(
       () => true,

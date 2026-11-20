@@ -140,6 +140,7 @@ describe('chooseSpaceInput by the ways into and out of the cave', () => {
   function placeDog(z: number, isDead: boolean): MonsterState {
     return {
       id: 1,
+      kind: 'village-dog',
       x: BURROW.x,
       z: BURROW.z + z,
       yaw: 0,

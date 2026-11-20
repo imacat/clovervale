@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module shared/combat How much a player and the monster can take, and
- *   what a strike reaches.
+ * @module shared/combat How much a player and each kind of monster can
+ *   take and deal, how they go about it, and what a strike reaches.
  */
 
 import type { GroundVector } from './movement.ts';
@@ -34,16 +34,94 @@ export const PLAYER_HEALTH = 100;
  */
 export const DEATH_DURATION = 2;
 
-/** The health of the monster at full health. */
-export const MONSTER_HEALTH = 60;
+/** The kinds of monster there are. */
+export const MONSTER_KIND_IDS = ['village-dog', 'cave-dog'] as const;
+
+/** A kind of monster. */
+export type MonsterKindId = (typeof MONSTER_KIND_IDS)[number];
+
+/** The numbers of a kind of monster, which every monster of it shares. */
+export interface MonsterKind {
+  /** The health of a monster of the kind at full health. */
+  readonly health: number;
+  /** The health a bite of the monster that hits takes from a player. */
+  readonly biteDamage: number;
+  /**
+   * The shortest time from the start of one bite of the monster to the
+   * start of the next, in seconds.
+   */
+  readonly biteInterval: number;
+  /**
+   * The speed the monster chases a player and walks back home at, in
+   * metres per second.
+   */
+  readonly chaseSpeed: number;
+  /** The speed the monster wanders at, in metres per second. */
+  readonly wanderSpeed: number;
+  /** The farthest from its home the monster wanders to, in metres. */
+  readonly wanderRadius: number;
+  /** The farthest the monster notices a player from, in metres. */
+  readonly noticeRange: number;
+  /**
+   * The farthest from the home of the monster a player can be for the
+   * monster to chase it, in metres.  Beyond that, it gives up.
+   */
+  readonly leashRange: number;
+  /**
+   * How long after it dies the monster comes back to life at its home, in
+   * seconds.
+   */
+  readonly respawnDelay: number;
+}
 
 /**
- * The farthest the monster can be from a player whose slash hits it, from
+ * The numbers of each kind of monster: the wild dog of the village, which
+ * a player can get away from, and the tougher wild dogs of the cave, which
+ * bite more often, and give up only well away from their homes, so most
+ * of the cave is within their chase.
+ */
+export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
+  'village-dog': {
+    health: 60,
+    biteDamage: 15,
+    biteInterval: 1.5,
+    chaseSpeed: 1.3,
+    wanderSpeed: 0.8,
+    wanderRadius: 3,
+    noticeRange: 5,
+    leashRange: 8,
+    respawnDelay: 10,
+  },
+  'cave-dog': {
+    health: 80,
+    biteDamage: 15,
+    biteInterval: 1.2,
+    chaseSpeed: 1.3,
+    wanderSpeed: 0.8,
+    wanderRadius: 1.2,
+    noticeRange: 5,
+    leashRange: 12,
+    respawnDelay: 300,
+  },
+};
+
+/**
+ * Tells whether a value names a kind of monster.
+ *
+ * @param {unknown} value - The value.
+ * @returns {boolean} Whether it does.
+ */
+export function isMonsterKindId(value: unknown): value is MonsterKindId {
+  return MONSTER_KIND_IDS.some((kind: MonsterKindId) => kind === value);
+}
+
+/**
+ * The farthest a monster can be from a player whose slash hits it, from
  * centre to centre, in metres.
  */
 export const SLASH_REACH = 1.6;
 
-/** The health a slash that hits takes from the monster. */
+/** The health a slash that hits takes from a monster. */
 export const SLASH_DAMAGE = 20;
 
 /**

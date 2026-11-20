@@ -18,29 +18,32 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module server/monster The monster that lives in the burrow among the
- *   spawn stones, as the server moves it.
+ * @module server/monster The monsters, as the server moves them, and where
+ *   each map has them live: the wild dog in the burrow among the spawn
+ *   stones of the village, and the wild dogs in the passage of the cave.
  */
 
 import {
-  MONSTER_HEALTH,
+  CAVE_DOG_HOMES,
+  MONSTER_KINDS,
   SIMULATION_RATE,
-  VILLAGE_TERRAIN,
   WAYPOINT_CLEARANCE,
+  findMapPath,
+  findMapTerrain,
   findPlacement,
-  findVillagePath,
   findYaw,
 } from '@clovervale/shared';
 import type {
   GroundVector,
+  MapId,
   MonsterAction,
+  MonsterKind,
+  MonsterKindId,
   MonsterMode,
   MonsterState,
   Pose,
+  Terrain,
 } from '@clovervale/shared';
-
-/** The identifier of the monster. */
-export const MONSTER_ID = 1;
 
 /**
  * The way the mouth of the burrow among the spawn stones faces, as the
@@ -48,86 +51,66 @@ export const MONSTER_ID = 1;
  */
 const BURROW_MOUTH_YAW = -72;
 
-/**
- * Where the monster lives and comes back to life: at the mouth of its
- * burrow, in the middle of the spawn stones.
- */
-export const MONSTER_HOME: GroundVector = (() => {
-  const { x, z } = findPlacement('prop-spawn-stones.glb');
-  return { x, z };
-})();
-
-/** The yaw of the monster as it comes to life, facing out of its burrow. */
-export const MONSTER_HOME_YAW: number =
-  findPlacement('prop-spawn-stones.glb').yaw + BURROW_MOUTH_YAW;
-
-/** The speed the monster wanders at, in metres per second. */
-export const MONSTER_WANDER_SPEED = 0.8;
+/** Where a monster lives, and of what kind it is. */
+export interface MonsterSpawn {
+  /** The kind of the monster. */
+  readonly kind: MonsterKindId;
+  /**
+   * Where the monster lives and comes back to life, and which way it faces
+   * as it does.
+   */
+  readonly home: Pose;
+}
 
 /**
- * The speed the monster chases a player and walks back home at, in metres
- * per second, a little slower than a player walks, so that a player can
- * get away.
+ * The monsters each map has, in the order they are numbered from 1 in a
+ * world of it: in the village, the wild dog at the mouth of its burrow in
+ * the middle of the spawn stones, facing out of it; and in the cave, a
+ * wild dog at each of {@link CAVE_DOG_HOMES}.
  */
-export const MONSTER_CHASE_SPEED = 1.3;
+export const MONSTER_SPAWNS: Readonly<Record<MapId, readonly MonsterSpawn[]>> =
+  (() => {
+    const { x, z, yaw } = findPlacement('prop-spawn-stones.glb');
+    return {
+      village: [
+        { kind: 'village-dog', home: { x, z, yaw: yaw + BURROW_MOUTH_YAW } },
+      ],
+      cave: CAVE_DOG_HOMES.map(
+        (home: Pose): MonsterSpawn => ({ kind: 'cave-dog', home }),
+      ),
+    };
+  })();
 
-/** The farthest from its home the monster wanders to, in metres. */
-export const MONSTER_WANDER_RADIUS = 3;
-
-/** The shortest time the monster idles before it wanders, in seconds. */
+/** The shortest time a monster idles before it wanders, in seconds. */
 export const MONSTER_MIN_IDLE = 2;
 
-/** The longest time the monster idles before it wanders, in seconds. */
+/** The longest time a monster idles before it wanders, in seconds. */
 export const MONSTER_MAX_IDLE = 5;
 
-/** The farthest the monster notices a player from, in metres. */
-export const MONSTER_NOTICE_RANGE = 5;
-
 /**
- * The farthest from the home of the monster a player can be for the
- * monster to chase it, in metres.
- */
-export const MONSTER_LEASH_RANGE = 8;
-
-/**
- * The farthest a player can be from the monster for its attack to hit,
- * from centre to centre, in metres.
+ * The farthest a player can be from a monster for its attack to hit, from
+ * centre to centre, in metres.
  */
 export const MONSTER_ATTACK_REACH = 1.4;
 
 /**
- * How near the monster comes to the player it chases before it stops and
+ * How near a monster comes to the player it chases before it stops and
  * attacks, from centre to centre, in metres.
  */
 export const MONSTER_APPROACH_DISTANCE = 1.1;
 
-/** The health an attack of the monster that hits takes from a player. */
-export const MONSTER_ATTACK_DAMAGE = 15;
-
-/** How long an attack of the monster lasts, in seconds. */
+/** How long an attack of a monster lasts, in seconds. */
 export const MONSTER_ATTACK_DURATION = 0.6;
 
-/** How long after the monster starts an attack it strikes, in seconds. */
+/** How long after a monster starts an attack it strikes, in seconds. */
 export const MONSTER_STRIKE_DELAY = 0.3;
 
-/**
- * The shortest time from the start of one attack of the monster to the
- * start of the next, in seconds.
- */
-export const MONSTER_ATTACK_INTERVAL = 1.5;
-
-/** How long the dead monster lies before it is gone, in seconds. */
+/** How long a dead monster lies before it is gone, in seconds. */
 export const MONSTER_CORPSE_DURATION = 2;
 
 /**
- * How long after it dies the monster comes back to life at its home, in
- * seconds.
- */
-export const MONSTER_RESPAWN_DELAY = 10;
-
-/**
- * How long the monster follows a way to the player it chases before it
- * finds the way again, in seconds.
+ * How long a monster follows a way to the player it chases before it finds
+ * the way again, in seconds.
  */
 export const MONSTER_REPATH_INTERVAL = 0.5;
 
@@ -148,13 +131,9 @@ function countSteps(seconds: number): number {
 const STRIKE_STEPS: number = countSteps(MONSTER_STRIKE_DELAY);
 /** The number of steps an attack lasts. */
 const ATTACK_STEPS: number = countSteps(MONSTER_ATTACK_DURATION);
-/** The number of steps from the start of one attack to the next. */
-const ATTACK_INTERVAL_STEPS: number = countSteps(MONSTER_ATTACK_INTERVAL);
-/** The number of steps the dead monster is seen for. */
+/** The number of steps a dead monster is seen for. */
 const CORPSE_STEPS: number = countSteps(MONSTER_CORPSE_DURATION);
-/** The number of steps from the death of the monster to its return. */
-const RESPAWN_STEPS: number = countSteps(MONSTER_RESPAWN_DELAY);
-/** The number of steps the monster follows a way to its quarry. */
+/** The number of steps a monster follows a way to its quarry. */
 const REPATH_STEPS: number = countSteps(MONSTER_REPATH_INTERVAL);
 
 /** A player the monster can chase. */
@@ -179,23 +158,33 @@ function measureDistance(a: GroundVector, b: GroundVector): number {
 }
 
 /**
- * The monster, as the server moves it.
+ * A monster, as the server moves it, in the map of its world, with the
+ * numbers of its kind, as {@link MONSTER_KINDS} tells them.
  *
  * It idles at its home, and now and then wanders to a point near it.  When
- * a player comes near, and that player is near its home, it chases the
- * player around the obstacles, and attacks it when it gets near enough,
- * until the player gets too far from its home, when it gives up and walks
- * back home.  It is stopped by the obstacles like the players, but does
- * not stand in their way, nor they in its.  Once dead, it lies there for a
- * while and is gone, and later comes back to life at its home.
+ * a player comes within its notice, and that player is near enough to its
+ * home, it chases the player around the obstacles, and attacks it when it
+ * gets near enough, until the player gets too far from its home, when it
+ * gives up and walks back home.  It is stopped by the obstacles like the
+ * players, but does not stand in their way, nor they in its.  Once dead,
+ * it lies there for a while and is gone, and later comes back to life at
+ * its home.
  */
 export class Monster {
+  readonly #id: number;
+  readonly #kindId: MonsterKindId;
+  readonly #kind: MonsterKind;
+  readonly #home: Pose;
+  readonly #map: MapId;
+  readonly #terrain: Terrain;
+  readonly #attackIntervalSteps: number;
+  readonly #respawnSteps: number;
   readonly #drawRandom: () => number;
-  #position: GroundVector = MONSTER_HOME;
-  #yaw: number = MONSTER_HOME_YAW;
+  #position: GroundVector;
+  #yaw: number;
   #action: MonsterAction = 'Idle';
   #actionCount = 0;
-  #health: number = MONSTER_HEALTH;
+  #health: number;
   #mode: MonsterMode = 'idle';
   #path: GroundVector[] | null = null;
   #quarryId: number | null = null;
@@ -206,15 +195,54 @@ export class Monster {
   #deadSteps = 0;
 
   /**
-   * Brings the monster to life at its home, idling, at full health.
+   * Brings the monster to life at its home, facing the way it faces there,
+   * idling, at full health.
    *
+   * @param {number} id - The identifier of the monster, which its state
+   *   tells.
+   * @param {MapId} map - The map of its world, whose ground it walks on.
+   * @param {MonsterSpawn} spawn - Its kind, and where it lives.
    * @param {() => number} [drawRandom] - Gives a random number from 0 up to
    *   but not including 1, for how long the monster idles and where it
    *   wanders to.  `Math.random` by default.
    */
-  constructor(drawRandom: () => number = Math.random) {
+  constructor(
+    id: number,
+    map: MapId,
+    { kind, home }: MonsterSpawn,
+    drawRandom: () => number = Math.random,
+  ) {
+    this.#id = id;
+    this.#kindId = kind;
+    this.#kind = MONSTER_KINDS[kind];
+    this.#home = home;
+    this.#map = map;
+    this.#terrain = findMapTerrain(map);
+    this.#attackIntervalSteps = countSteps(this.#kind.biteInterval);
+    this.#respawnSteps = countSteps(this.#kind.respawnDelay);
     this.#drawRandom = drawRandom;
+    this.#position = { x: home.x, z: home.z };
+    this.#yaw = home.yaw;
+    this.#health = this.#kind.health;
     this.#idleSteps = this.#drawIdleSteps();
+  }
+
+  /**
+   * The identifier of the monster.
+   *
+   * @returns {number} The identifier.
+   */
+  get id(): number {
+    return this.#id;
+  }
+
+  /**
+   * The health a bite of the monster that hits takes from a player.
+   *
+   * @returns {number} The health.
+   */
+  get biteDamage(): number {
+    return this.#kind.biteDamage;
   }
 
   /**
@@ -246,7 +274,8 @@ export class Monster {
       return null;
     }
     return {
-      id: MONSTER_ID,
+      id: this.#id,
+      kind: this.#kindId,
       x: this.#position.x,
       z: this.#position.z,
       yaw: this.#yaw,
@@ -267,7 +296,7 @@ export class Monster {
    */
   step(players: readonly Quarry[]): boolean {
     if (this.#mode === 'dead') {
-      if (++this.#deadSteps >= RESPAWN_STEPS) {
+      if (++this.#deadSteps >= this.#respawnSteps) {
         this.#comeBack();
       }
       return false;
@@ -339,12 +368,12 @@ export class Monster {
    */
   #findQuarry(players: readonly Quarry[]): Quarry | undefined {
     let nearest: Quarry | undefined;
-    let least: number = MONSTER_NOTICE_RANGE;
+    let least: number = this.#kind.noticeRange;
     for (const player of players) {
       const distance: number = measureDistance(player, this.#position);
       if (
         distance <= least &&
-        measureDistance(player, MONSTER_HOME) <= MONSTER_LEASH_RANGE
+        measureDistance(player, this.#home) <= this.#kind.leashRange
       ) {
         nearest = player;
         least = distance;
@@ -374,7 +403,7 @@ export class Monster {
     this.#idleSteps = this.#drawIdleSteps();
     const point: GroundVector | null = this.#chooseWanderPoint();
     const path: GroundVector[] | null =
-      point === null ? null : findVillagePath(this.#position, point);
+      point === null ? null : findMapPath(this.#map, this.#position, point);
     if (path !== null) {
       this.#mode = 'wander';
       this.#path = path;
@@ -383,7 +412,7 @@ export class Monster {
 
   /** Wanders on to the point chosen, and idles once there or stopped. */
   #wander(): void {
-    if (this.#walk(MONSTER_WANDER_SPEED) !== 'walking') {
+    if (this.#walk(this.#kind.wanderSpeed) !== 'walking') {
       this.#settle();
     }
   }
@@ -401,7 +430,7 @@ export class Monster {
     );
     if (
       quarry === undefined ||
-      measureDistance(quarry, MONSTER_HOME) > MONSTER_LEASH_RANGE
+      measureDistance(quarry, this.#home) > this.#kind.leashRange
     ) {
       this.#giveUp();
       return;
@@ -417,7 +446,7 @@ export class Monster {
       this.#path = null;
       if (this.#cooldownSteps === 0) {
         this.#attackSteps = 0;
-        this.#cooldownSteps = ATTACK_INTERVAL_STEPS;
+        this.#cooldownSteps = this.#attackIntervalSteps;
         this.#startAction('Attack', true);
       } else {
         this.#startAction('Idle');
@@ -425,14 +454,14 @@ export class Monster {
       return;
     }
     if (this.#path === null || --this.#repathSteps <= 0) {
-      this.#path = findVillagePath(this.#position, quarry);
+      this.#path = findMapPath(this.#map, this.#position, quarry);
       this.#repathSteps = REPATH_STEPS;
       if (this.#path === null) {
         this.#giveUp();
         return;
       }
     }
-    if (this.#walk(MONSTER_CHASE_SPEED) !== 'walking') {
+    if (this.#walk(this.#kind.chaseSpeed) !== 'walking') {
       this.#path = null;
     }
   }
@@ -441,7 +470,7 @@ export class Monster {
   #giveUp(): void {
     this.#mode = 'return';
     this.#quarryId = null;
-    this.#path = findVillagePath(this.#position, MONSTER_HOME);
+    this.#path = findMapPath(this.#map, this.#position, this.#home);
     if (this.#path === null) {
       this.#settle();
     }
@@ -449,11 +478,11 @@ export class Monster {
 
   /** Walks back home, and idles once there, or once it finds no way. */
   #goHome(): void {
-    const outcome: string = this.#walk(MONSTER_CHASE_SPEED);
+    const outcome: string = this.#walk(this.#kind.chaseSpeed);
     if (outcome === 'arrived') {
       this.#settle();
     } else if (outcome === 'stopped') {
-      this.#path = findVillagePath(this.#position, MONSTER_HOME);
+      this.#path = findMapPath(this.#map, this.#position, this.#home);
       if (this.#path === null) {
         this.#settle();
       }
@@ -494,7 +523,7 @@ export class Monster {
           x: this.#position.x + (direction.x / distance) * reach,
           z: this.#position.z + (direction.z / distance) * reach,
         };
-    const moved: GroundVector = VILLAGE_TERRAIN.resolveMove(
+    const moved: GroundVector = this.#terrain.resolveMove(
       this.#position,
       target,
     );
@@ -522,12 +551,12 @@ export class Monster {
     for (let tries = 0; tries < WANDER_TRIES; tries++) {
       const angle: number = 2 * Math.PI * this.#drawRandom();
       const radius: number =
-        MONSTER_WANDER_RADIUS * Math.sqrt(this.#drawRandom());
+        this.#kind.wanderRadius * Math.sqrt(this.#drawRandom());
       const point: GroundVector = {
-        x: MONSTER_HOME.x + radius * Math.sin(angle),
-        z: MONSTER_HOME.z + radius * Math.cos(angle),
+        x: this.#home.x + radius * Math.sin(angle),
+        z: this.#home.z + radius * Math.cos(angle),
       };
-      if (VILLAGE_TERRAIN.isClear(point, WAYPOINT_CLEARANCE)) {
+      if (this.#terrain.isClear(point, WAYPOINT_CLEARANCE)) {
         return point;
       }
     }
@@ -548,9 +577,9 @@ export class Monster {
 
   /** Comes back to life at home, idling, at full health. */
   #comeBack(): void {
-    this.#position = MONSTER_HOME;
-    this.#yaw = MONSTER_HOME_YAW;
-    this.#health = MONSTER_HEALTH;
+    this.#position = { x: this.#home.x, z: this.#home.z };
+    this.#yaw = this.#home.yaw;
+    this.#health = this.#kind.health;
     this.#cooldownSteps = 0;
     this.#settle();
   }

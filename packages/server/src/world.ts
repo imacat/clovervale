@@ -19,7 +19,7 @@
 
 /**
  * @module server/world A world the server simulates, in one map, with its
- *   players, its monster, its items and its containers.
+ *   players, its monsters, its items and its containers.
  */
 
 import {
@@ -64,12 +64,8 @@ import type {
   WorldItems,
 } from '@clovervale/shared';
 
-import {
-  MONSTER_ATTACK_DAMAGE,
-  MONSTER_ATTACK_REACH,
-  MONSTER_ID,
-  Monster,
-} from './monster.ts';
+import { MONSTER_ATTACK_REACH, MONSTER_SPAWNS, Monster } from './monster.ts';
+import type { MonsterSpawn, Quarry } from './monster.ts';
 
 /**
  * The furthest back on the clock of the server a slash can be judged on
@@ -145,10 +141,15 @@ export interface Departure {
   readonly arrival: Pose | null;
 }
 
-/** The map a world is of, and the step it starts at. */
+/** The map a world is of, the step it starts at, and its monsters. */
 export interface WorldOptions {
   /** The map of the world, the village by default. */
   readonly map?: MapId;
+  /**
+   * The monsters of the world, numbered from 1 in this order, those
+   * {@link MONSTER_SPAWNS} tells of its map by default.
+   */
+  readonly monsters?: readonly MonsterSpawn[];
   /**
    * The number of simulation steps the server has taken when the world
    * starts, which the world goes on counting from, 0 by default.
@@ -175,31 +176,26 @@ interface Slasher {
   readonly viewTime: number | undefined;
 }
 
-/** The monster, as the events tell of it. */
-const MONSTER_REF: EntityRef = { kind: 'monster', id: MONSTER_ID };
-
 /**
- * Creates the monster of a world of a map.
+ * Tells of a monster as the events do.
  *
- * @param {MapId} map - The map.
- * @param {() => number} drawRandom - Gives a random number from 0 up to but
- *   not including 1, for what the monster does.
- * @returns {Monster | null} The wild dog at its home in the village, or
- *   `null` for the cave, which has no monster.
+ * @param {Monster} monster - The monster.
+ * @returns {EntityRef} Who the monster is.
  */
-function createMonster(map: MapId, drawRandom: () => number): Monster | null {
-  return map === 'village' ? new Monster(drawRandom) : null;
+function referToMonster(monster: Monster): EntityRef {
+  return { kind: 'monster', id: monster.id };
 }
 
 /**
- * A world the server simulates, in one map: the village, with its monster
- * and its clover, or a cave, with its chests and barrels full, and nobody
- * in it but its player and the prisoner behind the bars of his cell.
+ * A world the server simulates, in one map: the village, with its wild
+ * dog and its clover, or a cave, with its two wild dogs, its chests and
+ * barrels full, and nobody else in it but its player and the prisoner
+ * behind the bars of his cell.
  */
 export class World {
   readonly #map: MapId;
   readonly #players = new Map<number, Player>();
-  readonly #monster: Monster | null;
+  readonly #monsters: readonly Monster[];
   #lastId = 0;
   #stepCount: number;
   #departures: Departure[] = [];
@@ -218,24 +214,27 @@ export class World {
   readonly #looted = new Set<number>();
 
   /**
-   * Starts a world without players and with nothing on the ground: in the
-   * village, with the monster idling at its home and a four-leaved clover
-   * in every patch of clover, and in a cave, with every chest and barrel
-   * holding what it holds.
+   * Starts a world without players and with nothing on the ground, with
+   * every monster idling at its home at full health: in the village, with
+   * a four-leaved clover in every patch of clover, and in a cave, with
+   * every chest and barrel holding what it holds.
    *
    * @param {() => number} [drawRandom] - Gives a random number from 0 up to
-   *   but not including 1, for what the monster does.  `Math.random` by
+   *   but not including 1, for what the monsters do.  `Math.random` by
    *   default.
-   * @param {WorldOptions} [options] - The map of the world, and the step it
-   *   starts at.
+   * @param {WorldOptions} [options] - The map of the world, the step it
+   *   starts at, and its monsters.
    */
   constructor(
     drawRandom: () => number = Math.random,
-    { map = 'village', step = 0 }: WorldOptions = {},
+    { map = 'village', step = 0, monsters }: WorldOptions = {},
   ) {
     this.#map = map;
     this.#stepCount = step;
-    this.#monster = createMonster(map, drawRandom);
+    this.#monsters = (monsters ?? MONSTER_SPAWNS[map]).map(
+      (spawn: MonsterSpawn, index: number) =>
+        new Monster(index + 1, map, spawn, drawRandom),
+    );
     this.#regrowSteps =
       map === 'village' ? CLOVER_PATCHES.map(() => 0) : [];
   }
@@ -321,21 +320,6 @@ export class World {
   }
 
   /**
-   * Has the monster hurt a player, which dies if that leaves it no health,
-   * just as when the monster strikes it, and which is an event alike.  A
-   * dead player, or one not in the world, is not hurt.
-   *
-   * @param {number} id - The identifier of the player.
-   * @param {number} damage - The health the hit takes.
-   */
-  hurtPlayer(id: number, damage: number): void {
-    const player: Player | undefined = this.#players.get(id);
-    if (player?.deathSteps === 0) {
-      this.#hurtPlayer(player, damage);
-    }
-  }
-
-  /**
    * Receives an input of a player from its peer.
    *
    * A move changes the way the player wants to move, and an interaction
@@ -367,7 +351,8 @@ export class World {
    * without turning, for as long as that lasts.  Any other player that
    * wants to move walks that way, facing it, and idles otherwise, on the
    * ground of the map of the world; Toby stands in its way as the obstacles
-   * do.  The monster goes about its business, and pays Toby no heed.
+   * do.  Each monster goes about its business, as the numbers of its kind
+   * tell, and pays Toby no heed.
    *
    * A drink that starts at the step gives the player back
    * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
@@ -376,9 +361,10 @@ export class World {
    * its interaction names, if any, does not matter.  A talk changes nothing
    * else in the world, and is never judged either.
    *
-   * Then the strikes are judged.  A slash that starts at the step hits the
-   * monster if the monster is alive, and was alive, in front of the player
-   * and within reach in the world at the time the slash names.  That is the
+   * Then the strikes are judged.  A slash that starts at the step hits
+   * every monster that is alive, and was alive, in front of the player and
+   * within reach in the world at the time the slash names, each by where
+   * that monster was then.  That is the
    * world as the snapshots recorded told it, and between two of them, as a
    * peer shows it between two snapshots; after the latest of them, the
    * world after the step counts as one more of them.  The time is no
@@ -386,14 +372,16 @@ export class World {
    * step and no later than the step: an earlier or later time counts as the
    * nearest of these, and a slash that names no time is judged on the world
    * as it is after the step.  The player itself stands where it does after
-   * the step.  How each slash was judged is kept for its player.  A strike
-   * of the monster hits every player alive in front of it and within its
-   * reach after the step.  The players cannot hurt each other.  Every hit
-   * is an event.
+   * the step.  How each slash was judged is kept for its player: as a hit
+   * if it hit any monster.  A strike of a living monster hits every player
+   * alive in front of it and within its reach after the step, for the bite
+   * damage of its kind; a player killed by one strike is not hit by
+   * another.  The players cannot hurt each other.  Every hit is an event,
+   * which names the monster by its identifier.
    *
    * A player with no health left dies, and lies where it fell for
    * {@link DEATH_DURATION} seconds, neither moving, turning, interacting,
-   * picking nor putting down, neither hurt nor chased by the monster,
+   * picking nor putting down, neither hurt nor chased by the monsters,
    * though its inputs still change the way it wants to move.  Then it comes
    * back at a spawn point, at full health, idling but wanting to move the
    * way it does by then, and carrying what it carried: in the village, at
@@ -494,30 +482,33 @@ export class World {
     const living: Player[] = [...this.#players.values()].filter(
       (player: Player) => player.deathSteps === 0,
     );
-    const monster: Monster | null = this.#monster;
-    const isStriking: boolean =
-      monster?.step(
-        living.map(({ id, mover }: Player) => ({
-          id,
-          x: mover.motion.x,
-          z: mover.motion.z,
-        })),
-      ) ?? false;
+    const quarries: Quarry[] = living.map(({ id, mover }: Player) => ({
+      id,
+      x: mover.motion.x,
+      z: mover.motion.z,
+    }));
+    const strikers: Monster[] = this.#monsters.filter((monster: Monster) =>
+      monster.step(quarries),
+    );
     for (const slasher of slashers) {
       if (!leaving.has(slasher.player)) {
         this.#judgeSlash(slasher);
       }
     }
-    if (isStriking && monster?.isAlive === true) {
+    for (const monster of strikers) {
+      if (!monster.isAlive) {
+        continue;
+      }
       for (const player of living) {
         if (
+          player.deathSteps === 0 &&
           isWithinStrike(
             monster.pose,
             player.mover.motion,
             MONSTER_ATTACK_REACH,
           )
         ) {
-          this.#hurtPlayer(player, MONSTER_ATTACK_DAMAGE);
+          this.#hurtPlayer(player, monster);
         }
       }
     }
@@ -629,8 +620,10 @@ export class World {
    *   has been dead for so long that it is gone.
    */
   listMonsters(): MonsterState[] {
-    const state: MonsterState | null = this.#monster?.state ?? null;
-    return state === null ? [] : [state];
+    return this.#monsters.flatMap((monster: Monster) => {
+      const state: MonsterState | null = monster.state;
+      return state === null ? [] : [state];
+    });
   }
 
   /**
@@ -646,20 +639,30 @@ export class World {
       viewTime === undefined || !Number.isFinite(viewTime)
         ? now
         : Math.min(Math.max(viewTime, now - LAG_COMPENSATION_LIMIT), now);
-    const target: MonsterState | undefined = this.#findMonstersAt(
-      time,
-      now,
-    ).find((monster: MonsterState) => monster.id === MONSTER_ID);
-    const monster: Monster | null = this.#monster;
-    const isHit: boolean =
-      monster?.isAlive === true &&
-      target !== undefined &&
-      target.mode !== 'dead' &&
-      isWithinStrike(player.mover.motion, target, SLASH_REACH);
-    player.lastSlash = { step: this.#stepCount, rewind: now - time, isHit };
-    if (isHit && monster !== null) {
+    const seen: readonly MonsterState[] = this.#findMonstersAt(time, now);
+    const hit: Monster[] = this.#monsters.filter((monster: Monster) => {
+      const target: MonsterState | undefined = seen.find(
+        (state: MonsterState) => state.id === monster.id,
+      );
+      return (
+        monster.isAlive &&
+        target !== undefined &&
+        target.mode !== 'dead' &&
+        isWithinStrike(player.mover.motion, target, SLASH_REACH)
+      );
+    });
+    player.lastSlash = {
+      step: this.#stepCount,
+      rewind: now - time,
+      isHit: hit.length > 0,
+    };
+    for (const monster of hit) {
       const damage: number = monster.takeHit(SLASH_DAMAGE, player.id);
-      this.#recordHit({ kind: 'player', id: player.id }, MONSTER_REF, damage);
+      this.#recordHit(
+        { kind: 'player', id: player.id },
+        referToMonster(monster),
+        damage,
+      );
     }
   }
 
@@ -759,16 +762,19 @@ export class World {
   }
 
   /**
-   * Has the monster hurt a player, which dies if that leaves it no
-   * health.
+   * Has a monster bite a player, which dies if that leaves it no health.
    *
    * @param {Player} player - The player.
-   * @param {number} damage - The health the hit takes.
+   * @param {Monster} monster - The monster.
    */
-  #hurtPlayer(player: Player, damage: number): void {
-    const lost: number = Math.min(damage, player.health);
+  #hurtPlayer(player: Player, monster: Monster): void {
+    const lost: number = Math.min(monster.biteDamage, player.health);
     player.health -= lost;
-    this.#recordHit(MONSTER_REF, { kind: 'player', id: player.id }, lost);
+    this.#recordHit(
+      referToMonster(monster),
+      { kind: 'player', id: player.id },
+      lost,
+    );
     if (player.health === 0) {
       player.mover.kill();
       player.deathSteps = DEATH_STEPS;

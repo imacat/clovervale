@@ -22,7 +22,7 @@
  */
 
 import {
-  MONSTER_HEALTH,
+  MONSTER_KINDS,
   PLAYER_HEALTH,
   findDayPhase,
 } from '@clovervale/shared';
@@ -158,8 +158,8 @@ export function describeSnapshot(
 }
 
 /**
- * Describes the monster in the latest snapshot, in the language of the
- * page.
+ * Describes the first monster in the latest snapshot, in the language of
+ * the page, with its health against the full health of its kind.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {(readonly MonsterState[]) | null} monsters - The monsters in the
@@ -188,10 +188,11 @@ export function describeMonster(
       position: UNKNOWN,
     };
   }
+  const full: number = MONSTER_KINDS[monster.kind].health;
   return {
     mode: translator.translate(`monsterMode.${monster.mode}`),
     action: translator.translate(`monsterAction.${monster.action}`),
-    health: `${String(monster.health)} / ${String(MONSTER_HEALTH)}`,
+    health: `${String(monster.health)} / ${String(full)}`,
     position: `${formatNumber(monster.x, 2)}, ${formatNumber(monster.z, 2)}`,
   };
 }

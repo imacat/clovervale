@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module shared/actions What a player or the monster can be doing, and for
+ * @module shared/actions What a player or a monster can be doing, and for
  *   how long.
  */
 
@@ -50,8 +50,8 @@ export const DRINK_DURATION = 1;
 /** How long a talk to a villager lasts, in seconds. */
 export const TALK_DURATION = 0.5;
 
-/** What the monster can be doing. */
+/** What a monster can be doing. */
 export const MONSTER_ACTIONS = ['Idle', 'Walk', 'Attack', 'Die'] as const;
 
-/** What the monster is doing. */
+/** What a monster is doing. */
 export type MonsterAction = (typeof MONSTER_ACTIONS)[number];

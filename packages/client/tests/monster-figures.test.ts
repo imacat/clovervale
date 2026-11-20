@@ -24,7 +24,7 @@
 import { AnimationClip, NumberKeyframeTrack, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { MONSTER_HEALTH } from '@clovervale/shared';
+import { MONSTER_KINDS } from '@clovervale/shared';
 import type { MonsterState } from '@clovervale/shared';
 
 import { MonsterFigures } from '../src/monster-figures.ts';
@@ -34,12 +34,13 @@ import type { Figure } from '../src/player-figures.ts';
 /** A monster to show. */
 const MONSTER: MonsterState = {
   id: 1,
+  kind: 'village-dog',
   x: 10,
   z: 8,
   yaw: -90,
   action: 'Idle',
   actionCount: 0,
-  health: MONSTER_HEALTH,
+  health: MONSTER_KINDS['village-dog'].health,
   mode: 'idle',
 };
 
@@ -102,6 +103,21 @@ describe('MonsterFigures', () => {
       { ...MONSTER, action: 'Die', actionCount: 2, health: 0, mode: 'dead' },
     ]);
     expect(findOnly(figures)).toMatchObject({ clip: 'Die', health: 0 });
+  });
+
+  it('shows several monsters, each against the full health of its kind', () => {
+    const scene = new Object3D();
+    const figures = new MonsterFigures(scene, createFigure);
+    const caveHealth: number = MONSTER_KINDS['cave-dog'].health;
+    figures.showMonsters([
+      { ...MONSTER, kind: 'cave-dog', health: caveHealth / 2 },
+      { ...MONSTER, id: 2, kind: 'cave-dog', x: 4, health: caveHealth },
+    ]);
+    expect(figures.describeMonsters()).toMatchObject([
+      { id: 1, x: 10, health: 0.5 },
+      { id: 2, x: 4, health: 1 },
+    ]);
+    expect(scene.children).toHaveLength(2);
   });
 
   it('takes a monster away once it is gone', () => {

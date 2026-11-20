@@ -18,12 +18,13 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/monster-figures Showing the monsters in the village.
+ * @module client/monster-figures Showing the monsters of the map the
+ *   player is in.
  */
 
 import type { Object3D } from 'three';
 
-import { MONSTER_HEALTH } from '@clovervale/shared';
+import { MONSTER_KINDS } from '@clovervale/shared';
 import type { MonsterState } from '@clovervale/shared';
 
 import { Actor } from './actor.ts';
@@ -93,8 +94,8 @@ export class MonsterFigures {
    * Each monster stands where its state tells, facing the way it tells, and
    * plays the clip of the action it tells, which starts over whenever the
    * action count of the monster changes, with a health bar above it that
-   * shows its health, which is hidden once it is dead.  A monster without a
-   * model to show it with is left out.
+   * shows its health against the full health of its kind, which is hidden
+   * once it is dead.  A monster without a model to show it with is left out.
    *
    * @param {readonly MonsterState[]} monsters - The monsters as they are to
    *   be shown.
@@ -117,7 +118,7 @@ export class MonsterFigures {
       }
       shown.root.position.set(monster.x, 0, monster.z);
       shown.root.rotation.y = (monster.yaw * Math.PI) / 180;
-      shown.bar.show(monster.health, MONSTER_HEALTH);
+      shown.bar.show(monster.health, MONSTER_KINDS[monster.kind].health);
       shown.bar.isVisible = monster.mode !== 'dead';
       if (shown.actionCount !== monster.actionCount) {
         shown.actionCount = monster.actionCount;

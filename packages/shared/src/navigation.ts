@@ -25,6 +25,8 @@ import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS, placePoint } from './terrain.ts';
 import type { Shape, Terrain } from './terrain.ts';
 import { VILLAGE_TERRAIN } from './village-layout.ts';
+import { findMapTerrain } from './world-map.ts';
+import type { MapId } from './world-map.ts';
 
 /**
  * The least room a player has between itself and anything in its way, as
@@ -246,4 +248,34 @@ export function findVillagePath(
 ): GroundVector[] | null {
   villageGraph ??= new NavigationGraph(VILLAGE_TERRAIN);
   return villageGraph.findPath(from, to);
+}
+
+/** The graph of each map, once it is needed. */
+const mapGraphs = new Map<MapId, NavigationGraph>();
+
+/**
+ * Finds the shortest way from one point of a map to another, around its
+ * obstacles.
+ *
+ * @param {MapId} map - The map.
+ * @param {GroundVector} from - Where the way starts.
+ * @param {GroundVector} to - Where the way is to end.
+ * @returns {GroundVector[] | null} The points to walk to, one straight walk
+ *   after another, the last of which is the end, or `null` if there is no
+ *   such way.  A player that walks it touches nothing.
+ */
+export function findMapPath(
+  map: MapId,
+  from: GroundVector,
+  to: GroundVector,
+): GroundVector[] | null {
+  if (map === 'village') {
+    return findVillagePath(from, to);
+  }
+  let graph: NavigationGraph | undefined = mapGraphs.get(map);
+  if (graph === undefined) {
+    graph = new NavigationGraph(findMapTerrain(map));
+    mapGraphs.set(map, graph);
+  }
+  return graph.findPath(from, to);
 }

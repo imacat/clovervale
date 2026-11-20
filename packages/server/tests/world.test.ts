@@ -27,6 +27,7 @@ import {
   APPEARANCE_COUNT,
   AuthoritativePlayer,
   CAVE_CONTAINERS,
+  CAVE_DOG_HOMES,
   CAVE_LANDING,
   CAVE_TERRAIN,
   CLOVER_PATCHES,
@@ -36,7 +37,7 @@ import {
   FOUNTAIN_HEALING,
   GROUND_ITEM_DURATION,
   INVENTORY_SIZE,
-  MONSTER_HEALTH,
+  MONSTER_KINDS,
   PLAYER_HEALTH,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
@@ -68,18 +69,25 @@ import type {
   GroundItem,
   GroundVector,
   ItemKindId,
+  MonsterKind,
   MonsterState,
   PlayerState,
+  Pose,
   Villager,
 } from '@clovervale/shared';
 
-import {
-  MONSTER_APPROACH_DISTANCE,
-  MONSTER_ATTACK_DAMAGE,
-  MONSTER_ID,
-} from '../src/monster.ts';
+import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
 import { LAG_COMPENSATION_LIMIT, World } from '../src/world.ts';
 import type { Player } from '../src/world.ts';
+
+/** The numbers of the wild dog of the village. */
+const VILLAGE_DOG: MonsterKind = MONSTER_KINDS['village-dog'];
+
+/** The numbers of a wild dog of the cave. */
+const CAVE_DOG: MonsterKind = MONSTER_KINDS['cave-dog'];
+
+/** The identifier of the wild dog of the village. */
+const VILLAGE_DOG_ID = 1;
 
 /** The number of simulation steps a dead player lies where it fell. */
 const DEATH_STEPS: number = DEATH_DURATION * SIMULATION_RATE;
@@ -937,7 +945,11 @@ describe('the inputs of a player', () => {
 describe('the monster in the world', () => {
   it('is seen at full health from the start', () => {
     expect(new World(createRandom()).listMonsters()).toEqual([
-      expect.objectContaining({ id: MONSTER_ID, health: MONSTER_HEALTH }),
+      expect.objectContaining({
+        id: VILLAGE_DOG_ID,
+        kind: 'village-dog',
+        health: VILLAGE_DOG.health,
+      }),
     ]);
   });
 
@@ -965,11 +977,11 @@ describe('a slash', () => {
       expect.objectContaining({
         type: 'hit',
         attacker: { kind: 'player', id },
-        target: { kind: 'monster', id: MONSTER_ID },
+        target: { kind: 'monster', id: VILLAGE_DOG_ID },
         damage: SLASH_DAMAGE,
       }),
     );
-    expect(findMonster(world).health).toBe(MONSTER_HEALTH - SLASH_DAMAGE);
+    expect(findMonster(world).health).toBe(VILLAGE_DOG.health - SLASH_DAMAGE);
   });
 
   it('misses the monster behind the player', () => {
@@ -984,7 +996,7 @@ describe('a slash', () => {
     });
     interactPlayer(world, id);
     world.step();
-    expect(findMonster(world).health).toBe(MONSTER_HEALTH);
+    expect(findMonster(world).health).toBe(VILLAGE_DOG.health);
   });
 
   it('misses the monster out of reach', () => {
@@ -993,7 +1005,7 @@ describe('a slash', () => {
     turnPlayer(world, id, findMonster(world));
     interactPlayer(world, id);
     stepTimes(world, 2);
-    expect(findMonster(world).health).toBe(MONSTER_HEALTH);
+    expect(findMonster(world).health).toBe(VILLAGE_DOG.health);
     expect(world.takeEvents()).toEqual([]);
   });
 
@@ -1034,7 +1046,7 @@ describe('a slash', () => {
         .filter((event: GameEvent) => event.target.kind === 'monster')
         .reduce((count: number) => count + 1, hits);
     }
-    expect(hits).toBe(MONSTER_HEALTH / SLASH_DAMAGE);
+    expect(hits).toBe(VILLAGE_DOG.health / SLASH_DAMAGE);
     stepTimes(world, 5 * SIMULATION_RATE);
     expect(world.listMonsters()).toEqual([]);
   });
@@ -1050,7 +1062,7 @@ describe('a slash that names the time its peer showed', () => {
     expect(world.takeEvents()).toContainEqual(
       expect.objectContaining({
         attacker: { kind: 'player', id },
-        target: { kind: 'monster', id: MONSTER_ID },
+        target: { kind: 'monster', id: VILLAGE_DOG_ID },
       }),
     );
     expect(world.findSlash(id)).toEqual({
@@ -1135,10 +1147,10 @@ describe('the attack of the monster', () => {
         break;
       }
     }
-    expect(hits.length).toBe(Math.ceil(health / MONSTER_ATTACK_DAMAGE));
+    expect(hits.length).toBe(Math.ceil(health / VILLAGE_DOG.biteDamage));
     for (const hit of hits) {
       expect(hit).toMatchObject({
-        attacker: { kind: 'monster', id: MONSTER_ID },
+        attacker: { kind: 'monster', id: VILLAGE_DOG_ID },
         target: { kind: 'player', id },
       });
     }
@@ -1620,10 +1632,18 @@ describe('a world of the cave', () => {
    *
    * @param {readonly ItemKindId[]} [carried] - What the player carries,
    *   nothing by default.
+   * @param {boolean} [hasDogs] - Whether the cave has its wild dogs, which
+   *   it has not by default, so that nothing gets in the way of the player.
    * @returns {[World, number]} The cave, and the identifier of the player.
    */
-  function enterCave(carried: readonly ItemKindId[] = []): [World, number] {
-    const world = new World(createRandom(), { map: 'cave' });
+  function enterCave(
+    carried: readonly ItemKindId[] = [],
+    hasDogs = false,
+  ): [World, number] {
+    const world = new World(createRandom(), {
+      map: 'cave',
+      ...(hasDogs ? {} : { monsters: [] }),
+    });
     const player: Player = {
       id: 1,
       appearance: 1,
@@ -1785,6 +1805,229 @@ describe('a world of the cave', () => {
       expect(world.findInventory(id)).toEqual([item]);
       expect(world.describeItems().items).toEqual([]);
     }
+  });
+
+  /**
+   * Finds a wild dog of a cave as it is now.
+   *
+   * @param {World} world - The cave.
+   * @param {number} dogId - The identifier of the dog.
+   * @returns {MonsterState | undefined} The dog, if it is to be seen.
+   */
+  function findDog(world: World, dogId: number): MonsterState | undefined {
+    return world
+      .listMonsters()
+      .find((monster: MonsterState) => monster.id === dogId);
+  }
+
+  /**
+   * Waits, with a player of a cave standing still, until a wild dog has
+   * come to it, and turns the player to face it.
+   *
+   * @param {World} world - The cave.
+   * @param {number} id - The identifier of the player.
+   * @param {number} dogId - The identifier of the dog.
+   * @throws {Error} If the dog does not come.
+   */
+  function awaitDog(world: World, id: number, dogId: number): void {
+    for (let step = 0; step < 20 * SIMULATION_RATE; step++) {
+      const dog: MonsterState | undefined = findDog(world, dogId);
+      if (
+        dog?.mode === 'chase' &&
+        dog.action !== 'Walk' &&
+        measureDistance(findPlayer(world, id), dog) <= MONSTER_APPROACH_DISTANCE
+      ) {
+        turnPlayer(world, id, dog);
+        return;
+      }
+      world.step();
+    }
+    throw new Error(`Dog ${String(dogId)} does not come.`);
+  }
+
+  /**
+   * Has a player of a cave slash once after another, facing the way it
+   * does, until a wild dog is dead, and stops at the step at which it dies.
+   *
+   * @param {World} world - The cave.
+   * @param {number} id - The identifier of the player.
+   * @param {number} dogId - The identifier of the dog.
+   * @returns {number[]} The health of the dog after each slash.
+   */
+  function slashDog(world: World, id: number, dogId: number): number[] {
+    const healths: number[] = [];
+    for (let tries = 0; tries < 20; tries++) {
+      interactPlayer(world, id);
+      world.step();
+      const health: number = findDog(world, dogId)?.health ?? NaN;
+      healths.push(health);
+      if (health === 0) {
+        break;
+      }
+      stepTimes(world, SLASH_STEPS);
+    }
+    return healths;
+  }
+
+  it('has its two wild dogs idling at their homes, at full health', () => {
+    const world = new World(createRandom(), { map: 'cave' });
+    expect(world.listMonsters()).toEqual(
+      CAVE_DOG_HOMES.map((home: Pose, index: number) => ({
+        id: index + 1,
+        kind: 'cave-dog',
+        x: home.x,
+        z: home.z,
+        yaw: home.yaw,
+        action: 'Idle',
+        actionCount: expect.any(Number) as number,
+        health: CAVE_DOG.health,
+        mode: 'idle',
+      })),
+    );
+  });
+
+  it('has its dogs in the passage, by the cells and before them', () => {
+    expect(CAVE_DOG_HOMES).toEqual([
+      { x: 14.5, z: 0, yaw: 90 },
+      { x: 9.25, z: 0, yaw: 90 },
+    ]);
+  });
+
+  it('has its dogs wander a little round their homes, in the passage', () => {
+    const world = new World(createRandom(), { map: 'cave' });
+    const modes = new Set<string>();
+    for (let step = 0; step < 120 * SIMULATION_RATE; step++) {
+      world.step();
+      world.listMonsters().forEach((dog: MonsterState, index: number) => {
+        modes.add(dog.mode);
+        const home: GroundVector = CAVE_DOG_HOMES[index] ?? { x: NaN, z: NaN };
+        expect(measureDistance(dog, home)).toBeLessThanOrEqual(
+          CAVE_DOG.wanderRadius,
+        );
+        expect(Math.abs(dog.z)).toBeLessThan(1.5);
+        expect(CAVE_TERRAIN.isClear(dog)).toBe(true);
+      });
+    }
+    expect([...modes].sort()).toEqual(['idle', 'wander']);
+  });
+
+  it('has the dog by the cells notice a player at the landing', () => {
+    const [world, id] = enterCave([], true);
+    world.step();
+    expect(findDog(world, 1)?.mode).toBe('chase');
+    expect(findDog(world, 2)?.mode).toBe('idle');
+    awaitDog(world, id, 1);
+    expect(findPlayer(world, id).x).toBeCloseTo(CAVE_LANDING.x, 0);
+  });
+
+  it('has a dog go home once the player it chases is gone', () => {
+    const [world, id] = enterCave([], true);
+    awaitDog(world, id, 1);
+    world.removePlayer(id);
+    const modes = new Set<string>();
+    for (let step = 0; step < 20 * SIMULATION_RATE; step++) {
+      world.step();
+      modes.add(findDog(world, 1)?.mode ?? '');
+    }
+    expect(modes).toContain('return');
+    const dog: MonsterState | undefined = findDog(world, 1);
+    expect(['idle', 'wander']).toContain(dog?.mode);
+    const home: GroundVector = CAVE_DOG_HOMES[0] ?? { x: NaN, z: NaN };
+    expect(
+      measureDistance(dog ?? { x: NaN, z: NaN }, home),
+    ).toBeLessThanOrEqual(CAVE_DOG.wanderRadius);
+  });
+
+  it('has a dog bite as hard and as often as a cave dog does', () => {
+    const [world, id] = enterCave([], true);
+    awaitDog(world, id, 1);
+    world.takeEvents();
+    const steps: number[] = [];
+    for (let step = 0; step < 5 * SIMULATION_RATE; step++) {
+      world.step();
+      for (const event of world.takeEvents()) {
+        expect(event).toMatchObject({
+          type: 'hit',
+          attacker: { kind: 'monster', id: 1 },
+          target: { kind: 'player', id },
+          damage: CAVE_DOG.biteDamage,
+        });
+        steps.push(step);
+      }
+    }
+    expect(steps.length).toBeGreaterThan(2);
+    for (let index = 1; index < steps.length; index++) {
+      expect((steps[index] ?? 0) - (steps[index - 1] ?? 0)).toBe(
+        CAVE_DOG.biteInterval * SIMULATION_RATE,
+      );
+    }
+  });
+
+  it('has a dog killed by as many slashes as its health takes', () => {
+    const [world, id] = enterCave([], true);
+    awaitDog(world, id, 1);
+    const slashes: number = Math.ceil(CAVE_DOG.health / SLASH_DAMAGE);
+    expect(slashDog(world, id, 1)).toEqual(
+      Array.from({ length: slashes }, (_, index: number) =>
+        Math.max(CAVE_DOG.health - (index + 1) * SLASH_DAMAGE, 0),
+      ),
+    );
+    expect(findDog(world, 1)?.mode).toBe('dead');
+    expect(findDog(world, 2)).toMatchObject({ health: CAVE_DOG.health });
+  });
+
+  it('brings a dead dog back at its home after its respawn time, not before', () => {
+    const [world, id] = enterCave([], true);
+    awaitDog(world, id, 1);
+    slashDog(world, id, 1);
+    stepTimes(world, CAVE_DOG.respawnDelay * SIMULATION_RATE - 1);
+    expect(findDog(world, 1)).toBeUndefined();
+    world.step();
+    const home: Pose = CAVE_DOG_HOMES[0] ?? { x: NaN, z: NaN, yaw: NaN };
+    expect(findDog(world, 1)).toMatchObject({
+      kind: 'cave-dog',
+      x: home.x,
+      z: home.z,
+      yaw: home.yaw,
+      action: 'Idle',
+      health: CAVE_DOG.health,
+      mode: 'idle',
+    });
+    expect(findPlayer(world, id).health).toBeGreaterThan(0);
+  });
+
+  it('has a slash hit the dog in front of the player, and that dog alone', () => {
+    const [world, id] = enterCave([], true);
+    awaitDog(world, id, 1);
+    slashDog(world, id, 1);
+    steerPlayer(world, id, { x: -1, z: 0 });
+    for (
+      let step = 0;
+      step < 10 * SIMULATION_RATE && findDog(world, 2)?.mode !== 'chase';
+      step++
+    ) {
+      world.step();
+    }
+    steerPlayer(world, id, { x: 0, z: 0 });
+    awaitDog(world, id, 2);
+    world.takeEvents();
+    interactPlayer(world, id);
+    world.step();
+    expect(
+      world
+        .takeEvents()
+        .filter((event: GameEvent) => event.target.kind === 'monster'),
+    ).toEqual([
+      expect.objectContaining({
+        type: 'hit',
+        attacker: { kind: 'player', id },
+        target: { kind: 'monster', id: 2 },
+        damage: SLASH_DAMAGE,
+      }),
+    ]);
+    expect(findDog(world, 2)?.health).toBe(CAVE_DOG.health - SLASH_DAMAGE);
+    expect(world.findSlash(id)).toMatchObject({ isHit: true });
+    expect(findDog(world, 1)?.mode ?? 'dead').toBe('dead');
   });
 
   it('has the prisoner talked to through his bars, unhurt', () => {

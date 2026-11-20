@@ -122,6 +122,18 @@ export const CAVE_CHAMBERS: readonly CaveRoom[] = [
  */
 export const CAVE_LANDING: Pose = { x: 18.2, z: 0, yaw: -90 };
 
+/**
+ * Where the wild dogs of the cave live and come back to life, and which way
+ * each faces there: on the middle of the passage, facing east towards the
+ * landing, the first by the cells, near enough to the landing to notice a
+ * player who arrives there, and the second on the narrow stretch between
+ * the cells and the store rooms.
+ */
+export const CAVE_DOG_HOMES: readonly Pose[] = [
+  { x: 14.5, z: 0, yaw: 90 },
+  { x: 9.25, z: 0, yaw: 90 },
+];
+
 /** Where the rope hangs down the old well shaft to the floor. */
 export const CAVE_ROPE: GroundVector = { x: 0, z: 0 };
 

@@ -410,6 +410,7 @@ describe('describePrompt by the ways into and out of the cave', () => {
   /** The wild dog, alive, a metre in front of a player in the burrow. */
   const DOG: MonsterState = {
     id: 1,
+    kind: 'village-dog',
     x: BURROW.x,
     z: BURROW.z - 1,
     yaw: 0,

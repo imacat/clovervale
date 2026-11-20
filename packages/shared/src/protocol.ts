@@ -25,6 +25,8 @@ import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
 import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
 import { CAVE_CONTAINERS } from './cave.ts';
+import { isMonsterKindId } from './combat.ts';
+import type { MonsterKindId } from './combat.ts';
 import type { DayCycle } from './day-cycle.ts';
 import {
   CLOVER_PATCHES,
@@ -46,7 +48,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 21;
+export const PROTOCOL_VERSION = 22;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -80,7 +82,7 @@ export interface PlayerState {
   readonly health: number;
 }
 
-/** What the monster can be up to. */
+/** What a monster can be up to. */
 export const MONSTER_MODES = [
   'idle',
   'wander',
@@ -90,15 +92,17 @@ export const MONSTER_MODES = [
 ] as const;
 
 /**
- * What the monster is up to: idling or wandering near its home, chasing a
+ * What a monster is up to: idling or wandering near its home, chasing a
  * player, walking back home after giving up, or lying dead.
  */
 export type MonsterMode = (typeof MONSTER_MODES)[number];
 
-/** The monster, as the server knows it at one moment. */
+/** A monster, as the server knows it at one moment. */
 export interface MonsterState {
-  /** The identifier of the monster, unique among the monsters. */
+  /** The identifier of the monster, unique among the monsters of its world. */
   readonly id: number;
+  /** The kind of the monster, which tells its full health. */
+  readonly kind: MonsterKindId;
   /** The position along the X axis, in metres. */
   readonly x: number;
   /** The position along the Z axis, in metres. */
@@ -497,6 +501,7 @@ export function decodeServerMessage(data: string): ServerMessage {
     if (
       players.every(isPlayerState) &&
       monsters.every(isMonsterState) &&
+      hasUniqueIds(monsters) &&
       items.every(isGroundItem)
     ) {
       return {
@@ -514,6 +519,7 @@ export function decodeServerMessage(data: string): ServerMessage {
         })),
         monsters: monsters.map((monster: MonsterState) => ({
           id: monster.id,
+          kind: monster.kind,
           x: monster.x,
           z: monster.z,
           yaw: monster.yaw,
@@ -759,6 +765,19 @@ function isPlayerState(value: unknown): value is PlayerState {
 }
 
 /**
+ * Checks whether no two of the monsters of a snapshot share an identifier.
+ *
+ * @param {readonly MonsterState[]} monsters - The monsters.
+ * @returns {boolean} Whether each has an identifier of its own.
+ */
+function hasUniqueIds(monsters: readonly MonsterState[]): boolean {
+  return (
+    new Set(monsters.map((monster: MonsterState) => monster.id)).size ===
+    monsters.length
+  );
+}
+
+/**
  * Checks whether a decoded value is the state of a monster.
  *
  * @param {unknown} value - The value to check.
@@ -768,6 +787,7 @@ function isMonsterState(value: unknown): value is MonsterState {
   return (
     isRecord(value) &&
     Number.isInteger(value.id) &&
+    isMonsterKindId(value.kind) &&
     Number.isFinite(value.x) &&
     Number.isFinite(value.z) &&
     Number.isFinite(value.yaw) &&

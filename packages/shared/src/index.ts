@@ -41,13 +41,16 @@ export type {
 } from './authoritative-player.ts';
 export {
   DEATH_DURATION,
-  MONSTER_HEALTH,
+  MONSTER_KINDS,
+  MONSTER_KIND_IDS,
   PLAYER_HEALTH,
   SLASH_DAMAGE,
   SLASH_REACH,
   STRIKE_HALF_ANGLE,
+  isMonsterKindId,
   isWithinStrike,
 } from './combat.ts';
+export type { MonsterKind, MonsterKindId } from './combat.ts';
 export {
   DAY_PHASES,
   DEFAULT_DAY_LENGTH,
@@ -67,6 +70,7 @@ export {
   CAVE_CHAMBER_DEPTH,
   CAVE_CONTAINERS,
   CAVE_CONTAINER_FILES,
+  CAVE_DOG_HOMES,
   CAVE_ENVOY_BEHIND_BARS,
   CAVE_ENVOY_FILE,
   CAVE_FILE,
@@ -144,6 +148,7 @@ export type { GroundVector } from './movement.ts';
 export {
   NavigationGraph,
   WAYPOINT_CLEARANCE,
+  findMapPath,
   findVillagePath,
   placeWaypoints,
 } from './navigation.ts';
