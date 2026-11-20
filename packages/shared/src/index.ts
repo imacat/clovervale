@@ -59,17 +59,47 @@ export {
 } from './day-cycle.ts';
 export type { DayCycle, DayPeriod, DayPhase } from './day-cycle.ts';
 export {
+  CAVE_BOUNDARY,
+  CAVE_CELLS,
+  CAVE_CHAMBERS,
+  CAVE_CHAMBER_DEPTH,
+  CAVE_FILE,
+  CAVE_FLAMES,
+  CAVE_FLAME_AHEAD,
+  CAVE_FLAME_HEIGHT,
+  CAVE_FOOTPRINT,
+  CAVE_LANDING,
+  CAVE_MODEL_CENTRE,
+  CAVE_MOUTH,
+  CAVE_MOUTH_OUTLINE,
+  CAVE_PASSAGE,
+  CAVE_PASSAGE_HALF_WIDTH,
+  CAVE_PASSAGE_LENGTH,
+  CAVE_PLACEMENTS,
+  CAVE_ROPE,
+  CAVE_SHAFT_RADIUS,
+  CAVE_STORE_ROOMS,
+  CAVE_TERRAIN,
+  CAVE_TORCH_DEPTH,
+  CAVE_TORCH_FILE,
+} from './cave.ts';
+export type { CaveRoom } from './cave.ts';
+export {
+  BURROW_REACH,
   FEET_REACH,
   FOUNTAIN_HEALING,
   FOUNTAIN_REACH,
   INTERACTION_HALF_ANGLE,
   PICK_REACH,
+  PASSAGES,
+  ROPE_REACH,
   TALK_REACH,
   findInteraction,
+  findPassage,
   findPickTarget,
   findVillager,
 } from './interaction.ts';
-export type { PickSource, PickTarget } from './interaction.ts';
+export type { Passage, PickSource, PickTarget } from './interaction.ts';
 export {
   CLOVER_KIND,
   CLOVER_PATCHES,
@@ -122,6 +152,7 @@ export type {
   PickInput,
   PlayerInput,
   PlayerMotion,
+  TravelInput,
 } from './player-motion.ts';
 export {
   APPEARANCE_COUNT,
@@ -131,6 +162,7 @@ export {
   SNAPSHOT_RATE,
   createEventsMessage,
   createInteractMessage,
+  createMapMessage,
   createMoveMessage,
   createSnapshotMessage,
   createWelcomeMessage,
@@ -149,6 +181,7 @@ export type {
   HealEvent,
   HitEvent,
   InteractMessage,
+  MapMessage,
   MonsterMode,
   MonsterState,
   MoveMessage,
@@ -157,6 +190,7 @@ export type {
   ServerMessage,
   SlashJudgement,
   SnapshotMessage,
+  TravelMessage,
   WelcomeMessage,
 } from './protocol.ts';
 export {
@@ -195,6 +229,7 @@ export {
   VILLAGE_BOUNDARY,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
+  WELL_STAND,
   findPlacement,
 } from './village-layout.ts';
 export type { Placement } from './village-layout.ts';
@@ -206,4 +241,6 @@ export {
   findSpawnPoint,
 } from './village.ts';
 export { VILLAGERS, locateVillager } from './villagers.ts';
+export { MAP_IDS, findMapTerrain, isMapId } from './world-map.ts';
+export type { MapId } from './world-map.ts';
 export type { Villager, VillagerId } from './villagers.ts';

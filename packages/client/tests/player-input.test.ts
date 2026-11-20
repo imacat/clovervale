@@ -24,12 +24,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CAVE_ROPE,
   CLOVER_PATCHES,
   NO_WORLD_ITEMS,
   createMotion,
+  findPlacement,
   killMotion,
 } from '@clovervale/shared';
-import type { GroundVector, PlayerMotion } from '@clovervale/shared';
+import type {
+  GroundVector,
+  MonsterState,
+  PlayerMotion,
+} from '@clovervale/shared';
 
 import {
   MoveKeys,
@@ -108,6 +114,80 @@ describe('chooseSpaceInput', () => {
     expect(chooseSpaceInput(killMotion(BY_PATCH), 0, world)).toEqual({
       type: 'interact',
     });
+  });
+});
+
+describe('chooseSpaceInput by the ways into and out of the cave', () => {
+  /** The middle of the burrow of the wild dog. */
+  const BURROW: GroundVector = findPlacement('prop-spawn-stones.glb');
+
+  /** A player in the burrow, facing north. */
+  const IN_BURROW: PlayerMotion = createMotion(BURROW, 180);
+
+  /**
+   * Makes the wild dog, a metre from the burrow.
+   *
+   * @param {number} z - How far south of the burrow it stands, in metres.
+   * @param {boolean} isDead - Whether it lies dead.
+   * @returns {MonsterState} The dog.
+   */
+  function placeDog(z: number, isDead: boolean): MonsterState {
+    return {
+      id: 1,
+      x: BURROW.x,
+      z: BURROW.z + z,
+      yaw: 0,
+      action: isDead ? 'Die' : 'Idle',
+      actionCount: 0,
+      health: isDead ? 0 : 60,
+      mode: isDead ? 'dead' : 'idle',
+    };
+  }
+
+  it('goes down the burrow, with no dog about', () => {
+    expect(
+      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', []),
+    ).toEqual({ type: 'travel' });
+  });
+
+  it('goes down the burrow, with the living dog behind the player', () => {
+    const dog: MonsterState = placeDog(1, false);
+    expect(
+      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', [dog]),
+    ).toEqual({ type: 'travel' });
+  });
+
+  it('slashes at the living dog in front of the player', () => {
+    const dog: MonsterState = placeDog(-1, false);
+    expect(
+      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', [dog]),
+    ).toEqual({ type: 'interact' });
+  });
+
+  it('goes down the burrow by the dead dog in front of the player', () => {
+    const dog: MonsterState = placeDog(-1, true);
+    expect(
+      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', [dog]),
+    ).toEqual({ type: 'travel' });
+  });
+
+  it('climbs up the rope in the cave, facing it', () => {
+    const byRope: PlayerMotion = createMotion(
+      { x: CAVE_ROPE.x + 0.8, z: CAVE_ROPE.z },
+      -90,
+    );
+    expect(chooseSpaceInput(byRope, 0, NO_WORLD_ITEMS, 'cave', [])).toEqual({
+      type: 'travel',
+    });
+    expect(
+      chooseSpaceInput(byRope, 0, NO_WORLD_ITEMS, 'village', []),
+    ).toEqual({ type: 'interact' });
+  });
+
+  it('does nothing of the kind while the player cannot interact', () => {
+    expect(
+      chooseSpaceInput(killMotion(IN_BURROW), 0, NO_WORLD_ITEMS, 'village', []),
+    ).toEqual({ type: 'interact' });
   });
 });
 

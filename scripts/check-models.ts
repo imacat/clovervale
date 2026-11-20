@@ -41,6 +41,17 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import {
+  CAVE_FILE,
+  CAVE_FLAME_AHEAD,
+  CAVE_FLAME_HEIGHT,
+  CAVE_MODEL_CENTRE,
+  CAVE_PASSAGE,
+  CAVE_PASSAGE_HALF_WIDTH,
+  CAVE_PLACEMENTS,
+  CAVE_ROPE,
+  CAVE_TERRAIN,
+  CAVE_TORCH_FILE,
+  PLAYER_RADIUS,
   SIMULATION_RATE,
   TOBY_ACTIVITY_STEPS,
   TOBY_FILE,
@@ -468,6 +479,35 @@ const BEFORE_PORCH: GroundVector = { x: 0, z: 6.25 };
 const AT_FOUNTAIN: GroundVector = { x: 0, z: 2.6 };
 /** How many times in her idle clip the face of the chief is looked at. */
 const SIGHT_SAMPLES = 12;
+/**
+ * The least height the rock and the stonework of the cave stand, where they
+ * stand in the way, in metres: above the head of a player.
+ */
+const CAVE_WALL_HEIGHT = 2;
+/**
+ * The highest anything on the floor of the cave may stand where a player
+ * can walk, in metres: no more than a flat stone.
+ */
+const CAVE_FLOOR_HEIGHT = 0.05;
+/**
+ * How far into what stands in the way of the players in the cave a point
+ * must lie for the model to have to stand there, in metres.
+ */
+const CAVE_INSIDE = 0.05;
+/**
+ * Half the length and half the width of the ground the model of the cave
+ * covers, around the middle it stands on, in metres.
+ */
+const CAVE_HALF_SIZE: readonly [number, number] = [13, 6.5];
+/** The distance between two points the floor of the cave is checked at. */
+const CAVE_SAMPLE_SPACING = 0.2;
+/**
+ * The least share of how far up the slope from the burrow a point lies
+ * that the slope must rise to there: a slope of 42 degrees at least.
+ */
+const CAVE_SLOPE_RISE = 0.9;
+/** The farthest the flame of a torch may be from where it is to burn. */
+const FLAME_TOLERANCE = 0.03;
 /** The magic number of a binary glTF file. */
 const GLB_MAGIC = 0x46546c67;
 /** The type of the JSON chunk of a binary glTF file. */
@@ -1471,6 +1511,144 @@ async function checkChiefInSight(
 }
 
 /**
+ * Loads a model the way the client does, and stands it where the cave has
+ * its first place for it.
+ *
+ * @param {string} file - The file name of the model.
+ * @returns {Promise<GLTF>} The model, standing in its place.
+ * @throws {Error} If the cave has no place for the model.
+ */
+async function loadCavePlaced(file: string): Promise<GLTF> {
+  const placement: Placement | undefined = CAVE_PLACEMENTS.find(
+    (candidate: Placement) => candidate.file === file,
+  );
+  if (placement === undefined) {
+    throw new Error(`The cave has no place for ${file}.`);
+  }
+  const glb: Buffer = readFileSync(path.join(modelsDir, file));
+  const model: GLTF = await loader.parseAsync(new Uint8Array(glb).buffer, '');
+  model.scene.position.set(placement.x, 0, placement.z);
+  model.scene.rotation.y = (placement.yaw * Math.PI) / 180;
+  model.scene.updateMatrixWorld(true);
+  return model;
+}
+
+/**
+ * Checks that the model of the cave stands where the cave stands in the
+ * way of the players, and nowhere else, and that the torches burn where
+ * the cave lights them from.
+ *
+ * Looking straight down on the cave standing in its place: where a player
+ * can stand, the floor is seen, and nothing above it but a flat stone;
+ * where the rock or the stonework stands in the way, it stands taller than
+ * a player; and the slope from the burrow, which stands in the way at the
+ * east end of the passage, rises steeply from its foot.  The flame of a
+ * torch in its first place burns where the cave has the light of that
+ * torch.
+ *
+ * @returns {Promise<StrikeResult>} The outcome.
+ */
+async function checkCave(): Promise<StrikeResult> {
+  const cave: GLTF = await loadCavePlaced(CAVE_FILE);
+  const raycaster = new Raycaster();
+  const down = new Vector3(0, -1, 0);
+  const findTop = (x: number, z: number): number | null => {
+    raycaster.set(new Vector3(x, 20, z), down);
+    const [hit] = raycaster.intersectObject(cave.scene, true);
+    return hit === undefined ? null : hit.point.y;
+  };
+  const { boundary } = CAVE_TERRAIN;
+  const failures: string[] = [];
+  let floorCount = 0;
+  let rockCount = 0;
+  const report = (what: string, x: number, z: number): void => {
+    if (failures.length < 5) {
+      failures.push(`${what} at (${x.toFixed(2)}, ${z.toFixed(2)})`);
+    }
+  };
+  for (
+    let x = boundary.x - boundary.radius;
+    x <= boundary.x + boundary.radius;
+    x += CAVE_SAMPLE_SPACING
+  ) {
+    for (
+      let z = -boundary.radius;
+      z <= boundary.radius;
+      z += CAVE_SAMPLE_SPACING
+    ) {
+      const point: GroundVector = { x, z };
+      const top: number | null = findTop(x, z);
+      if (CAVE_TERRAIN.isClear(point)) {
+        floorCount++;
+        if (top === null || top > CAVE_FLOOR_HEIGHT) {
+          report(`${CAVE_FILE} has no bare floor`, x, z);
+        }
+        continue;
+      }
+      const isInside = !CAVE_TERRAIN.isClear(
+        point,
+        -PLAYER_RADIUS - CAVE_INSIDE,
+      );
+      const isRope: boolean =
+        Math.hypot(x - CAVE_ROPE.x, z - CAVE_ROPE.z) <= PLAYER_RADIUS;
+      if (!isInside || isRope) {
+        continue;
+      }
+      if (top === null) {
+        // Beyond the ground the model covers, nobody ever comes near.
+        const [halfLength, halfWidth] = CAVE_HALF_SIZE;
+        if (
+          Math.abs(x - CAVE_MODEL_CENTRE.x) < halfLength &&
+          Math.abs(z - CAVE_MODEL_CENTRE.z) < halfWidth
+        ) {
+          report(`${CAVE_FILE} has nothing`, x, z);
+        }
+        continue;
+      }
+      rockCount++;
+      const along: number = x - CAVE_PASSAGE.east;
+      const isSlope: boolean =
+        along > 0 && Math.abs(z) < CAVE_PASSAGE_HALF_WIDTH - CAVE_INSIDE;
+      if (isSlope) {
+        if (top < Math.min(along, 3) * CAVE_SLOPE_RISE) {
+          report(`the slope of ${CAVE_FILE} is too low`, x, z);
+        }
+      } else if (top < CAVE_WALL_HEIGHT) {
+        report(`the rock of ${CAVE_FILE} is too low`, x, z);
+      }
+    }
+  }
+  const torch: GLTF = await loadCavePlaced(CAVE_TORCH_FILE);
+  const flame: Vector3[] = listMaterialVertices(torch.scene, 'flame');
+  const middle = new Vector3();
+  for (const point of flame) {
+    middle.add(point);
+  }
+  middle.divideScalar(Math.max(flame.length, 1));
+  const placement: Placement | undefined = CAVE_PLACEMENTS.find(
+    (candidate: Placement) => candidate.file === CAVE_TORCH_FILE,
+  );
+  const ahead: GroundVector =
+    placement === undefined
+      ? { x: NaN, z: NaN }
+      : placePoint(placement, { x: 0, z: CAVE_FLAME_AHEAD });
+  if (
+    flame.length === 0 ||
+    Math.hypot(middle.x - ahead.x, middle.z - ahead.z) > FLAME_TOLERANCE ||
+    Math.abs(middle.y - CAVE_FLAME_HEIGHT) > 0.1
+  ) {
+    failures.push(
+      `the flame of ${CAVE_TORCH_FILE} does not burn where the cave lights it`,
+    );
+  }
+  const summary =
+    `${CAVE_FILE} stands where the cave stands in the way ` +
+    `(${String(floorCount)} points of floor, ${String(rockCount)} of rock), ` +
+    `and ${CAVE_TORCH_FILE} burns where it is lit`;
+  return { summary, failures };
+}
+
+/**
  * Checks the models of the client.
  *
  * @returns {Promise<boolean>} Whether every model meets every requirement.
@@ -1523,6 +1701,13 @@ async function checkModels(): Promise<boolean> {
         failures: [`the face of ${CHIEF_FILE} cannot be checked`],
       };
   problems.push(...sight.failures);
+  // The models of the cave are optional props; without them, the cave is
+  // not checked.
+  const cave: StrikeResult =
+    files.includes(CAVE_FILE) && files.includes(CAVE_TORCH_FILE)
+      ? await checkCave()
+      : { summary: '', failures: [] };
+  problems.push(...cave.failures);
   const characters: ModelResult[] = results.filter(
     (result: ModelResult) => result.kind === 'character',
   );
@@ -1540,7 +1725,7 @@ async function checkModels(): Promise<boolean> {
       console.log(`     - ${failure}`);
     }
   }
-  for (const meeting of [strike, sight]) {
+  for (const meeting of [strike, sight, cave]) {
     if (meeting.summary !== '') {
       const mark: string = meeting.failures.length > 0 ? 'FAIL' : 'ok  ';
       console.log(`${mark} ${meeting.summary}`);

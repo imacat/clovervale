@@ -27,8 +27,10 @@ import type { ActionState, Interaction } from './actions.ts';
 import { findInteraction } from './interaction.ts';
 import { SIMULATION_RATE, findYaw, movePosition } from './movement.ts';
 import type { GroundVector } from './movement.ts';
+import type { Terrain } from './terrain.ts';
 import { findTobyPose, pushAside, resolveWalk } from './toby.ts';
-import { VILLAGE_TERRAIN } from './village-layout.ts';
+import { findMapTerrain } from './world-map.ts';
+import type { MapId } from './world-map.ts';
 
 /** How long one step of the simulation lasts, in seconds. */
 const STEP_SECONDS: number = 1 / SIMULATION_RATE;
@@ -128,8 +130,24 @@ export interface DropInput {
   readonly slot: number;
 }
 
+/**
+ * The input that makes a player take the way into another map within its
+ * reach: down the burrow of the wild dog into the cave, or up the rope out
+ * of it.  It changes nothing in the motion of the player; what comes of it
+ * is for the server alone to decide.
+ */
+export interface TravelInput {
+  /** The input discriminator. */
+  readonly type: 'travel';
+}
+
 /** Anything a player can be told to do. */
-export type PlayerInput = MoveInput | InteractInput | PickInput | DropInput;
+export type PlayerInput =
+  | MoveInput
+  | InteractInput
+  | PickInput
+  | DropInput
+  | TravelInput;
 
 /**
  * Creates the motion of a player that idles, wanting nothing.
@@ -163,8 +181,8 @@ export function createMotion(
  * {@link findInteraction} tells from where it stands and which way it faces
  * at the step it starts, and from where Toby is then, unless the player
  * cannot interact then, as {@link canInteract} tells, in which case it does
- * none of them, then or later.  A pick or a put-down leaves the motion as
- * it is.
+ * none of them, then or later.  A pick, a put-down or a travel leaves the
+ * motion as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.
@@ -185,30 +203,38 @@ export function applyInput(
 }
 
 /**
- * Moves a player one step of the simulation forward.
+ * Moves a player one step of the simulation forward, in a map.
  *
- * Toby is first where his course has him at the step, and a living player
- * in his way is pushed aside, as {@link pushAside} tells, whatever it is
- * doing.  Then a player that slashes, drinks from the fountain or talks to
- * a villager stands still, without turning, for as long as that lasts,
- * whichever way it wants to move.  Any other player that wants to move
- * walks that way, facing it, and idles otherwise.  A walking player does
- * not go through the obstacles of the village, nor through Toby, nor out of
- * the village: it slides along what it walks into at an angle, and walks
- * on the spot against what it walks straight into.  A dead player stays
- * exactly as it is.
+ * In the village, Toby is first where his course has him at the step, and
+ * a living player in his way is pushed aside, as {@link pushAside} tells,
+ * whatever it is doing.  Then a player that slashes, drinks from the
+ * fountain or talks to a villager stands still, without turning, for as
+ * long as that lasts, whichever way it wants to move.  Any other player
+ * that wants to move walks that way, facing it, and idles otherwise.  A
+ * walking player does not go through the obstacles of the map, nor through
+ * Toby in the village, nor out of the map: it slides along what it walks
+ * into at an angle, and walks on the spot against what it walks straight
+ * into.  A dead player stays exactly as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {number} step - The number of the step, as the server counts
  *   them, which tells where Toby is.
+ * @param {MapId} [map] - The map the player is in, the village by default.
  * @returns {PlayerMotion} The motion after the step.
  */
-export function stepMotion(motion: PlayerMotion, step: number): PlayerMotion {
+export function stepMotion(
+  motion: PlayerMotion,
+  step: number,
+  map: MapId = 'village',
+): PlayerMotion {
   if (motion.action === 'Die') {
     return motion;
   }
-  const toby: GroundVector = findTobyPose(step);
-  const pushed: GroundVector = pushAside(motion, toby, VILLAGE_TERRAIN);
+  const terrain: Terrain = findMapTerrain(map);
+  const toby: GroundVector | null =
+    map === 'village' ? findTobyPose(step) : null;
+  const pushed: GroundVector =
+    toby === null ? motion : pushAside(motion, toby, terrain);
   const moved: PlayerMotion =
     pushed === motion ? motion : { ...motion, x: pushed.x, z: pushed.z };
   let { actionSteps } = moved;
@@ -216,7 +242,7 @@ export function stepMotion(motion: PlayerMotion, step: number): PlayerMotion {
     return { ...moved, actionSteps };
   }
   if (moved.isInteracting) {
-    const interaction: Interaction = findInteraction(moved, step);
+    const interaction: Interaction = findInteraction(moved, step, map);
     return startAction(
       {
         ...moved,
@@ -230,12 +256,11 @@ export function stepMotion(motion: PlayerMotion, step: number): PlayerMotion {
   if (direction.x === 0 && direction.z === 0) {
     return startAction({ ...moved, actionSteps }, 'Idle');
   }
-  const { x, z } = resolveWalk(
-    moved,
-    movePosition(moved, direction, STEP_SECONDS),
-    toby,
-    VILLAGE_TERRAIN,
-  );
+  const target: GroundVector = movePosition(moved, direction, STEP_SECONDS);
+  const { x, z } =
+    toby === null
+      ? terrain.resolveMove(moved, target)
+      : resolveWalk(moved, target, toby, terrain);
   const yaw: number = findYaw(direction);
   return startAction({ ...moved, x, z, yaw, actionSteps }, 'Walk');
 }

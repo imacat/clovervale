@@ -28,6 +28,7 @@ import {
   PROTOCOL_VERSION,
   createEventsMessage,
   createInteractMessage,
+  createMapMessage,
   createMoveMessage,
   createSnapshotMessage,
   createWelcomeMessage,
@@ -240,6 +241,23 @@ describe('the server message codec', () => {
       type: 'events',
       events: [HIT, back, HEAL],
     });
+  });
+
+  it('decodes the map message it encodes', () => {
+    for (const map of ['village', 'cave'] as const) {
+      const message = createMapMessage(map);
+      expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+        type: 'map',
+        map,
+      });
+    }
+  });
+
+  it('rejects a map message that names no map there is', () => {
+    for (const map of ['forest', null, 3]) {
+      const data = JSON.stringify({ type: 'map', map });
+      expect(() => decodeServerMessage(data)).toThrow();
+    }
   });
 
   it('rejects an events message without a list of events', () => {
@@ -590,6 +608,20 @@ describe('the client message codec', () => {
     const data = JSON.stringify({ type: 'pick', sequence: 4, after: 2, x: 1 });
     expect(decodeClientMessage(data)).toEqual({
       type: 'pick',
+      sequence: 4,
+      after: 2,
+    });
+  });
+
+  it('decodes a travel message without anything else it carries', () => {
+    const data = JSON.stringify({
+      type: 'travel',
+      sequence: 4,
+      after: 2,
+      map: 'cave',
+    });
+    expect(decodeClientMessage(data)).toEqual({
+      type: 'travel',
       sequence: 4,
       after: 2,
     });

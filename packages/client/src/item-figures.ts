@@ -227,7 +227,8 @@ export class ItemFigures {
   /**
    * Shows a four-leaved clover standing in each patch of clover that has
    * its clover, and a four-leaved clover lying on the ground for each item
-   * there, and nothing else.
+   * there, where the item lies now, even if an item of the same number lay
+   * elsewhere before, and nothing else.
    *
    * @param {WorldItems | null} world - What there is to pick in the world,
    *   or `null` to show nothing.
@@ -238,9 +239,13 @@ export class ItemFigures {
       clover.visible = clovers.has(patch);
     });
     const items: readonly GroundItem[] = world?.items ?? [];
-    const ids = new Set<number>(items.map((item: GroundItem) => item.id));
-    for (const [id, [, clover]] of this.#lying) {
-      if (!ids.has(id)) {
+    const isSame = (a: GroundItem, b: GroundItem): boolean =>
+      a.x === b.x && a.z === b.z;
+    for (const [id, [lying, clover]] of this.#lying) {
+      const item: GroundItem | undefined = items.find(
+        (candidate: GroundItem) => candidate.id === id,
+      );
+      if (item === undefined || !isSame(item, lying)) {
         this.#parent.remove(clover);
         this.#lying.delete(id);
       }

@@ -27,12 +27,16 @@ import {
   canInteract,
   findInteraction,
   findItemKind,
+  findPassage,
   findPickTarget,
   findVillager,
   hasRoom,
 } from '@clovervale/shared';
 import type {
   ItemKindId,
+  MapId,
+  MonsterState,
+  Passage,
   PickTarget,
   PlayerMotion,
   Villager,
@@ -74,10 +78,13 @@ export function nameItem(translator: Translator, kind: ItemKindId): string {
  *   predicted, or `null` while there is none.
  * @param {number} step - The number of the step of the server an
  *   interaction would start at, which tells where Toby would be then.
- * @param {WorldItems} [world] - What there is to pick in the world, as the
+ * @param {WorldItems} [world] - What there is to pick in the map, as the
  *   server last told, which is nothing by default.
  * @param {readonly ItemKindId[]} [inventory] - What the player carries, as
  *   the server last told, which is nothing by default.
+ * @param {MapId} [map] - The map the player is in, the village by default.
+ * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+ *   as the server last told, none by default.
  * @returns {string} What the player does, that it does nothing while it
  *   cannot interact, as while it is dead, or while what is within its reach
  *   to pick does not fit in its inventory, or `–` while there is no player,
@@ -89,6 +96,8 @@ export function describeSpaceKey(
   step: number,
   world: WorldItems = NO_WORLD_ITEMS,
   inventory: readonly ItemKindId[] = [],
+  map: MapId = 'village',
+  monsters: readonly MonsterState[] = [],
 ): string {
   if (motion === null) {
     return UNKNOWN;
@@ -96,15 +105,21 @@ export function describeSpaceKey(
   if (!canInteract(motion)) {
     return translator.translate('spaceKey.nothing');
   }
-  const villager: Villager | null = findVillager(motion, step);
+  const villager: Villager | null = findVillager(motion, step, map);
   if (villager !== null) {
     const { name } = describeVillager(translator, villager);
     return translator.translate('spaceKey.talk', { name });
   }
-  if (findInteraction(motion, step) === 'Drink') {
+  if (findInteraction(motion, step, map) === 'Drink') {
     return translator.translate('spaceKey.drink');
   }
-  const target: PickTarget | null = findPickTarget(motion, step, world);
+  const passage: Passage | null = findPassage(motion, step, map, monsters);
+  if (passage !== null) {
+    return translator.translate(
+      passage.destination === 'cave' ? 'spaceKey.enter' : 'spaceKey.climb',
+    );
+  }
+  const target: PickTarget | null = findPickTarget(motion, step, world, map);
   if (target === null) {
     return translator.translate('spaceKey.slash');
   }
@@ -125,10 +140,13 @@ export function describeSpaceKey(
  *   predicted, or `null` while there is none.
  * @param {number} step - The number of the step of the server an
  *   interaction would start at, which tells where Toby would be then.
- * @param {WorldItems} [world] - What there is to pick in the world, as the
+ * @param {WorldItems} [world] - What there is to pick in the map, as the
  *   server last told, which is nothing by default.
  * @param {readonly ItemKindId[]} [inventory] - What the player carries, as
  *   the server last told, which is nothing by default.
+ * @param {MapId} [map] - The map the player is in, the village by default.
+ * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+ *   as the server last told, none by default.
  * @returns {string | null} The prompt, in the language of the page, or
  *   `null` while the space bar makes the player slash, while the player
  *   cannot start to interact with the world, or while there is no player.
@@ -139,19 +157,27 @@ export function describePrompt(
   step: number,
   world: WorldItems = NO_WORLD_ITEMS,
   inventory: readonly ItemKindId[] = [],
+  map: MapId = 'village',
+  monsters: readonly MonsterState[] = [],
 ): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;
   }
-  const villager: Villager | null = findVillager(motion, step);
+  const villager: Villager | null = findVillager(motion, step, map);
   if (villager !== null) {
     const { name } = describeVillager(translator, villager);
     return translator.translate('prompt.talk', { name });
   }
-  if (findInteraction(motion, step) === 'Drink') {
+  if (findInteraction(motion, step, map) === 'Drink') {
     return translator.translate('prompt.drink');
   }
-  const target: PickTarget | null = findPickTarget(motion, step, world);
+  const passage: Passage | null = findPassage(motion, step, map, monsters);
+  if (passage !== null) {
+    return translator.translate(
+      passage.destination === 'cave' ? 'prompt.enter' : 'prompt.climb',
+    );
+  }
+  const target: PickTarget | null = findPickTarget(motion, step, world, map);
   if (target === null) {
     return null;
   }

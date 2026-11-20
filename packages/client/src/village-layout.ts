@@ -21,7 +21,7 @@
  * @module client/village-layout Arranging the models into a village.
  */
 
-import { VILLAGE_PLACEMENTS } from '@clovervale/shared';
+import { CAVE_PLACEMENTS, VILLAGE_PLACEMENTS } from '@clovervale/shared';
 import type { Placement } from '@clovervale/shared';
 
 import { classifyModel } from './model-catalogue.ts';
@@ -64,8 +64,10 @@ function findSpareSpots(index: number): Spot[] {
  * sign stands by the gate, and the spawn stones of the monster are a little
  * way outside.  The characters and the monster have no place of their own,
  * as they stand wherever the server has them, and neither has Toby, who
- * runs about between the cottage and the gate.  A prop the village has no
- * place for stands by itself to one side, where it stands in nobody's way.
+ * runs about between the cottage and the gate.  The models of the cave
+ * stand in the cave, not in the village.  Any other prop the village has
+ * no place for stands by itself to one side, where it stands in nobody's
+ * way.
  *
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.
@@ -80,7 +82,10 @@ export function layoutVillage(files: readonly string[]): Placement[] {
     const placed: Placement[] = VILLAGE_PLACEMENTS.filter(
       (placement: Placement) => placement.file === file,
     );
-    if (placed.length === 0 && classifyModel(file) === 'prop') {
+    const isCave: boolean = CAVE_PLACEMENTS.some(
+      (placement: Placement) => placement.file === file,
+    );
+    if (placed.length === 0 && !isCave && classifyModel(file) === 'prop') {
       for (const [x, z, yaw] of findSpareSpots(spareCount++)) {
         placed.push({ file, x, z, yaw });
       }

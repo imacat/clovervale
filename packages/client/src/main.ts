@@ -21,13 +21,16 @@
  * @module client/main The entry point of the browser client.
  */
 
-import type { Vector3 } from 'three';
+import { Group } from 'three';
+import type { Scene, Vector3 } from 'three';
 
 import {
+  CAVE_TERRAIN,
   NOON,
   NO_WORLD_ITEMS,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
+  SPAWN_YAW,
   TOBY_FILE,
   VILLAGERS,
   VILLAGE_TERRAIN,
@@ -43,7 +46,9 @@ import type {
   GroundVector,
   HealEvent,
   HitEvent,
+  InputProgress,
   ItemKindId,
+  MapId,
   MonsterState,
   PlayerInput,
   PlayerMotion,
@@ -60,6 +65,8 @@ import { BackgroundMusic, MUSIC_FILE } from './background-music.ts';
 import { createBagView } from './bag-view.ts';
 import type { BagView } from './bag-view.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
+import { createCaveScene } from './cave-scene.ts';
+import type { CaveScene } from './cave-scene.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
 import {
@@ -90,6 +97,7 @@ import {
   saveLanguage,
 } from './language.ts';
 import type { LanguageCode, LanguageStorage } from './language.ts';
+import { createMapFade } from './map-fade.ts';
 import {
   FOUNTAIN_FILE,
   REQUIRED_MODEL_FILES,
@@ -140,7 +148,7 @@ import {
   createVillagerFigure,
   populateVillage,
 } from './village-scene.ts';
-import { showScene } from './viewport.ts';
+import { VILLAGE_LEAST_ELEVATION, showScene } from './viewport.ts';
 import type { Viewport } from './viewport.ts';
 import { WindowGlow } from './window-glow.ts';
 
@@ -156,6 +164,12 @@ const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 const TOBY_VILLAGER: Villager | undefined = VILLAGERS.find(
   (villager: Villager) => villager.file === TOBY_FILE,
 );
+
+/**
+ * The least angle the camera looks down at the player of the page in the
+ * cave, in degrees, steep enough to look over the walls of the passage.
+ */
+const CAVE_LEAST_ELEVATION = 40;
 
 /** The colour of the number of a hit on the player of the page. */
 const OWN_HIT_COLOUR = '#ff4b3e';
@@ -249,19 +263,36 @@ const bagView: BagView = createBagView(
   },
 );
 const { scene, daylight } = createVillageScene();
-const itemFigures = new ItemFigures(scene);
+const cave: CaveScene = createCaveScene();
+/** The map the player of the page is in, as the server last told. */
+let shownMap: MapId = 'village';
+/**
+ * The map the server has told the player of the page is in from now on,
+ * until the first snapshot of that map comes, or `null` while it has not.
+ */
+let comingMap: MapId | null = null;
+/**
+ * What stands wherever the player of the page is: the players, the
+ * monsters, the items and the hits, which goes with it from map to map.
+ */
+const stage = new Group();
+scene.add(stage);
+const itemFigures = new ItemFigures(stage);
 const outlines = createObstacleOutlines(VILLAGE_TERRAIN);
 scene.add(outlines);
-const figures = new PlayerFigures(scene, (appearance: number) =>
+const caveOutlines = createObstacleOutlines(CAVE_TERRAIN);
+cave.scene.add(caveOutlines);
+const figures = new PlayerFigures(stage, (appearance: number) =>
   createPlayerFigure(models, appearance),
 );
-const monsterFigures = new MonsterFigures(scene, () =>
+const monsterFigures = new MonsterFigures(stage, () =>
   createMonsterFigure(models),
 );
-const markers = new HitMarkers(scene);
+const markers = new HitMarkers(stage);
 const speech = new SpeechBubble(scene, translator);
 /** What notices each talk of the player of the page to a villager. */
 const talks = new TalkWatch();
+const fade = createMapFade(document.body);
 const viewport: Viewport = showScene(
   scene,
   findSpawnPoint(0),
@@ -271,10 +302,12 @@ const viewport: Viewport = showScene(
     showPlayers();
     showTimeOfDay();
     outlines.visible = panel.obstacles.isShown;
+    caveOutlines.visible = panel.obstacles.isShown;
     music.update(panel.music);
     for (const actor of actors) {
       actor.update(seconds);
     }
+    cave.update(seconds);
     fountainGlow?.update(seconds);
     forgeGlow?.update(seconds);
     figures.update(seconds);
@@ -289,6 +322,7 @@ const viewport: Viewport = showScene(
 Object.defineProperty(window, 'clovervale', {
   value: {
     describeCamera: () => viewport.getFocus(),
+    describeMap: () => shownMap,
     describeFigures: () => figures.describeFigures(),
     describeMonsters: () => monsterFigures.describeMonsters(),
     describeItems: () => itemFigures.describe(),
@@ -329,6 +363,7 @@ async function showModels(): Promise<void> {
   problems.push(...loaded.problems);
   models = loaded.models;
   actors.push(...populateVillage(scene, models));
+  cave.populate(models);
   windowGlow = new WindowGlow(scene);
   const child: Figure | null = createVillagerFigure(models, TOBY_FILE);
   if (child !== null) {
@@ -365,13 +400,16 @@ let ownId: number | null = null;
  * starts.
  */
 let prediction: PlayerPrediction | null = null;
-/** What draws the player of the page gliding over its corrections. */
-const smoothing = new CorrectionSmoothing(panel.smoothing, panel.prediction);
+/**
+ * What draws the player of the page gliding over its corrections, which
+ * starts afresh in every map.
+ */
+let smoothing = new CorrectionSmoothing(panel.smoothing, panel.prediction);
 /**
  * What draws the player of the page pushed out of the way of Toby while it
- * rests, before the server tells of it.
+ * rests, before the server tells of it, which starts afresh in every map.
  */
-const forecast = new PushForecast(
+let forecast = new PushForecast(
   panel.pushForecast,
   panel.smoothing,
   panel.prediction,
@@ -538,10 +576,11 @@ function showPlayers(): void {
         : view.time / STEP_MILLISECONDS;
   // The smoothing and the forecast are told of every frame, so that a glide
   // or a push ends as soon as prediction is switched off.
+  const tobyStep: number | null = shownMap === 'village' ? shownStep : null;
   const drawn: PlayerMotion | null =
     prediction === null
       ? null
-      : forecast.advance(prediction, smoothing, now, shownStep);
+      : forecast.advance(prediction, smoothing, now, tobyStep);
   if (panel.prediction.isEnabled && drawn !== null && latest !== undefined) {
     const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
     view = { ...view, players };
@@ -559,9 +598,28 @@ function showPlayers(): void {
   const nextStep: number = prediction?.readNextStep(now) ?? 0;
   const world: WorldItems = worldItems ?? NO_WORLD_ITEMS;
   const carried: readonly ItemKindId[] = inventory ?? [];
-  prompt.show(describePrompt(translator, predicted, nextStep, world, carried));
+  const monsters: readonly MonsterState[] = timeline.latestMonsters ?? [];
+  prompt.show(
+    describePrompt(
+      translator,
+      predicted,
+      nextStep,
+      world,
+      carried,
+      shownMap,
+      monsters,
+    ),
+  );
   panel.showInteraction(
-    describeSpaceKey(translator, predicted, nextStep, world, carried),
+    describeSpaceKey(
+      translator,
+      predicted,
+      nextStep,
+      world,
+      carried,
+      shownMap,
+      monsters,
+    ),
   );
   const villager: Villager | null = talks.noticeTalk(
     predicted,
@@ -603,9 +661,10 @@ function findShownHead(villager: Villager, step: number): Vector3 {
 }
 
 /**
- * Shows the village as it looks at the time of day the panel previews, or
- * else at the time of day of the world, and tells the time of day of the
- * world in the panel.  The preview is the page's alone: the server is
+ * Shows the village, and the daylight at the mouth of the burrow in the
+ * cave, as they look at the time of day the panel previews, or else at the
+ * time of day of the world, and tells the time of day of the world in the
+ * panel.  The preview is the page's alone: the server is
  * never told of it.
  */
 function showTimeOfDay(): void {
@@ -614,6 +673,7 @@ function showTimeOfDay(): void {
   shownTime = findShownTime(worldTime, panel.timePreview) ?? shownTime;
   const look: DaylightLook = daylight.show(shownTime);
   windowGlow?.show(look.windows);
+  cave.showTimeOfDay(shownTime);
 }
 
 /**
@@ -629,9 +689,18 @@ function receiveMessage(data: string): void {
     showServer(() => translator.translate('server.misbehaving'));
     return;
   }
+  if (message.type === 'map') {
+    comingMap = message.map;
+    return;
+  }
   if (message.type === 'snapshot') {
     if (ownId !== null) {
       const now: number = performance.now();
+      const map: MapId | null = comingMap;
+      comingMap = null;
+      if (map !== null) {
+        leaveMap();
+      }
       timeline.addSnapshot(message, now);
       dayClock.observe(message.step, now);
       panel.camera.followedId = keepFollowedPlayer(
@@ -646,7 +715,14 @@ function receiveMessage(data: string): void {
           message.own.motion,
           message.step,
           now,
+          map ?? shownMap,
         );
+        if (map !== null) {
+          showMap(map, message.own);
+        }
+      } else if (map !== null) {
+        prediction.enterMap(map, message.own, message.step, now);
+        showMap(map, message.own);
       } else {
         reconcileSmoothly(
           prediction,
@@ -682,6 +758,58 @@ function receiveMessage(data: string): void {
   dayClock.start(message.day);
   showServer(() => translator.translate('server.connected', { version }));
   panel.showReadout(describeSnapshot(translator, ownId, null));
+}
+
+/**
+ * Forgets what the page was shown of the map the player of the page has
+ * left, before it is shown the first snapshot of the map it is in now: the
+ * snapshots, and with them the players and the monsters seen, the items on
+ * the ground, the events yet to be shown, those shown, and the numbers of
+ * the hits and the heals still floating.  The items, the monsters and the
+ * events of each map are numbered on their own, so that nothing of one map
+ * is taken for something of another.
+ */
+function leaveMap(): void {
+  timeline.clear();
+  schedule.clear();
+  shownHits.length = 0;
+  shownHeals.length = 0;
+  markers.clear();
+  monsterFigures.showMonsters([]);
+  worldItems = null;
+  itemFigures.show(null);
+}
+
+/**
+ * Shows the map the player of the page is in now, as the first snapshot
+ * there tells of the player.  The view darkens for a moment and shows that
+ * map, with the camera at once on the player, looking the way it faces,
+ * and down on it steeply, which it goes on doing in the cave, and the
+ * players, the monsters, the items and the hits there.  The
+ * corrections of the player and the pushes of Toby start afresh, without
+ * gliding across from where the player was.
+ *
+ * @param {MapId} map - The map.
+ * @param {InputProgress} own - How far the player had got with the inputs
+ *   of the page, and the motion of the player there, as the snapshot tells.
+ */
+function showMap(map: MapId, own: InputProgress): void {
+  shownMap = map;
+  const shown: Scene = map === 'cave' ? cave.scene : scene;
+  shown.add(stage);
+  smoothing = new CorrectionSmoothing(panel.smoothing, panel.prediction);
+  forecast = new PushForecast(
+    panel.pushForecast,
+    panel.smoothing,
+    panel.prediction,
+  );
+  viewport.switchScene(
+    shown,
+    own.motion,
+    own.motion.yaw,
+    map === 'cave' ? CAVE_LEAST_ELEVATION : VILLAGE_LEAST_ELEVATION,
+  );
+  fade.darken();
 }
 
 /**
@@ -759,6 +887,19 @@ async function connectToServer(): Promise<void> {
     incoming.clear();
     outgoing.clear();
     ownId = null;
+    comingMap = null;
+    // A page cut off in the cave shows the village from the plaza, facing
+    // the fountain, as a page does before it connects.
+    if (shownMap !== 'village') {
+      scene.add(stage);
+      shownMap = 'village';
+      viewport.switchScene(
+        scene,
+        findSpawnPoint(0),
+        SPAWN_YAW,
+        VILLAGE_LEAST_ELEVATION,
+      );
+    }
     prediction = null;
     dayClock.reset();
     showServer(() => translator.translate('server.disconnected'));
@@ -831,7 +972,13 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
   // it now; whether anything comes of it is for the server to decide.
   const step: number = prediction.readNextStep(performance.now());
   sendInput(
-    chooseSpaceInput(prediction.motion, step, worldItems ?? NO_WORLD_ITEMS),
+    chooseSpaceInput(
+      prediction.motion,
+      step,
+      worldItems ?? NO_WORLD_ITEMS,
+      shownMap,
+      timeline.latestMonsters ?? [],
+    ),
   );
 });
 window.addEventListener('keyup', (event: KeyboardEvent) => {

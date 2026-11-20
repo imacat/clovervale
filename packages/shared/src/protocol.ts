@@ -39,10 +39,13 @@ import type {
   MoveInput,
   PickInput,
   PlayerMotion,
+  TravelInput,
 } from './player-motion.ts';
+import { isMapId } from './world-map.ts';
+import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 19;
+export const PROTOCOL_VERSION = 20;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -249,8 +252,24 @@ export interface EventsMessage {
   readonly events: readonly GameEvent[];
 }
 
+/**
+ * That the player of the peer is in another map from now on, which the
+ * server sends a peer once, before the first snapshot of that map.  A peer
+ * that has been told nothing has its player in the village.
+ */
+export interface MapMessage {
+  /** The message discriminator. */
+  readonly type: 'map';
+  /** The map the player is in. */
+  readonly map: MapId;
+}
+
 /** Any message the server can send to a peer. */
-export type ServerMessage = WelcomeMessage | SnapshotMessage | EventsMessage;
+export type ServerMessage =
+  | WelcomeMessage
+  | SnapshotMessage
+  | EventsMessage
+  | MapMessage;
 
 /** What a peer sends whenever the way its player wants to move changes. */
 export type MoveMessage = MoveInput & InputStamp;
@@ -273,12 +292,19 @@ export type PickMessage = PickInput & InputStamp;
  */
 export type DropMessage = DropInput & InputStamp;
 
+/**
+ * What a peer sends whenever its player wants to take the way into another
+ * map within its reach.  What comes of it is for the server to decide.
+ */
+export type TravelMessage = TravelInput & InputStamp;
+
 /** Any message a peer can send to the server. */
 export type ClientMessage =
   | MoveMessage
   | InteractMessage
   | PickMessage
-  | DropMessage;
+  | DropMessage
+  | TravelMessage;
 
 /**
  * Creates the welcome message for the current protocol version.
@@ -352,6 +378,16 @@ export function createEventsMessage(
   events: readonly GameEvent[],
 ): EventsMessage {
   return { type: 'events', events };
+}
+
+/**
+ * Creates a map message.
+ *
+ * @param {MapId} map - The map the player of the peer is in from now on.
+ * @returns {MapMessage} The map message.
+ */
+export function createMapMessage(map: MapId): MapMessage {
+  return { type: 'map', map };
 }
 
 /**
@@ -507,6 +543,9 @@ export function decodeServerMessage(data: string): ServerMessage {
       };
     }
   }
+  if (value.type === 'map' && isMapId(value.map)) {
+    return { type: 'map', map: value.map };
+  }
   if (value.type === 'events' && Array.isArray(value.events)) {
     const events: unknown[] = value.events;
     if (events.every(isGameEvent)) {
@@ -560,6 +599,9 @@ export function decodeClientMessage(data: string): ClientMessage {
     }
     if (value.type === 'pick') {
       return { type: 'pick', sequence, after };
+    }
+    if (value.type === 'travel') {
+      return { type: 'travel', sequence, after };
     }
     if (value.type === 'drop' && isCount(value.slot)) {
       return { type: 'drop', sequence, after, slot: value.slot };

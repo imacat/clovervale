@@ -54,6 +54,14 @@ describe('ItemFigures', () => {
     expect(figures.describe()).toEqual({ clovers: [], items: [] });
   });
 
+  it('shows an item where it lies now, once its number is that of another', () => {
+    const figures = new ItemFigures(new Scene());
+    const elsewhere: GroundItem = { ...ITEM, x: 18, z: 0.5 };
+    figures.show({ clovers: [], items: [ITEM] });
+    figures.show({ clovers: [], items: [elsewhere] });
+    expect(figures.describe()).toEqual({ clovers: [], items: [elsewhere] });
+  });
+
   it('takes what it shows out of the scene once it is gone', () => {
     const scene = new Scene();
     const figures = new ItemFigures(scene);

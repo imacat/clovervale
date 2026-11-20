@@ -36,8 +36,6 @@ import {
   DEFAULT_DAY_ORIGIN,
   SIMULATION_RATE,
   SNAPSHOT_RATE,
-  createEventsMessage,
-  createSnapshotMessage,
   createWelcomeMessage,
   decodeClientMessage,
   encodeServerMessage,
@@ -45,14 +43,11 @@ import {
 import type {
   ClientMessage,
   DayCycle,
-  GameEvent,
-  InputProgress,
-  MonsterState,
   PlayerState,
-  WorldItems,
+  ServerMessage,
 } from '@clovervale/shared';
 
-import { World } from './world.ts';
+import { Realm } from './realm.ts';
 
 /** A running game server. */
 export interface RunningServer {
@@ -94,18 +89,16 @@ const SOCKET_FILE_MODE = 0o660;
 /**
  * Starts a game server.
  *
- * Every peer that connects gets a player of its own, which it is welcomed
- * with and steers with its messages, and which leaves the world when the
- * peer disconnects.  The welcome also tells the peer how the day goes.  A
- * peer that sends anything but well-formed client messages, or inputs that
- * are not numbered upwards, or more inputs than can wait for their turn,
- * is disconnected.  All peers are sent snapshots of all the players, the
- * monsters, the patches of clover that have their clover and the items on
- * the ground, again and again, as the simulation of the world goes on,
- * each with how far its own player has got with its inputs, how its latest
- * slash was judged and what it carries, which no other peer is told, and
- * after each snapshot, once, the events that have happened since the last.
- * A slash that names the time of the world
+ * Every peer that connects gets a player of its own in the village, which
+ * it is welcomed with and steers with its messages, and which leaves the
+ * world it is in when the peer disconnects.  The welcome also tells the
+ * peer how the day goes.  A peer that sends anything but well-formed
+ * client messages, or inputs that are not numbered upwards, or more inputs
+ * than can wait for their turn, is disconnected.  Every peer is sent what
+ * {@link Realm.composeMessages} composes for its player, again and again,
+ * as the simulation of the worlds goes on: which map its player is in,
+ * whenever that changes, and snapshots of the world its player is in and
+ * the events that happen there.  A slash that names the time of the world
  * its peer showed is judged on the world as it was then, as far as the
  * world allows.
  *
@@ -135,10 +128,10 @@ export async function startServer(
     chmodSync(target, SOCKET_FILE_MODE);
   }
   const sockets = new WebSocketServer({ server: listener });
-  const world = new World();
+  const realm = new Realm();
   const playerIds = new Map<WebSocket, number>();
   sockets.on('connection', (socket: WebSocket) => {
-    const player: PlayerState = world.addPlayer();
+    const player: PlayerState = realm.addPlayer();
     playerIds.set(socket, player.id);
     socket.on('message', (data: RawData) => {
       let message: ClientMessage;
@@ -148,17 +141,17 @@ export async function startServer(
         socket.close(POLICY_VIOLATION, 'The message is malformed.');
         return;
       }
-      if (!world.receiveInput(player.id, message)) {
+      if (!realm.receiveInput(player.id, message)) {
         socket.close(POLICY_VIOLATION, 'The input is out of turn.');
       }
     });
     socket.on('close', () => {
       playerIds.delete(socket);
-      world.removePlayer(player.id);
+      realm.removePlayer(player.id);
     });
     socket.send(encodeServerMessage(createWelcomeMessage(player.id, day)));
   });
-  const stopSimulation: () => void = runSimulation(world, playerIds);
+  const stopSimulation: () => void = runSimulation(realm, playerIds);
   const address = listener.address();
   return {
     port: address === null || typeof address === 'string' ? null : address.port,
@@ -274,71 +267,49 @@ function readText(data: RawData): string {
 }
 
 /**
- * Keeps the simulation of a world going at its fixed rate, and sends every
- * peer a snapshot of the players, the monsters and what there is to pick at
- * the snapshot rate, which tells the number of steps the simulation has
- * taken, how far the player of the peer has got with the inputs of the
- * peer, how its latest slash was judged, and what it carries.  The world
- * records every snapshot, for the slashes to be judged on the world as a
- * peer showed it.  Right after the snapshots, it sends every peer the
- * events that have happened since the last snapshots, if any have, so that
- * each peer hears of each event once.
+ * Keeps the simulation of the worlds going at its fixed rate, and sends
+ * every peer what the realm composes for its player at the snapshot rate.
+ * A message that several peers are sent alike is encoded once.
  *
- * @param {World} world - The world to simulate.
+ * @param {Realm} realm - The worlds to simulate.
  * @param {ReadonlyMap<WebSocket, number>} playerIds - The identifiers of
  *   the players of the connected peers, by their connections.
  * @returns {() => void} Stops the simulation and the snapshots.
  */
 function runSimulation(
-  world: World,
+  realm: Realm,
   playerIds: ReadonlyMap<WebSocket, number>,
 ): () => void {
   const startTime: number = performance.now();
-  let stepCount = 0;
   let timer: NodeJS.Timeout;
   const catchUp = (): void => {
     const dueCount: number = Math.floor(
       (performance.now() - startTime) / STEP_MILLISECONDS,
     );
     let isSnapshotDue = false;
-    while (stepCount < dueCount) {
-      world.step();
-      stepCount++;
-      isSnapshotDue ||= stepCount % STEPS_PER_SNAPSHOT === 0;
+    while (realm.stepCount < dueCount) {
+      realm.step();
+      isSnapshotDue ||= realm.stepCount % STEPS_PER_SNAPSHOT === 0;
     }
     if (isSnapshotDue) {
-      world.recordSnapshot();
-      const players: PlayerState[] = world.listPlayers();
-      const monsters: MonsterState[] = world.listMonsters();
-      const items: WorldItems = world.describeItems();
-      const events: GameEvent[] = world.takeEvents();
-      const eventData: string | null =
-        events.length === 0
-          ? null
-          : encodeServerMessage(createEventsMessage(events));
+      const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+      const encoded = new Map<ServerMessage, string>();
       for (const [socket, id] of playerIds) {
-        const own: InputProgress | null = world.findProgress(id);
-        if (own !== null && socket.readyState === WebSocket.OPEN) {
-          socket.send(
-            encodeServerMessage(
-              createSnapshotMessage(
-                stepCount,
-                players,
-                monsters,
-                own,
-                world.findSlash(id),
-                items,
-                world.findInventory(id) ?? [],
-              ),
-            ),
-          );
-          if (eventData !== null) {
-            socket.send(eventData);
+        if (socket.readyState !== WebSocket.OPEN) {
+          continue;
+        }
+        for (const message of composed.get(id) ?? []) {
+          let data: string | undefined = encoded.get(message);
+          if (data === undefined) {
+            data = encodeServerMessage(message);
+            encoded.set(message, data);
           }
+          socket.send(data);
         }
       }
     }
-    const nextTime: number = startTime + (stepCount + 1) * STEP_MILLISECONDS;
+    const nextTime: number =
+      startTime + (realm.stepCount + 1) * STEP_MILLISECONDS;
     timer = setTimeout(catchUp, Math.max(nextTime - performance.now(), 0));
   };
   timer = setTimeout(catchUp, STEP_MILLISECONDS);

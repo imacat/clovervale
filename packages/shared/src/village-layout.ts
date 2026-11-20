@@ -79,6 +79,18 @@ const CHIEF_ON_PORCH: Spot = [1.1, 2.7, 7];
 const WELL_IN_YARD: Spot = [5.6, 3.1, 0];
 
 /**
+ * Where a player stands beside the old well in the yard of the chief's
+ * house when it has climbed up out of the cave, and which way it faces, as
+ * the model of the house has it: beside the well on the side of the porch
+ * and of the gap in the low wall in front of the yard, clear of the
+ * stonework and of the wall, facing the house with the porch a little to
+ * its left.  Behind it lies the gap in the wall and the plaza beyond, with
+ * the well off to one side, so that nothing tall stands between the player
+ * and a camera behind it.
+ */
+const BESIDE_WELL: Spot = [4.4, 3.9, -120];
+
+/**
  * Where the whole two-metre stretches of the old low stone wall of the yard
  * of the chief's house stand, as the model of the house has it, every other
  * one in a run turned about so that their worn stones do not repeat.  The
@@ -252,6 +264,17 @@ export const VILLAGE_PLACEMENTS: readonly Placement[] = Object.entries(
 ).flatMap(([file, spots]: [string, readonly Spot[]]) =>
   spots.map(([x, z, yaw]: Spot): Placement => ({ file, x, z, yaw })),
 );
+
+/**
+ * Where a player stands beside the old well in the yard of the chief's
+ * house when it has climbed up out of the cave, and which way it faces:
+ * beside the well on the side of the porch, facing the house with the
+ * porch a little to its left, and with the plaza behind it.
+ */
+export const WELL_STAND: Pose = (() => {
+  const [x, z, yaw] = placeSpot(CHIEF_HOUSE_SPOT, BESIDE_WELL);
+  return { x, z, yaw };
+})();
 
 /**
  * Makes a round footprint.

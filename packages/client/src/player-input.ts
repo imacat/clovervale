@@ -21,9 +21,15 @@
  * @module client/player-input Turning the keys held into what a player wants.
  */
 
-import { canInteract, findPickTarget } from '@clovervale/shared';
+import {
+  canInteract,
+  findPassage,
+  findPickTarget,
+} from '@clovervale/shared';
 import type {
   GroundVector,
+  MapId,
+  MonsterState,
   PlayerInput,
   PlayerMotion,
   WorldItems,
@@ -63,23 +69,36 @@ export function findKeyCommand(code: string): KeyCommand | null {
 }
 
 /**
- * Chooses the input the space bar gives the player of the page now: a pick
- * while something to pick is within its reach and nothing comes before it,
- * whether or not the player has room for it, and an interaction otherwise.
+ * Chooses the input the space bar gives the player of the page now: a
+ * travel while a way into another map is within its reach and nothing
+ * comes before it, as {@link findPassage} tells; or else a pick while
+ * something to pick is within its reach and nothing comes before it,
+ * whether or not the player has room for it; and an interaction otherwise.
  *
  * @param {PlayerMotion} motion - The motion of the player as predicted.
  * @param {number} step - The number of the step of the server the input
  *   would come into effect at, which tells where Toby would be then.
- * @param {WorldItems} world - What there is to pick in the world, as the
+ * @param {WorldItems} world - What there is to pick in the map, as the
  *   server last told.
+ * @param {MapId} [map] - The map the player is in, the village by default.
+ * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+ *   as the server last told, none by default.
  * @returns {PlayerInput} The input.
  */
 export function chooseSpaceInput(
   motion: PlayerMotion,
   step: number,
   world: WorldItems,
+  map: MapId = 'village',
+  monsters: readonly MonsterState[] = [],
 ): PlayerInput {
-  return canInteract(motion) && findPickTarget(motion, step, world) !== null
+  if (!canInteract(motion)) {
+    return { type: 'interact' };
+  }
+  if (findPassage(motion, step, map, monsters) !== null) {
+    return { type: 'travel' };
+  }
+  return findPickTarget(motion, step, world, map) !== null
     ? { type: 'pick' }
     : { type: 'interact' };
 }

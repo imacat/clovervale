@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module server/world The world the server simulates, its players, its
- *   monster and its items.
+ * @module server/world A world the server simulates, in one map, with its
+ *   players, its monster and its items.
  */
 
 import {
@@ -38,6 +38,7 @@ import {
   SPAWN_YAW,
   canInteract,
   createMotion,
+  findPassage,
   findPickTarget,
   findSpawnPoint,
   hasRoom,
@@ -51,10 +52,13 @@ import type {
   GroundVector,
   InputProgress,
   ItemKindId,
+  MapId,
   MonsterState,
+  Passage,
   PickTarget,
   PlayerMotion,
   PlayerState,
+  Pose,
   SlashJudgement,
   StampedInput,
   WorldItems,
@@ -96,8 +100,11 @@ const GROUND_ITEM_STEPS: number = Math.round(
 /** The number of decimal places the place of an item put down keeps. */
 const ITEM_PLACE_PRECISION = 2;
 
-/** A player in the world. */
-interface Player {
+/**
+ * A player in a world, with everything it takes along from one world into
+ * another.
+ */
+export interface Player {
   /** The identifier of the player. */
   readonly id: number;
   /** The number of the appearance of the player, from 1. */
@@ -125,6 +132,30 @@ interface LyingItem {
   readonly goneStep: number;
 }
 
+/** A player that has left a world for a world of another map. */
+export interface Departure {
+  /** The player. */
+  readonly player: Player;
+  /** The map of the world it is to go into. */
+  readonly destination: MapId;
+  /**
+   * Where it is to stand there, and which way it is to face, or `null` for
+   * a spawn point on the plaza of the village.
+   */
+  readonly arrival: Pose | null;
+}
+
+/** The map a world is of, and the step it starts at. */
+export interface WorldOptions {
+  /** The map of the world, the village by default. */
+  readonly map?: MapId;
+  /**
+   * The number of simulation steps the server has taken when the world
+   * starts, which the world goes on counting from, 0 by default.
+   */
+  readonly step?: number;
+}
+
 /** The monsters at one moment, as a snapshot then told them. */
 interface MonstersRecord {
   /** The time on the clock of the server, in milliseconds. */
@@ -147,12 +178,17 @@ interface Slasher {
 /** The monster, as the events tell of it. */
 const MONSTER_REF: EntityRef = { kind: 'monster', id: MONSTER_ID };
 
-/** The world the server simulates. */
+/**
+ * A world the server simulates, in one map: the village, with its monster
+ * and its clover, or a cave, empty but for whoever is in it.
+ */
 export class World {
+  readonly #map: MapId;
   readonly #players = new Map<number, Player>();
-  readonly #monster: Monster;
+  readonly #monster: Monster | null;
   #lastId = 0;
-  #stepCount = 0;
+  #stepCount: number;
+  #departures: Departure[] = [];
   #events: GameEvent[] = [];
   #lastEventId = 0;
   #history: MonstersRecord[] = [];
@@ -161,37 +197,58 @@ export class World {
    * again, by the number of the patch, which is no later than the current
    * step while it has it.
    */
-  readonly #regrowSteps: number[] = CLOVER_PATCHES.map(() => 0);
+  readonly #regrowSteps: number[];
   #lyingItems: LyingItem[] = [];
   #lastItemId = 0;
 
   /**
-   * Starts a world without players, with the monster idling at its home, a
-   * four-leaved clover in every patch of clover, and nothing on the ground.
+   * Starts a world without players and with nothing on the ground: in the
+   * village, with the monster idling at its home and a four-leaved clover
+   * in every patch of clover, and in a cave, with nothing else.
    *
    * @param {() => number} [drawRandom] - Gives a random number from 0 up to
    *   but not including 1, for what the monster does.  `Math.random` by
    *   default.
+   * @param {WorldOptions} [options] - The map of the world, and the step it
+   *   starts at.
    */
-  constructor(drawRandom: () => number = Math.random) {
-    this.#monster = new Monster(drawRandom);
+  constructor(
+    drawRandom: () => number = Math.random,
+    { map = 'village', step = 0 }: WorldOptions = {},
+  ) {
+    this.#map = map;
+    this.#stepCount = step;
+    const isVillage: boolean = map === 'village';
+    this.#monster = isVillage ? new Monster(drawRandom) : null;
+    this.#regrowSteps = isVillage ? CLOVER_PATCHES.map(() => 0) : [];
+  }
+
+  /**
+   * The map of the world.
+   *
+   * @returns {MapId} The map.
+   */
+  get map(): MapId {
+    return this.#map;
   }
 
   /**
    * Lets a new player into the world.
    *
-   * The player gets an identifier no player has had before, the appearance
-   * the fewest players have (the lowest-numbered one if several tie), and a
-   * place on the plaza clear of the obstacles and, while there is room, of
-   * everyone else, where it idles facing the fountain, at full health, and
-   * carrying nothing.
+   * The player gets an identifier no player of the world has had before,
+   * the appearance the fewest players have, here and elsewhere (the
+   * lowest-numbered one if several tie), and a place on the plaza clear of
+   * the obstacles and, while there is room, of everyone else, where it
+   * idles facing the fountain, at full health, and carrying nothing.
    *
+   * @param {readonly number[]} [elsewhere] - The appearances of the players
+   *   in other worlds, none by default.
    * @returns {PlayerState} The new player.
    */
-  addPlayer(): PlayerState {
+  addPlayer(elsewhere: readonly number[] = []): PlayerState {
     const player: Player = {
       id: ++this.#lastId,
-      appearance: this.#chooseAppearance(),
+      appearance: this.#chooseAppearance(elsewhere),
       mover: new AuthoritativePlayer(
         createMotion(this.#chooseSpawnPoint(), SPAWN_YAW),
       ),
@@ -211,6 +268,54 @@ export class World {
    */
   removePlayer(id: number): void {
     this.#players.delete(id);
+  }
+
+  /**
+   * Brings a player from another world into this one, with its health,
+   * what it carries and the inputs of its peer still to come.  It stops
+   * whatever it was doing and idles where it arrives, but still wants to
+   * move the way it did.
+   *
+   * @param {Player} player - The player, as it left the other world.
+   * @param {Pose | null} arrival - Where it is to stand, and which way it
+   *   is to face, or `null` for where a new player would, facing the
+   *   fountain.
+   */
+  admitPlayer(player: Player, arrival: Pose | null): void {
+    if (arrival === null) {
+      player.mover.relocate(this.#chooseSpawnPoint(), SPAWN_YAW);
+    } else {
+      player.mover.relocate(arrival, arrival.yaw);
+    }
+    this.#players.set(player.id, player);
+  }
+
+  /**
+   * Takes the players that have left the world for a world of another map
+   * since they were last taken.
+   *
+   * @returns {Departure[]} The players, each taken only once, with where
+   *   they are to go.
+   */
+  takeDepartures(): Departure[] {
+    const departures: Departure[] = this.#departures;
+    this.#departures = [];
+    return departures;
+  }
+
+  /**
+   * Has the monster hurt a player, which dies if that leaves it no health,
+   * just as when the monster strikes it, and which is an event alike.  A
+   * dead player, or one not in the world, is not hurt.
+   *
+   * @param {number} id - The identifier of the player.
+   * @param {number} damage - The health the hit takes.
+   */
+  hurtPlayer(id: number, damage: number): void {
+    const player: Player | undefined = this.#players.get(id);
+    if (player?.deathSteps === 0) {
+      this.#hurtPlayer(player, damage);
+    }
   }
 
   /**
@@ -239,13 +344,13 @@ export class World {
   /**
    * Moves the world one step of the simulation forward.
    *
-   * Toby runs his course, as the number of the step tells, and pushes
-   * every living player in his way aside.  A player that slashes, drinks
-   * from the fountain or talks to a villager stands still, without turning,
-   * for as long as that lasts.  Any other player that wants to move walks
-   * that way, facing it, and idles otherwise; Toby stands in its way as the
-   * obstacles do.  The monster goes about its business, and pays Toby no
-   * heed.
+   * In the village, Toby runs his course, as the number of the step tells,
+   * and pushes every living player in his way aside.  A player that
+   * slashes, drinks from the fountain or talks to a villager stands still,
+   * without turning, for as long as that lasts.  Any other player that
+   * wants to move walks that way, facing it, and idles otherwise, on the
+   * ground of the map of the world; Toby stands in its way as the obstacles
+   * do.  The monster goes about its business, and pays Toby no heed.
    *
    * A drink that starts at the step gives the player back
    * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
@@ -274,7 +379,16 @@ export class World {
    * picking nor putting down, neither hurt nor chased by the monster,
    * though its inputs still change the way it wants to move.  Then it comes
    * back at a spawn point, at full health, idling but wanting to move the
-   * way it does by then, and carrying what it carried.
+   * way it does by then, and carrying what it carried: in the village, at
+   * once, and from a cave, by leaving it for the village.
+   *
+   * A travel that comes into effect at the step, while the player could
+   * start to interact, takes the player out of the world, if
+   * {@link findPassage} finds a way within its reach from where it stands
+   * after the step, with the monsters as they were before the step: it
+   * leaves for a world of the map the way leads into, to arrive where the
+   * way leads.  A player that leaves is neither struck nor judged at the
+   * step.
    *
    * A pick that comes into effect at the step, while the player could start
    * to interact, gets the player what {@link findPickTarget} finds within
@@ -299,9 +413,14 @@ export class World {
       (lying: LyingItem) => lying.goneStep > this.#stepCount,
     );
     const slashers: Slasher[] = [];
+    const monsters: MonsterState[] = this.listMonsters();
+    const leaving = new Set<Player>();
     for (const player of this.#players.values()) {
       const before: PlayerMotion = player.mover.motion;
-      const applied: StampedInput[] = player.mover.step(this.#stepCount);
+      const applied: StampedInput[] = player.mover.step(
+        this.#stepCount,
+        this.#map,
+      );
       const after: PlayerMotion = player.mover.motion;
       for (const input of applied) {
         if (input.type === 'pick' && canInteract(before)) {
@@ -309,6 +428,18 @@ export class World {
         }
         if (input.type === 'drop' && before.action !== 'Die') {
           this.#dropItem(player, input.slot);
+        }
+        const passage: Passage | null =
+          input.type === 'travel' && canInteract(before) && !leaving.has(player)
+            ? findPassage(after, this.#stepCount, this.#map, monsters)
+            : null;
+        if (passage !== null) {
+          leaving.add(player);
+          this.#departures.push({
+            player,
+            destination: passage.destination,
+            arrival: passage.arrival,
+          });
         }
       }
       const isStarted: boolean = after.actionCount !== before.actionCount;
@@ -324,28 +455,44 @@ export class World {
         slashers.push({ player, viewTime });
       }
       if (player.deathSteps > 0 && --player.deathSteps === 0) {
-        player.mover.relocate(this.#chooseSpawnPoint(), SPAWN_YAW);
         player.health = PLAYER_HEALTH;
+        if (this.#map === 'village') {
+          player.mover.relocate(this.#chooseSpawnPoint(), SPAWN_YAW);
+        } else {
+          leaving.add(player);
+          this.#departures.push({
+            player,
+            destination: 'village',
+            arrival: null,
+          });
+        }
       }
+    }
+    for (const player of leaving) {
+      this.#players.delete(player.id);
     }
     const living: Player[] = [...this.#players.values()].filter(
       (player: Player) => player.deathSteps === 0,
     );
-    const isStriking: boolean = this.#monster.step(
-      living.map(({ id, mover }: Player) => ({
-        id,
-        x: mover.motion.x,
-        z: mover.motion.z,
-      })),
-    );
+    const monster: Monster | null = this.#monster;
+    const isStriking: boolean =
+      monster?.step(
+        living.map(({ id, mover }: Player) => ({
+          id,
+          x: mover.motion.x,
+          z: mover.motion.z,
+        })),
+      ) ?? false;
     for (const slasher of slashers) {
-      this.#judgeSlash(slasher);
+      if (!leaving.has(slasher.player)) {
+        this.#judgeSlash(slasher);
+      }
     }
-    if (isStriking && this.#monster.isAlive) {
+    if (isStriking && monster?.isAlive === true) {
       for (const player of living) {
         if (
           isWithinStrike(
-            this.#monster.pose,
+            monster.pose,
             player.mover.motion,
             MONSTER_ATTACK_REACH,
           )
@@ -458,7 +605,7 @@ export class World {
    *   has been dead for so long that it is gone.
    */
   listMonsters(): MonsterState[] {
-    const state: MonsterState | null = this.#monster.state;
+    const state: MonsterState | null = this.#monster?.state ?? null;
     return state === null ? [] : [state];
   }
 
@@ -479,14 +626,15 @@ export class World {
       time,
       now,
     ).find((monster: MonsterState) => monster.id === MONSTER_ID);
+    const monster: Monster | null = this.#monster;
     const isHit: boolean =
-      this.#monster.isAlive &&
+      monster?.isAlive === true &&
       target !== undefined &&
       target.mode !== 'dead' &&
       isWithinStrike(player.mover.motion, target, SLASH_REACH);
     player.lastSlash = { step: this.#stepCount, rewind: now - time, isHit };
-    if (isHit) {
-      const damage: number = this.#monster.takeHit(SLASH_DAMAGE, player.id);
+    if (isHit && monster !== null) {
+      const damage: number = monster.takeHit(SLASH_DAMAGE, player.id);
       this.#recordHit({ kind: 'player', id: player.id }, MONSTER_REF, damage);
     }
   }
@@ -541,6 +689,7 @@ export class World {
       player.mover.motion,
       this.#stepCount,
       this.describeItems(),
+      this.#map,
     );
     if (target === null) {
       return;
@@ -642,12 +791,18 @@ export class World {
   /**
    * Chooses the appearance of a new player.
    *
+   * @param {readonly number[]} elsewhere - The appearances of the players
+   *   in other worlds.
    * @returns {number} The number of the appearance, from 1.
    */
-  #chooseAppearance(): number {
+  #chooseAppearance(elsewhere: readonly number[]): number {
     const uses: number[] = new Array<number>(APPEARANCE_COUNT).fill(0);
-    for (const player of this.#players.values()) {
-      uses[player.appearance - 1] = (uses[player.appearance - 1] ?? 0) + 1;
+    const appearances: number[] = [
+      ...[...this.#players.values()].map((player: Player) => player.appearance),
+      ...elsewhere,
+    ];
+    for (const appearance of appearances) {
+      uses[appearance - 1] = (uses[appearance - 1] ?? 0) + 1;
     }
     return uses.indexOf(Math.min(...uses)) + 1;
   }

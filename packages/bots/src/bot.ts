@@ -346,8 +346,9 @@ export function startBot(
         return;
       }
       // A bot does not fight, and learns its health from the snapshots, so
-      // what happens does not concern it.
-      if (message.type === 'events') {
+      // what happens does not concern it.  Nor does it ever go into another
+      // map, so it is never told of one.
+      if (message.type === 'events' || message.type === 'map') {
         return;
       }
       if (message.protocolVersion !== PROTOCOL_VERSION) {

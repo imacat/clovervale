@@ -25,6 +25,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BURROW_REACH,
+  CAVE_LANDING,
+  CAVE_ROPE,
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
   CLOVER_PATCHES,
@@ -34,19 +37,26 @@ import {
   PLAZA_CENTRE,
   SIMULATION_RATE,
   TALK_REACH,
+  ROPE_REACH,
+  SLASH_REACH,
   TOBY_LOOP_STEPS,
   VILLAGE_TERRAIN,
+  WELL_STAND,
   findInteraction,
+  findPassage,
   findPickTarget,
   findPlacement,
   findTobyPose,
   findTurn,
   findVillager,
+  placePoint,
   turnVector,
 } from '../src/index.ts';
 import type {
   GroundItem,
   GroundVector,
+  MonsterState,
+  Passage,
   Placement,
   Pose,
   WorldItems,
@@ -363,5 +373,140 @@ describe('findPickTarget', () => {
     ];
     expect(findPickTarget(byFountain, 0, { clovers: [], items })).toBeNull();
     expect(findPickTarget(byNancy, 0, { clovers: [], items })).toBeNull();
+  });
+});
+
+/** The middle of the burrow of the wild dog, among the spawn stones. */
+const BURROW: Placement = findPlacement('prop-spawn-stones.glb');
+
+/**
+ * Makes the wild dog, standing somewhere.
+ *
+ * @param {GroundVector} point - Where it stands.
+ * @param {boolean} [isDead] - Whether it lies dead, which it does not by
+ *   default.
+ * @returns {MonsterState} The dog.
+ */
+function placeDog(point: GroundVector, isDead = false): MonsterState {
+  return {
+    id: 1,
+    x: point.x,
+    z: point.z,
+    yaw: 0,
+    action: isDead ? 'Die' : 'Idle',
+    actionCount: 0,
+    health: isDead ? 0 : 60,
+    mode: isDead ? 'dead' : 'idle',
+  };
+}
+
+/** A player in the middle of the burrow, facing north. */
+const IN_BURROW: Pose = { x: BURROW.x, z: BURROW.z, yaw: 180 };
+
+describe('findPassage at the burrow of the wild dog', () => {
+  it('goes down into the cave, to the landing, whichever way it faces', () => {
+    for (const yaw of [0, 90, 180, 270]) {
+      const passage: Passage | null = findPassage(
+        { ...IN_BURROW, yaw },
+        0,
+        'village',
+        [],
+      );
+      expect(passage?.destination).toBe('cave');
+      expect(passage?.arrival).toEqual(CAVE_LANDING);
+    }
+  });
+
+  it('goes down as far from the middle as the burrow reaches', () => {
+    const near: Pose = { ...IN_BURROW, x: BURROW.x + BURROW_REACH - 0.01 };
+    const far: Pose = { ...IN_BURROW, x: BURROW.x + BURROW_REACH + 0.01 };
+    expect(findPassage(near, 0, 'village', [])).not.toBeNull();
+    expect(findPassage(far, 0, 'village', [])).toBeNull();
+  });
+
+  it('goes down with the living dog away from the burrow', () => {
+    const dog: MonsterState = placeDog({ x: BURROW.x - 4, z: BURROW.z });
+    expect(findPassage(IN_BURROW, 0, 'village', [dog])).not.toBeNull();
+  });
+
+  it('goes down with the living dog close behind the player', () => {
+    const dog: MonsterState = placeDog({ x: BURROW.x, z: BURROW.z + 1 });
+    expect(findPassage(IN_BURROW, 0, 'village', [dog])).not.toBeNull();
+  });
+
+  it('slashes at the living dog in front of it and within reach', () => {
+    const dog: MonsterState = placeDog({
+      x: BURROW.x,
+      z: BURROW.z - SLASH_REACH + 0.1,
+    });
+    expect(findPassage(IN_BURROW, 0, 'village', [dog])).toBeNull();
+    expect(findInteraction(IN_BURROW, 0)).toBe('Slash');
+  });
+
+  it('goes down by the dead dog in front of it', () => {
+    const dog: MonsterState = placeDog({ x: BURROW.x, z: BURROW.z - 1 }, true);
+    expect(findPassage(IN_BURROW, 0, 'village', [dog])).not.toBeNull();
+  });
+
+  it('goes nowhere from the same spot in the cave', () => {
+    expect(findPassage(IN_BURROW, 0, 'cave', [])).toBeNull();
+  });
+});
+
+describe('findPassage at the rope in the cave', () => {
+  /** A player east of the rope, facing it. */
+  const byRope: Pose = { x: CAVE_ROPE.x + 0.8, z: CAVE_ROPE.z, yaw: -90 };
+
+  it('climbs up to beside the old well, facing the rope', () => {
+    const passage: Passage | null = findPassage(byRope, 0, 'cave', []);
+    expect(passage?.destination).toBe('village');
+    expect(passage?.arrival).toEqual(WELL_STAND);
+  });
+
+  it('climbs up as far from the rope as it reaches, and no farther', () => {
+    const near: Pose = { ...byRope, x: CAVE_ROPE.x + ROPE_REACH - 0.01 };
+    const far: Pose = { ...byRope, x: CAVE_ROPE.x + ROPE_REACH + 0.01 };
+    expect(findPassage(near, 0, 'cave', [])).not.toBeNull();
+    expect(findPassage(far, 0, 'cave', [])).toBeNull();
+  });
+
+  it('does not climb facing away from the rope', () => {
+    expect(findPassage({ ...byRope, yaw: 90 }, 0, 'cave', [])).toBeNull();
+  });
+
+  it('goes nowhere from the same spot in the village', () => {
+    expect(findPassage(byRope, 0, 'village', [])).toBeNull();
+  });
+});
+
+describe('the spot beside the old well', () => {
+  /** The old well in the yard of the chief's house. */
+  const well: Placement = findPlacement('prop-old-well.glb');
+
+  it('is clear, right beside the well', () => {
+    expect(VILLAGE_TERRAIN.isClear(WELL_STAND, 0.1)).toBe(true);
+    expect(
+      Math.hypot(WELL_STAND.x - well.x, WELL_STAND.z - well.z),
+    ).toBeLessThan(1.5);
+  });
+
+  it('faces the porch of the house of the chief, roughly', () => {
+    const house: Placement = findPlacement('prop-chief-house.glb');
+    const porch: GroundVector = placePoint(house, { x: 0, z: 3.45 });
+    const yaw: number = (WELL_STAND.yaw * Math.PI) / 180;
+    const dx: number = porch.x - WELL_STAND.x;
+    const dz: number = porch.z - WELL_STAND.z;
+    const along: number =
+      (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / Math.hypot(dx, dz);
+    expect(along).toBeGreaterThan(Math.cos(Math.PI / 6));
+  });
+
+  it('has the plaza behind it', () => {
+    const yaw: number = (WELL_STAND.yaw * Math.PI) / 180;
+    const dx: number = PLAZA_CENTRE.x - WELL_STAND.x;
+    const dz: number = PLAZA_CENTRE.z - WELL_STAND.z;
+    const along: number =
+      (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / Math.hypot(dx, dz);
+    expect(along).toBeLessThan(0);
   });
 });

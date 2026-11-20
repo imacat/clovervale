@@ -31,6 +31,7 @@ import {
 } from '@clovervale/shared';
 import type {
   InputProgress,
+  MapId,
   PlayerInput,
   PlayerMotion,
   PlayerState,
@@ -102,9 +103,10 @@ interface InputEffect {
  * once the server has all its inputs.
  *
  * The player moves by the rules of the server, at the rate of the server,
- * from the moment of an input.  It takes no steps while it rests, and so
- * leaves it to the server to push it out of the way of Toby then, which
- * shows when a snapshot tells of it, as a correction.
+ * from the moment of an input, on the ground of the map it is in.  It takes
+ * no steps while it rests, and so leaves it to the server to push it out of
+ * the way of Toby then, which shows when a snapshot tells of it, as a
+ * correction.
  *
  * Each step the page takes is numbered as the step of the server at which
  * the server is to take the same step, and Toby is where he is at that step
@@ -127,6 +129,7 @@ interface InputEffect {
  * enough inputs for the page to tell.
  */
 export class PlayerPrediction {
+  #map: MapId;
   #motion: PlayerMotion;
   #previous: PlayerMotion;
   #stepTime: number = Number.NEGATIVE_INFINITY;
@@ -157,14 +160,31 @@ export class PlayerPrediction {
    *   told that.
    * @param {number} time - The time on the clock of the page, in
    *   milliseconds.
+   * @param {MapId} [map] - The map the player is in, the village by
+   *   default.
    */
-  constructor(motion: PlayerMotion, step: number, time: number) {
+  constructor(
+    motion: PlayerMotion,
+    step: number,
+    time: number,
+    map: MapId = 'village',
+  ) {
+    this.#map = map;
     this.#motion = motion;
     this.#previous = motion;
     this.#dueTime = time;
     this.#step = step;
     this.#toldStep = step;
     this.#leastOffset = step - time / STEP_MILLISECONDS;
+  }
+
+  /**
+   * The map the player is in, as the page last learnt.
+   *
+   * @returns {MapId} The map.
+   */
+  get map(): MapId {
+    return this.#map;
   }
 
   /**
@@ -294,7 +314,7 @@ export class PlayerPrediction {
         setOff = null;
       }
       this.#waiting = [];
-      this.#motion = stepMotion(this.#motion, this.#step);
+      this.#motion = stepMotion(this.#motion, this.#step, this.#map);
       const record: InputRecord | undefined = this.#records.at(-1);
       if (record !== undefined) {
         record.steps++;
@@ -353,7 +373,7 @@ export class PlayerPrediction {
         );
       }
       for (; steps > 0; steps--) {
-        motion = stepMotion(motion, ++stepped);
+        motion = stepMotion(motion, ++stepped, this.#map);
       }
     }
     this.#step = stepped;
@@ -372,6 +392,41 @@ export class PlayerPrediction {
       this.#motion = motion;
       this.#previous = motion;
     }
+  }
+
+  /**
+   * Starts the player afresh in another map, from what the server tells of
+   * it there, once the server has told that the player is in that map.
+   *
+   * The player becomes what the server tells, moved on by the inputs the
+   * server had not got to and by the steps the page has taken that the
+   * server had not, as in {@link PlayerPrediction.reconcile}, but by the
+   * rules and on the ground of that map, as it goes on moving from then on.
+   * That is no correction, and the player is drawn there at once, without
+   * gliding from where it was.  The inputs go on being numbered from where
+   * they were.
+   *
+   * @param {MapId} map - The map the player is in now.
+   * @param {InputProgress} progress - How far the server had got with the
+   *   inputs of the page, and the motion of the player then, in that map.
+   * @param {number} step - The number of steps the server had taken then.
+   * @param {number} time - The time on the clock of the page, in
+   *   milliseconds, which is no earlier than any time told before.
+   */
+  enterMap(
+    map: MapId,
+    progress: InputProgress,
+    step: number,
+    time: number,
+  ): void {
+    this.advance(time);
+    this.#map = map;
+    const count: number = this.#correctionCount;
+    const last: number | null = this.#lastCorrection;
+    this.reconcile(progress, step, time);
+    this.#correctionCount = count;
+    this.#lastCorrection = last;
+    this.#previous = this.#motion;
   }
 
   /**

@@ -25,6 +25,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CAVE_ROPE,
   CLOVER_PATCHES,
   FOUNTAIN_RIM_RADIUS,
   INVENTORY_SIZE,
@@ -45,6 +46,7 @@ import {
 import type {
   GroundVector,
   ItemKindId,
+  MonsterState,
   Placement,
   PlayerMotion,
   TobyPose,
@@ -384,5 +386,97 @@ describe('describePrompt by a patch of clover', () => {
     expect(describePrompt(EN, BY_FOUNTAIN, 0, world, [])).toBe(
       'Press Space to drink from the fountain',
     );
+  });
+});
+
+describe('describePrompt by the ways into and out of the cave', () => {
+  /** The middle of the burrow of the wild dog. */
+  const BURROW: GroundVector = findPlacement('prop-spawn-stones.glb');
+
+  /** A player in the burrow, facing north. */
+  const IN_BURROW: PlayerMotion = createMotion(BURROW, 180);
+
+  /** A player in the cave by the rope, facing it. */
+  const BY_ROPE: PlayerMotion = createMotion(
+    { x: CAVE_ROPE.x + 0.8, z: CAVE_ROPE.z },
+    -90,
+  );
+
+  /** The wild dog, alive, a metre in front of a player in the burrow. */
+  const DOG: MonsterState = {
+    id: 1,
+    x: BURROW.x,
+    z: BURROW.z - 1,
+    yaw: 0,
+    action: 'Idle',
+    actionCount: 0,
+    health: 60,
+    mode: 'idle',
+  };
+
+  /**
+   * Words the prompt and the space key of a player in a map without
+   * anything to pick, in a language.
+   *
+   * @param {Translator} translator - The translator.
+   * @param {PlayerMotion} motion - The player.
+   * @param {'village' | 'cave'} map - The map it is in.
+   * @param {readonly MonsterState[]} monsters - The monsters there.
+   * @returns {[string | null, string]} The prompt, and the space key.
+   */
+  function describeBoth(
+    translator: Translator,
+    motion: PlayerMotion,
+    map: 'village' | 'cave',
+    monsters: readonly MonsterState[] = [],
+  ): [string | null, string] {
+    const none: WorldItems = { clovers: [], items: [] };
+    return [
+      describePrompt(translator, motion, 0, none, [], map, monsters),
+      describeSpaceKey(translator, motion, 0, none, [], map, monsters),
+    ];
+  }
+
+  it('tells a player in the burrow it can go down, in every language', async () => {
+    expect(describeBoth(EN, IN_BURROW, 'village')).toEqual([
+      'Press Space to go down the burrow',
+      'go down the burrow',
+    ]);
+    expect(
+      describeBoth(await createTranslator('zh-TW'), IN_BURROW, 'village'),
+    ).toEqual(['按空白鍵鑽進巢穴', '鑽進巢穴']);
+    expect(
+      describeBoth(await createTranslator('zh-CN'), IN_BURROW, 'village'),
+    ).toEqual(['按空格键钻进巢穴', '钻进巢穴']);
+    expect(
+      describeBoth(await createTranslator('ja'), IN_BURROW, 'village'),
+    ).toEqual(['スペースキーで巣穴に潜る', '巣穴に潜る']);
+  });
+
+  it('tells a player in the burrow it slashes at the living dog in front', () => {
+    expect(describeBoth(EN, IN_BURROW, 'village', [DOG])).toEqual([
+      null,
+      'slash',
+    ]);
+  });
+
+  it('tells a player by the rope it can climb up, in every language', async () => {
+    expect(describeBoth(EN, BY_ROPE, 'cave')).toEqual([
+      'Press Space to climb up the rope',
+      'climb up the rope',
+    ]);
+    expect(
+      describeBoth(await createTranslator('zh-TW'), BY_ROPE, 'cave'),
+    ).toEqual(['按空白鍵順著繩子爬上去', '順著繩子爬上去']);
+    expect(
+      describeBoth(await createTranslator('zh-CN'), BY_ROPE, 'cave'),
+    ).toEqual(['按空格键顺着绳子爬上去', '顺着绳子爬上去']);
+    expect(describeBoth(await createTranslator('ja'), BY_ROPE, 'cave')).toEqual(
+      ['スペースキーでロープを登る', 'ロープを登る'],
+    );
+  });
+
+  it('tells nothing of the rope on the same spot in the village', () => {
+    expect(describeBoth(EN, BY_ROPE, 'village')).toEqual([null, 'slash']);
   });
 });

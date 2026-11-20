@@ -119,14 +119,31 @@ export class HitMarkers {
       marker.age += seconds;
       const { sprite } = marker;
       if (marker.age >= MARKER_DURATION) {
-        this.#parent.remove(sprite);
-        sprite.material.map?.dispose();
-        sprite.material.dispose();
-        this.#markers.splice(this.#markers.indexOf(marker), 1);
+        this.#removeMarker(marker);
         continue;
       }
       sprite.position.y += RISE_SPEED * seconds;
       sprite.material.opacity = 1 - marker.age / MARKER_DURATION;
     }
+  }
+
+  /** Takes every number away at once, however far it has floated. */
+  clear(): void {
+    for (const marker of [...this.#markers]) {
+      this.#removeMarker(marker);
+    }
+  }
+
+  /**
+   * Takes a number away.
+   *
+   * @param {Marker} marker - The number.
+   */
+  #removeMarker(marker: Marker): void {
+    const { sprite } = marker;
+    this.#parent.remove(sprite);
+    sprite.material.map?.dispose();
+    sprite.material.dispose();
+    this.#markers.splice(this.#markers.indexOf(marker), 1);
   }
 }

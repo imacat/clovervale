@@ -195,6 +195,17 @@ describe('layoutVillage', () => {
     }
   });
 
+  it('leaves the models of the cave out of the village', () => {
+    const files: string[] = layoutVillage([
+      'prop-cave.glb',
+      'prop-cave-torch.glb',
+      'prop-rock.glb',
+    ]).map((placement: Placement) => placement.file);
+    expect(files).not.toContain('prop-cave.glb');
+    expect(files).not.toContain('prop-cave-torch.glb');
+    expect(files).toContain('prop-rock.glb');
+  });
+
   it('stands nothing where there are no models', () => {
     expect(layoutVillage([])).toEqual([]);
     expect(layoutVillage(['notes.glb'])).toEqual([]);

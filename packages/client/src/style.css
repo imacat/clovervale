@@ -34,6 +34,25 @@ canvas {
   display: block;
 }
 
+/*
+ * The veil over the view of the world, below everything else on the page,
+ * which darkens at once as the player goes from one map into another and
+ * clears again.
+ */
+.map-fade {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease-in;
+}
+
+.map-fade.is-dark {
+  opacity: 1;
+  transition: none;
+}
+
 /* What the space bar does, when it does more than slash. */
 .interaction-prompt {
   position: fixed;

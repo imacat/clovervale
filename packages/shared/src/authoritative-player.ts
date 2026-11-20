@@ -31,6 +31,7 @@ import {
   stepMotion,
 } from './player-motion.ts';
 import type { PlayerInput, PlayerMotion } from './player-motion.ts';
+import type { MapId } from './world-map.ts';
 
 /**
  * The most steps an input waits for its turn before it comes into effect
@@ -180,18 +181,20 @@ export class AuthoritativePlayer {
   }
 
   /**
-   * Moves the player one step of the simulation forward, with the inputs
-   * whose turn has come in effect.
+   * Moves the player one step of the simulation forward, in a map, with
+   * the inputs whose turn has come in effect.
    *
    * An input that has waited for {@link INPUT_WAIT_LIMIT} steps comes into
    * effect whether its turn has come or not.
    *
    * @param {number} step - The number of the step, as the server counts
    *   them, which tells where Toby is.
+   * @param {MapId} [map] - The map the player is in, the village by
+   *   default.
    * @returns {StampedInput[]} The inputs that came into effect at the step,
    *   in the order they did.
    */
-  step(step: number): StampedInput[] {
+  step(step: number, map: MapId = 'village'): StampedInput[] {
     const applied: StampedInput[] = [];
     for (
       let next: WaitingInput | undefined = this.#waiting[0];
@@ -208,7 +211,7 @@ export class AuthoritativePlayer {
     for (const waiting of this.#waiting) {
       waiting.waited++;
     }
-    this.#motion = stepMotion(this.#motion, step);
+    this.#motion = stepMotion(this.#motion, step, map);
     this.#steps++;
     return applied;
   }

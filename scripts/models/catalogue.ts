@@ -27,6 +27,7 @@ import {
   buildFountain,
   buildWeaponShop,
 } from './buildings.ts';
+import { buildCave, buildCaveTorch } from './cave.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
 import { buildNpcEmma } from './npc-emma.ts';
 import { buildNpcMartha } from './npc-martha.ts';
@@ -91,5 +92,7 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-yard-wall', build: buildYardWall },
     { name: 'prop-yard-wall-end', build: buildYardWallEnd },
     { name: 'prop-old-well', build: buildOldWell },
+    { name: 'prop-cave', build: buildCave },
+    { name: 'prop-cave-torch', build: buildCaveTorch },
   ];
 }

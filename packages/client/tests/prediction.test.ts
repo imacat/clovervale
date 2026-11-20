@@ -26,6 +26,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AuthoritativePlayer,
+  CAVE_LANDING,
+  CAVE_PASSAGE,
   DEATH_DURATION,
   PLAYER_RADIUS,
   SIMULATION_RATE,
@@ -1270,6 +1272,77 @@ describe('a prediction set right by the server', () => {
     prediction.reconcile({ sequence: 2, steps: 5, motion }, step + 4, 1500);
     expect(prediction.motion).toBe(motion);
     expect(prediction.toldStep).toBe(step + 4);
+  });
+});
+
+describe('a prediction that goes into another map', () => {
+  /** The player as the server tells it, just arrived in the cave. */
+  const LANDED: PlayerMotion = {
+    ...createMotion(CAVE_LANDING, CAVE_LANDING.yaw),
+    actionCount: 3,
+  };
+
+  it('starts afresh where the server tells, without a correction or a glide', () => {
+    const prediction = new PlayerPrediction(START, 0, 0);
+    prediction.issueInput(steer(1, 0), 1000);
+    prediction.issueInput({ type: 'travel' }, 1100);
+    prediction.issueInput(STOP, 1150);
+    prediction.advance(1200);
+    prediction.enterMap(
+      'cave',
+      { sequence: 3, steps: 1, motion: LANDED },
+      30,
+      1200,
+    );
+    expect(prediction.map).toBe('cave');
+    expect(prediction.motion).toEqual(LANDED);
+    expect(prediction.readDrawn(1200)).toEqual(LANDED);
+    expect(prediction.correctionCount).toBe(0);
+    expect(prediction.lastCorrection).toBeNull();
+    expect(prediction.step).toBe(30);
+  });
+
+  it('moves the player on by the inputs the server has not got to there', () => {
+    const prediction = new PlayerPrediction(START, 0, 0);
+    prediction.issueInput({ type: 'travel' }, 1000);
+    prediction.issueInput(steer(1, 0), 1100);
+    prediction.advance(1300);
+    prediction.enterMap(
+      'cave',
+      { sequence: 1, steps: 2, motion: LANDED },
+      25,
+      1300,
+    );
+    expect(prediction.motion.action).toBe('Walk');
+    expect(prediction.motion.x).toBeGreaterThan(CAVE_LANDING.x);
+    expect(prediction.motion.z).toBe(CAVE_LANDING.z);
+    expect(prediction.readDrawn(1300)).toEqual(prediction.motion);
+    expect(prediction.correctionCount).toBe(0);
+  });
+
+  it('walks the player by the ground of the map it is in', () => {
+    const prediction = new PlayerPrediction(START, 0, 0);
+    prediction.enterMap('cave', { sequence: 0, steps: 0, motion: LANDED }, 4, 0);
+    prediction.issueInput(steer(1, 0), 1000);
+    prediction.advance(4000);
+    expect(prediction.motion.x).toBeCloseTo(CAVE_PASSAGE.east - PLAYER_RADIUS);
+  });
+
+  it('goes on numbering its inputs from before', () => {
+    const prediction = new PlayerPrediction(START, 0, 0);
+    prediction.issueInput(steer(1, 0), 1000);
+    prediction.issueInput({ type: 'travel' }, 1100);
+    prediction.enterMap(
+      'cave',
+      { sequence: 2, steps: 1, motion: LANDED },
+      30,
+      1200,
+    );
+    expect(prediction.issueInput(STOP, 1300).sequence).toBe(3);
+  });
+
+  it('starts in the village', () => {
+    expect(new PlayerPrediction(START, 0, 0).map).toBe('village');
   });
 });
 

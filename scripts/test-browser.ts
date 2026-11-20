@@ -40,8 +40,11 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { inflateSync } from 'node:zlib';
 
 import {
+  CAVE_LANDING,
+  CAVE_ROPE,
   SIMULATION_RATE,
   TOBY_ACTIVITIES,
+  WELL_STAND,
   findTobyPose,
 } from '@clovervale/shared';
 import type { TobyActivity, TobyPose } from '@clovervale/shared';
@@ -98,6 +101,27 @@ interface PageState {
   readonly panel: Readonly<Record<string, string>>;
   /** The players the client shows. */
   readonly figures: readonly FigureView[];
+}
+
+/** How a page shows the map its player is in, and what it can do there. */
+interface CaveLook {
+  /** The map the page shows. */
+  readonly map: string;
+  /** The player of the page in the latest snapshot, if it is there. */
+  readonly own: {
+    readonly x: number;
+    readonly z: number;
+    readonly yaw: number;
+    readonly action: string;
+  } | null;
+  /** The monster in the latest snapshot, if it is there. */
+  readonly monster: { readonly x: number; readonly z: number } | null;
+  /** The identifiers of the players the page shows. */
+  readonly figures: readonly number[];
+  /** What the space bar does, as the panel tells. */
+  readonly spaceKey: string;
+  /** The prompt at the foot of the page, if it is shown. */
+  readonly prompt: string | null;
 }
 
 /** A page as it is at one moment: what it tells, and what it draws. */
@@ -535,6 +559,36 @@ const BAG_KEYS = {
  * metres.
  */
 const ITEM_NEARNESS = 0.05;
+/**
+ * The farthest east the player walks on its way to the burrow among the
+ * spawn stones, in metres, which has it well within reach of the burrow.
+ */
+const BURROW_X = 10.8;
+/** What the panel tells the space bar does in the burrow. */
+const ENTER_KEY = 'go down the burrow';
+/** The prompt in the burrow. */
+const ENTER_PROMPT = 'Press Space to go down the burrow';
+/** What the panel tells the space bar does by the rope in the cave. */
+const CLIMB_KEY = 'climb up the rope';
+/** The prompt by the rope in the cave. */
+const CLIMB_PROMPT = 'Press Space to climb up the rope';
+/** How long the view takes to clear after the player changes maps, in ms. */
+const FADE_DURATION = 1000;
+/** The least brightness of the view of the cave, from 0 to 255. */
+const CAVE_LEAST_BRIGHTNESS = 6;
+/** How long the camera takes to settle after it is handled, in ms. */
+const CAMERA_SETTLE_DURATION = 1500;
+/** How far one turn of the mouse wheel goes, in pixels. */
+const ZOOM_DELTA = 100;
+/** How many turns of the mouse wheel bring the camera close to a torch. */
+const CLOSE_ZOOM_TURNS = 8;
+/** How near a player is shown to where it arrives, in metres. */
+const ARRIVAL_NEARNESS = 0.3;
+/**
+ * The directory to save the views of the cave in, if the environment names
+ * one.
+ */
+const SCREENSHOT_DIR: string | undefined = process.env.CLOVERVALE_SCREENSHOTS;
 /** The language the pages speak unless told otherwise. */
 const PAGE_LANGUAGE = 'en';
 /** The name of the language control of the panel in English. */
@@ -923,6 +977,36 @@ function createMonsterExpression(id: number): string {
       monster: window.clovervale.listLatestMonsters()[0] ?? null,
       bar: window.clovervale.describeMonsters()[0]?.health ?? null,
       hits: window.clovervale.listShownHits(),
+    });
+  })()`;
+}
+
+/**
+ * Makes the expression that tells how a page shows the map its player is
+ * in, and what it can do there, as JSON.
+ *
+ * @param {number} id - The identifier of the player.
+ * @returns {string} The expression.
+ */
+function createCaveExpression(id: number): string {
+  return `(() => {
+    const panel = {};
+    for (const input of document.querySelectorAll('input[aria-labelledby]')) {
+      const labelId = input.getAttribute('aria-labelledby');
+      const label = document.getElementById(labelId)?.textContent;
+      if (label) {
+        panel[label] = input.value;
+      }
+    }
+    const prompt = document.querySelector('.interaction-prompt');
+    return JSON.stringify({
+      map: window.clovervale.describeMap(),
+      own: window.clovervale.listLatestPlayers()
+        .find((player) => player.id === ${String(id)}) ?? null,
+      monster: window.clovervale.listLatestMonsters()[0] ?? null,
+      figures: window.clovervale.describeFigures().map((figure) => figure.id),
+      spaceKey: panel['Space key'] ?? '',
+      prompt: prompt === null || prompt.hidden ? null : prompt.textContent,
     });
   })()`;
 }
@@ -3746,6 +3830,368 @@ async function checkCamera(
 }
 
 /**
+ * Reads how a page shows the map its player is in.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player of the first page.
+ * @returns {Promise<CaveLook>} How the page shows it.
+ */
+async function readCaveLook(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<CaveLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, createCaveExpression(id)),
+  ) as CaveLook;
+}
+
+/**
+ * Describes how a page shows the map its player is in, for the error
+ * messages.
+ *
+ * @param {CaveLook} look - How the page shows it.
+ * @returns {string} The description.
+ */
+function describeCaveLook(look: CaveLook): string {
+  const { own } = look;
+  const player: string =
+    own === null
+      ? 'without the player'
+      : `with the player at x ${own.x.toFixed(2)}, z ${own.z.toFixed(2)}, ` +
+        `facing ${own.yaw.toFixed(0)} degrees, doing "${own.action}"`;
+  const prompt: string =
+    look.prompt === null ? 'no prompt' : `the prompt "${look.prompt}"`;
+  return (
+    `the ${look.map} ${player}, the players ${JSON.stringify(look.figures)}, ` +
+    `the space bar to "${look.spaceKey}" and ${prompt}`
+  );
+}
+
+/**
+ * Saves the view of a page as a picture, if the environment names a
+ * directory for the views.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {string} name - The file name of the picture.
+ * @returns {Promise<void>} A promise settled once it is saved, if it is.
+ */
+async function saveView(
+  session: BidiSession,
+  context: string,
+  name: string,
+): Promise<void> {
+  if (SCREENSHOT_DIR === undefined) {
+    return;
+  }
+  const screenshot = (await session.send('browsingContext.captureScreenshot', {
+    context,
+  })) as { data: string };
+  writeFileSync(
+    path.join(SCREENSHOT_DIR, name),
+    Buffer.from(screenshot.data, 'base64'),
+  );
+}
+
+/**
+ * Turns the camera of a page around what it looks at, by dragging across
+ * the view with the left mouse button, and waits for it to settle.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} share - How far to turn it, as a share of a whole turn,
+ *   one way or the other.
+ * @returns {Promise<void>} A promise settled once it has settled.
+ */
+async function turnCamera(
+  session: BidiSession,
+  context: string,
+  share: number,
+): Promise<void> {
+  const state: PageState = await readPageState(session, context);
+  // A drag across the height of the view turns the camera a whole turn.
+  const across: number = Math.round(state.height * share);
+  // The drag runs across the middle of the left part of the view, clear of
+  // the panel on the right, whichever way it goes.
+  const x: number = Math.round(state.width / 3 - across / 2);
+  const y: number = Math.round(state.height / 2);
+  await session.send('input.performActions', {
+    context,
+    actions: [
+      {
+        type: 'pointer',
+        id: 'mouse',
+        parameters: { pointerType: 'mouse' },
+        actions: [
+          { type: 'pointerMove', x, y },
+          { type: 'pointerDown', button: 0 },
+          { type: 'pointerMove', x: x + across, y, duration: 300 },
+          { type: 'pointerUp', button: 0 },
+        ],
+      },
+    ],
+  });
+  await sleep(CAMERA_SETTLE_DURATION);
+}
+
+/**
+ * Zooms the camera of a page in or out with the mouse wheel over the view,
+ * and waits for it to settle.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} delta - How far to turn the wheel, in pixels: up to zoom
+ *   in, below zero, and down to zoom out.
+ * @returns {Promise<void>} A promise settled once it has settled.
+ */
+async function zoomCamera(
+  session: BidiSession,
+  context: string,
+  delta: number,
+): Promise<void> {
+  const state: PageState = await readPageState(session, context);
+  const x: number = Math.round(state.width / 4);
+  const y: number = Math.round(state.height / 2);
+  await session.send('input.performActions', {
+    context,
+    actions: [
+      {
+        type: 'wheel',
+        id: 'wheel',
+        actions: [{ type: 'scroll', x, y, deltaX: 0, deltaY: delta }],
+      },
+    ],
+  });
+  await sleep(CAMERA_SETTLE_DURATION);
+}
+
+/**
+ * Saves more views of the cave for the owner to look at, if the
+ * environment names a directory for the views: close by the torches at the
+ * landing, and looking back east up the slope to the mouth of the burrow,
+ * at noon and at midnight.  The camera ends as it started.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page, whose player
+ *   stands at the landing.
+ * @returns {Promise<void>} A promise settled once the views are saved.
+ */
+async function saveCaveViews(
+  session: BidiSession,
+  context: string,
+): Promise<void> {
+  if (SCREENSHOT_DIR === undefined) {
+    return;
+  }
+  for (let turn = 0; turn < CLOSE_ZOOM_TURNS; turn++) {
+    await zoomCamera(session, context, -ZOOM_DELTA);
+  }
+  await saveView(session, context, 'cave-torch.png');
+  for (let turn = 0; turn < CLOSE_ZOOM_TURNS; turn++) {
+    await zoomCamera(session, context, ZOOM_DELTA);
+  }
+  await turnCamera(session, context, 0.5);
+  await saveView(session, context, 'cave-mouth-day.png');
+  await setControl(session, context, PREVIEW_HOUR_CONTROL, NIGHT_CLOCK);
+  await setControl(session, context, PREVIEW_CONTROL, true);
+  try {
+    await sleep(CAMERA_SETTLE_DURATION);
+    await saveView(session, context, 'cave-mouth-night.png');
+  } finally {
+    await setControl(session, context, PREVIEW_CONTROL, false);
+  }
+  await turnCamera(session, context, -0.5);
+}
+
+/**
+ * Checks that a player goes down into a cave of its own at the burrow of
+ * the wild dog among the spawn stones, and climbs back up out of it by the
+ * rope at the bottom of the old well shaft.  In the burrow, its page tells
+ * the space bar goes down, and once the space bar is pressed, the page
+ * shows the cave, lit by its torches, with the player at the landing at the
+ * foot of the slope, alone, while the other page no longer shows the
+ * player.  The player walks west down the passage to the rope, where its
+ * page tells the space bar climbs up, and once it is pressed, both pages
+ * show the player beside the old well in the yard of the chief's house.
+ *
+ * The player walks to the spawn stones as in {@link checkMonster}.  The dog
+ * is left alive: while it stands where a slash would hit it, the space bar
+ * slashes, and the player turns away from it, a tap of a key at a time,
+ * until the space bar goes down.  In the cave, the camera looks the way
+ * the player faces as it arrives, west down the passage, and the player
+ * walks forward until its page tells the space bar climbs up.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {string} watcher - The browsing context of the other page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the player has passed.
+ * @throws {Error} If either page does not show the cave so.
+ */
+async function checkCave(
+  session: BidiSession,
+  actor: string,
+  watcher: string,
+  id: number,
+): Promise<void> {
+  const look = (): Promise<CaveLook> => readCaveLook(session, actor, id);
+  const readBoth = (): Promise<[CaveLook, CaveLook]> =>
+    Promise.all([look(), readCaveLook(session, watcher, id)]);
+  await walkUntil(
+    session,
+    actor,
+    id,
+    'a',
+    (seen: MonsterLook) => (seen.own?.x ?? Infinity) <= 1.5,
+    'to the path',
+  );
+  await walkUntil(
+    session,
+    actor,
+    id,
+    'd',
+    (seen: MonsterLook) => (seen.own?.x ?? -Infinity) >= -0.8,
+    'to the path',
+  );
+  await walkUntil(
+    session,
+    actor,
+    id,
+    's',
+    (seen: MonsterLook) => (seen.own?.z ?? -Infinity) >= ROUTE_LEAST_Z,
+    'along the path',
+  );
+  await stepWithin(
+    session,
+    actor,
+    id,
+    ROUTE_LEAST_Z,
+    ROUTE_MOST_Z,
+    'along the path',
+  );
+  await walkUntil(
+    session,
+    actor,
+    id,
+    'd',
+    (seen: MonsterLook) => (seen.own?.x ?? -Infinity) >= BURROW_X,
+    'into the burrow',
+  );
+  const deadline: number = Date.now() + LEG_TIMEOUT;
+  let seen: CaveLook = await look();
+  while (seen.map !== 'cave') {
+    if (Date.now() > deadline) {
+      throw new Error(
+        `In the burrow, the first page tells ${describeCaveLook(seen)}.`,
+      );
+    }
+    if (seen.spaceKey === ENTER_KEY && seen.own?.action === 'Idle') {
+      if (seen.prompt !== ENTER_PROMPT) {
+        throw new Error(
+          `In the burrow, the first page tells ${describeCaveLook(seen)}.`,
+        );
+      }
+      await sendKey(session, actor, 'keyDown', ' ');
+      await sendKey(session, actor, 'keyUp', ' ');
+    } else if (seen.own !== null && seen.monster !== null) {
+      // Turn away from the dog, which stands where a slash would hit it.
+      const dx: number = seen.own.x - seen.monster.x;
+      const dz: number = seen.own.z - seen.monster.z;
+      const turn: number =
+        (Math.round((Math.atan2(dx, dz) * 4) / Math.PI) + 8) % 8;
+      for (const key of TURN_KEYS[turn] ?? []) {
+        await sendKey(session, actor, 'keyDown', key);
+      }
+      await sleep(TAP_DURATION);
+      for (const key of TURN_KEYS[turn] ?? []) {
+        await sendKey(session, actor, 'keyUp', key);
+      }
+    }
+    await sleep(POLL_INTERVAL * 3);
+    seen = await look();
+  }
+
+  const isNear = (
+    own: CaveLook['own'],
+    place: { readonly x: number; readonly z: number },
+  ): boolean =>
+    own !== null &&
+    Math.hypot(own.x - place.x, own.z - place.z) <= ARRIVAL_NEARNESS;
+  const [below] = await waitFor(
+    readBoth,
+    ([own, other]: [CaveLook, CaveLook]) =>
+      own.map === 'cave' &&
+      isNear(own.own, CAVE_LANDING) &&
+      own.figures.length === 1 &&
+      own.figures[0] === id &&
+      own.monster === null &&
+      !other.figures.includes(id),
+    ACTION_TIMEOUT,
+    ([own, other]: [CaveLook, CaveLook]) =>
+      `With its player gone down the burrow, the first page tells ` +
+      `${describeCaveLook(own)}, and the second page ` +
+      `${describeCaveLook(other)}.`,
+  );
+  await sleep(FADE_DURATION);
+  const landing: Pixels = await captureView(session, actor);
+  const brightness: number = measureBrightness(landing);
+  if (brightness < CAVE_LEAST_BRIGHTNESS) {
+    throw new Error(
+      `With its player in the cave, the first page draws a brightness of ` +
+        `${brightness.toFixed(1)}, ${describeCaveLook(below)}.`,
+    );
+  }
+  await saveView(session, actor, 'cave-landing.png');
+  await saveCaveViews(session, actor);
+
+  await sendKey(session, actor, 'keyDown', 'w');
+  try {
+    await waitFor(
+      look,
+      (shown: CaveLook) => shown.spaceKey === CLIMB_KEY,
+      LEG_TIMEOUT,
+      (shown: CaveLook) =>
+        `With the W key held down to walk to the rope, the first page ` +
+        `tells ${describeCaveLook(shown)}.`,
+    );
+  } finally {
+    await sendKey(session, actor, 'keyUp', 'w');
+  }
+  await waitFor(
+    look,
+    (shown: CaveLook) =>
+      shown.own?.action === 'Idle' &&
+      shown.spaceKey === CLIMB_KEY &&
+      shown.prompt === CLIMB_PROMPT &&
+      shown.own.x < CAVE_ROPE.x + 1.5,
+    ACTION_TIMEOUT,
+    (shown: CaveLook) =>
+      `By the rope, the first page tells ${describeCaveLook(shown)}.`,
+  );
+  await saveView(session, actor, 'cave-well.png');
+  await sendKey(session, actor, 'keyDown', ' ');
+  await sendKey(session, actor, 'keyUp', ' ');
+  await waitFor(
+    readBoth,
+    ([own, other]: [CaveLook, CaveLook]) =>
+      own.map === 'village' &&
+      isNear(own.own, WELL_STAND) &&
+      own.figures.includes(id) &&
+      other.figures.includes(id) &&
+      isNear(other.own, WELL_STAND),
+    ACTION_TIMEOUT,
+    ([own, other]: [CaveLook, CaveLook]) =>
+      `With its player climbed up the rope, the first page tells ` +
+      `${describeCaveLook(own)}, and the second page ` +
+      `${describeCaveLook(other)}.`,
+  );
+  await sleep(FADE_DURATION);
+  await saveView(session, actor, 'cave-out.png');
+}
+
+/**
  * Reads the time of day a page tells.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -4241,6 +4687,7 @@ async function checkClient(): Promise<void> {
     const other: PageState = await readPageState(session, second);
     const otherId = Number(/^#(\d+)/.exec(other.panel.Player ?? '')?.[1]);
     await checkInventory(session, first, second, id, otherId);
+    await checkCave(session, first, second, id);
     await checkCamera(session, first, id, second, otherId);
 
     const dayPort: number = await startGameServer([
@@ -4280,7 +4727,8 @@ try {
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, show Toby ' +
       'alike, hear what Nancy says, speak the language chosen, pick, ' +
-      'carry and put down a clover, have the ' +
+      'carry and put down a clover, go down into a cave of their own and ' +
+      'climb back up, have the ' +
       'camera follow another player, darken at night, preview a time of ' +
       'day on their own, and agree on the time of day.',
   );

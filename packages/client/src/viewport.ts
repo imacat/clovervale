@@ -21,7 +21,12 @@
  * @module client/viewport Showing a scene in the browser window.
  */
 
-import { PCFShadowMap, PerspectiveCamera, WebGLRenderer } from 'three';
+import {
+  MathUtils,
+  PCFShadowMap,
+  PerspectiveCamera,
+  WebGLRenderer,
+} from 'three';
 import type { Scene } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -52,6 +57,27 @@ export interface Viewport {
    * @param {GroundVector} focus - Where what the camera looks at stands now.
    */
   readonly follow: (focus: GroundVector) => void;
+  /**
+   * Shows another scene from now on, with the camera at once on what it
+   * looks at there, looking along a heading, at the distance it had, and
+   * looking down on it at {@link SWITCH_ELEVATION} at least, so that what
+   * stands about it hides it seldom.  The trailing camera starts afresh,
+   * so that nothing it did in the scene before carries over.
+   *
+   * @param {Scene} scene - The scene to show.
+   * @param {GroundVector} focus - Where what the camera looks at stands in
+   *   that scene.
+   * @param {number} heading - The way the camera is to look along the
+   *   ground, as the turn around the Y axis from +Z towards +X, in degrees.
+   * @param {number} leastElevation - The least angle the camera is to look
+   *   down at what it looks at from then on, in degrees.
+   */
+  readonly switchScene: (
+    scene: Scene,
+    focus: GroundVector,
+    heading: number,
+    leastElevation: number,
+  ) => void;
 }
 
 /**
@@ -61,6 +87,19 @@ export interface Viewport {
 export const CAMERA_MAX_DISTANCE = 90;
 /** The farthest from the camera anything is drawn, in metres. */
 export const CAMERA_FAR = 600;
+
+/**
+ * The least angle the camera looks down at what it looks at in the village,
+ * in degrees: barely above the ground, about 1.7 degrees, but never from
+ * below it.
+ */
+export const VILLAGE_LEAST_ELEVATION: number = (0.03 * 180) / Math.PI;
+
+/**
+ * The least angle the camera looks down at what it looks at right after it
+ * is moved into another scene, in degrees.
+ */
+export const SWITCH_ELEVATION = 45;
 
 /** The height above the ground the camera looks at, in metres. */
 const FOCUS_HEIGHT = 1.2;
@@ -73,7 +112,7 @@ const FOCUS_HEIGHT = 1.2;
  * camera also turns softly round behind the way what it looks at goes
  * forwards, while the owner leaves it alone.
  *
- * @param {Scene} scene - The scene to show.
+ * @param {Scene} scene - The scene to show at first.
  * @param {GroundVector} focus - Where what the camera looks at stands at
  *   first.
  * @param {Readonly<TrailingCameraSettings>} trailing - How the owner has
@@ -102,7 +141,8 @@ export function showScene(
   controls.maxDistance = CAMERA_MAX_DISTANCE;
   // The camera stays on what it follows, and never looks up from below it.
   controls.enablePan = false;
-  controls.maxPolarAngle = Math.PI / 2 - 0.03;
+  controls.maxPolarAngle =
+    Math.PI / 2 - MathUtils.degToRad(VILLAGE_LEAST_ELEVATION);
   controls.update();
 
   const fitViewToWindow = (): void => {
@@ -155,6 +195,7 @@ export function showScene(
     camera.position.z = controls.target.z - x * sin + z * cos;
   };
 
+  let shown: Scene = scene;
   let lastTime: number = performance.now();
   renderer.setAnimationLoop((time: number) => {
     // A page left in the background must not leap ahead when it comes back.
@@ -163,7 +204,7 @@ export function showScene(
     update(seconds);
     steerCamera(seconds);
     controls.update();
-    renderer.render(scene, camera);
+    renderer.render(shown, camera);
   });
 
   return {
@@ -177,6 +218,35 @@ export function showScene(
       camera.position.z += next.z - controls.target.z;
       controls.target.x = next.x;
       controls.target.z = next.z;
+    },
+    switchScene: (
+      next: Scene,
+      focus: GroundVector,
+      heading: number,
+      leastElevation: number,
+    ): void => {
+      shown = next;
+      controls.maxPolarAngle =
+        Math.PI / 2 - MathUtils.degToRad(leastElevation);
+      const distance: number = camera.position.distanceTo(controls.target);
+      const ground: number = Math.hypot(
+        camera.position.x - controls.target.x,
+        camera.position.z - controls.target.z,
+      );
+      const elevation: number = Math.max(
+        Math.atan2(camera.position.y - controls.target.y, ground),
+        MathUtils.degToRad(Math.max(SWITCH_ELEVATION, leastElevation)),
+      );
+      const reach: number = distance * Math.cos(elevation);
+      const turn: number = MathUtils.degToRad(heading);
+      controls.target.set(focus.x, FOCUS_HEIGHT, focus.z);
+      camera.position.set(
+        focus.x - reach * Math.sin(turn),
+        FOCUS_HEIGHT + distance * Math.sin(elevation),
+        focus.z - reach * Math.cos(turn),
+      );
+      trailingCamera.stop();
+      controls.update();
     },
   };
 }
