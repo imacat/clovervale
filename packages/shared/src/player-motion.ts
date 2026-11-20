@@ -143,6 +143,19 @@ export interface UseInput {
 }
 
 /**
+ * The input that gives the reply a player chooses among those it is
+ * offered in the dialogue it is in, or ends a dialogue that offers none.
+ * It changes nothing in the motion of the player; what comes of it is for
+ * the server alone to decide.
+ */
+export interface ReplyInput {
+  /** The input discriminator. */
+  readonly type: 'reply';
+  /** The number of the reply among those offered, from 0. */
+  readonly choice: number;
+}
+
+/**
  * The input that makes a player take the way into another map within its
  * reach: down the burrow of the wild dog into the cave, or up the rope out
  * of it.  It changes nothing in the motion of the player; what comes of it
@@ -160,6 +173,7 @@ export type PlayerInput =
   | PickInput
   | DropInput
   | UseInput
+  | ReplyInput
   | TravelInput;
 
 /**
@@ -194,8 +208,8 @@ export function createMotion(
  * {@link findInteraction} tells from where it stands and which way it faces
  * at the step it starts, and from where Toby is then, unless the player
  * cannot interact then, as {@link canInteract} tells, in which case it does
- * none of them, then or later.  A pick, a put-down, a use or a travel
- * leaves the motion as it is.
+ * none of them, then or later.  A pick, a put-down, a use, a reply or a
+ * travel leaves the motion as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.

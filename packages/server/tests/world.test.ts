@@ -1598,6 +1598,10 @@ function admitCarrier(
     deathSteps: 0,
     lastSlash: null,
     inventory: [...carried],
+    acquaintances: [],
+    dialogue: null,
+    turnCount: 0,
+    speeches: [],
   };
   world.admitPlayer(player, isInCave ? CAVE_LANDING : null);
   return player.id;
@@ -1778,6 +1782,10 @@ describe('a world of the cave', () => {
       deathSteps: 0,
       lastSlash: null,
       inventory: [...carried],
+      acquaintances: [],
+      dialogue: null,
+      turnCount: 0,
+      speeches: [],
     };
     world.admitPlayer(player, CAVE_LANDING);
     return [world, player.id];
@@ -2171,8 +2179,14 @@ describe('a world of the cave', () => {
     expect(findDog(world, 1)?.mode ?? 'dead').toBe('dead');
   });
 
-  it('has the prisoner talked to through his bars, unhurt', () => {
-    const [world, id] = enterCave();
+  /**
+   * Walks a player of the cave up to the bars of the cell of Edwin, facing
+   * him, and stops it there.
+   *
+   * @param {World} world - The cave.
+   * @param {number} id - The identifier of the player.
+   */
+  function faceEdwin(world: World, id: number): void {
     const at: GroundVector =
       edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
     walkInCave(world, id, { x: at.x, z: 0 });
@@ -2180,6 +2194,41 @@ describe('a world of the cave', () => {
     stepTimes(world, 2 * SIMULATION_RATE);
     steerPlayer(world, id, { x: 0, z: 0 });
     world.step();
+  }
+
+  /**
+   * Has a player talk to whoever it faces, and waits for the talk to end.
+   *
+   * @param {World} world - The cave.
+   * @param {number} id - The identifier of the player.
+   */
+  function talkTo(world: World, id: number): void {
+    interactPlayer(world, id);
+    stepTimes(world, TALK_STEPS + 1);
+  }
+
+  /**
+   * Has a player choose a reply in its dialogue, and takes a step.
+   *
+   * @param {World} world - The cave.
+   * @param {number} id - The identifier of the player.
+   * @param {number} choice - The number of the reply, from 0.
+   */
+  function reply(world: World, id: number, choice: number): void {
+    world.receiveInput(id, {
+      type: 'reply',
+      choice,
+      sequence: ++lastSequence,
+      after: 0,
+    });
+    world.step();
+  }
+
+  it('has the prisoner talked to through his bars, unhurt', () => {
+    const [world, id] = enterCave();
+    const at: GroundVector =
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+    faceEdwin(world, id);
     const before: PlayerState = findPlayer(world, id);
     expect(before.z).toBeGreaterThan(at.z);
     interactPlayer(world, id);
@@ -2191,5 +2240,134 @@ describe('a world of the cave', () => {
     });
     expect(world.findSlash(id)).toBeNull();
     expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('has Edwin plead, tell who he is, and give his message', () => {
+    const [world, id] = enterCave();
+    faceEdwin(world, id);
+    expect(world.findDialogue(id)).toBeNull();
+    talkTo(world, id);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'edwin',
+      line: 'dialogue.edwin.plea',
+      replies: ['dialogue.edwin.askWho'],
+      turn: 1,
+    });
+    expect(world.findAcquaintances(id)).toEqual([]);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'edwin',
+      line: 'dialogue.edwin.identity',
+      replies: ['dialogue.edwin.offerKey'],
+      turn: 2,
+    });
+    expect(world.findAcquaintances(id)).toEqual(['edwin']);
+    expect(world.findInventory(id)).toEqual([]);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toMatchObject({
+      line: 'dialogue.edwin.errand',
+      replies: [],
+    });
+    expect(world.findInventory(id)).toEqual(['clovervale-message']);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(world.takeSpeeches(id)).toEqual([]);
+  });
+
+  it('ignores a reply that is not offered', () => {
+    const [world, id] = enterCave();
+    faceEdwin(world, id);
+    talkTo(world, id);
+    reply(world, id, 1);
+    expect(world.findDialogue(id)).toMatchObject({
+      line: 'dialogue.edwin.plea',
+      turn: 1,
+    });
+  });
+
+  it('has Edwin only remind a player who carries his message', () => {
+    const [world, id] = enterCave();
+    faceEdwin(world, id);
+    talkTo(world, id);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    talkTo(world, id);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(world.takeSpeeches(id)).toEqual([
+      { villager: 'edwin', line: 'dialogue.edwin.reminder' },
+    ]);
+    expect(world.takeSpeeches(id)).toEqual([]);
+    expect(world.findInventory(id)).toEqual(['clovervale-message']);
+  });
+
+  it('has Edwin write his message again for a player who lost it', () => {
+    const [world, id] = enterCave();
+    faceEdwin(world, id);
+    talkTo(world, id);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    world.receiveInput(id, {
+      type: 'drop',
+      slot: 0,
+      sequence: ++lastSequence,
+      after: 0,
+    });
+    world.step();
+    expect(world.findInventory(id)).toEqual([]);
+    talkTo(world, id);
+    expect(world.findDialogue(id)).toMatchObject({
+      line: 'dialogue.edwin.wonder',
+      replies: ['dialogue.edwin.tellLost'],
+    });
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toMatchObject({
+      line: 'dialogue.edwin.rewrite',
+      replies: [],
+    });
+    expect(world.findInventory(id)).toEqual(['clovervale-message']);
+  });
+
+  it('lays his message at the feet of a player with a full bag', () => {
+    const [world, id] = enterCave(
+      new Array<ItemKindId>(INVENTORY_SIZE).fill('clover'),
+    );
+    faceEdwin(world, id);
+    talkTo(world, id);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    const { x, z }: PlayerState = findPlayer(world, id);
+    expect(world.describeItems().items).toEqual([
+      expect.objectContaining({ kind: 'clovervale-message' }),
+    ]);
+    const [item] = world.describeItems().items;
+    expect(Math.hypot((item?.x ?? NaN) - x, (item?.z ?? NaN) - z)).toBeLessThan(
+      0.01,
+    );
+  });
+
+  it('holds the player and pauses the dogs while it is in a dialogue', () => {
+    const [world, id] = enterCave([], true);
+    faceEdwin(world, id);
+    talkTo(world, id);
+    expect(world.findDialogue(id)).not.toBeNull();
+    const player: PlayerState = findPlayer(world, id);
+    const dogs: MonsterState[] = world.listMonsters();
+    steerPlayer(world, id, { x: 0, z: 1 });
+    stepTimes(world, 10 * SIMULATION_RATE);
+    expect(findPlayer(world, id)).toMatchObject({
+      x: player.x,
+      z: player.z,
+      action: 'Idle',
+    });
+    expect(world.listMonsters()).toEqual(dogs);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toBeNull();
+    steerPlayer(world, id, { x: 0, z: 0 });
+    stepTimes(world, 10 * SIMULATION_RATE);
+    expect(world.listMonsters()).not.toEqual(dogs);
   });
 });

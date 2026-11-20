@@ -42,6 +42,7 @@ import {
 } from '@clovervale/shared';
 import type {
   ClientMessage,
+  DialogueView,
   EntityRef,
   GameEvent,
   GroundVector,
@@ -58,6 +59,7 @@ import type {
   SlashJudgement,
   StampedInput,
   Villager,
+  VillagerId,
   WorldItems,
 } from '@clovervale/shared';
 
@@ -76,6 +78,10 @@ import {
 } from './correction-smoothing.ts';
 import { DayClock, findShownTime } from './day-clock.ts';
 import type { DaylightLook } from './daylight.ts';
+import { DialogueBox } from './dialogue-box.ts';
+import type { DialogueRequest, DialogueResponse } from './dialogue-box.ts';
+import { createDialogueView } from './dialogue-view.ts';
+import type { DialogueBoxView } from './dialogue-view.ts';
 import { EventSchedule } from './event-schedule.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
@@ -143,7 +149,7 @@ import { SpeechBubble, findHeadTop } from './speech-bubble.ts';
 import './style.css';
 import { TalkWatch } from './talk-watch.ts';
 import { TobyFigure } from './toby-figure.ts';
-import { Translator } from './translator.ts';
+import { Translator, isMessageId } from './translator.ts';
 import {
   createMonsterFigure,
   createPlayerFigure,
@@ -153,6 +159,7 @@ import {
 } from './village-scene.ts';
 import { VILLAGE_LEAST_ELEVATION, showScene } from './viewport.ts';
 import type { Viewport } from './viewport.ts';
+import { describeVillager } from './villager-words.ts';
 import { WindowGlow } from './window-glow.ts';
 
 /** The URL of the directory of the models, relative to the page. */
@@ -221,6 +228,11 @@ let lastSlash: SlashJudgement | null = null;
 let worldItems: WorldItems | null = null;
 /** What the player of the page carries, as the server last told. */
 let inventory: readonly ItemKindId[] | null = null;
+/**
+ * The villagers who have told the player of the page who they are, as the
+ * server last told.
+ */
+let acquaintances: readonly VillagerId[] = [];
 
 /** The models that stand in the village whoever is connected. */
 const actors: Actor[] = [];
@@ -263,6 +275,16 @@ const bagView: BagView = createBagView(
   bag,
   (request: ItemRequest) => {
     carryOutItemAction(request);
+  },
+);
+/** The dialogue the player of the page is in, and the reply chosen. */
+const dialogueBox = new DialogueBox();
+const dialogueView: DialogueBoxView = createDialogueView(
+  document.body,
+  translator,
+  dialogueBox,
+  (request: DialogueRequest) => {
+    sendInput(request);
   },
 );
 /** The notices of the items the player of the page gets. */
@@ -316,7 +338,10 @@ const viewport: Viewport = showScene(
     fountainGlow?.update(seconds);
     forgeGlow?.update(seconds);
     figures.update(seconds);
-    monsterFigures.update(seconds);
+    // The monsters of the cave stand still while its player is in a
+    // dialogue, as the server holds them.
+    const isPaused: boolean = dialogueBox.isOpen && shownMap === 'cave';
+    monsterFigures.update(isPaused ? 0 : seconds);
     markers.update(seconds);
     speech.update(seconds);
   },
@@ -337,6 +362,7 @@ Object.defineProperty(window, 'clovervale', {
     listShownHits: () => [...shownHits],
     listShownHeals: () => [...shownHeals],
     describeSpeech: () => speech.describe(),
+    describeDialogue: () => dialogueView.describe(),
     describeToby: () => toby?.describe() ?? null,
     describeTimeOfDay: () => ({
       world: dayClock.read(performance.now()),
@@ -564,8 +590,9 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * player of the page is shown at as it walks, running on evenly whether it
  * walks or rests, while the player of the page is shown as predicted, and as
  * he is when the others are shown otherwise.  Once the player of the page
- * starts to talk to a villager, as predicted, what the villager says is shown
- * above its head, and follows the head of Toby as he goes on and squats.
+ * starts to talk to a villager that chatters, as predicted, what the villager
+ * says is shown above its head, and follows the head of Toby as he goes on and
+ * squats.  The prompt is hidden while the player is in a dialogue.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -608,15 +635,18 @@ function showPlayers(): void {
   const carried: readonly ItemKindId[] = inventory ?? [];
   const monsters: readonly MonsterState[] = timeline.latestMonsters ?? [];
   prompt.show(
-    describePrompt(
-      translator,
-      predicted,
-      nextStep,
-      world,
-      carried,
-      shownMap,
-      monsters,
-    ),
+    dialogueBox.isOpen
+      ? null
+      : describePrompt(
+          translator,
+          predicted,
+          nextStep,
+          world,
+          carried,
+          shownMap,
+          monsters,
+          acquaintances,
+        ),
   );
   panel.showInteraction(
     describeSpaceKey(
@@ -627,6 +657,7 @@ function showPlayers(): void {
       carried,
       shownMap,
       monsters,
+      acquaintances,
     ),
   );
   const villager: Villager | null = talks.noticeTalk(
@@ -634,7 +665,11 @@ function showPlayers(): void {
     prediction?.step ?? 0,
     shownMap,
   );
-  if (villager !== null) {
+  // A villager with something to tell says what the server tells it to.
+  if (
+    villager !== null &&
+    describeVillager(translator, villager).lines.length > 0
+  ) {
     speech.say(villager, findShownHead(villager, shownStep ?? 0));
   }
   if (TOBY_VILLAGER !== undefined && shownStep !== null) {
@@ -760,6 +795,23 @@ function receiveMessage(data: string): void {
         message.players.find((player: PlayerState) => player.id === ownId)
           ?.health ?? PLAYER_HEALTH;
       bagView.show(inventory, health);
+      showDialogue(message.dialogue, message.acquaintances);
+    }
+    return;
+  }
+  if (message.type === 'speech') {
+    const { line } = message;
+    const villager: Villager | undefined = VILLAGERS.find(
+      (candidate: Villager) => candidate.id === message.villager,
+    );
+    if (
+      ownId !== null &&
+      villager?.map === shownMap &&
+      isMessageId(line) &&
+      !dialogueBox.isOpen
+    ) {
+      const step: number = prediction?.step ?? 0;
+      speech.say(villager, findShownHead(villager, step), line);
     }
     return;
   }
@@ -778,6 +830,38 @@ function receiveMessage(data: string): void {
   dayClock.start(message.day);
   showServer(() => translator.translate('server.connected', { version }));
   panel.showReadout(describeSnapshot(translator, ownId, null));
+}
+
+/**
+ * Shows the dialogue the player of the page is in, as the server tells,
+ * with the villagers called by the names they go by once they have told the
+ * player who they are.  As a dialogue opens, the bag closes, the bubble of
+ * any villager is taken away, and the keys held down walk the player no
+ * more.
+ *
+ * @param {DialogueView | null} dialogue - The dialogue, or `null` while
+ *   the player is in none.
+ * @param {readonly VillagerId[]} known - The villagers who have told the
+ *   player who they are.
+ */
+function showDialogue(
+  dialogue: DialogueView | null,
+  known: readonly VillagerId[],
+): void {
+  const wasOpen: boolean = dialogueBox.isOpen;
+  acquaintances = known;
+  speech.noticeAcquaintances(known);
+  dialogueView.show(dialogue, known);
+  if (!dialogueBox.isOpen || wasOpen) {
+    return;
+  }
+  speech.clear();
+  if (bag.isOpen) {
+    bag.clickIcon();
+    bagView.render();
+  }
+  moveKeys.releaseAllKeys();
+  sendMove();
 }
 
 /**
@@ -931,6 +1015,7 @@ async function connectToServer(): Promise<void> {
     inventory = null;
     itemFigures.show(null);
     bagView.show(null, PLAYER_HEALTH);
+    showDialogue(null, []);
     panel.showMonster(describeMonster(translator, null));
     panel.showSlash(describeSlash(translator, null));
     panel.camera.followedId = null;
@@ -946,6 +1031,17 @@ translator.addListener(relabelPage);
 
 window.addEventListener('keydown', (event: KeyboardEvent) => {
   if (event.altKey || event.ctrlKey || event.metaKey) {
+    return;
+  }
+  // The dialogue box takes every key while it is open, so that the player
+  // neither moves nor does anything else.
+  const answer: DialogueResponse = dialogueBox.pressKey(event.code);
+  if (answer.isHandled) {
+    event.preventDefault();
+    if (answer.request !== null) {
+      sendInput(answer.request);
+    }
+    dialogueView.render();
     return;
   }
   // The bag takes its keys first, so that while it is open the arrow keys,

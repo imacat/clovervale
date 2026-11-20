@@ -28,6 +28,8 @@ import { CAVE_CONTAINERS } from './cave.ts';
 import { isMonsterKindId } from './combat.ts';
 import type { MonsterKindId } from './combat.ts';
 import type { DayCycle } from './day-cycle.ts';
+import { DIALOGUE_REPLY_LIMIT, isDialogueText } from './dialogue.ts';
+import type { DialogueView } from './dialogue.ts';
 import {
   CLOVER_PATCHES,
   INVENTORY_SIZE,
@@ -42,14 +44,17 @@ import type {
   MoveInput,
   PickInput,
   PlayerMotion,
+  ReplyInput,
   TravelInput,
   UseInput,
 } from './player-motion.ts';
+import { isVillagerId } from './villagers.ts';
+import type { VillagerId } from './villagers.ts';
 import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 23;
+export const PROTOCOL_VERSION = 24;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -250,6 +255,16 @@ export interface SnapshotMessage {
    * its inventory, in the order of the slots.
    */
   readonly inventory: readonly ItemKindId[];
+  /**
+   * The dialogue the player of the peer is in, or `null` while it is in
+   * none.
+   */
+  readonly dialogue: DialogueView | null;
+  /**
+   * The villagers who have told the player of the peer who they are, each
+   * once, in the order they did.
+   */
+  readonly acquaintances: readonly VillagerId[];
 }
 
 /**
@@ -275,12 +290,27 @@ export interface MapMessage {
   readonly map: MapId;
 }
 
+/**
+ * What a villager says to the player of the peer, to be shown above its
+ * head for a while, outside any dialogue, which the server sends that peer
+ * alone, once.
+ */
+export interface SpeechMessage {
+  /** The message discriminator. */
+  readonly type: 'speech';
+  /** The villager who speaks. */
+  readonly villager: VillagerId;
+  /** The message of what the villager says. */
+  readonly line: string;
+}
+
 /** Any message the server can send to a peer. */
 export type ServerMessage =
   | WelcomeMessage
   | SnapshotMessage
   | EventsMessage
-  | MapMessage;
+  | MapMessage
+  | SpeechMessage;
 
 /** What a peer sends whenever the way its player wants to move changes. */
 export type MoveMessage = MoveInput & InputStamp;
@@ -310,6 +340,13 @@ export type DropMessage = DropInput & InputStamp;
 export type UseMessage = UseInput & InputStamp;
 
 /**
+ * What a peer sends whenever its player chooses a reply in the dialogue it
+ * is in, or ends a dialogue that offers none.  What comes of it is for the
+ * server to decide.
+ */
+export type ReplyMessage = ReplyInput & InputStamp;
+
+/**
  * What a peer sends whenever its player wants to take the way into another
  * map within its reach.  What comes of it is for the server to decide.
  */
@@ -322,6 +359,7 @@ export type ClientMessage =
   | PickMessage
   | DropMessage
   | UseMessage
+  | ReplyMessage
   | TravelMessage;
 
 /**
@@ -360,6 +398,11 @@ export function createWelcomeMessage(
  *   which containers have been looted there, which is nothing by default.
  * @param {readonly ItemKindId[]} [inventory] - The items the player of the
  *   peer carries, in the order of its slots, which are none by default.
+ * @param {DialogueView | null} [dialogue] - The dialogue the player of the
+ *   peer is in, or `null` while it is in none, which it is by default.
+ * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
+ *   told the player of the peer who they are, in the order they did, which
+ *   are none by default.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
@@ -370,6 +413,8 @@ export function createSnapshotMessage(
   slash: SlashJudgement | null = null,
   world: WorldItems = NO_WORLD_ITEMS,
   inventory: readonly ItemKindId[] = [],
+  dialogue: DialogueView | null = null,
+  acquaintances: readonly VillagerId[] = [],
 ): SnapshotMessage {
   const { clovers, items, looted = [] } = world;
   return {
@@ -383,6 +428,8 @@ export function createSnapshotMessage(
     items,
     looted,
     inventory,
+    dialogue,
+    acquaintances,
   };
 }
 
@@ -407,6 +454,20 @@ export function createEventsMessage(
  */
 export function createMapMessage(map: MapId): MapMessage {
   return { type: 'map', map };
+}
+
+/**
+ * Creates a speech message.
+ *
+ * @param {VillagerId} villager - The villager who speaks.
+ * @param {string} line - The message of what the villager says.
+ * @returns {SpeechMessage} The speech message.
+ */
+export function createSpeechMessage(
+  villager: VillagerId,
+  line: string,
+): SpeechMessage {
+  return { type: 'speech', villager, line };
 }
 
 /**
@@ -499,13 +560,16 @@ export function decodeServerMessage(data: string): ServerMessage {
     isNumberList(value.clovers, CLOVER_PATCHES.length) &&
     Array.isArray(value.items) &&
     isNumberList(value.looted, CAVE_CONTAINERS.length) &&
-    isInventory(value.inventory)
+    isInventory(value.inventory) &&
+    (value.dialogue === null || isDialogueView(value.dialogue)) &&
+    isAcquaintanceList(value.acquaintances)
   ) {
     const players: unknown[] = value.players;
     const monsters: unknown[] = value.monsters;
     const items: unknown[] = value.items;
     const { sequence, steps, motion } = value.own;
     const slash: SlashJudgement | null = value.slash;
+    const dialogue: DialogueView | null = value.dialogue;
     if (
       players.every(isPlayerState) &&
       monsters.every(isMonsterState) &&
@@ -563,11 +627,28 @@ export function decodeServerMessage(data: string): ServerMessage {
         })),
         looted: [...value.looted],
         inventory: [...value.inventory],
+        dialogue:
+          dialogue === null
+            ? null
+            : {
+                villager: dialogue.villager,
+                line: dialogue.line,
+                replies: [...dialogue.replies],
+                turn: dialogue.turn,
+              },
+        acquaintances: [...value.acquaintances],
       };
     }
   }
   if (value.type === 'map' && isMapId(value.map)) {
     return { type: 'map', map: value.map };
+  }
+  if (
+    value.type === 'speech' &&
+    isVillagerId(value.villager) &&
+    isDialogueText(value.line)
+  ) {
+    return { type: 'speech', villager: value.villager, line: value.line };
   }
   if (value.type === 'events' && Array.isArray(value.events)) {
     const events: unknown[] = value.events;
@@ -631,6 +712,9 @@ export function decodeClientMessage(data: string): ClientMessage {
     }
     if (value.type === 'use' && isCount(value.slot)) {
       return { type: 'use', sequence, after, slot: value.slot };
+    }
+    if (value.type === 'reply' && isCount(value.choice)) {
+      return { type: 'reply', sequence, after, choice: value.choice };
     }
   }
   throw new Error('The client message is malformed.');
@@ -874,6 +958,41 @@ function isInventory(value: unknown): value is ItemKindId[] {
     Array.isArray(value) &&
     value.length <= INVENTORY_SIZE &&
     value.every(isItemKindId)
+  );
+}
+
+/**
+ * Checks whether a decoded value is a dialogue as it stands: a villager,
+ * what it has just said, no more replies than a player is offered at
+ * once, and a number of the line from 1.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it is.
+ */
+function isDialogueView(value: unknown): value is DialogueView {
+  return (
+    isRecord(value) &&
+    isVillagerId(value.villager) &&
+    isDialogueText(value.line) &&
+    Array.isArray(value.replies) &&
+    value.replies.length <= DIALOGUE_REPLY_LIMIT &&
+    value.replies.every(isDialogueText) &&
+    isCount(value.turn) &&
+    value.turn > 0
+  );
+}
+
+/**
+ * Checks whether a decoded value lists villagers, each once.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it does.
+ */
+function isAcquaintanceList(value: unknown): value is VillagerId[] {
+  return (
+    Array.isArray(value) &&
+    value.every(isVillagerId) &&
+    new Set(value).size === value.length
   );
 }
 

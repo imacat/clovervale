@@ -592,6 +592,33 @@ describe('describePrompt in the cave', () => {
     ]);
   });
 
+  it('calls the prisoner by his name once he has told it, in every language', async () => {
+    const known = ['edwin'] as const;
+    const wordBoth = (translator: Translator): [string | null, string] => {
+      const world: WorldItems = { clovers: [], items: [], looted: [] };
+      return [
+        describePrompt(translator, AT_BARS, 0, world, [], 'cave', [], known),
+        describeSpaceKey(translator, AT_BARS, 0, world, [], 'cave', [], known),
+      ];
+    };
+    expect(wordBoth(EN)).toEqual([
+      'Press Space to talk to Envoy Edwin',
+      'talk to Envoy Edwin',
+    ]);
+    expect(wordBoth(await createTranslator('zh-TW'))).toEqual([
+      '按空白鍵與使者艾德溫交談',
+      '與使者艾德溫交談',
+    ]);
+    expect(wordBoth(await createTranslator('zh-CN'))).toEqual([
+      '按空格键与使者艾德温交谈',
+      '与使者艾德温交谈',
+    ]);
+    expect(wordBoth(await createTranslator('ja'))).toEqual([
+      'スペースキーで使者エドウィンと話す',
+      '使者エドウィンと話す',
+    ]);
+  });
+
   it('tells a player before a full chest it can open it, in every language', async () => {
     const before: PlayerMotion = standBefore(findContainer('chest', true));
     expect(describeBoth(EN, before)).toEqual([

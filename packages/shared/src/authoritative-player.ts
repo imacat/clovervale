@@ -185,16 +185,24 @@ export class AuthoritativePlayer {
    * the inputs whose turn has come in effect.
    *
    * An input that has waited for {@link INPUT_WAIT_LIMIT} steps comes into
-   * effect whether its turn has come or not.
+   * effect whether its turn has come or not.  A player held in place takes
+   * the inputs in as well, but from the step on it wants neither to move
+   * nor to interact, whatever they tell, as if it had been told so.
    *
    * @param {number} step - The number of the step, as the server counts
    *   them, which tells where Toby is.
    * @param {MapId} [map] - The map the player is in, the village by
    *   default.
+   * @param {boolean} [isHeld] - Whether the player is held in place at the
+   *   step, which it is not by default.
    * @returns {StampedInput[]} The inputs that came into effect at the step,
    *   in the order they did.
    */
-  step(step: number, map: MapId = 'village'): StampedInput[] {
+  step(
+    step: number,
+    map: MapId = 'village',
+    isHeld = false,
+  ): StampedInput[] {
     const applied: StampedInput[] = [];
     for (
       let next: WaitingInput | undefined = this.#waiting[0];
@@ -210,6 +218,13 @@ export class AuthoritativePlayer {
     }
     for (const waiting of this.#waiting) {
       waiting.waited++;
+    }
+    if (isHeld) {
+      this.#motion = {
+        ...this.#motion,
+        direction: { x: 0, z: 0 },
+        isInteracting: false,
+      };
     }
     this.#motion = stepMotion(this.#motion, step, map);
     this.#steps++;

@@ -61,6 +61,16 @@ export const VILLAGERS: readonly Villager[] = [
 ];
 
 /**
+ * Tells whether a decoded value is the identifier of a villager.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it is.
+ */
+export function isVillagerId(value: unknown): value is VillagerId {
+  return VILLAGERS.some((villager: Villager) => villager.id === value);
+}
+
+/**
  * Finds where a villager stands at a step of the simulation, in the frame
  * of its map.
  *

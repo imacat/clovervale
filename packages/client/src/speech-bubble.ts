@@ -37,6 +37,7 @@ import type { Villager, VillagerId } from '@clovervale/shared';
 
 import { findLanguage } from './language.ts';
 import type { LanguageCode } from './language.ts';
+import type { PlainMessageId } from './messages/en.ts';
 import type { Translator } from './translator.ts';
 import { describeVillager } from './villager-words.ts';
 
@@ -159,6 +160,11 @@ interface ShownSpeech {
   readonly villager: Villager;
   /** The position of the line the villager says among its lines. */
   readonly lineIndex: number;
+  /**
+   * The message of the line the villager says, if it was given, in place of
+   * one of its lines.
+   */
+  readonly lineId: PlainMessageId | null;
   /** What the bubble shows. */
   words: SpeechWords;
   /** The bubble, drawn on a sprite. */
@@ -390,6 +396,8 @@ export class SpeechBubble {
   #shown: ShownSpeech | null = null;
   /** The position of the line each villager said last, by villager. */
   readonly #lastLines = new Map<VillagerId, number>();
+  /** The villagers who have told the player of the page who they are. */
+  #acquaintances: readonly VillagerId[] = [];
 
   /**
    * Starts without a bubble.
@@ -420,27 +428,46 @@ export class SpeechBubble {
    * just above its head, for as long as {@link measureSpeechDuration}
    * tells, in place of any bubble shown before.
    *
-   * A villager with several lines says one of them, picked at random, but
-   * never the line it said the time before.
+   * A villager says the line it is given, or else, with several lines, one
+   * of them, picked at random, but never the line it said the time before.
+   * It is called by the name it goes by once it has told the player of the
+   * page who it is, if it has, as {@link noticeAcquaintances} was last told.
    *
    * @param {Villager} villager - The villager.
    * @param {Vector3} head - The top of the head of the villager.
+   * @param {PlainMessageId | null} [lineId] - The message of the line it says,
+   *   or `null` for one of its own lines, which it is by default.
    */
-  say(villager: Villager, head: Vector3): void {
+  say(
+    villager: Villager,
+    head: Vector3,
+    lineId: PlainMessageId | null = null,
+  ): void {
     this.#hide();
-    const lineIndex: number = this.#pickLine(villager);
-    const words: SpeechWords = this.#describe(villager, lineIndex);
+    const lineIndex: number = lineId === null ? this.#pickLine(villager) : 0;
+    const words: SpeechWords = this.#describe(villager, lineIndex, lineId);
     const sprite: Sprite = this.#paint(words);
     sprite.position.set(head.x, head.y + BUBBLE_MARGIN, head.z);
     this.#parent.add(sprite);
     this.#shown = {
       villager,
       lineIndex,
+      lineId,
       words,
       sprite,
       duration: measureSpeechDuration(words.line),
       age: 0,
     };
+  }
+
+  /**
+   * Takes in which villagers have told the player of the page who they are,
+   * for the bubbles to come to call them by the names they then go by.
+   *
+   * @param {readonly VillagerId[]} acquaintances - The villagers.
+   */
+  noticeAcquaintances(acquaintances: readonly VillagerId[]): void {
+    this.#acquaintances = [...acquaintances];
   }
 
   /**
@@ -470,6 +497,7 @@ export class SpeechBubble {
     const words: SpeechWords = this.#describe(
       shown.villager,
       shown.lineIndex,
+      shown.lineId,
     );
     const sprite: Sprite = this.#paint(words);
     sprite.position.copy(shown.sprite.position);
@@ -572,14 +600,27 @@ export class SpeechBubble {
    * @param {Villager} villager - The villager.
    * @param {number} lineIndex - The position of the line it says among its
    *   lines.
+   * @param {PlainMessageId | null} lineId - The message of the line it says, if
+   *   it was given one, in place of its own lines.
    * @returns {SpeechWords} The name of the villager, what it says, and
    *   their language.
    */
-  #describe(villager: Villager, lineIndex: number): SpeechWords {
-    const { name, lines } = describeVillager(this.#translator, villager);
+  #describe(
+    villager: Villager,
+    lineIndex: number,
+    lineId: PlainMessageId | null,
+  ): SpeechWords {
+    const { name, lines } = describeVillager(
+      this.#translator,
+      villager,
+      this.#acquaintances,
+    );
     return {
       name,
-      line: lines[lineIndex] ?? '',
+      line:
+        lineId === null
+          ? (lines[lineIndex] ?? '')
+          : this.#translator.translate(lineId),
       language: this.#translator.language,
     };
   }

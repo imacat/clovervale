@@ -222,6 +222,7 @@ describe('layoutVillage', () => {
       'prop-item-sword.glb',
       'prop-item-leather-armour.glb',
       'prop-item-healing-potion.glb',
+      'prop-item-clovervale-message.glb',
     ];
     expect(layoutVillage([...files, 'npc-edwin.glb'])).toEqual([]);
   });

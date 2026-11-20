@@ -347,8 +347,12 @@ export function startBot(
       }
       // A bot does not fight, and learns its health from the snapshots, so
       // what happens does not concern it.  Nor does it ever go into another
-      // map, so it is never told of one.
-      if (message.type === 'events' || message.type === 'map') {
+      // map, so it is never told of one, nor talk to a villager.
+      if (
+        message.type === 'events' ||
+        message.type === 'map' ||
+        message.type === 'speech'
+      ) {
         return;
       }
       if (message.protocolVersion !== PROTOCOL_VERSION) {

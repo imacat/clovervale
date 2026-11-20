@@ -25,7 +25,12 @@
 import { DEFAULT_LANGUAGE } from './language.ts';
 import type { LanguageCode } from './language.ts';
 import { EN_MESSAGES } from './messages/en.ts';
-import type { MessageId, MessageTable, MessageValues } from './messages/en.ts';
+import type {
+  MessageId,
+  MessageTable,
+  MessageValues,
+  PlainMessageId,
+} from './messages/en.ts';
 
 /**
  * Loads the text of the page in a language.
@@ -57,6 +62,20 @@ export async function loadMessages(
     case 'ja':
       return (await import('./messages/ja.ts')).JA_MESSAGES;
   }
+}
+
+/**
+ * Tells whether a name, as the server may give it, is that of a message of
+ * the page that takes no value.
+ *
+ * @param {string} id - The name.
+ * @returns {boolean} Whether the page has such a message.
+ */
+export function isMessageId(id: string): id is PlainMessageId {
+  return (
+    Object.hasOwn(EN_MESSAGES, id) &&
+    !/\{\w+\}/u.test(EN_MESSAGES[id as MessageId])
+  );
 }
 
 /** A translator of the text of the page into the language it speaks. */

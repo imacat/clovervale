@@ -145,6 +145,8 @@ export const EN_MESSAGES = {
   'inventory.title': 'Inventory',
   'inventory.icon': 'Inventory (I)',
   'inventory.hint': 'Arrow keys to choose, Enter to use, Esc or I to close',
+  'dialogue.hint': 'Arrow keys to choose, Enter to reply',
+  'dialogue.hintEnd': 'Enter to close',
   'itemNotice.gained': 'You got the {item}',
   'itemAction.use': 'Use',
   'itemAction.drop': 'Drop',
@@ -152,6 +154,7 @@ export const EN_MESSAGES = {
   'item.sword': 'short sword',
   'item.leatherArmour': 'leather armour',
   'item.healingPotion': 'healing potion',
+  'item.clovervaleMessage': 'message from Clovervale',
   'container.chest': 'chest',
   'container.barrel': 'barrel',
 
@@ -176,7 +179,20 @@ export const EN_MESSAGES = {
   'villager.toby.line.3':
     "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
   'villager.edwin.name': 'Prisoner',
-  'villager.edwin.line.1': 'Is anyone there? Help me!',
+  'villager.edwin.knownName': 'Envoy Edwin',
+  'dialogue.edwin.plea': 'Help! Somebody, please help me!',
+  'dialogue.edwin.askWho': 'Who are you? What are you doing in there?',
+  'dialogue.edwin.identity':
+    "I'm Edwin, an envoy of the kingdom. I was sent to spy on the enemy, but I got caught, and they locked me up in here.",
+  'dialogue.edwin.offerKey': "Hang on, I'll find the key and get you out.",
+  'dialogue.edwin.errand':
+    "No, there's no time for that. I've got news the king needs to hear right away. I've written it on this bit of cloth. Take it to the king, now. It's urgent. Hurry!",
+  'dialogue.edwin.reminder': 'Have you seen the king yet? Go on, hurry!',
+  'dialogue.edwin.wonder':
+    'Have you seen the king yet? What are you still doing here?',
+  'dialogue.edwin.tellLost': 'I lost the message.',
+  'dialogue.edwin.rewrite':
+    "Don't worry, I'll write it out again. Take it to the king, now. It's urgent. Hurry!",
 } as const;
 
 /** A message of the page. */

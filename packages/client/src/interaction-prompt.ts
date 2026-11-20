@@ -41,6 +41,7 @@ import type {
   PickTarget,
   PlayerMotion,
   Villager,
+  VillagerId,
   WorldItems,
 } from '@clovervale/shared';
 
@@ -102,6 +103,9 @@ function nameContainer(translator: Translator, target: PickTarget): string {
  * @param {MapId} [map] - The map the player is in, the village by default.
  * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
  *   as the server last told, none by default.
+ * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
+ *   told the player who they are, as the server last told, none by default,
+ *   which tells what a villager is called.
  * @returns {string} What the player does, that it does nothing while it
  *   cannot interact, as while it is dead, while what is within its reach to
  *   pick does not fit in its inventory, or while the container within its
@@ -116,6 +120,7 @@ export function describeSpaceKey(
   inventory: readonly ItemKindId[] = [],
   map: MapId = 'village',
   monsters: readonly MonsterState[] = [],
+  acquaintances: readonly VillagerId[] = [],
 ): string {
   if (motion === null) {
     return UNKNOWN;
@@ -125,7 +130,7 @@ export function describeSpaceKey(
   }
   const villager: Villager | null = findVillager(motion, step, map);
   if (villager !== null) {
-    const { name } = describeVillager(translator, villager);
+    const { name } = describeVillager(translator, villager, acquaintances);
     return translator.translate('spaceKey.talk', { name });
   }
   if (findInteraction(motion, step, map) === 'Drink') {
@@ -176,6 +181,9 @@ export function describeSpaceKey(
  * @param {MapId} [map] - The map the player is in, the village by default.
  * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
  *   as the server last told, none by default.
+ * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
+ *   told the player who they are, as the server last told, none by default,
+ *   which tells what a villager is called.
  * @returns {string | null} The prompt, in the language of the page, or
  *   `null` while the space bar makes the player slash, while the player
  *   cannot start to interact with the world, or while there is no player.
@@ -188,13 +196,14 @@ export function describePrompt(
   inventory: readonly ItemKindId[] = [],
   map: MapId = 'village',
   monsters: readonly MonsterState[] = [],
+  acquaintances: readonly VillagerId[] = [],
 ): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;
   }
   const villager: Villager | null = findVillager(motion, step, map);
   if (villager !== null) {
-    const { name } = describeVillager(translator, villager);
+    const { name } = describeVillager(translator, villager, acquaintances);
     return translator.translate('prompt.talk', { name });
   }
   if (findInteraction(motion, step, map) === 'Drink') {

@@ -158,6 +158,8 @@ interface CaveLook {
   readonly prompt: string | null;
   /** What the bubble above a villager shows, if one is shown. */
   readonly speech: SpeechView | null;
+  /** What the dialogue box shows, if it is open. */
+  readonly dialogue: DialogueLookView | null;
   /** Whether each container of the cave is shown open, by its number. */
   readonly containers: readonly boolean[];
   /** Whether the bag is open. */
@@ -175,6 +177,18 @@ interface CaveLook {
   readonly notices: readonly string[];
   /** The latest heals the page has shown, the latest last. */
   readonly heals: readonly HealView[];
+}
+
+/** What the dialogue box of a page shows. */
+interface DialogueLookView {
+  /** The name of the villager. */
+  readonly name: string;
+  /** What the villager has just said. */
+  readonly line: string;
+  /** The replies offered, in order. */
+  readonly replies: readonly string[];
+  /** The place of the reply the cursor is on, from 0. */
+  readonly cursor: number;
 }
 
 /** An action the open menu of an item in the bag lists. */
@@ -645,16 +659,58 @@ const CLIMB_PROMPT = 'Press Space to climb up the rope';
 const EDWIN_TALK_KEY = 'talk to Prisoner';
 /** The prompt at the bars before the prisoner. */
 const EDWIN_TALK_PROMPT = 'Press Space to talk to Prisoner';
-/** The name of the prisoner, and what he says, in English. */
-const EDWIN_WORDS: SpeechWordsView = {
+/**
+ * What the panel tells the space bar does at the bars before the prisoner,
+ * once he has told the player who he is.
+ */
+const ENVOY_TALK_KEY = 'talk to Envoy Edwin';
+/** The prompt at the bars before the prisoner, once he has told who he is. */
+const ENVOY_TALK_PROMPT = 'Press Space to talk to Envoy Edwin';
+/** The dialogue box as the prisoner first pleads, in English. */
+const EDWIN_PLEA: DialogueLookView = {
   name: 'Prisoner',
-  line: 'Is anyone there? Help me!',
+  line: 'Help! Somebody, please help me!',
+  replies: ['Who are you? What are you doing in there?'],
+  cursor: 0,
 };
-/** The name of the prisoner, and what he says, in Traditional Chinese. */
-const ZH_TW_EDWIN_WORDS: SpeechWordsView = {
+/** The dialogue box as the prisoner first pleads, in Traditional Chinese. */
+const ZH_TW_EDWIN_PLEA: DialogueLookView = {
   name: '囚犯',
-  line: '有人嗎？救救我！',
+  line: '救命！請幫幫我！',
+  replies: ['你是誰？為什麼在這裏？'],
+  cursor: 0,
 };
+/** The dialogue box as the prisoner tells who he is, in English. */
+const EDWIN_IDENTITY: DialogueLookView = {
+  name: 'Envoy Edwin',
+  line:
+    "I'm Edwin, an envoy of the kingdom. I was sent to spy on the enemy, " +
+    'but I got caught, and they locked me up in here.',
+  replies: ["Hang on, I'll find the key and get you out."],
+  cursor: 0,
+};
+/** The dialogue box as Edwin gives his message, in English. */
+const EDWIN_ERRAND: DialogueLookView = {
+  name: 'Envoy Edwin',
+  line:
+    "No, there's no time for that. I've got news the king needs to hear " +
+    "right away. I've written it on this bit of cloth. Take it to the " +
+    "king, now. It's urgent. Hurry!",
+  replies: [],
+  cursor: 0,
+};
+/** What Edwin reminds a player of who carries his message, in English. */
+const EDWIN_REMINDER: SpeechWordsView = {
+  name: 'Envoy Edwin',
+  line: 'Have you seen the king yet? Go on, hurry!',
+};
+/** The notice of the message from Clovervale got from Edwin. */
+const MESSAGE_NOTICE = 'You got the message from Clovervale';
+/**
+ * How long a key that would walk the player is held down in a dialogue, in
+ * milliseconds, and how long the dogs are watched standing still then.
+ */
+const DIALOGUE_HOLD_DURATION = 1500;
 /** What the panel tells the space bar does before a shut chest. */
 const OPEN_CHEST_KEY = 'open the chest';
 /** The prompt before a shut chest. */
@@ -1167,6 +1223,7 @@ function createCaveExpression(id: number): string {
       spaceKey: panel['Space key'] ?? '',
       prompt: prompt === null || prompt.hidden ? null : prompt.textContent,
       speech: window.clovervale.describeSpeech(),
+      dialogue: window.clovervale.describeDialogue(),
       containers: window.clovervale.describeContainers(),
       isBagOpen: (() => {
         const bag = document.querySelector('.bag-window');
@@ -4057,10 +4114,14 @@ function describeCaveLook(look: CaveLook): string {
     look.speech === null
       ? 'no bubble'
       : `a bubble of ${look.speech.name} saying "${look.speech.line}"`;
+  const dialogue: string =
+    look.dialogue === null
+      ? 'no dialogue'
+      : `the dialogue ${JSON.stringify(look.dialogue)}`;
   return (
     `the ${look.map} ${player}, the players ${JSON.stringify(look.figures)}, ` +
     `the monsters [${monsters}], ` +
-    `the space bar to "${look.spaceKey}", ${prompt}, ${speech}, the ` +
+    `the space bar to "${look.spaceKey}", ${prompt}, ${speech}, ${dialogue}, the ` +
     `containers open ${JSON.stringify(look.containers)}, the bag ` +
     `${look.isBagOpen ? 'open' : 'closed'} with ${JSON.stringify(look.slots)} ` +
     `naming "${look.bagItemName}" and the menu ${JSON.stringify(look.menu)}, ` +
@@ -4398,6 +4459,126 @@ async function saveStoreView(
 }
 
 /**
+ * Has the player of a page at the bars before the prisoner, facing him and
+ * not told yet who he is, talk to him, as {@link checkCaveChambers} tells.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the talks are over.
+ * @throws {Error} If the page does not show them so.
+ */
+async function talkToEdwin(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const look = (): Promise<CaveLook> => readCaveLook(session, context, id);
+  const press = async (key: string): Promise<void> => {
+    await sendKey(session, context, 'keyDown', key);
+    await sendKey(session, context, 'keyUp', key);
+  };
+  const isShowing = (seen: CaveLook, shown: DialogueLookView): boolean =>
+    JSON.stringify(seen.dialogue) === JSON.stringify(shown) &&
+    seen.speech === null &&
+    seen.prompt === null;
+  const waitForDialogue = async (
+    shown: DialogueLookView,
+    after: string,
+  ): Promise<CaveLook> =>
+    await waitFor(
+      look,
+      (seen: CaveLook) => isShowing(seen, shown),
+      ACTION_TIMEOUT,
+      (seen: CaveLook) =>
+        `With ${after}, the first page tells ${describeCaveLook(seen)}.`,
+    );
+  const waitForEnd = async (after: string): Promise<CaveLook> =>
+    await waitFor(
+      look,
+      (seen: CaveLook) =>
+        seen.dialogue === null &&
+        seen.own?.action === 'Idle' &&
+        seen.spaceKey === ENVOY_TALK_KEY &&
+        seen.prompt === ENVOY_TALK_PROMPT,
+      ACTION_TIMEOUT,
+      (seen: CaveLook) =>
+        `With ${after}, the first page tells ${describeCaveLook(seen)}.`,
+    );
+
+  await press(' ');
+  const pleading: CaveLook = await waitForDialogue(
+    EDWIN_PLEA,
+    'the space bar pressed at the bars before the prisoner',
+  );
+  await sendKey(session, context, 'keyDown', 'a');
+  await sleep(DIALOGUE_HOLD_DURATION);
+  await sendKey(session, context, 'keyUp', 'a');
+  const held: CaveLook = await look();
+  if (
+    held.own?.x !== pleading.own?.x ||
+    held.own?.z !== pleading.own?.z ||
+    JSON.stringify(held.monsters) !== JSON.stringify(pleading.monsters) ||
+    !isShowing(held, EDWIN_PLEA)
+  ) {
+    throw new Error(
+      `With a key held down in the dialogue, the first page tells ` +
+        `${describeCaveLook(held)}, from ${describeCaveLook(pleading)}.`,
+    );
+  }
+  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
+  await waitForDialogue(
+    ZH_TW_EDWIN_PLEA,
+    `"${ZH_TW_NAME}" chosen while the prisoner pleads`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'cave-edwin-talk.png');
+  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
+  await waitForDialogue(
+    EDWIN_PLEA,
+    `"${EN_NAME}" chosen again while the prisoner pleads`,
+  );
+  await press(BAG_KEYS.enter);
+  await waitForDialogue(EDWIN_IDENTITY, 'the reply to the plea chosen');
+  await press(BAG_KEYS.escape);
+  await sleep(DIALOGUE_HOLD_DURATION);
+  const escaped: CaveLook = await look();
+  if (!isShowing(escaped, EDWIN_IDENTITY)) {
+    throw new Error(
+      `With Esc pressed as Edwin tells who he is, the first page tells ` +
+        `${describeCaveLook(escaped)}.`,
+    );
+  }
+  await press(BAG_KEYS.enter);
+  await waitFor(
+    look,
+    (seen: CaveLook) =>
+      isShowing(seen, EDWIN_ERRAND) &&
+      seen.slots.includes('clovervale-message') &&
+      seen.notices.includes(MESSAGE_NOTICE),
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With the key to Edwin's cell offered, the first page tells ` +
+      `${describeCaveLook(seen)}.`,
+  );
+  await press(BAG_KEYS.enter);
+  await waitForEnd('Enter pressed as Edwin gives his message');
+
+  await press(' ');
+  await waitFor(
+    look,
+    (seen: CaveLook) =>
+      seen.dialogue === null &&
+      seen.speech?.name === EDWIN_REMINDER.name &&
+      seen.speech.line === EDWIN_REMINDER.line,
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With Edwin talked to by a player carrying his message, the first ` +
+      `page tells ${describeCaveLook(seen)}.`,
+  );
+}
+
+/**
  * Checks that a player in its cave talks to the prisoner through the bars
  * of his cell, loots the chests and two barrels of the store rooms, sees
  * what it takes in its bag, and uses the healing potion from it.
@@ -4405,8 +4586,15 @@ async function saveStoreView(
  * The player walks west along the middle of the passage to before the
  * prisoner, and north up to the bars of his cell, which stop it, where its
  * page tells the space bar talks to him.  Once the space bar is pressed,
- * his bubble shows what he says, worded again once Traditional Chinese is
- * chosen in the panel, and once English is again.  It walks on to the
+ * the dialogue box shows his plea and the one reply, without a bubble or a
+ * prompt, worded again once Traditional Chinese is chosen in the panel,
+ * and once English is again.  A key that would walk the player held down
+ * then moves it not at all, and the dogs stand still meanwhile.  Enter has
+ * him tell who he is, under his name, and Esc changes nothing then.
+ * Enter has him give his message, which shows in the bag and in a notice,
+ * and Enter again ends the dialogue, after which the page calls him by his
+ * name.  Talked to again, he only reminds the player in a bubble to hurry,
+ * without a dialogue.  It walks on to the
  * north store room, up to the chest at its back, where its page tells the
  * space bar opens it; once it is pressed, the chest shows open, the sword
  * shows in the bag, and the space bar does nothing more there.  It loots
@@ -4468,41 +4656,7 @@ async function checkCaveChambers(
         `${describeCaveLook(atBars)}.`,
     );
   }
-  await sendKey(session, context, 'keyDown', ' ');
-  await sendKey(session, context, 'keyUp', ' ');
-  const isSaying = (seen: CaveLook, words: SpeechWordsView): boolean =>
-    seen.speech?.name === words.name && seen.speech.line === words.line;
-  await waitFor(
-    look,
-    (seen: CaveLook) =>
-      seen.own?.action === 'Talk' && isSaying(seen, EDWIN_WORDS),
-    ACTION_TIMEOUT,
-    (seen: CaveLook) =>
-      `With the space bar pressed at the bars before the prisoner, the ` +
-      `first page tells ${describeCaveLook(seen)}.`,
-  );
-  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
-  await waitFor(
-    look,
-    (seen: CaveLook) => isSaying(seen, ZH_TW_EDWIN_WORDS),
-    ACTION_TIMEOUT,
-    (seen: CaveLook) =>
-      `With "${ZH_TW_NAME}" chosen while the prisoner speaks, the first ` +
-      `page tells ${describeCaveLook(seen)}.`,
-  );
-  await sleep(VIEW_SETTLE_DURATION);
-  await saveView(session, context, 'cave-edwin-talk.png');
-  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
-  await waitFor(
-    look,
-    (seen: CaveLook) =>
-      seen.spaceKey === EDWIN_TALK_KEY &&
-      (seen.speech === null || isSaying(seen, EDWIN_WORDS)),
-    ACTION_TIMEOUT,
-    (seen: CaveLook) =>
-      `With "${EN_NAME}" chosen again before the prisoner, the first page ` +
-      `tells ${describeCaveLook(seen)}.`,
-  );
+  await talkToEdwin(session, context, id);
 
   await saveCellViews(session, context, id);
 

@@ -43,11 +43,13 @@ import {
   findPassage,
   findPickTarget,
   findSpawnPoint,
+  findVillager,
   hasRoom,
   interpolatePlaced,
   isWithinStrike,
 } from '@clovervale/shared';
 import type {
+  DialogueView,
   EntityRef,
   GameEvent,
   GroundItem,
@@ -64,9 +66,13 @@ import type {
   Pose,
   SlashJudgement,
   StampedInput,
+  Villager,
+  VillagerId,
   WorldItems,
 } from '@clovervale/shared';
 
+import { findDialogueNode, findOpening, meetsCondition } from './dialogue.ts';
+import type { DialogueNode, DialogueReply } from './dialogue.ts';
 import { MONSTER_ATTACK_REACH, MONSTER_SPAWNS, Monster } from './monster.ts';
 import type { MonsterSpawn, Quarry } from './monster.ts';
 
@@ -121,6 +127,38 @@ export interface Player {
   lastSlash: SlashJudgement | null;
   /** The items the player carries, in the order of the slots they fill. */
   readonly inventory: ItemKindId[];
+  /**
+   * The villagers who have told the player who they are, in the order they
+   * did.
+   */
+  readonly acquaintances: VillagerId[];
+  /** The dialogue the player is in, or `null` while it is in none. */
+  dialogue: Dialogue | null;
+  /** The number of lines said to the player in its dialogues so far. */
+  turnCount: number;
+  /**
+   * What the villagers have said to the player in passing since it was last
+   * taken, in the order they said it.
+   */
+  speeches: Speech[];
+}
+
+/** A dialogue a player is in. */
+export interface Dialogue {
+  /** The villager the player talks to. */
+  readonly villager: VillagerId;
+  /** The name of the node of the line the villager has just said. */
+  readonly node: string;
+  /** The number of the line among every line said to the player, from 1. */
+  readonly turn: number;
+}
+
+/** What a villager says to a player in passing, outside any dialogue. */
+export interface Speech {
+  /** The villager who speaks. */
+  readonly villager: VillagerId;
+  /** The message of what the villager says. */
+  readonly line: string;
 }
 
 /** An item that lies on the ground, and until when. */
@@ -193,7 +231,7 @@ function referToMonster(monster: Monster): EntityRef {
  * A world the server simulates, in one map: the village, with its wild
  * dog and its clover, or a cave, with its two wild dogs, its chests and
  * barrels full, and nobody else in it but its player and the prisoner
- * behind the bars of his cell.
+ * behind the bars of his cell, who has something to tell the player.
  */
 export class World {
   readonly #map: MapId;
@@ -258,7 +296,8 @@ export class World {
    * the appearance the fewest players have, here and elsewhere (the
    * lowest-numbered one if several tie), and a place on the plaza clear of
    * the obstacles and, while there is room, of everyone else, where it
-   * idles facing the fountain, at full health, and carrying nothing.
+   * idles facing the fountain, at full health, carrying nothing, in no
+   * dialogue, and told by no villager who it is.
    *
    * @param {readonly number[]} [elsewhere] - The appearances of the players
    *   in other worlds, none by default.
@@ -275,6 +314,10 @@ export class World {
       deathSteps: 0,
       lastSlash: null,
       inventory: [],
+      acquaintances: [],
+      dialogue: null,
+      turnCount: 0,
+      speeches: [],
     };
     this.#players.set(player.id, player);
     return describePlayer(player);
@@ -291,9 +334,9 @@ export class World {
 
   /**
    * Brings a player from another world into this one, with its health,
-   * what it carries and the inputs of its peer still to come.  It stops
-   * whatever it was doing and idles where it arrives, but still wants to
-   * move the way it did.
+   * what it carries, the villagers who have told it who they are, and the
+   * inputs of its peer still to come.  It stops whatever it was doing and
+   * idles where it arrives, but still wants to move the way it did.
    *
    * @param {Player} player - The player, as it left the other world.
    * @param {Pose | null} arrival - Where it is to stand, and which way it
@@ -329,10 +372,11 @@ export class World {
    * makes it slash, drink from the fountain or talk to a villager, as the
    * rules tell from where it stands and which way it faces then, unless it
    * is doing any of them already or dead.  A pick, a put-down or a use
-   * changes what the player carries, as a step of the world tells.  Any
-   * input shows from the step at which it comes into effect: no sooner than
-   * the next one, and no sooner than the player has taken as many steps
-   * since its previous input came into effect as the input tells.
+   * changes what the player carries, and a reply the dialogue it is in, as
+   * a step of the world tells.  Any input shows from the step at which it
+   * comes into effect: no sooner than the next one, and no sooner than the
+   * player has taken as many steps since its previous input came into
+   * effect as the input tells.
    *
    * @param {number} id - The identifier of the player.
    * @param {StampedInput} input - The input.
@@ -361,8 +405,26 @@ export class World {
    * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
    * full health if that is less, which is an event unless it is none.  A
    * drink is never judged on the world as its peer showed it, so the time
-   * its interaction names, if any, does not matter.  A talk changes nothing
-   * else in the world, and is never judged either.
+   * its interaction names, if any, does not matter.  A talk is never judged
+   * either.  A talk to a villager without a script changes nothing else in
+   * the world.  A talk that starts at the step to a villager with a script,
+   * as {@link findOpening} finds, opens with the first of its openings whose
+   * condition holds of the player then, if any: a line said in passing is
+   * kept for the player to be told once, and any other line starts a
+   * dialogue there.  Whenever a line is said to a player, what the line
+   * brings about comes about at once: the villager may tell the player who
+   * it is, and may give it an item, which is laid at its feet as if put
+   * down if its inventory has no room for it.  A reply that comes into
+   * effect at the step, while the player is in a dialogue, names one of
+   * the replies offered: one that leads to a line whose condition holds of
+   * the player then takes the dialogue on to that line, and any other ends
+   * the dialogue.  Any reply to a line that offers none ends the dialogue,
+   * and a reply that names none of those offered does nothing otherwise.
+   * A player that dies leaves its dialogue.  A player in a dialogue at the
+   * start of a step is held in place at the step, as
+   * {@link AuthoritativePlayer.step} tells, and neither picks nor travels.
+   * The monsters of a cave whose player is in a dialogue do nothing at all
+   * at the step.
    *
    * Then the strikes are judged.  A slash that starts at the step hits
    * every monster that is alive, and was alive, in front of the player and
@@ -436,13 +498,15 @@ export class World {
     const leaving = new Set<Player>();
     for (const player of this.#players.values()) {
       const before: PlayerMotion = player.mover.motion;
+      const isHeld: boolean = player.dialogue !== null;
       const applied: StampedInput[] = player.mover.step(
         this.#stepCount,
         this.#map,
+        isHeld,
       );
       const after: PlayerMotion = player.mover.motion;
       for (const input of applied) {
-        if (input.type === 'pick' && canInteract(before)) {
+        if (input.type === 'pick' && canInteract(before) && !isHeld) {
           this.#pickItem(player);
         }
         if (input.type === 'drop' && before.action !== 'Die') {
@@ -451,8 +515,14 @@ export class World {
         if (input.type === 'use' && before.action !== 'Die') {
           this.#useItem(player, input.slot);
         }
+        if (input.type === 'reply') {
+          this.#answer(player, input.choice);
+        }
         const passage: Passage | null =
-          input.type === 'travel' && canInteract(before) && !leaving.has(player)
+          input.type === 'travel' &&
+          canInteract(before) &&
+          !isHeld &&
+          !leaving.has(player)
             ? findPassage(after, this.#stepCount, this.#map, monsters)
             : null;
         if (passage !== null) {
@@ -467,6 +537,9 @@ export class World {
       const isStarted: boolean = after.actionCount !== before.actionCount;
       if (isStarted && after.action === 'Drink') {
         this.#healPlayer(player, FOUNTAIN_HEALING);
+      }
+      if (isStarted && after.action === 'Talk') {
+        this.#startTalk(player, after);
       }
       if (isStarted && after.action === 'Slash') {
         const interaction: StampedInput | undefined = applied.findLast(
@@ -501,9 +574,14 @@ export class World {
       x: mover.motion.x,
       z: mover.motion.z,
     }));
-    const strikers: Monster[] = this.#monsters.filter((monster: Monster) =>
-      monster.step(quarries),
-    );
+    const isPaused: boolean =
+      this.#map === 'cave' &&
+      [...this.#players.values()].some(
+        (player: Player) => player.dialogue !== null,
+      );
+    const strikers: Monster[] = isPaused
+      ? []
+      : this.#monsters.filter((monster: Monster) => monster.step(quarries));
     for (const slasher of slashers) {
       if (!leaving.has(slasher.player)) {
         this.#judgeSlash(slasher);
@@ -581,6 +659,64 @@ export class World {
     const inventory: ItemKindId[] | undefined =
       this.#players.get(id)?.inventory;
     return inventory === undefined ? null : [...inventory];
+  }
+
+  /**
+   * Tells what dialogue a player is in, which only the player itself is to
+   * be told.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {DialogueView | null} The dialogue as it stands, or `null` if
+   *   the player is in none, or is not in the world.
+   */
+  findDialogue(id: number): DialogueView | null {
+    const dialogue: Dialogue | null | undefined =
+      this.#players.get(id)?.dialogue;
+    if (dialogue === undefined || dialogue === null) {
+      return null;
+    }
+    const node: DialogueNode | null = findDialogueNode(
+      dialogue.villager,
+      dialogue.node,
+    );
+    return {
+      villager: dialogue.villager,
+      line: node?.line ?? '',
+      replies: (node?.replies ?? []).map(
+        (reply: DialogueReply) => reply.text,
+      ),
+      turn: dialogue.turn,
+    };
+  }
+
+  /**
+   * Tells which villagers have told a player who they are, which only the
+   * player itself is to be told.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {VillagerId[]} The villagers, in the order they did, which are
+   *   none if the player is not in the world.
+   */
+  findAcquaintances(id: number): VillagerId[] {
+    return [...(this.#players.get(id)?.acquaintances ?? [])];
+  }
+
+  /**
+   * Takes what the villagers have said to a player in passing since it was
+   * last taken, which only the player itself is to be told.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {Speech[]} What they said, in the order they said it, each
+   *   taken only once, which is nothing if the player is not in the world.
+   */
+  takeSpeeches(id: number): Speech[] {
+    const player: Player | undefined = this.#players.get(id);
+    if (player === undefined) {
+      return [];
+    }
+    const speeches: Speech[] = player.speeches;
+    player.speeches = [];
+    return speeches;
   }
 
   /**
@@ -763,6 +899,17 @@ export class World {
     if (kind === undefined) {
       return;
     }
+    this.#layItem(player, kind);
+  }
+
+  /**
+   * Lays an item on the ground where a player stands now, for as long as an
+   * item put down lies there.
+   *
+   * @param {Player} player - The player.
+   * @param {ItemKindId} kind - The kind of the item.
+   */
+  #layItem(player: Player, kind: ItemKindId): void {
     const { x, z } = player.mover.motion;
     this.#lyingItems.push({
       item: {
@@ -773,6 +920,112 @@ export class World {
       },
       goneStep: this.#stepCount + GROUND_ITEM_STEPS,
     });
+  }
+
+  /**
+   * Starts a talk between a player that has just begun to talk and the
+   * villager it faces, if the villager has a script with an opening for
+   * the player.
+   *
+   * @param {Player} player - The player.
+   * @param {PlayerMotion} pose - Where the player stands, and which way it
+   *   faces, as its talk starts.
+   */
+  #startTalk(player: Player, pose: PlayerMotion): void {
+    const villager: Villager | null = findVillager(
+      pose,
+      this.#stepCount,
+      this.#map,
+    );
+    if (villager === null) {
+      return;
+    }
+    const opening: string | null = findOpening(villager.id, player);
+    const node: DialogueNode | null =
+      opening === null ? null : findDialogueNode(villager.id, opening);
+    if (opening === null || node === null) {
+      return;
+    }
+    if (node.isRemark === true) {
+      player.speeches.push({ villager: villager.id, line: node.line });
+      this.#bringAbout(player, villager.id, node);
+      return;
+    }
+    this.#reachNode(player, villager.id, opening);
+  }
+
+  /**
+   * Has a player answer the line said to it in its dialogue with a reply
+   * among those offered, if it is in a dialogue and there is such a reply,
+   * or end the dialogue, if the line offers no reply.
+   *
+   * @param {Player} player - The player.
+   * @param {number} choice - The number of the reply among those offered,
+   *   from 0.
+   */
+  #answer(player: Player, choice: number): void {
+    const { dialogue } = player;
+    if (dialogue === null) {
+      return;
+    }
+    const replies: readonly DialogueReply[] =
+      findDialogueNode(dialogue.villager, dialogue.node)?.replies ?? [];
+    if (replies.length === 0) {
+      player.dialogue = null;
+      return;
+    }
+    const reply: DialogueReply | undefined = Number.isInteger(choice)
+      ? replies[choice]
+      : undefined;
+    if (reply === undefined) {
+      return;
+    }
+    if (reply.next === null) {
+      player.dialogue = null;
+      return;
+    }
+    this.#reachNode(player, dialogue.villager, reply.next);
+  }
+
+  /**
+   * Has a villager say a line of a dialogue to a player, and has what comes
+   * of it come, if its condition holds of the player; ends the dialogue
+   * otherwise.
+   *
+   * @param {Player} player - The player.
+   * @param {VillagerId} villager - The villager.
+   * @param {string} name - The name of the node of the line.
+   */
+  #reachNode(player: Player, villager: VillagerId, name: string): void {
+    const node: DialogueNode | null = findDialogueNode(villager, name);
+    if (node === null || !meetsCondition(node, villager, player)) {
+      player.dialogue = null;
+      return;
+    }
+    player.dialogue = { villager, node: name, turn: ++player.turnCount };
+    this.#bringAbout(player, villager, node);
+  }
+
+  /**
+   * Has what comes of a line once it is said to a player come.
+   *
+   * @param {Player} player - The player.
+   * @param {VillagerId} villager - The villager who says it.
+   * @param {DialogueNode} node - The line.
+   */
+  #bringAbout(player: Player, villager: VillagerId, node: DialogueNode): void {
+    const { introduces = false, gives } = node.outcome ?? {};
+    if (introduces && !player.acquaintances.includes(villager)) {
+      player.acquaintances.push(villager);
+    }
+    if (gives === undefined) {
+      return;
+    }
+    if (hasRoom(player.inventory)) {
+      player.inventory.push(gives);
+    } else {
+      this.#layItem(player, gives);
+    }
   }
 
   /**
@@ -812,6 +1065,7 @@ export class World {
     if (player.health === 0) {
       player.mover.kill();
       player.deathSteps = DEATH_STEPS;
+      player.dialogue = null;
     }
   }
 

@@ -232,12 +232,39 @@ function drawHealingPotion(): SVGElement {
   ]);
 }
 
+/**
+ * Draws a small message from Clovervale: a torn, pale piece of cloth, with
+ * lines of writing scrawled across it.
+ *
+ * @returns {SVGElement} The message.
+ */
+function drawClovervaleMessage(): SVGElement {
+  return drawPicture([
+    createSvgElement('path', {
+      d:
+        'M10 14 L18 11 L24 14 L31 10 L38 13 L46 10 L54 14 L52 22 L55 30 ' +
+        'L51 38 L54 46 L50 54 L42 51 L35 55 L27 52 L19 55 L11 51 L13 43 ' +
+        'L9 35 L12 27 L9 20Z',
+      class: 'bag-message-cloth',
+    }),
+    createSvgElement('path', {
+      d:
+        'M17 21 C21 18 24 24 28 20 C32 17 35 23 40 20 C43 18 45 21 47 20 ' +
+        'M17 30 C20 27 24 33 27 29 C31 26 34 31 38 28 C42 26 44 30 47 28 ' +
+        'M17 39 C21 36 23 42 27 38 C31 35 34 41 38 37 C41 35 43 38 46 37 ' +
+        'M17 47 C20 45 23 49 26 46 C29 44 31 48 34 46',
+      class: 'bag-message-writing',
+    }),
+  ]);
+}
+
 /** What each kind of item is drawn as in a slot of the bag. */
 const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
   clover: drawClover,
   sword: drawSword,
   'leather-armour': drawLeatherArmour,
   'healing-potion': drawHealingPotion,
+  'clovervale-message': drawClovervaleMessage,
 };
 
 /**

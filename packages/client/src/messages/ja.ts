@@ -141,6 +141,8 @@ export const JA_MESSAGES: MessageTable = {
   'inventory.title': '持ち物',
   'inventory.icon': '持ち物 (I)',
   'inventory.hint': '矢印キーで選択、Enter で使う、Esc か I で閉じる',
+  'dialogue.hint': '矢印キーで選択、Enter で答える',
+  'dialogue.hintEnd': 'Enter で閉じる',
   'itemNotice.gained': '{item}を手に入れた',
   'itemAction.use': '使う',
   'itemAction.drop': '捨てる',
@@ -148,6 +150,7 @@ export const JA_MESSAGES: MessageTable = {
   'item.sword': '短剣',
   'item.leatherArmour': '革の鎧',
   'item.healingPotion': '回復薬',
+  'item.clovervaleMessage': '四葉谷の情報',
   'container.chest': '宝箱',
   'container.barrel': '樽',
 
@@ -174,5 +177,17 @@ export const JA_MESSAGES: MessageTable = {
   'villager.toby.line.3':
     '四つ葉のをさがしてるんだ！見つけたら、いいことがあるんだよ。',
   'villager.edwin.name': '囚人',
-  'villager.edwin.line.1': '誰かいるのか？助けてくれ！',
+  'villager.edwin.knownName': '使者エドウィン',
+  'dialogue.edwin.plea': '助けてくれ！誰か、助けてくれ！',
+  'dialogue.edwin.askWho': '誰？どうしてそんなところにいるの？',
+  'dialogue.edwin.identity':
+    '私は王国の使者、エドウィンだ。敵国の様子を探りに来たんだが、捕まってしまって、ここに閉じ込められているんだ。',
+  'dialogue.edwin.offerKey': '待ってて。鍵を見つけて、出してあげるから。',
+  'dialogue.edwin.errand':
+    'いや、そんな時間はない。今すぐ国王に知らせなきゃならない大事な情報があるんだ。この布に書いておいたから、すぐに国王のところへ持って行ってくれ。一刻を争うんだ、急いでくれ！',
+  'dialogue.edwin.reminder': '国王には会えたか？早く行ってくれ！',
+  'dialogue.edwin.wonder': '国王には会えたのか？なんでまだここにいるんだ？',
+  'dialogue.edwin.tellLost': '預かった情報、なくしちゃった。',
+  'dialogue.edwin.rewrite':
+    '大丈夫だ、もう一度書こう。すぐに国王のところへ持って行ってくれ。一刻を争うんだ、急いでくれ！',
 };

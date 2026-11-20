@@ -38,6 +38,7 @@ import {
 import { buildCave, buildCaveTorch } from './cave.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
 import { buildItemLeatherArmour, buildItemSword } from './gear.ts';
+import { buildItemClovervaleMessage } from './message.ts';
 import { buildNpcEmma } from './npc-emma.ts';
 import { buildNpcEdwin } from './npc-edwin.ts';
 import { buildNpcMartha } from './npc-martha.ts';
@@ -115,5 +116,9 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-item-sword', build: buildItemSword },
     { name: 'prop-item-leather-armour', build: buildItemLeatherArmour },
     { name: 'prop-item-healing-potion', build: buildItemHealingPotion },
+    {
+      name: 'prop-item-clovervale-message',
+      build: buildItemClovervaleMessage,
+    },
   ];
 }

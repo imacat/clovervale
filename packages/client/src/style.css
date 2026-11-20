@@ -70,11 +70,12 @@ canvas {
 
 /*
  * The notices of the items the player gets, one under another, above the
- * prompt at the foot of the page, each fading out after a few seconds.
+ * prompt at the foot of the page, and above the dialogue box while it is
+ * open, each fading out after a few seconds.
  */
 .item-notices {
   position: fixed;
-  bottom: 60px;
+  bottom: max(60px, calc(var(--dialogue-top, 0px) + 8px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -104,6 +105,67 @@ canvas {
   100% {
     opacity: 0;
   }
+}
+
+/*
+ * The dialogue box of the player at the foot of the page in the middle,
+ * over the prompt: the name of the villager, what it says, and the replies
+ * with their cursor, styled like the bag.
+ */
+.dialogue {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid rgb(240 244 232 / 40%);
+  border-radius: 6px;
+  background: rgb(0 0 0 / 60%);
+  color: #f0f4e8;
+  font: 14px sans-serif;
+  user-select: none;
+}
+
+.dialogue[hidden],
+.dialogue-replies[hidden] {
+  display: none;
+}
+
+.dialogue-name {
+  margin-bottom: 6px;
+  color: #ffe14d;
+  font-weight: bold;
+}
+
+.dialogue-line {
+  line-height: 1.5;
+}
+
+.dialogue-replies {
+  margin-top: 8px;
+  padding: 4px 0;
+  border: 1px solid rgb(240 244 232 / 40%);
+  border-radius: 4px;
+  background: rgb(20 28 20 / 92%);
+}
+
+.dialogue-reply {
+  padding: 4px 14px;
+  cursor: pointer;
+}
+
+/* The reply the cursor is on, as the action of the menu of the bag. */
+.dialogue-reply.is-cursor {
+  background: #ffe14d;
+  color: #1a1a1a;
+}
+
+.dialogue-hint {
+  margin-top: 6px;
+  color: rgb(240 244 232 / 75%);
+  font-size: 12px;
 }
 
 /*
@@ -352,4 +414,18 @@ canvas {
   fill: #b98a55;
   stroke: #5e3f1f;
   stroke-width: 1.5;
+}
+
+.bag-message-cloth {
+  fill: #e6dcc3;
+  stroke: #7a6a4c;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.bag-message-writing {
+  fill: none;
+  stroke: #5a2e1e;
+  stroke-width: 2;
+  stroke-linecap: round;
 }

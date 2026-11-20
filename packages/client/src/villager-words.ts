@@ -22,7 +22,7 @@
  *   they say, in the language of the page.
  */
 
-import type { Villager } from '@clovervale/shared';
+import type { Villager, VillagerId } from '@clovervale/shared';
 
 import { EN_MESSAGES } from './messages/en.ts';
 import type { MessageId } from './messages/en.ts';
@@ -31,9 +31,18 @@ import type { Translator } from './translator.ts';
 /** A message of a line a villager says. */
 type LineId = Extract<MessageId, `villager.${string}.line.${string}`>;
 
+/**
+ * A message of the name a villager is called by once it has told a player
+ * who it is.
+ */
+type KnownNameId = Extract<MessageId, `villager.${string}.knownName`>;
+
 /** What a villager is called, and what it says. */
 export interface VillagerWords {
-  /** The name of the villager. */
+  /**
+   * The name of the villager: once it has told the player of the page who
+   * it is, the name it then goes by, if it has one.
+   */
   readonly name: string;
   /**
    * The lines the villager says when a player talks to it, one line each
@@ -50,6 +59,18 @@ export interface VillagerWords {
  */
 function isLineId(id: string): id is LineId {
   return /^villager\.[a-z]+\.line\.\d+$/u.test(id) && id in EN_MESSAGES;
+}
+
+/**
+ * Tells whether a message is the name a villager is called by once it has
+ * told a player who it is.
+ *
+ * @param {string} id - The name of the message.
+ * @returns {boolean} Whether the page has the message, and it is such a
+ *   name.
+ */
+function isKnownNameId(id: string): id is KnownNameId {
+  return /^villager\.[a-z]+\.knownName$/u.test(id) && id in EN_MESSAGES;
 }
 
 /**
@@ -75,14 +96,21 @@ function listLineIds(villager: Villager): LineId[] {
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {Villager} villager - The villager.
+ * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
+ *   told the player of the page who they are, none by default.
  * @returns {VillagerWords} Its name and its lines.
  */
 export function describeVillager(
   translator: Translator,
   villager: Villager,
+  acquaintances: readonly VillagerId[] = [],
 ): VillagerWords {
+  const knownName = `villager.${villager.id}.knownName`;
   return {
-    name: translator.translate(`villager.${villager.id}.name`),
+    name:
+      acquaintances.includes(villager.id) && isKnownNameId(knownName)
+        ? translator.translate(knownName)
+        : translator.translate(`villager.${villager.id}.name`),
     lines: listLineIds(villager).map((id: LineId) => translator.translate(id)),
   };
 }

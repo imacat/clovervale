@@ -138,6 +138,8 @@ export type {
   ItemKindId,
   WorldItems,
 } from './items.ts';
+export { DIALOGUE_REPLY_LIMIT, isDialogueText } from './dialogue.ts';
+export type { DialogueView } from './dialogue.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
 export type { Placed } from './interpolation.ts';
 export {
@@ -173,6 +175,7 @@ export type {
   PickInput,
   PlayerInput,
   PlayerMotion,
+  ReplyInput,
   TravelInput,
   UseInput,
 } from './player-motion.ts';
@@ -187,6 +190,7 @@ export {
   createMapMessage,
   createMoveMessage,
   createSnapshotMessage,
+  createSpeechMessage,
   createWelcomeMessage,
   decodeClientMessage,
   decodeServerMessage,
@@ -209,9 +213,11 @@ export type {
   MoveMessage,
   PickMessage,
   PlayerState,
+  ReplyMessage,
   ServerMessage,
   SlashJudgement,
   SnapshotMessage,
+  SpeechMessage,
   TravelMessage,
   UseMessage,
   WelcomeMessage,
@@ -263,7 +269,7 @@ export {
   SPAWN_YAW,
   findSpawnPoint,
 } from './village.ts';
-export { VILLAGERS, locateVillager } from './villagers.ts';
+export { VILLAGERS, isVillagerId, locateVillager } from './villagers.ts';
 export { MAP_IDS, findMapTerrain, isMapId } from './world-map.ts';
 export type { MapId } from './world-map.ts';
 export type { Villager, VillagerId } from './villagers.ts';

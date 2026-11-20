@@ -142,6 +142,8 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'inventory.title': '物品欄',
   'inventory.icon': '物品欄 (I)',
   'inventory.hint': '方向鍵選擇，Enter 使用，Esc 或 I 關閉',
+  'dialogue.hint': '方向鍵選擇，Enter 回答',
+  'dialogue.hintEnd': 'Enter 結束',
   'itemNotice.gained': '取得{item}',
   'itemAction.use': '使用',
   'itemAction.drop': '丟棄',
@@ -149,6 +151,7 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'item.sword': '短劍',
   'item.leatherArmour': '皮甲',
   'item.healingPotion': '治療藥水',
+  'item.clovervaleMessage': '四葉谷的情報',
   'container.chest': '寶箱',
   'container.barrel': '木桶',
 
@@ -166,5 +169,17 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'villager.toby.line.2': '有事要找村長喔，她住在最大的那間房子。',
   'villager.toby.line.3': '我在找四葉的！找到就會有好運喔。',
   'villager.edwin.name': '囚犯',
-  'villager.edwin.line.1': '有人嗎？救救我！',
+  'villager.edwin.knownName': '使者艾德溫',
+  'dialogue.edwin.plea': '救命！請幫幫我！',
+  'dialogue.edwin.askWho': '你是誰？為什麼在這裏？',
+  'dialogue.edwin.identity':
+    '我是王國的使者艾德溫，奉命探查敵國的情報。不小心被抓住了，被關在這裏。',
+  'dialogue.edwin.offerKey': '你等等，我去找鑰匙，救你出來。',
+  'dialogue.edwin.errand':
+    '不用了，等不及了。我手上有重要的情報，要馬上送到國王手上。我寫在這塊布上，請你馬上帶去給國王。這件事非常緊急，要快！',
+  'dialogue.edwin.reminder': '你去找國王了嗎？快點去！',
+  'dialogue.edwin.wonder': '你去找國王了嗎？為什麼還在這裏？',
+  'dialogue.edwin.tellLost': '我的情報遺失了。',
+  'dialogue.edwin.rewrite':
+    '沒關係，我重寫。請你馬上帶去給國王。這件事非常緊急，要快！',
 };

@@ -27,6 +27,7 @@ import {
   createEventsMessage,
   createMapMessage,
   createSnapshotMessage,
+  createSpeechMessage,
 } from '@clovervale/shared';
 import type {
   EventsMessage,
@@ -41,7 +42,7 @@ import type {
 } from '@clovervale/shared';
 
 import { World } from './world.ts';
-import type { Departure } from './world.ts';
+import type { Departure, Speech } from './world.ts';
 
 /**
  * Every world the server holds: the village, which every player comes into
@@ -195,10 +196,12 @@ export class Realm {
    * snapshot of the world it is in, with every player and monster to be
    * seen there, what there is to pick there and, in its cave, which of the
    * chests and barrels it has looted, and with what that player alone is
-   * told of itself; and then the events that have happened in
-   * that world since the last snapshots, if any have, so that each player
-   * hears of each event of the world it is in once.  A player is told
-   * nothing of any other world.
+   * told of itself: what it carries, the dialogue it is in, and the
+   * villagers who have told it who they are; then what the villagers have
+   * said to it in passing since the last snapshots, each once; and then the
+   * events that have happened in that world since the last snapshots, if
+   * any have, so that each player hears of each event of the world it is
+   * in once.  A player is told nothing of any other world.
    *
    * @returns {Map<number, ServerMessage[]>} The messages, by the identifier
    *   of the player, for every player in a world.
@@ -232,7 +235,14 @@ export class Realm {
             world.findSlash(id),
             items,
             world.findInventory(id) ?? [],
+            world.findDialogue(id),
+            world.findAcquaintances(id),
           ),
+          ...world
+            .takeSpeeches(id)
+            .map(({ villager, line }: Speech) =>
+              createSpeechMessage(villager, line),
+            ),
         );
         if (eventsMessage !== null) {
           messages.push(eventsMessage);

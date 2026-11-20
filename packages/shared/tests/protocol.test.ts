@@ -31,6 +31,7 @@ import {
   createMapMessage,
   createMoveMessage,
   createSnapshotMessage,
+  createSpeechMessage,
   createWelcomeMessage,
   decodeClientMessage,
   decodeServerMessage,
@@ -39,6 +40,7 @@ import {
 } from '../src/index.ts';
 import type {
   DayCycle,
+  DialogueView,
   GroundItem,
   HealEvent,
   HitEvent,
@@ -117,7 +119,17 @@ const NOTHING_TO_PICK = {
   items: [],
   looted: [],
   inventory: [],
+  dialogue: null,
+  acquaintances: [],
 } as const;
+
+/** A dialogue, to put in snapshots. */
+const DIALOGUE: DialogueView = {
+  villager: 'edwin',
+  line: 'dialogue.edwin.plea',
+  replies: ['dialogue.edwin.askWho'],
+  turn: 1,
+};
 
 /** An item on the ground, to put in snapshots. */
 const ITEM: GroundItem = { id: 4, kind: 'clover', x: 2.5, z: -9.25 };
@@ -532,6 +544,8 @@ describe('the server message codec', () => {
       items: [ITEM, second],
       looted: [],
       inventory: ['clover', 'clover'],
+      dialogue: null,
+      acquaintances: [],
     });
   });
 
@@ -614,6 +628,73 @@ describe('the server message codec', () => {
       looted: [],
       inventory: [],
       ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it('decodes a snapshot message that tells of a dialogue', () => {
+    const message = createSnapshotMessage(
+      4,
+      [PLAYER],
+      [],
+      OWN,
+      null,
+      undefined,
+      ['clovervale-message'],
+      DIALOGUE,
+      ['edwin'],
+    );
+    const decoded = decodeServerMessage(encodeServerMessage(message));
+    expect(decoded).toEqual(message);
+    expect(decoded).toMatchObject({
+      dialogue: DIALOGUE,
+      acquaintances: ['edwin'],
+    });
+  });
+
+  it.each([
+    ['is missing', { dialogue: undefined }],
+    ['names no villager there is', { dialogue: { ...DIALOGUE, villager: 'x' } }],
+    ['has a line that is not a name', { dialogue: { ...DIALOGUE, line: 'a b' } }],
+    [
+      'offers too many replies',
+      { dialogue: { ...DIALOGUE, replies: ['a', 'b', 'c', 'd'] } },
+    ],
+    ['has no number of its line', { dialogue: { ...DIALOGUE, turn: 0 } }],
+  ])('rejects a snapshot whose dialogue %s', (_, flaw) => {
+    const data = JSON.stringify({
+      ...createSnapshotMessage(4, [PLAYER], [], OWN),
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['are missing', { acquaintances: undefined }],
+    ['name no villager there is', { acquaintances: ['stranger'] }],
+    ['name a villager twice', { acquaintances: ['edwin', 'edwin'] }],
+  ])('rejects a snapshot whose acquaintances %s', (_, flaw) => {
+    const data = JSON.stringify({
+      ...createSnapshotMessage(4, [PLAYER], [], OWN),
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it('decodes the speech message it encodes', () => {
+    const message = createSpeechMessage('edwin', 'dialogue.edwin.reminder');
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'speech',
+      villager: 'edwin',
+      line: 'dialogue.edwin.reminder',
+    });
+  });
+
+  it('rejects a speech message of no villager there is', () => {
+    const data = JSON.stringify({
+      type: 'speech',
+      villager: 'stranger',
+      line: 'dialogue.edwin.reminder',
     });
     expect(() => decodeServerMessage(data)).toThrow();
   });
@@ -767,6 +848,41 @@ describe('the client message codec', () => {
       after: 2,
       ...flaw,
     });
+    expect(() => decodeClientMessage(data)).toThrow();
+  });
+
+  it('decodes a reply message with the reply it names', () => {
+    const data = JSON.stringify({
+      type: 'reply',
+      sequence: 4,
+      after: 2,
+      choice: 1,
+      x: 1,
+    });
+    expect(decodeClientMessage(data)).toEqual({
+      type: 'reply',
+      sequence: 4,
+      after: 2,
+      choice: 1,
+    });
+  });
+
+  it.each([
+    ['is missing', {}],
+    ['is not a whole number', { choice: 0.5 }],
+    ['is below zero', { choice: -1 }],
+  ])('rejects a reply message whose reply %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'reply',
+      sequence: 4,
+      after: 2,
+      ...flaw,
+    });
+    expect(() => decodeClientMessage(data)).toThrow();
+  });
+
+  it('rejects a message that would leave a dialogue', () => {
+    const data = JSON.stringify({ type: 'leave', sequence: 4, after: 2 });
     expect(() => decodeClientMessage(data)).toThrow();
   });
 
