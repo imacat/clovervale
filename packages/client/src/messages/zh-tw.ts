@@ -170,6 +170,7 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'villager.toby.line.3': '我在找四葉的！找到就會有好運喔。',
   'villager.edwin.name': '囚犯',
   'villager.edwin.knownName': '使者艾德溫',
+  'villager.edwin.call': '救命！有人在嗎？',
   'dialogue.edwin.plea': '救命！請幫幫我！',
   'dialogue.edwin.askWho': '你是誰？為什麼在這裏？',
   'dialogue.edwin.identity':

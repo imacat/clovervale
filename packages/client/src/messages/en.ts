@@ -180,6 +180,7 @@ export const EN_MESSAGES = {
     "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
   'villager.edwin.name': 'Prisoner',
   'villager.edwin.knownName': 'Envoy Edwin',
+  'villager.edwin.call': 'Help! Is anyone there?',
   'dialogue.edwin.plea': 'Help! Somebody, please help me!',
   'dialogue.edwin.askWho': 'Who are you? What are you doing in there?',
   'dialogue.edwin.identity':

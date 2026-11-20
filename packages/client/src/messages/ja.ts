@@ -178,6 +178,7 @@ export const JA_MESSAGES: MessageTable = {
     '四つ葉のをさがしてるんだ！見つけたら、いいことがあるんだよ。',
   'villager.edwin.name': '囚人',
   'villager.edwin.knownName': '使者エドウィン',
+  'villager.edwin.call': '助けてくれ！誰かいないのか？',
   'dialogue.edwin.plea': '助けてくれ！誰か、助けてくれ！',
   'dialogue.edwin.askWho': '誰？どうしてそんなところにいるの？',
   'dialogue.edwin.identity':

@@ -704,6 +704,11 @@ const EDWIN_REMINDER: SpeechWordsView = {
   name: 'Envoy Edwin',
   line: 'Have you seen the king yet? Go on, hurry!',
 };
+/** What Edwin calls out for help once the dogs are dead, in English. */
+const EDWIN_CALL: SpeechWordsView = {
+  name: 'Prisoner',
+  line: 'Help! Is anyone there?',
+};
 /** The notice of the message from Clovervale got from Edwin. */
 const MESSAGE_NOTICE = 'You got the message from Clovervale';
 /**
@@ -5013,7 +5018,8 @@ async function fightCaveDog(
  * other page no longer shows the player.  The dog by the cells notices the
  * player at once, and the player kills it there with its slashes, as
  * {@link fightCaveDog} tells; it then walks west until the other dog
- * notices it, and kills that one too.  The player talks to the prisoner
+ * notices it, and kills that one too.  The prisoner, on the screen, then
+ * calls out for help in a bubble.  The player talks to the prisoner
  * and loots the store rooms, as {@link checkCaveChambers} tells, and walks
  * on west down the passage to the rope, where its
  * page tells the space bar climbs up, and once it is pressed, both pages
@@ -5167,6 +5173,16 @@ async function checkCave(
     'until the other dog notices it',
   );
   await fightCaveDog(session, actor, id, 2, null);
+  await waitFor(
+    look,
+    (shown: CaveLook) =>
+      shown.speech?.name === EDWIN_CALL.name &&
+      shown.speech.line === EDWIN_CALL.line,
+    ACTION_TIMEOUT,
+    (shown: CaveLook) =>
+      `With both dogs of the cave dead, the first page tells ` +
+      `${describeCaveLook(shown)}.`,
+  );
   await checkCaveChambers(session, actor, id);
 
   await sendKey(session, actor, 'keyDown', 'w');

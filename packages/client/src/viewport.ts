@@ -27,7 +27,7 @@ import {
   PerspectiveCamera,
   WebGLRenderer,
 } from 'three';
-import type { Scene } from 'three';
+import type { Camera, Scene } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import type { GroundVector } from '@clovervale/shared';
@@ -50,6 +50,12 @@ export interface Viewport {
    * @returns {GroundVector} The point on the ground.
    */
   readonly getFocus: () => GroundVector;
+  /**
+   * Gives the camera the scene is shown through.
+   *
+   * @returns {Camera} The camera, as it stands for the frame last drawn.
+   */
+  readonly getCamera: () => Camera;
   /**
    * Moves the camera along with what it looks at, at once, keeping its
    * distance and its angles.
@@ -213,6 +219,7 @@ export function showScene(
       x: controls.target.x,
       z: controls.target.z,
     }),
+    getCamera: (): Camera => camera,
     follow: (next: GroundVector): void => {
       camera.position.x += next.x - controls.target.x;
       camera.position.z += next.z - controls.target.z;

@@ -22,9 +22,11 @@
  */
 
 import { Group } from 'three';
-import type { Scene, Vector3 } from 'three';
+import type { Object3D, Scene, Vector3 } from 'three';
 
 import {
+  CAVE_EDWIN_FILE,
+  CAVE_FILE,
   CAVE_TERRAIN,
   NOON,
   NO_WORLD_ITEMS,
@@ -82,6 +84,7 @@ import { DialogueBox } from './dialogue-box.ts';
 import type { DialogueRequest, DialogueResponse } from './dialogue-box.ts';
 import { createDialogueView } from './dialogue-view.ts';
 import type { DialogueBoxView } from './dialogue-view.ts';
+import { EdwinCall, areDogsDead, isOnScreen } from './edwin-call.ts';
 import { EventSchedule } from './event-schedule.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
@@ -173,6 +176,10 @@ const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 /** Toby, the child who goes about by the gate, as a villager. */
 const TOBY_VILLAGER: Villager | undefined = VILLAGERS.find(
   (villager: Villager) => villager.file === TOBY_FILE,
+);
+/** Edwin, the prisoner of the cave, as a villager. */
+const EDWIN_VILLAGER: Villager | undefined = VILLAGERS.find(
+  (villager: Villager) => villager.file === CAVE_EDWIN_FILE,
 );
 
 /**
@@ -319,6 +326,8 @@ const markers = new HitMarkers(stage);
 const speech = new SpeechBubble(stage, translator);
 /** What notices each talk of the player of the page to a villager. */
 const talks = new TalkWatch();
+/** What tells when Edwin calls out for help. */
+const edwinCall = new EdwinCall();
 const fade = createMapFade(document.body);
 const viewport: Viewport = showScene(
   scene,
@@ -344,6 +353,7 @@ const viewport: Viewport = showScene(
     monsterFigures.update(isPaused ? 0 : seconds);
     markers.update(seconds);
     speech.update(seconds);
+    showEdwinCall(seconds);
   },
 );
 
@@ -702,6 +712,40 @@ function findShownHead(villager: Villager, step: number): Vector3 {
     (candidate: LoadedModel) => candidate.file === villager.file,
   );
   return findHeadTop(villager, model?.root ?? null, step);
+}
+
+/**
+ * Has Edwin call out for help in a bubble above his head whenever
+ * {@link EdwinCall} tells he does, while the player of the page is in the
+ * cave: once both dogs of the cave are dead, as long as he is on the
+ * screen, not hidden by the rock of the cave, before he has told the
+ * player who he is, and while the player is not in a dialogue.
+ *
+ * @param {number} seconds - The time since the last frame, in seconds.
+ */
+function showEdwinCall(seconds: number): void {
+  const findRoot = (file: string): Object3D | null =>
+    models.find((model: LoadedModel) => model.file === file)?.root ?? null;
+  const figure: Object3D | null = findRoot(CAVE_EDWIN_FILE);
+  const isCalling: boolean = edwinCall.update(seconds, {
+    areDogsDead:
+      ownId !== null &&
+      shownMap === 'cave' &&
+      areDogsDead(timeline.latestMonsters),
+    isAcquainted: acquaintances.includes('edwin'),
+    isInDialogue: dialogueBox.isOpen,
+    isOnScreen: () =>
+      figure !== null &&
+      isOnScreen(viewport.getCamera(), figure, findRoot(CAVE_FILE)),
+  });
+  if (isCalling && EDWIN_VILLAGER !== undefined) {
+    const step: number = prediction?.step ?? 0;
+    speech.say(
+      EDWIN_VILLAGER,
+      findShownHead(EDWIN_VILLAGER, step),
+      'villager.edwin.call',
+    );
+  }
 }
 
 /**
