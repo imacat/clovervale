@@ -37,22 +37,26 @@ import {
   TOBY_ENDS,
   TOBY_LOOP_STEPS,
   TOBY_RADIUS,
+  VILLAGERS,
   WALK_SPEED,
   applyInput,
   createMotion,
   findSpawnPoint,
   findTobyPose,
   killMotion,
+  locateVillager,
   stepMotion,
 } from '@clovervale/shared';
 import type {
   GroundVector,
   InputProgress,
+  MonsterState,
   PlayerInput,
   PlayerMotion,
   PlayerState,
   StampedInput,
   TobyPose,
+  Villager,
 } from '@clovervale/shared';
 
 import { PlayerPrediction, placeOwnPlayer } from '../src/prediction.ts';
@@ -1318,6 +1322,36 @@ describe('a prediction that goes into another map', () => {
     expect(prediction.motion.z).toBe(CAVE_LANDING.z);
     expect(prediction.readDrawn(1300)).toEqual(prediction.motion);
     expect(prediction.correctionCount).toBe(0);
+  });
+
+  it('slashes at a living dog in front rather than talk to the prisoner', () => {
+    const edwin: Villager | undefined = VILLAGERS.find(
+      (villager: Villager) => villager.id === 'edwin',
+    );
+    const at: GroundVector =
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+    const turned: PlayerMotion = createMotion(
+      { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
+      135,
+    );
+    const dog: MonsterState = {
+      id: 1,
+      kind: 'cave-dog',
+      x: turned.x + 1,
+      z: turned.z,
+      yaw: -90,
+      action: 'Idle',
+      actionCount: 0,
+      health: 80,
+      mode: 'chase',
+    };
+    const talking = new PlayerPrediction(turned, 0, 0, 'cave');
+    talking.issueInput(INTERACT, 1000);
+    expect(talking.motion.action).toBe('Talk');
+    const slashing = new PlayerPrediction(turned, 0, 0, 'cave');
+    slashing.noteMonsters([dog]);
+    slashing.issueInput(INTERACT, 1000);
+    expect(slashing.motion.action).toBe('Slash');
   });
 
   it('walks the player by the ground of the map it is in', () => {

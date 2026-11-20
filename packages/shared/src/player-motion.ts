@@ -27,6 +27,7 @@ import type { ActionState, Interaction } from './actions.ts';
 import { findInteraction } from './interaction.ts';
 import { SIMULATION_RATE, findYaw, movePosition } from './movement.ts';
 import type { GroundVector } from './movement.ts';
+import type { MonsterState } from './protocol.ts';
 import type { Terrain } from './terrain.ts';
 import { findTobyPose, pushAside, resolveWalk } from './toby.ts';
 import { findMapTerrain } from './world-map.ts';
@@ -206,10 +207,10 @@ export function createMotion(
  * A move changes the way the player wants to move.  An interaction makes
  * the player slash, drink from the fountain or talk to a villager, as
  * {@link findInteraction} tells from where it stands and which way it faces
- * at the step it starts, and from where Toby is then, unless the player
- * cannot interact then, as {@link canInteract} tells, in which case it does
- * none of them, then or later.  A pick, a put-down, a use, a reply or a
- * travel leaves the motion as it is.
+ * at the step it starts, and from where Toby and the monsters are then,
+ * unless the player cannot interact then, as {@link canInteract} tells, in
+ * which case it does none of them, then or later.  A pick, a put-down, a
+ * use, a reply or a travel leaves the motion as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.
@@ -247,12 +248,16 @@ export function applyInput(
  * @param {number} step - The number of the step, as the server counts
  *   them, which tells where Toby is.
  * @param {MapId} [map] - The map the player is in, the village by default.
+ * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+ *   which tell whether the player slashes rather than talks to a villager,
+ *   none by default.
  * @returns {PlayerMotion} The motion after the step.
  */
 export function stepMotion(
   motion: PlayerMotion,
   step: number,
   map: MapId = 'village',
+  monsters: readonly MonsterState[] = [],
 ): PlayerMotion {
   if (motion.action === 'Die') {
     return motion;
@@ -269,7 +274,12 @@ export function stepMotion(
     return { ...moved, actionSteps };
   }
   if (moved.isInteracting) {
-    const interaction: Interaction = findInteraction(moved, step, map);
+    const interaction: Interaction = findInteraction(
+      moved,
+      step,
+      map,
+      monsters,
+    );
     return startAction(
       {
         ...moved,

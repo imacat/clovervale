@@ -754,6 +754,8 @@ function receiveMessage(data: string): void {
       panel.offerCameraChoices(
         listCameraChoices(translator, ownId, message.players),
       );
+      // The monsters tell whether the player slashes rather than talks.
+      prediction?.noteMonsters(message.monsters);
       if (prediction === null) {
         prediction = new PlayerPrediction(
           message.own.motion,
@@ -761,6 +763,7 @@ function receiveMessage(data: string): void {
           now,
           map ?? shownMap,
         );
+        prediction.noteMonsters(message.monsters);
         if (map !== null) {
           showMap(map, message.own);
         }

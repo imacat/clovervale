@@ -581,6 +581,35 @@ describe('the prisoner in the north cell of the cave', () => {
     expect(findVillager(pose, 0, 'cave')).toBeNull();
     expect(findInteraction(pose, 0, 'cave')).toBe('Slash');
   });
+
+  /**
+   * A player at the bars, turned towards the east, with him still within
+   * reach to talk to.
+   */
+  const turned: Pose = { ...walkToBars(at.x), yaw: 135 };
+
+  it('is slashed past at a living dog in front of the player', () => {
+    const dog: MonsterState = placeDog({ x: turned.x + 1, z: turned.z });
+    expect(findInteraction(turned, 0, 'cave')).toBe('Talk');
+    expect(findInteraction(turned, 0, 'cave', [dog])).toBe('Slash');
+    expect(findVillager(turned, 0, 'cave', [dog])).toBeNull();
+    const motion: PlayerMotion = {
+      ...createMotion(turned, turned.yaw),
+      isInteracting: true,
+    };
+    expect(stepMotion(motion, 0, 'cave', [dog]).action).toBe('Slash');
+  });
+
+  it('is talked to with a living dog behind the player', () => {
+    const dog: MonsterState = placeDog({ x: turned.x - 0.7, z: turned.z });
+    expect(findInteraction(turned, 0, 'cave', [dog])).toBe('Talk');
+    expect(findVillager(turned, 0, 'cave', [dog])?.id).toBe('edwin');
+  });
+
+  it('is talked to with a dead dog in front of the player', () => {
+    const dog: MonsterState = placeDog({ x: turned.x + 1, z: turned.z }, true);
+    expect(findInteraction(turned, 0, 'cave', [dog])).toBe('Talk');
+  });
 });
 
 describe('findPickTarget by the containers of the cave', () => {

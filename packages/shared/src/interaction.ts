@@ -226,7 +226,8 @@ const INTERACTABLES: Readonly<Record<MapId, readonly Interactable[]>> = {
 
 /**
  * Finds what a player does when it interacts with the world at a step of
- * the simulation, standing as it does in a map.
+ * the simulation, standing as it does in a map, with the monsters there as
+ * they are.
  *
  * Something is within reach of the player if its centre is no more than
  * {@link INTERACTION_HALF_ANGLE} to either side of the way the player
@@ -234,30 +235,38 @@ const INTERACTABLES: Readonly<Record<MapId, readonly Interactable[]>> = {
  * its rim, and a villager if the player stands within {@link TALK_REACH} of
  * where the villager is at the step.  The fountain is in the village, and
  * each villager in its own map: the prisoner, the only one in the cave,
- * is talked to through the bars of his cell.
+ * is talked to through the bars of his cell.  A slash at a living monster
+ * the slash would hit, as {@link isWithinStrike} tells with
+ * {@link SLASH_REACH}, comes before talking to a villager.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
  * @param {MapId} [map] - The map the player is in, the village by default.
+ * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+ *   none by default.
  * @returns {Interaction} A drink, if the fountain is within reach, or else
- *   a talk, if a villager is, or else a slash.
+ *   a talk, if a villager is and no living monster is within the reach of a
+ *   slash, or else a slash.
  */
 export function findInteraction(
   pose: Pose,
   step: number,
   map: MapId = 'village',
+  monsters: readonly MonsterState[] = [],
 ): Interaction {
-  return findInteractable(pose, step, map)?.interaction ?? 'Slash';
+  return findInteractable(pose, step, map, monsters)?.interaction ?? 'Slash';
 }
 
 /**
  * Finds the villager a player talks to when it interacts with the world at
- * a step of the simulation, standing as it does, as {@link findInteraction}
- * tells.
+ * a step of the simulation, standing as it does, with the monsters there as
+ * they are, as {@link findInteraction} tells.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
  * @param {MapId} [map] - The map the player is in, the village by default.
+ * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+ *   none by default.
  * @returns {Villager | null} The villager, or `null` if the player does not
  *   talk.
  */
@@ -265,8 +274,9 @@ export function findVillager(
   pose: Pose,
   step: number,
   map: MapId = 'village',
+  monsters: readonly MonsterState[] = [],
 ): Villager | null {
-  return findInteractable(pose, step, map)?.villager ?? null;
+  return findInteractable(pose, step, map, monsters)?.villager ?? null;
 }
 
 /**
@@ -275,16 +285,43 @@ export function findVillager(
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
  * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map.
  * @returns {Interactable | undefined} The first of the
- *   {@link INTERACTABLES} of the map within reach of the player, if any.
+ *   {@link INTERACTABLES} of the map within reach of the player, if any,
+ *   unless it is a villager and a living monster is within the reach of a
+ *   slash of the player.
  */
 function findInteractable(
   pose: Pose,
   step: number,
   map: MapId,
+  monsters: readonly MonsterState[],
 ): Interactable | undefined {
-  return INTERACTABLES[map].find((interactable: Interactable) =>
-    isWithinReach(pose, interactable.locate(step), interactable.reach),
+  const found: Interactable | undefined = INTERACTABLES[map].find(
+    (interactable: Interactable) =>
+      isWithinReach(pose, interactable.locate(step), interactable.reach),
+  );
+  return found?.villager !== undefined && isMonsterWithinSlash(pose, monsters)
+    ? undefined
+    : found;
+}
+
+/**
+ * Tells whether a slash of a player would hit a living monster.
+ *
+ * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map.
+ * @returns {boolean} Whether a living monster is within
+ *   {@link SLASH_REACH} in front of the player, as {@link isWithinStrike}
+ *   tells.
+ */
+function isMonsterWithinSlash(
+  pose: Pose,
+  monsters: readonly MonsterState[],
+): boolean {
+  return monsters.some(
+    (monster: MonsterState) =>
+      monster.mode !== 'dead' && isWithinStrike(pose, monster, SLASH_REACH),
   );
 }
 
@@ -456,10 +493,7 @@ export function findPassage(
 ): Passage | null {
   if (
     findInteraction(pose, step, map) !== 'Slash' ||
-    monsters.some(
-      (monster: MonsterState) =>
-        monster.mode !== 'dead' && isWithinStrike(pose, monster, SLASH_REACH),
-    )
+    isMonsterWithinSlash(pose, monsters)
   ) {
     return null;
   }

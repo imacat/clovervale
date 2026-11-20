@@ -592,6 +592,29 @@ describe('describePrompt in the cave', () => {
     ]);
   });
 
+  it('tells a player at the bars it slashes at a living dog in front', () => {
+    const turned: PlayerMotion = { ...AT_BARS, yaw: 135 };
+    const dog: MonsterState = {
+      id: 1,
+      kind: 'cave-dog',
+      x: turned.x + 1,
+      z: turned.z,
+      yaw: -90,
+      action: 'Idle',
+      actionCount: 0,
+      health: 80,
+      mode: 'chase',
+    };
+    const world: WorldItems = { clovers: [], items: [], looted: [] };
+    expect(describeSpaceKey(EN, turned, 0, world, [], 'cave')).toBe(
+      'talk to Prisoner',
+    );
+    expect([
+      describePrompt(EN, turned, 0, world, [], 'cave', [dog]),
+      describeSpaceKey(EN, turned, 0, world, [], 'cave', [dog]),
+    ]).toEqual([null, 'slash']);
+  });
+
   it('calls the prisoner by his name once he has told it, in every language', async () => {
     const known = ['edwin'] as const;
     const wordBoth = (translator: Translator): [string | null, string] => {

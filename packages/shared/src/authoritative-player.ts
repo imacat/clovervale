@@ -31,6 +31,7 @@ import {
   stepMotion,
 } from './player-motion.ts';
 import type { PlayerInput, PlayerMotion } from './player-motion.ts';
+import type { MonsterState } from './protocol.ts';
 import type { MapId } from './world-map.ts';
 
 /**
@@ -195,6 +196,9 @@ export class AuthoritativePlayer {
    *   default.
    * @param {boolean} [isHeld] - Whether the player is held in place at the
    *   step, which it is not by default.
+   * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+   *   which tell whether the player slashes rather than talks to a
+   *   villager, none by default.
    * @returns {StampedInput[]} The inputs that came into effect at the step,
    *   in the order they did.
    */
@@ -202,6 +206,7 @@ export class AuthoritativePlayer {
     step: number,
     map: MapId = 'village',
     isHeld = false,
+    monsters: readonly MonsterState[] = [],
   ): StampedInput[] {
     const applied: StampedInput[] = [];
     for (
@@ -226,7 +231,7 @@ export class AuthoritativePlayer {
         isInteracting: false,
       };
     }
-    this.#motion = stepMotion(this.#motion, step, map);
+    this.#motion = stepMotion(this.#motion, step, map, monsters);
     this.#steps++;
     return applied;
   }

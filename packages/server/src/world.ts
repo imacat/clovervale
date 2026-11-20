@@ -406,25 +406,27 @@ export class World {
    * full health if that is less, which is an event unless it is none.  A
    * drink is never judged on the world as its peer showed it, so the time
    * its interaction names, if any, does not matter.  A talk is never judged
-   * either.  A talk to a villager without a script changes nothing else in
-   * the world.  A talk that starts at the step to a villager with a script,
-   * as {@link findOpening} finds, opens with the first of its openings whose
-   * condition holds of the player then, if any: a line said in passing is
-   * kept for the player to be told once, and any other line starts a
-   * dialogue there.  Whenever a line is said to a player, what the line
-   * brings about comes about at once: the villager may tell the player who
-   * it is, and may give it an item, which is laid at its feet as if put
-   * down if its inventory has no room for it.  A reply that comes into
-   * effect at the step, while the player is in a dialogue, names one of
-   * the replies offered: one that leads to a line whose condition holds of
-   * the player then takes the dialogue on to that line, and any other ends
-   * the dialogue.  Any reply to a line that offers none ends the dialogue,
-   * and a reply that names none of those offered does nothing otherwise.
-   * A player that dies leaves its dialogue.  A player in a dialogue at the
-   * start of a step is held in place at the step, as
-   * {@link AuthoritativePlayer.step} tells, and neither picks nor travels.
-   * The monsters of a cave whose player is in a dialogue do nothing at all
-   * at the step.
+   * either.  An interaction slashes rather than talks while a living
+   * monster, as it was before the step, is in front of the player and
+   * within the reach of its slash.  A talk to a villager without a script
+   * changes nothing else in the world.  A talk that starts at the step to
+   * a villager with a script, as {@link findOpening} finds, opens with the
+   * first of its openings whose condition holds of the player then, if any:
+   * a line said in passing is kept for the player to be told once, and any
+   * other line starts a dialogue there.  Whenever a line is said to a
+   * player, what the line brings about comes about at once: the villager
+   * may tell the player who it is, and may give it an item, which is laid
+   * at its feet as if put down if its inventory has no room for it.  A
+   * reply that comes into effect at the step, while the player is in a
+   * dialogue, names one of the replies offered: one that leads to a line
+   * whose condition holds of the player then takes the dialogue on to that
+   * line, and any other ends the dialogue.  Any reply to a line that offers
+   * none ends the dialogue, and a reply that names none of those offered
+   * does nothing otherwise.  A player that dies leaves its dialogue.  A
+   * player in a dialogue at the start of a step is held in place at the
+   * step, as {@link AuthoritativePlayer.step} tells, and neither picks nor
+   * travels.  The monsters of a cave whose player is in a dialogue do
+   * nothing at all at the step.
    *
    * Then the strikes are judged.  A slash that starts at the step hits
    * every monster that is alive, and was alive, in front of the player and
@@ -503,6 +505,7 @@ export class World {
         this.#stepCount,
         this.#map,
         isHeld,
+        monsters,
       );
       const after: PlayerMotion = player.mover.motion;
       for (const input of applied) {

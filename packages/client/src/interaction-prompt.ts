@@ -128,7 +128,12 @@ export function describeSpaceKey(
   if (!canInteract(motion)) {
     return translator.translate('spaceKey.nothing');
   }
-  const villager: Villager | null = findVillager(motion, step, map);
+  const villager: Villager | null = findVillager(
+    motion,
+    step,
+    map,
+    monsters,
+  );
   if (villager !== null) {
     const { name } = describeVillager(translator, villager, acquaintances);
     return translator.translate('spaceKey.talk', { name });
@@ -201,7 +206,12 @@ export function describePrompt(
   if (motion === null || !canInteract(motion)) {
     return null;
   }
-  const villager: Villager | null = findVillager(motion, step, map);
+  const villager: Villager | null = findVillager(
+    motion,
+    step,
+    map,
+    monsters,
+  );
   if (villager !== null) {
     const { name } = describeVillager(translator, villager, acquaintances);
     return translator.translate('prompt.talk', { name });

@@ -32,6 +32,7 @@ import {
 import type {
   InputProgress,
   MapId,
+  MonsterState,
   PlayerInput,
   PlayerMotion,
   PlayerState,
@@ -130,6 +131,7 @@ interface InputEffect {
  */
 export class PlayerPrediction {
   #map: MapId;
+  #monsters: readonly MonsterState[] = [];
   #motion: PlayerMotion;
   #previous: PlayerMotion;
   #stepTime: number = Number.NEGATIVE_INFINITY;
@@ -251,6 +253,17 @@ export class PlayerPrediction {
   }
 
   /**
+   * Takes in the monsters in the map, as the server last told, which tell
+   * whether the steps the player takes from then on slash rather than talk
+   * to a villager, as the server would.  There are none until told.
+   *
+   * @param {readonly MonsterState[]} monsters - The monsters.
+   */
+  noteMonsters(monsters: readonly MonsterState[]): void {
+    this.#monsters = monsters;
+  }
+
+  /**
    * Takes an input of the player in, and stamps it for the server.
    *
    * The input shows at the next step of the player, which a player that
@@ -314,7 +327,12 @@ export class PlayerPrediction {
         setOff = null;
       }
       this.#waiting = [];
-      this.#motion = stepMotion(this.#motion, this.#step, this.#map);
+      this.#motion = stepMotion(
+        this.#motion,
+        this.#step,
+        this.#map,
+        this.#monsters,
+      );
       const record: InputRecord | undefined = this.#records.at(-1);
       if (record !== undefined) {
         record.steps++;
@@ -373,7 +391,7 @@ export class PlayerPrediction {
         );
       }
       for (; steps > 0; steps--) {
-        motion = stepMotion(motion, ++stepped, this.#map);
+        motion = stepMotion(motion, ++stepped, this.#map, this.#monsters);
       }
     }
     this.#step = stepped;

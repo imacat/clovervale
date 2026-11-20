@@ -59,6 +59,7 @@ import {
   findPlacement,
   findSpawnPoint,
   findTobyPose,
+  findInteraction,
   findVillagePath,
   isWithinStrike,
   locateVillager,
@@ -77,6 +78,7 @@ import type {
 } from '@clovervale/shared';
 
 import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
+import type { MonsterSpawn } from '../src/monster.ts';
 import { LAG_COMPENSATION_LIMIT, World } from '../src/world.ts';
 import type { Player } from '../src/world.ts';
 
@@ -1764,15 +1766,19 @@ describe('a world of the cave', () => {
    *   nothing by default.
    * @param {boolean} [hasDogs] - Whether the cave has its wild dogs, which
    *   it has not by default, so that nothing gets in the way of the player.
+   * @param {readonly MonsterSpawn[]} [dogs] - The wild dogs the cave has,
+   *   if it has any, those of the cave by default.
    * @returns {[World, number]} The cave, and the identifier of the player.
    */
   function enterCave(
     carried: readonly ItemKindId[] = [],
     hasDogs = false,
+    dogs?: readonly MonsterSpawn[],
   ): [World, number] {
+    const monsters: readonly MonsterSpawn[] | undefined = hasDogs ? dogs : [];
     const world = new World(createRandom(), {
       map: 'cave',
-      ...(hasDogs ? {} : { monsters: [] }),
+      ...(monsters === undefined ? {} : { monsters }),
     });
     const player: Player = {
       id: 1,
@@ -2240,6 +2246,35 @@ describe('a world of the cave', () => {
     });
     expect(world.findSlash(id)).toBeNull();
     expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('has a player slash at a dog in front of it, rather than talk', () => {
+    const at: GroundVector =
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+    const [world, id] = enterCave([], true, [
+      { kind: 'cave-dog', home: { x: at.x + 3, z: 0, yaw: -90 } },
+    ]);
+    walkInCave(world, id, { x: at.x - 0.8, z: 0 });
+    steerPlayer(world, id, { x: 0, z: -1 });
+    stepTimes(world, 2 * SIMULATION_RATE);
+    steerPlayer(world, id, { x: 0, z: 0 });
+    world.step();
+    awaitDog(world, id, 1);
+    const near: MonsterState | undefined = findDog(world, 1);
+    turnPlayer(world, id, {
+      x: (at.x + (near?.x ?? NaN)) / 2,
+      z: (at.z + (near?.z ?? NaN)) / 2,
+    });
+    const player: PlayerState = findPlayer(world, id);
+    const dog: MonsterState | undefined = findDog(world, 1);
+    expect(findInteraction(player, 0, 'cave')).toBe('Talk');
+    expect(isWithinStrike(player, dog ?? player, SLASH_REACH)).toBe(true);
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Slash');
+    expect(world.findSlash(id)).toMatchObject({ isHit: true });
+    stepTimes(world, TALK_STEPS + 1);
+    expect(world.findDialogue(id)).toBeNull();
   });
 
   it('has Edwin plead, tell who he is, and give his message', () => {
