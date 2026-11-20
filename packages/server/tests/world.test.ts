@@ -25,9 +25,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   APPEARANCE_COUNT,
+  CLOVER_PATCHES,
+  CLOVER_REGROW_DURATION,
   DEATH_DURATION,
   DRINK_STEPS,
   FOUNTAIN_HEALING,
+  GROUND_ITEM_DURATION,
+  INVENTORY_SIZE,
   MONSTER_HEALTH,
   PLAYER_HEALTH,
   PLAYER_RADIUS,
@@ -52,6 +56,7 @@ import {
 } from '@clovervale/shared';
 import type {
   GameEvent,
+  GroundItem,
   GroundVector,
   MonsterState,
   PlayerState,
@@ -1271,5 +1276,319 @@ describe('Toby in the world', () => {
       (pushed.x - stopped.x) * along.x + (pushed.z - stopped.z) * along.z,
     ).toBeCloseTo(0, 9);
     expect(measureDistance(pushed, stopped)).toBeGreaterThan(0.2);
+  });
+});
+
+/** The number of simulation steps a picked patch of clover takes to regrow. */
+const REGROW_STEPS: number = CLOVER_REGROW_DURATION * SIMULATION_RATE;
+
+/** The number of simulation steps an item put down lies on the ground. */
+const GROUND_ITEM_STEPS: number = GROUND_ITEM_DURATION * SIMULATION_RATE;
+
+/** The patch of clover east of the fountain, by the bushes. */
+const PATCH = 6;
+
+/** Where the patch of clover east of the fountain is. */
+const PATCH_CENTRE: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
+
+/** Where a player stands by that patch, within reach of its clover. */
+const BY_PATCH: GroundVector = { x: PATCH_CENTRE.x, z: PATCH_CENTRE.z + 1 };
+
+/**
+ * Tells a world, as the next input of a player, that the player picks what
+ * is within its reach at the next step.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ */
+function pickItem(world: World, id: number): void {
+  world.receiveInput(id, { type: 'pick', sequence: ++lastSequence, after: 0 });
+}
+
+/**
+ * Tells a world, as the next input of a player, that the player puts the
+ * item of a slot of its inventory down at the next step.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {number} [slot] - The number of the slot, from 0, which is the
+ *   first by default.
+ */
+function dropItem(world: World, id: number, slot = 0): void {
+  world.receiveInput(id, {
+    type: 'drop',
+    sequence: ++lastSequence,
+    after: 0,
+    slot,
+  });
+}
+
+/**
+ * Has a player of a world that stands by the patch of clover east of the
+ * fountain pick its clover several times, each time once it has regrown.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {number} count - The number of times.
+ */
+function pickClovers(world: World, id: number, count: number): void {
+  for (let picked = 0; picked < count; picked++) {
+    pickItem(world, id);
+    world.step();
+    stepTimes(world, REGROW_STEPS);
+  }
+}
+
+/**
+ * Lets a new player into a world, and walks it to the patch of clover east
+ * of the fountain, facing the patch.
+ *
+ * @param {World} world - The world.
+ * @returns {number} The identifier of the player.
+ */
+function addPicker(world: World): number {
+  const { id }: PlayerState = world.addPlayer();
+  walkPlayer(world, id, BY_PATCH);
+  turnPlayer(world, id, PATCH_CENTRE);
+  return id;
+}
+
+describe('a player who picks by a patch of clover', () => {
+  it('gets its four-leaved clover, which is gone from the patch', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    expect(world.describeItems().clovers).toContain(PATCH);
+    const before: PlayerState = findPlayer(world, id);
+    pickItem(world, id);
+    world.step();
+    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describeItems().clovers).not.toContain(PATCH);
+    expect(world.describeItems().clovers).toHaveLength(
+      CLOVER_PATCHES.length - 1,
+    );
+    // A pick is no slash, and does not move the player.
+    expect(findPlayer(world, id)).toEqual(before);
+    expect(world.findSlash(id)).toBeNull();
+  });
+
+  it('leaves the patch to grow a new clover after a while', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickItem(world, id);
+    world.step();
+    stepTimes(world, REGROW_STEPS - 1);
+    expect(world.describeItems().clovers).not.toContain(PATCH);
+    world.step();
+    expect(world.describeItems().clovers).toContain(PATCH);
+  });
+
+  it('gets nothing once the clover is gone', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickItem(world, id);
+    world.step();
+    pickItem(world, id);
+    world.step();
+    expect(world.findInventory(id)).toEqual(['clover']);
+  });
+
+  it('gets the clover before another player who picks it at once', () => {
+    const world = new World(createRandom());
+    const first: number = addPicker(world);
+    const second: number = addPicker(world);
+    pickItem(world, second);
+    pickItem(world, first);
+    world.step();
+    expect(world.findInventory(first)).toEqual(['clover']);
+    expect(world.findInventory(second)).toEqual([]);
+  });
+
+  it('gets the clover before another player who picks it a step later', () => {
+    const world = new World(createRandom());
+    const first: number = addPicker(world);
+    const second: number = addPicker(world);
+    pickItem(world, second);
+    world.step();
+    pickItem(world, first);
+    world.step();
+    expect(world.findInventory(first)).toEqual([]);
+    expect(world.findInventory(second)).toEqual(['clover']);
+  });
+
+  it('carries no more than its inventory holds', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    for (let count = 1; count <= INVENTORY_SIZE; count++) {
+      pickItem(world, id);
+      world.step();
+      expect(world.findInventory(id)).toHaveLength(count);
+      stepTimes(world, REGROW_STEPS);
+    }
+    pickItem(world, id);
+    world.step();
+    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
+    expect(world.describeItems().clovers).toContain(PATCH);
+  });
+});
+
+describe('a player who puts an item down', () => {
+  it('lays the item of the slot it names at its feet', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickItem(world, id);
+    world.step();
+    dropItem(world, id);
+    world.step();
+    expect(world.findInventory(id)).toEqual([]);
+    const player: PlayerState = findPlayer(world, id);
+    const [item] = world.describeItems().items;
+    expect(item?.kind).toBe('clover');
+    expect(measureDistance(item ?? PATCH_CENTRE, player)).toBeLessThan(0.01);
+  });
+
+  it('closes up the items after the slot it empties', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickClovers(world, id, 3);
+    dropItem(world, id, 1);
+    world.step();
+    expect(world.findInventory(id)).toEqual(['clover', 'clover']);
+    expect(world.describeItems().items).toHaveLength(1);
+    dropItem(world, id, 1);
+    world.step();
+    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describeItems().items).toHaveLength(2);
+  });
+
+  it('lays nothing down from an empty slot, or one out of range', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickClovers(world, id, 2);
+    for (const slot of [2, INVENTORY_SIZE - 1, INVENTORY_SIZE, 1000]) {
+      dropItem(world, id, slot);
+      world.step();
+    }
+    expect(world.findInventory(id)).toEqual(['clover', 'clover']);
+    expect(world.describeItems().items).toEqual([]);
+  });
+
+  it('cannot lay down what another player carries', () => {
+    const world = new World(createRandom());
+    const carrier: number = addPicker(world);
+    pickItem(world, carrier);
+    world.step();
+    const { id: other }: PlayerState = world.addPlayer();
+    dropItem(world, other, 0);
+    world.step();
+    expect(world.findInventory(carrier)).toEqual(['clover']);
+    expect(world.findInventory(other)).toEqual([]);
+    expect(world.describeItems().items).toEqual([]);
+  });
+
+  it('lays nothing down while it carries nothing', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    dropItem(world, id);
+    world.step();
+    expect(world.describeItems().items).toEqual([]);
+  });
+
+  it('leaves the item for another player to pick up', () => {
+    const world = new World(createRandom());
+    const dropper: number = addPicker(world);
+    pickItem(world, dropper);
+    world.step();
+    walkPlayer(world, dropper, { x: BY_PATCH.x, z: BY_PATCH.z + 1 });
+    dropItem(world, dropper);
+    world.step();
+    const [item] = world.describeItems().items;
+    const picker: number = addPicker(world);
+    turnPlayer(world, picker, item ?? PATCH_CENTRE);
+    pickItem(world, picker);
+    world.step();
+    expect(world.findInventory(picker)).toEqual(['clover']);
+    expect(world.findInventory(dropper)).toEqual([]);
+    expect(world.describeItems().items).toEqual([]);
+  });
+
+  it('picks the item back at once, whichever way it faces', () => {
+    for (const yaw of [0, 45, 90, 135, 180, 225, 270, 315]) {
+      const world = new World(createRandom());
+      const id: number = addPicker(world);
+      pickItem(world, id);
+      world.step();
+      const { x, z }: PlayerState = findPlayer(world, id);
+      const radians: number = (yaw * Math.PI) / 180;
+      turnPlayer(world, id, {
+        x: x + Math.sin(radians),
+        z: z + Math.cos(radians),
+      });
+      dropItem(world, id);
+      world.step();
+      pickItem(world, id);
+      world.step();
+      expect(world.findInventory(id), `facing ${String(yaw)}`).toEqual([
+        'clover',
+      ]);
+      expect(world.describeItems().items).toEqual([]);
+    }
+  });
+
+  it('leaves the item on the ground for a while, and then it is gone', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickItem(world, id);
+    world.step();
+    dropItem(world, id);
+    world.step();
+    const items: readonly GroundItem[] = world.describeItems().items;
+    stepTimes(world, GROUND_ITEM_STEPS - 1);
+    expect(world.describeItems().items).toEqual(items);
+    world.step();
+    expect(world.describeItems().items).toEqual([]);
+  });
+});
+
+describe('the inventory of a player', () => {
+  it('is empty when the player comes into the world', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    expect(world.findInventory(id)).toEqual([]);
+  });
+
+  it('is kept through death', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickItem(world, id);
+    world.step();
+    killPlayer(world, id);
+    stepTimes(world, DEATH_STEPS);
+    expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
+    expect(world.findInventory(id)).toEqual(['clover']);
+  });
+
+  it('is told of its player alone', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    const { id: other }: PlayerState = world.addPlayer();
+    pickItem(world, id);
+    world.step();
+    expect(world.findInventory(other)).toEqual([]);
+    for (const player of world.listPlayers()) {
+      expect(Object.keys(player).sort()).toEqual(
+        Object.keys(findPlayer(world, other)).sort(),
+      );
+      expect(JSON.stringify(player)).not.toContain('clover');
+    }
+  });
+
+  it('is lost when the player leaves', () => {
+    const world = new World(createRandom());
+    const id: number = addPicker(world);
+    pickItem(world, id);
+    world.step();
+    world.removePlayer(id);
+    expect(world.findInventory(id)).toBeNull();
+    expect(world.describeItems().items).toEqual([]);
   });
 });

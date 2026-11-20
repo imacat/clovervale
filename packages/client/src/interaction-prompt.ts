@@ -22,8 +22,22 @@
  *   space bar makes its player do.
  */
 
-import { canInteract, findInteraction, findVillager } from '@clovervale/shared';
-import type { PlayerMotion, Villager } from '@clovervale/shared';
+import {
+  NO_WORLD_ITEMS,
+  canInteract,
+  findInteraction,
+  findItemKind,
+  findPickTarget,
+  findVillager,
+  hasRoom,
+} from '@clovervale/shared';
+import type {
+  ItemKindId,
+  PickTarget,
+  PlayerMotion,
+  Villager,
+  WorldItems,
+} from '@clovervale/shared';
 
 import type { Translator } from './translator.ts';
 import { describeVillager } from './villager-words.ts';
@@ -42,6 +56,17 @@ export interface Prompt {
 }
 
 /**
+ * Names a kind of item.
+ *
+ * @param {Translator} translator - The translator of the text of the page.
+ * @param {ItemKindId} kind - The kind of item.
+ * @returns {string} Its name, in the language of the page.
+ */
+export function nameItem(translator: Translator, kind: ItemKindId): string {
+  return translator.translate(findItemKind(kind).nameKey);
+}
+
+/**
  * Describes what the space bar makes the player of the page do now.
  *
  * @param {Translator} translator - The translator of the text of the page.
@@ -49,14 +74,21 @@ export interface Prompt {
  *   predicted, or `null` while there is none.
  * @param {number} step - The number of the step of the server an
  *   interaction would start at, which tells where Toby would be then.
+ * @param {WorldItems} [world] - What there is to pick in the world, as the
+ *   server last told, which is nothing by default.
+ * @param {readonly ItemKindId[]} [inventory] - What the player carries, as
+ *   the server last told, which is nothing by default.
  * @returns {string} What the player does, that it does nothing while it
- *   cannot interact, as while it is dead, or `–` while there is no player,
+ *   cannot interact, as while it is dead, or while what is within its reach
+ *   to pick does not fit in its inventory, or `–` while there is no player,
  *   in the language of the page.
  */
 export function describeSpaceKey(
   translator: Translator,
   motion: PlayerMotion | null,
   step: number,
+  world: WorldItems = NO_WORLD_ITEMS,
+  inventory: readonly ItemKindId[] = [],
 ): string {
   if (motion === null) {
     return UNKNOWN;
@@ -69,28 +101,44 @@ export function describeSpaceKey(
     const { name } = describeVillager(translator, villager);
     return translator.translate('spaceKey.talk', { name });
   }
-  return findInteraction(motion, step) === 'Drink'
-    ? translator.translate('spaceKey.drink')
-    : translator.translate('spaceKey.slash');
+  if (findInteraction(motion, step) === 'Drink') {
+    return translator.translate('spaceKey.drink');
+  }
+  const target: PickTarget | null = findPickTarget(motion, step, world);
+  if (target === null) {
+    return translator.translate('spaceKey.slash');
+  }
+  return hasRoom(inventory)
+    ? translator.translate('spaceKey.pick', {
+        item: nameItem(translator, target.kind),
+      })
+    : translator.translate('spaceKey.full');
 }
 
 /**
  * Words the prompt that tells what the space bar makes the player of the
- * page do now, unless that is only a slash.
+ * page do now, unless that is only a slash, or that tells that what is
+ * within its reach to pick does not fit in its inventory.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {PlayerMotion | null} motion - The motion of the player as
  *   predicted, or `null` while there is none.
  * @param {number} step - The number of the step of the server an
  *   interaction would start at, which tells where Toby would be then.
+ * @param {WorldItems} [world] - What there is to pick in the world, as the
+ *   server last told, which is nothing by default.
+ * @param {readonly ItemKindId[]} [inventory] - What the player carries, as
+ *   the server last told, which is nothing by default.
  * @returns {string | null} The prompt, in the language of the page, or
- *   `null` while the space bar makes the player slash or do nothing, or
- *   there is no player.
+ *   `null` while the space bar makes the player slash, while the player
+ *   cannot start to interact with the world, or while there is no player.
  */
 export function describePrompt(
   translator: Translator,
   motion: PlayerMotion | null,
   step: number,
+  world: WorldItems = NO_WORLD_ITEMS,
+  inventory: readonly ItemKindId[] = [],
 ): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;
@@ -103,7 +151,14 @@ export function describePrompt(
   if (findInteraction(motion, step) === 'Drink') {
     return translator.translate('prompt.drink');
   }
-  return null;
+  const target: PickTarget | null = findPickTarget(motion, step, world);
+  if (target === null) {
+    return null;
+  }
+  const item: string = nameItem(translator, target.kind);
+  return hasRoom(inventory)
+    ? translator.translate('prompt.pick', { item })
+    : translator.translate('prompt.full', { item });
 }
 
 /**

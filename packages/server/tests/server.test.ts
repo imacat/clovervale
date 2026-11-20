@@ -39,6 +39,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket as SocketFileClient } from 'ws';
 
 import {
+  CLOVER_PATCHES,
   DEFAULT_DAY_LENGTH,
   DEFAULT_DAY_ORIGIN,
   MONSTER_HEALTH,
@@ -56,7 +57,9 @@ import {
 import type {
   ClientMessage,
   DayCycle,
+  GroundItem,
   InputProgress,
+  ItemKindId,
   MonsterState,
   PlayerState,
   ServerMessage,
@@ -82,6 +85,12 @@ interface TimedSnapshot {
   readonly own: InputProgress;
   /** How the latest slash of the player of the peer was judged. */
   readonly slash: SlashJudgement | null;
+  /** The patches of clover that have their clover, by number. */
+  readonly clovers: readonly number[];
+  /** The items on the ground. */
+  readonly items: readonly GroundItem[];
+  /** What the player of the peer carries. */
+  readonly inventory: readonly ItemKindId[];
   /** When the snapshot was received, in milliseconds. */
   readonly time: number;
 }
@@ -165,7 +174,18 @@ class Peer {
       const [message, time] = await this.#receive();
       if (message.type === 'snapshot') {
         const { step, players, monsters, own, slash } = message;
-        return { step, players, monsters, own, slash, time };
+        const { clovers, items, inventory } = message;
+        return {
+          step,
+          players,
+          monsters,
+          own,
+          slash,
+          clovers,
+          items,
+          inventory,
+          time,
+        };
       }
     }
   }
@@ -520,6 +540,28 @@ describe('the game server', () => {
     const { x: ownX, z: ownZ } = findPlayer(seen, watcherId);
     expect(seen.own.sequence).toBe(0);
     expect(seen.own.motion).toMatchObject({ x: ownX, z: ownZ });
+  });
+
+  it('tells every peer what there is to pick, and what it carries', async () => {
+    const [peer] = await connectPeer();
+    const snapshot: TimedSnapshot = await peer.receiveSnapshot();
+    expect(snapshot.clovers).toEqual(CLOVER_PATCHES.map((_, index) => index));
+    expect(snapshot.items).toEqual([]);
+    expect(snapshot.inventory).toEqual([]);
+  });
+
+  it('takes picks and put-downs of a player in turn', async () => {
+    const [peer] = await connectPeer();
+    peer.send({ type: 'pick', sequence: 1, after: 0 });
+    peer.send({ type: 'drop', sequence: 2, after: 0, slot: 0 });
+    let seen: TimedSnapshot = await peer.receiveSnapshot();
+    while (seen.own.sequence < 2) {
+      seen = await peer.receiveSnapshot();
+    }
+    // Far from any clover, and carrying nothing, it gets and leaves nothing.
+    expect(seen.inventory).toEqual([]);
+    expect(seen.items).toEqual([]);
+    expect(peer.isClosed).toBe(false);
   });
 
   it('disconnects a peer whose inputs are not numbered upwards', async () => {

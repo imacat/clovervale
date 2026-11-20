@@ -23,7 +23,19 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { MoveKeys, findKeyCommand } from '../src/player-input.ts';
+import {
+  CLOVER_PATCHES,
+  NO_WORLD_ITEMS,
+  createMotion,
+  killMotion,
+} from '@clovervale/shared';
+import type { GroundVector, PlayerMotion } from '@clovervale/shared';
+
+import {
+  MoveKeys,
+  chooseSpaceInput,
+  findKeyCommand,
+} from '../src/player-input.ts';
 
 /** The heading of a camera that looks towards -Z, in degrees. */
 const NORTHWARD = 180;
@@ -64,8 +76,38 @@ describe('findKeyCommand', () => {
 
   it('does not know the keys the game does not use', () => {
     expect(findKeyCommand('KeyQ')).toBeNull();
+    expect(findKeyCommand('KeyI')).toBeNull();
     expect(findKeyCommand('Enter')).toBeNull();
     expect(findKeyCommand('toString')).toBeNull();
+  });
+});
+
+describe('chooseSpaceInput', () => {
+  /** Where the patch of clover east of the fountain is. */
+  const PATCH: GroundVector = CLOVER_PATCHES[6] ?? { x: NaN, z: NaN };
+
+  /** A player south of that patch, facing it. */
+  const BY_PATCH: PlayerMotion = createMotion(
+    { x: PATCH.x, z: PATCH.z + 1 },
+    180,
+  );
+
+  it('picks while the clover of the patch is within reach', () => {
+    const world = { clovers: [6], items: [] };
+    expect(chooseSpaceInput(BY_PATCH, 0, world)).toEqual({ type: 'pick' });
+  });
+
+  it('interacts while there is nothing to pick within reach', () => {
+    expect(chooseSpaceInput(BY_PATCH, 0, NO_WORLD_ITEMS)).toEqual({
+      type: 'interact',
+    });
+  });
+
+  it('interacts while the player cannot interact', () => {
+    const world = { clovers: [6], items: [] };
+    expect(chooseSpaceInput(killMotion(BY_PATCH), 0, world)).toEqual({
+      type: 'interact',
+    });
   });
 });
 

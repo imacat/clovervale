@@ -123,10 +123,20 @@ export const EN_MESSAGES = {
 
   'prompt.drink': 'Press Space to drink from the fountain',
   'prompt.talk': 'Press Space to talk to {name}',
+  'prompt.pick': 'Press Space to pick up the {item}',
+  'prompt.full': 'Your inventory is full, so you cannot pick up the {item}',
   'spaceKey.slash': 'slash',
   'spaceKey.drink': 'drink from the fountain',
   'spaceKey.talk': 'talk to {name}',
   'spaceKey.nothing': 'nothing',
+  'spaceKey.pick': 'pick up the {item}',
+  'spaceKey.full': 'nothing, as the inventory is full',
+
+  'inventory.title': 'Inventory',
+  'inventory.icon': 'Inventory (I)',
+  'inventory.hint': 'Arrow keys to choose, Enter to use, Esc or I to close',
+  'itemAction.drop': 'Drop',
+  'item.clover': 'four-leaved clover',
 
   'villager.nancy.name': 'Nancy',
   // The lines of the villagers are written whole, each in one string, so

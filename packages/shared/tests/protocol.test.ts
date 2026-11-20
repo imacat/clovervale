@@ -24,6 +24,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  INVENTORY_SIZE,
   PROTOCOL_VERSION,
   createEventsMessage,
   createInteractMessage,
@@ -37,6 +38,7 @@ import {
 } from '../src/index.ts';
 import type {
   DayCycle,
+  GroundItem,
   HealEvent,
   HitEvent,
   InputProgress,
@@ -107,6 +109,12 @@ const OWN: InputProgress = {
 /** How the day goes on a server, to put in welcome messages. */
 const DAY: DayCycle = { origin: 0.3, length: 1_200_000 };
 
+/** What a snapshot tells when there is nothing to pick or carry. */
+const NOTHING_TO_PICK = { clovers: [], items: [], inventory: [] } as const;
+
+/** An item on the ground, to put in snapshots. */
+const ITEM: GroundItem = { id: 4, kind: 'clover', x: 2.5, z: -9.25 };
+
 /** How a slash was judged, to put in snapshots. */
 const SLASH: SlashJudgement = { step: 40, rewind: 312.5, isHit: true };
 
@@ -148,6 +156,7 @@ describe('the server message codec', () => {
     const message = createSnapshotMessage(42, [PLAYER, idler], [MONSTER], OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 42,
       players: [PLAYER, idler],
       monsters: [MONSTER],
@@ -160,6 +169,7 @@ describe('the server message codec', () => {
     const message = createSnapshotMessage(42, [PLAYER], [], OWN, SLASH);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 42,
       players: [PLAYER],
       monsters: [],
@@ -177,6 +187,7 @@ describe('the server message codec', () => {
     const message = createSnapshotMessage(42, [talker], [], own);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 42,
       players: [talker],
       monsters: [],
@@ -194,6 +205,7 @@ describe('the server message codec', () => {
     const message = createSnapshotMessage(42, [dead], [], own);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 42,
       players: [dead],
       monsters: [],
@@ -206,6 +218,7 @@ describe('the server message codec', () => {
     const message = createSnapshotMessage(0, [], [], OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 0,
       players: [],
       monsters: [],
@@ -311,6 +324,7 @@ describe('the server message codec', () => {
   it('rejects a snapshot message without a list of players', () => {
     const data = JSON.stringify({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 4,
       players: {},
       monsters: [],
@@ -327,6 +341,7 @@ describe('the server message codec', () => {
   ])('rejects a snapshot message whose step %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       players: [],
       monsters: [],
       own: OWN,
@@ -347,6 +362,7 @@ describe('the server message codec', () => {
   ])('rejects a snapshot of a player without %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 4,
       players: [PLAYER, { ...PLAYER, ...flaw }],
       monsters: [],
@@ -359,6 +375,7 @@ describe('the server message codec', () => {
   it('rejects a snapshot message without a list of monsters', () => {
     const data = JSON.stringify({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 4,
       players: [PLAYER],
       own: OWN,
@@ -377,6 +394,7 @@ describe('the server message codec', () => {
   ])('rejects a snapshot of a monster without %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 4,
       players: [PLAYER],
       monsters: [{ ...MONSTER, ...flaw }],
@@ -407,6 +425,7 @@ describe('the server message codec', () => {
   ])('rejects a snapshot that tells the peer without %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 4,
       players: [PLAYER],
       monsters: [],
@@ -425,10 +444,100 @@ describe('the server message codec', () => {
   ])('rejects a snapshot whose judgement of a slash %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
+      ...NOTHING_TO_PICK,
       step: 4,
       players: [PLAYER],
       monsters: [],
       own: OWN,
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it('decodes a snapshot message that tells what there is to pick', () => {
+    const second: GroundItem = { ...ITEM, id: 9, x: -1 };
+    const message = createSnapshotMessage(
+      42,
+      [PLAYER],
+      [],
+      OWN,
+      null,
+      { clovers: [0, 3, 10], items: [ITEM, second] },
+      ['clover', 'clover'],
+    );
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'snapshot',
+      step: 42,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: null,
+      clovers: [0, 3, 10],
+      items: [ITEM, second],
+      inventory: ['clover', 'clover'],
+    });
+  });
+
+  it.each([
+    ['is missing', { clovers: undefined }],
+    ['is not a list', { clovers: 3 }],
+    ['names a patch the village lacks', { clovers: [0, 11] }],
+    ['names a patch by no whole number', { clovers: [1.5] }],
+    ['names a patch twice', { clovers: [2, 2] }],
+    ['is out of order', { clovers: [3, 1] }],
+  ])('rejects a snapshot whose list of clovers %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: null,
+      items: [],
+      inventory: [],
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['a list of items', { items: undefined }],
+    ['an identifier of an item', { items: [{ ...ITEM, id: -1 }] }],
+    ['a known kind of item', { items: [{ ...ITEM, kind: 'stone' }] }],
+    ['a position of an item', { items: [{ ...ITEM, x: '1' }] }],
+  ])('rejects a snapshot of the ground without %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: null,
+      clovers: [],
+      inventory: [],
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it.each([
+    ['is missing', { inventory: undefined }],
+    ['is not a list', { inventory: 'clover' }],
+    ['holds an unknown kind', { inventory: ['clover', 'stone'] }],
+    [
+      'holds more than its slots',
+      { inventory: new Array<string>(INVENTORY_SIZE + 1).fill('clover') },
+    ],
+  ])('rejects a snapshot whose inventory %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: null,
+      clovers: [],
+      items: [],
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -475,6 +584,46 @@ describe('the client message codec', () => {
       sequence: 1,
       after: 0,
     });
+  });
+
+  it('decodes a pick message without anything else it carries', () => {
+    const data = JSON.stringify({ type: 'pick', sequence: 4, after: 2, x: 1 });
+    expect(decodeClientMessage(data)).toEqual({
+      type: 'pick',
+      sequence: 4,
+      after: 2,
+    });
+  });
+
+  it('decodes a drop message with the slot it names', () => {
+    const data = JSON.stringify({
+      type: 'drop',
+      sequence: 4,
+      after: 2,
+      slot: 3,
+      x: 1,
+    });
+    expect(decodeClientMessage(data)).toEqual({
+      type: 'drop',
+      sequence: 4,
+      after: 2,
+      slot: 3,
+    });
+  });
+
+  it.each([
+    ['is missing', {}],
+    ['is not a whole number', { slot: 1.5 }],
+    ['is below zero', { slot: -1 }],
+    ['is not a number', { slot: '1' }],
+  ])('rejects a drop message whose slot %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'drop',
+      sequence: 4,
+      after: 2,
+      ...flaw,
+    });
+    expect(() => decodeClientMessage(data)).toThrow();
   });
 
   it.each([

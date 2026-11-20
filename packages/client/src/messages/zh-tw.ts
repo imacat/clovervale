@@ -121,10 +121,20 @@ export const ZH_TW_MESSAGES: MessageTable = {
 
   'prompt.drink': '按空白鍵喝噴泉的水',
   'prompt.talk': '按空白鍵與{name}交談',
+  'prompt.pick': '按空白鍵拾取{item}',
+  'prompt.full': '物品欄已滿，無法拾取{item}',
   'spaceKey.slash': '揮砍',
   'spaceKey.drink': '喝噴泉的水',
   'spaceKey.talk': '與{name}交談',
   'spaceKey.nothing': '無',
+  'spaceKey.pick': '拾取{item}',
+  'spaceKey.full': '無（物品欄已滿）',
+
+  'inventory.title': '物品欄',
+  'inventory.icon': '物品欄 (I)',
+  'inventory.hint': '方向鍵選擇，Enter 使用，Esc 或 I 關閉',
+  'itemAction.drop': '丟棄',
+  'item.clover': '四葉幸運草',
 
   'villager.nancy.name': '南茜',
   'villager.nancy.line.1': '村口有野狗出沒，村裏的人都無法外出了，怎麼辦？',

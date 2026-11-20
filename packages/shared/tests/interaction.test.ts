@@ -27,7 +27,9 @@ import { describe, expect, it } from 'vitest';
 import {
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
+  CLOVER_PATCHES,
   INTERACTION_HALF_ANGLE,
+  PICK_REACH,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
   SIMULATION_RATE,
@@ -35,13 +37,20 @@ import {
   TOBY_LOOP_STEPS,
   VILLAGE_TERRAIN,
   findInteraction,
+  findPickTarget,
   findPlacement,
   findTobyPose,
   findTurn,
   findVillager,
   turnVector,
 } from '../src/index.ts';
-import type { GroundVector, Placement, Pose } from '../src/index.ts';
+import type {
+  GroundItem,
+  GroundVector,
+  Placement,
+  Pose,
+  WorldItems,
+} from '../src/index.ts';
 
 /**
  * The farthest a player can stand from the centre of the fountain to drink
@@ -256,5 +265,103 @@ describe('findVillager by Toby', () => {
     const facing: Pose = { x: toby.x, z: toby.z + TALK_REACH - 0.1, yaw: 180 };
     expect(findVillager(facing, RUNNING + SIMULATION_RATE)).toBeNull();
     expect(findInteraction(facing, RUNNING + SIMULATION_RATE)).toBe('Slash');
+  });
+});
+
+/** The patch of clover east of the fountain, by the bushes. */
+const PATCH = 6;
+
+/** Where the patch of clover east of the fountain is. */
+const PATCH_CENTRE: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
+
+/**
+ * Makes the pose of a player some way south of the patch of clover east of
+ * the fountain.
+ *
+ * @param {number} distance - How far from its centre the player stands, in
+ *   metres.
+ * @param {number} yaw - The way it faces, 180 to face the patch.
+ * @returns {Pose} The pose.
+ */
+function standByPatch(distance: number, yaw: number): Pose {
+  return { x: PATCH_CENTRE.x, z: PATCH_CENTRE.z + distance, yaw };
+}
+
+/**
+ * Makes an item lying on the ground.
+ *
+ * @param {number} id - The identifier of the item.
+ * @param {GroundVector} at - Where it lies.
+ * @returns {GroundItem} The item.
+ */
+function layItem(id: number, at: GroundVector): GroundItem {
+  return { id, kind: 'clover', x: at.x, z: at.z };
+}
+
+describe('findPickTarget', () => {
+  /** The world with only the clover of the patch to pick. */
+  const WITH_CLOVER: WorldItems = { clovers: [PATCH], items: [] };
+
+  it('picks the clover of a patch within reach, facing it', () => {
+    expect(
+      findPickTarget(standByPatch(PICK_REACH - 0.01, 180), 0, WITH_CLOVER),
+    ).toEqual({ source: 'patch', id: PATCH, kind: 'clover' });
+  });
+
+  it('picks nothing from a patch whose clover is gone', () => {
+    const pose: Pose = standByPatch(0.8, 180);
+    expect(findPickTarget(pose, 0, { clovers: [], items: [] })).toBeNull();
+    expect(findInteraction(pose, 0)).toBe('Slash');
+  });
+
+  it('picks nothing out of reach, or facing away', () => {
+    expect(
+      findPickTarget(standByPatch(PICK_REACH + 0.01, 180), 0, WITH_CLOVER),
+    ).toBeNull();
+    expect(
+      findPickTarget(
+        standByPatch(0.8, 180 + INTERACTION_HALF_ANGLE + 1),
+        0,
+        WITH_CLOVER,
+      ),
+    ).toBeNull();
+  });
+
+  it('picks an item on the ground in the same way', () => {
+    const at: GroundVector = { x: PATCH_CENTRE.x, z: PATCH_CENTRE.z + 0.5 };
+    const pose: Pose = standByPatch(1.5, 180);
+    expect(
+      findPickTarget(pose, 0, { clovers: [], items: [layItem(3, at)] }),
+    ).toEqual({ source: 'ground', id: 3, kind: 'clover' });
+  });
+
+  it('picks the nearest of what is within reach', () => {
+    const near: GroundItem = layItem(5, {
+      x: PATCH_CENTRE.x,
+      z: PATCH_CENTRE.z + 0.6,
+    });
+    const far: GroundItem = layItem(4, {
+      x: PATCH_CENTRE.x,
+      z: PATCH_CENTRE.z + 0.3,
+    });
+    const pose: Pose = standByPatch(1, 180);
+    expect(
+      findPickTarget(pose, 0, { clovers: [PATCH], items: [far, near] }),
+    ).toMatchObject({ source: 'ground', id: 5 });
+    expect(
+      findPickTarget(pose, 0, { clovers: [PATCH], items: [far] }),
+    ).toMatchObject({ source: 'ground', id: 4 });
+  });
+
+  it('leaves drinking and talking before picking', () => {
+    const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
+    const byFountain: Pose = { x: PLAZA_CENTRE.x, z, yaw: 180 };
+    const byNancy: Pose = standByNancy(TALK_REACH - 0.3, 180);
+    const items: GroundItem[] = [
+      layItem(1, { x: byFountain.x, z: byFountain.z - 0.3 }),
+      layItem(2, { x: byNancy.x, z: byNancy.z - 0.3 }),
+    ];
+    expect(findPickTarget(byFountain, 0, { clovers: [], items })).toBeNull();
+    expect(findPickTarget(byNancy, 0, { clovers: [], items })).toBeNull();
   });
 });

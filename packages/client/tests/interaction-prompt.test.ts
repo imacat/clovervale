@@ -25,7 +25,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CLOVER_PATCHES,
   FOUNTAIN_RIM_RADIUS,
+  INVENTORY_SIZE,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
   TALK_REACH,
@@ -42,9 +44,11 @@ import {
 } from '@clovervale/shared';
 import type {
   GroundVector,
+  ItemKindId,
   Placement,
   PlayerMotion,
   TobyPose,
+  WorldItems,
 } from '@clovervale/shared';
 
 import {
@@ -263,5 +267,122 @@ describe('describePrompt by Toby', () => {
     const gone: number = step + TOBY_LOOP_STEPS / 2;
     expect(findTobyPose(gone).x).not.toBe(toby.x);
     expect(describePrompt(EN, facing, gone)).toBeNull();
+  });
+});
+
+describe('describePrompt by a patch of clover', () => {
+  /** Where the patch of clover east of the fountain is. */
+  const PATCH: GroundVector = CLOVER_PATCHES[6] ?? { x: NaN, z: NaN };
+
+  /** A player south of that patch, facing it. */
+  const BY_PATCH: PlayerMotion = createMotion(
+    { x: PATCH.x, z: PATCH.z + 1 },
+    180,
+  );
+
+  /** The world with the clover of that patch to pick. */
+  const WITH_CLOVER: WorldItems = { clovers: [6], items: [] };
+
+  /** A full inventory. */
+  const FULL: ItemKindId[] = new Array<ItemKindId>(INVENTORY_SIZE).fill(
+    'clover',
+  );
+
+  it('tells the player it can pick the clover, in every language', async () => {
+    expect(describePrompt(EN, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
+      'Press Space to pick up the four-leaved clover',
+    );
+    expect(describeSpaceKey(EN, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
+      'pick up the four-leaved clover',
+    );
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describePrompt(zhTw, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
+      '按空白鍵拾取四葉幸運草',
+    );
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describePrompt(zhCn, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
+      '按空格键拾取四叶幸运草',
+    );
+    const ja: Translator = await createTranslator('ja');
+    expect(describePrompt(ja, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
+      'スペースキーで四つ葉のクローバーを拾う',
+    );
+  });
+
+  it('tells the player its inventory is full, in every language', async () => {
+    expect(describePrompt(EN, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
+      'Your inventory is full, so you cannot pick up the four-leaved clover',
+    );
+    expect(describeSpaceKey(EN, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
+      'nothing, as the inventory is full',
+    );
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describePrompt(zhTw, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
+      '物品欄已滿，無法拾取四葉幸運草',
+    );
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describePrompt(zhCn, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
+      '物品栏已满，无法拾取四叶幸运草',
+    );
+    const ja: Translator = await createTranslator('ja');
+    expect(describePrompt(ja, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
+      '持ち物がいっぱいで四つ葉のクローバーを拾えない',
+    );
+  });
+
+  it('tells nothing once the clover is gone, as the space bar slashes', () => {
+    const bare: WorldItems = { clovers: [], items: [] };
+    expect(describePrompt(EN, BY_PATCH, 0, bare, [])).toBeNull();
+    expect(describeSpaceKey(EN, BY_PATCH, 0, bare, [])).toBe('slash');
+  });
+
+  it('tells the player it can pick up a clover on the ground', () => {
+    const world: WorldItems = {
+      clovers: [],
+      items: [{ id: 3, kind: 'clover', x: PATCH.x, z: PATCH.z + 0.5 }],
+    };
+    expect(describePrompt(EN, BY_PATCH, 0, world, [])).toBe(
+      'Press Space to pick up the four-leaved clover',
+    );
+  });
+
+  it('tells the player it can pick up a clover at its feet, facing any way', () => {
+    const at: GroundVector = { x: BY_PATCH.x, z: BY_PATCH.z };
+    for (const [dx, dz] of [
+      [0.003, 0],
+      [-0.003, 0],
+      [0, 0.004],
+      [0, -0.004],
+      [0.002, -0.003],
+    ] as const) {
+      const world: WorldItems = {
+        clovers: [],
+        items: [{ id: 3, kind: 'clover', x: at.x + dx, z: at.z + dz }],
+      };
+      for (const yaw of [0, 90, 180, 270]) {
+        expect(
+          describePrompt(EN, createMotion(at, yaw), 0, world, []),
+          `${String(dx)}, ${String(dz)} facing ${String(yaw)}`,
+        ).toBe('Press Space to pick up the four-leaved clover');
+      }
+    }
+  });
+
+  it('tells nothing while the player cannot interact', () => {
+    expect(
+      describePrompt(EN, killMotion(BY_PATCH), 0, WITH_CLOVER, []),
+    ).toBeNull();
+  });
+
+  it('tells a player by the fountain to drink before it picks', () => {
+    const world: WorldItems = {
+      clovers: [],
+      items: [
+        { id: 1, kind: 'clover', x: BY_FOUNTAIN.x, z: BY_FOUNTAIN.z - 0.3 },
+      ],
+    };
+    expect(describePrompt(EN, BY_FOUNTAIN, 0, world, [])).toBe(
+      'Press Space to drink from the fountain',
+    );
   });
 });

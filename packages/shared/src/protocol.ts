@@ -25,15 +25,24 @@ import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
 import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
 import type { DayCycle } from './day-cycle.ts';
+import {
+  CLOVER_PATCHES,
+  INVENTORY_SIZE,
+  NO_WORLD_ITEMS,
+  isItemKindId,
+} from './items.ts';
+import type { GroundItem, ItemKindId, WorldItems } from './items.ts';
 import type { GroundVector } from './movement.ts';
 import type {
+  DropInput,
   InteractInput,
   MoveInput,
+  PickInput,
   PlayerMotion,
 } from './player-motion.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 18;
+export const PROTOCOL_VERSION = 19;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -189,8 +198,9 @@ export interface WelcomeMessage {
 }
 
 /**
- * The state of every player, which the server sends every peer again and
- * again, with what that peer alone is told of its own player.
+ * The state of every player, and of what there is to pick in the world,
+ * which the server sends every peer again and again, with what that peer
+ * alone is told of its own player.
  */
 export interface SnapshotMessage {
   /** The message discriminator. */
@@ -214,6 +224,18 @@ export interface SnapshotMessage {
    * or `null` before its first.
    */
   readonly slash: SlashJudgement | null;
+  /**
+   * The numbers of the patches of clover that have their four-leaved
+   * clover, in ascending order.
+   */
+  readonly clovers: readonly number[];
+  /** The items that lie on the ground. */
+  readonly items: readonly GroundItem[];
+  /**
+   * The items the player of the peer carries, one for each filled slot of
+   * its inventory, in the order of the slots.
+   */
+  readonly inventory: readonly ItemKindId[];
 }
 
 /**
@@ -239,8 +261,24 @@ export type MoveMessage = MoveInput & InputStamp;
  */
 export type InteractMessage = InteractInput & InputStamp;
 
+/**
+ * What a peer sends whenever its player wants to pick what is within its
+ * reach.  What comes of it is for the server to decide.
+ */
+export type PickMessage = PickInput & InputStamp;
+
+/**
+ * What a peer sends whenever its player wants to put the item of a slot of
+ * its inventory down.  What comes of it is for the server to decide.
+ */
+export type DropMessage = DropInput & InputStamp;
+
 /** Any message a peer can send to the server. */
-export type ClientMessage = MoveMessage | InteractMessage;
+export type ClientMessage =
+  | MoveMessage
+  | InteractMessage
+  | PickMessage
+  | DropMessage;
 
 /**
  * Creates the welcome message for the current protocol version.
@@ -274,6 +312,10 @@ export function createWelcomeMessage(
  * @param {SlashJudgement | null} [slash] - The latest slash of the player
  *   of the peer, as the server judged it, or `null` before its first,
  *   which it is by default.
+ * @param {WorldItems} [world] - What there is to pick in the world, which
+ *   is nothing by default.
+ * @param {readonly ItemKindId[]} [inventory] - The items the player of the
+ *   peer carries, in the order of its slots, which are none by default.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
@@ -282,8 +324,21 @@ export function createSnapshotMessage(
   monsters: readonly MonsterState[],
   own: InputProgress,
   slash: SlashJudgement | null = null,
+  world: WorldItems = NO_WORLD_ITEMS,
+  inventory: readonly ItemKindId[] = [],
 ): SnapshotMessage {
-  return { type: 'snapshot', step, players, monsters, own, slash };
+  const { clovers, items } = world;
+  return {
+    type: 'snapshot',
+    step,
+    players,
+    monsters,
+    own,
+    slash,
+    clovers,
+    items,
+    inventory,
+  };
 }
 
 /**
@@ -385,13 +440,21 @@ export function decodeServerMessage(data: string): ServerMessage {
     Array.isArray(value.players) &&
     Array.isArray(value.monsters) &&
     isInputProgress(value.own) &&
-    (value.slash === null || isSlashJudgement(value.slash))
+    (value.slash === null || isSlashJudgement(value.slash)) &&
+    isPatchList(value.clovers) &&
+    Array.isArray(value.items) &&
+    isInventory(value.inventory)
   ) {
     const players: unknown[] = value.players;
     const monsters: unknown[] = value.monsters;
+    const items: unknown[] = value.items;
     const { sequence, steps, motion } = value.own;
     const slash: SlashJudgement | null = value.slash;
-    if (players.every(isPlayerState) && monsters.every(isMonsterState)) {
+    if (
+      players.every(isPlayerState) &&
+      monsters.every(isMonsterState) &&
+      items.every(isGroundItem)
+    ) {
       return {
         type: 'snapshot',
         step: value.step as number,
@@ -433,6 +496,14 @@ export function decodeServerMessage(data: string): ServerMessage {
           slash === null
             ? null
             : { step: slash.step, rewind: slash.rewind, isHit: slash.isHit },
+        clovers: [...value.clovers],
+        items: items.map(({ id, kind, x, z }: GroundItem) => ({
+          id,
+          kind,
+          x,
+          z,
+        })),
+        inventory: [...value.inventory],
       };
     }
   }
@@ -486,6 +557,12 @@ export function decodeClientMessage(data: string): ClientMessage {
     if (value.type === 'move' && isGroundVector(value.direction)) {
       const { x, z } = value.direction;
       return { type: 'move', sequence, after, direction: { x, z } };
+    }
+    if (value.type === 'pick') {
+      return { type: 'pick', sequence, after };
+    }
+    if (value.type === 'drop' && isCount(value.slot)) {
+      return { type: 'drop', sequence, after, slot: value.slot };
     }
   }
   throw new Error('The client message is malformed.');
@@ -663,6 +740,56 @@ function isSlashJudgement(value: unknown): value is SlashJudgement {
     Number.isFinite(value.rewind) &&
     (value.rewind as number) >= 0 &&
     typeof value.isHit === 'boolean'
+  );
+}
+
+/**
+ * Checks whether a decoded value lists patches of clover: the numbers of
+ * patches the village has, each once, in ascending order.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it does.
+ */
+function isPatchList(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (patch: unknown, index: number) =>
+        isCount(patch) &&
+        patch < CLOVER_PATCHES.length &&
+        (index === 0 || patch > (value[index - 1] as number)),
+    )
+  );
+}
+
+/**
+ * Checks whether a decoded value is an item on the ground.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it is.
+ */
+function isGroundItem(value: unknown): value is GroundItem {
+  return (
+    isRecord(value) &&
+    isCount(value.id) &&
+    isItemKindId(value.kind) &&
+    Number.isFinite(value.x) &&
+    Number.isFinite(value.z)
+  );
+}
+
+/**
+ * Checks whether a decoded value is what a player carries: no more items
+ * than an inventory has slots, each of a kind there is.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it is.
+ */
+function isInventory(value: unknown): value is ItemKindId[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= INVENTORY_SIZE &&
+    value.every(isItemKindId)
   );
 }
 

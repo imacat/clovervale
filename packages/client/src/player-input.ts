@@ -21,7 +21,13 @@
  * @module client/player-input Turning the keys held into what a player wants.
  */
 
-import type { GroundVector } from '@clovervale/shared';
+import { canInteract, findPickTarget } from '@clovervale/shared';
+import type {
+  GroundVector,
+  PlayerInput,
+  PlayerMotion,
+  WorldItems,
+} from '@clovervale/shared';
 
 /** What a key tells the player of the page to do. */
 export type KeyCommand = 'forward' | 'backward' | 'left' | 'right' | 'interact';
@@ -54,6 +60,28 @@ export function findKeyCommand(code: string): KeyCommand | null {
     return null;
   }
   return KEY_COMMANDS[code] ?? null;
+}
+
+/**
+ * Chooses the input the space bar gives the player of the page now: a pick
+ * while something to pick is within its reach and nothing comes before it,
+ * whether or not the player has room for it, and an interaction otherwise.
+ *
+ * @param {PlayerMotion} motion - The motion of the player as predicted.
+ * @param {number} step - The number of the step of the server the input
+ *   would come into effect at, which tells where Toby would be then.
+ * @param {WorldItems} world - What there is to pick in the world, as the
+ *   server last told.
+ * @returns {PlayerInput} The input.
+ */
+export function chooseSpaceInput(
+  motion: PlayerMotion,
+  step: number,
+  world: WorldItems,
+): PlayerInput {
+  return canInteract(motion) && findPickTarget(motion, step, world) !== null
+    ? { type: 'pick' }
+    : { type: 'interact' };
 }
 
 /** The keys held down to move the player. */

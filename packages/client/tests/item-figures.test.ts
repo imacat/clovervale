@@ -1,0 +1,66 @@
+// The Clovervale project.
+// Copyright 2026 imacat.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Authors:
+//   imacat@mail.imacat.idv.tw (imacat), 2026/11/19
+// AI assistance: Claude Code (Anthropic)
+
+/**
+ * @module client/tests/item-figures Tests for showing the clovers of the
+ *   patches and the items on the ground.
+ */
+
+import { Scene } from 'three';
+import { describe, expect, it } from 'vitest';
+
+import type { GroundItem } from '@clovervale/shared';
+
+import { ItemFigures } from '../src/item-figures.ts';
+
+/** An item on the ground. */
+const ITEM: GroundItem = { id: 3, kind: 'clover', x: 2.5, z: -9.25 };
+
+describe('ItemFigures', () => {
+  it('shows nothing before it is told of the world', () => {
+    const figures = new ItemFigures(new Scene());
+    expect(figures.describe()).toEqual({ clovers: [], items: [] });
+  });
+
+  it('shows the clovers of the patches that have them, and the items', () => {
+    const figures = new ItemFigures(new Scene());
+    figures.show({ clovers: [0, 6], items: [ITEM] });
+    expect(figures.describe()).toEqual({ clovers: [0, 6], items: [ITEM] });
+  });
+
+  it('shows no more of what is gone', () => {
+    const figures = new ItemFigures(new Scene());
+    const other: GroundItem = { ...ITEM, id: 4, x: -1 };
+    figures.show({ clovers: [0, 6], items: [ITEM, other] });
+    figures.show({ clovers: [6], items: [other] });
+    expect(figures.describe()).toEqual({ clovers: [6], items: [other] });
+    figures.show(null);
+    expect(figures.describe()).toEqual({ clovers: [], items: [] });
+  });
+
+  it('takes what it shows out of the scene once it is gone', () => {
+    const scene = new Scene();
+    const figures = new ItemFigures(scene);
+    const before: number = scene.children.length;
+    figures.show({ clovers: [], items: [ITEM] });
+    expect(scene.children.length).toBe(before + 1);
+    figures.show({ clovers: [], items: [] });
+    expect(scene.children.length).toBe(before);
+  });
+});

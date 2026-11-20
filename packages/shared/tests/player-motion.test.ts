@@ -166,6 +166,23 @@ describe('a player who wants to move', () => {
   });
 });
 
+describe('a player who picks or puts down', () => {
+  it.each([
+    ['pick', { type: 'pick' }],
+    ['drop', { type: 'drop', slot: 0 }],
+  ] as const)('moves just as it would without a %s', (_, input) => {
+    const walking: PlayerMotion = applyInput(
+      createMotion({ x: 0, z: 0 }, 0),
+      steer(1, 0),
+    );
+    expect(applyInput(walking, input)).toEqual(walking);
+    expect(applyInput(BY_FOUNTAIN, input)).toEqual(BY_FOUNTAIN);
+    expect(stepTimes(applyInput(walking, input), 5)).toEqual(
+      stepTimes(walking, 5),
+    );
+  });
+});
+
 describe('a player who interacts', () => {
   it('slashes from the next step, for as long as a slash lasts', () => {
     expect(SLASH_STEPS / SIMULATION_RATE).toBeCloseTo(SLASH_DURATION);

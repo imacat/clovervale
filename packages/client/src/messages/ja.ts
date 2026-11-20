@@ -120,10 +120,20 @@ export const JA_MESSAGES: MessageTable = {
 
   'prompt.drink': 'スペースキーで噴水の水を飲む',
   'prompt.talk': 'スペースキーで{name}と話す',
+  'prompt.pick': 'スペースキーで{item}を拾う',
+  'prompt.full': '持ち物がいっぱいで{item}を拾えない',
   'spaceKey.slash': '斬る',
   'spaceKey.drink': '噴水の水を飲む',
   'spaceKey.talk': '{name}と話す',
   'spaceKey.nothing': 'なし',
+  'spaceKey.pick': '{item}を拾う',
+  'spaceKey.full': 'なし（持ち物がいっぱい）',
+
+  'inventory.title': '持ち物',
+  'inventory.icon': '持ち物 (I)',
+  'inventory.hint': '矢印キーで選択、Enter で使う、Esc か I で閉じる',
+  'itemAction.drop': '捨てる',
+  'item.clover': '四つ葉のクローバー',
 
   'villager.nancy.name': 'ナンシー',
   'villager.nancy.line.1':

@@ -105,8 +105,31 @@ export interface InteractInput {
   readonly viewTime?: number;
 }
 
+/**
+ * The input that makes a player pick what is within its reach, a
+ * four-leaved clover in a patch or an item on the ground.  It changes
+ * nothing in the motion of the player; what comes of it is for the server
+ * alone to decide.
+ */
+export interface PickInput {
+  /** The input discriminator. */
+  readonly type: 'pick';
+}
+
+/**
+ * The input that makes a player put the item of a slot of its inventory
+ * down at its feet.  It changes nothing in the motion of the player; what
+ * comes of it is for the server alone to decide.
+ */
+export interface DropInput {
+  /** The input discriminator. */
+  readonly type: 'drop';
+  /** The number of the slot, from 0. */
+  readonly slot: number;
+}
+
 /** Anything a player can be told to do. */
-export type PlayerInput = MoveInput | InteractInput;
+export type PlayerInput = MoveInput | InteractInput | PickInput | DropInput;
 
 /**
  * Creates the motion of a player that idles, wanting nothing.
@@ -140,7 +163,8 @@ export function createMotion(
  * {@link findInteraction} tells from where it stands and which way it faces
  * at the step it starts, and from where Toby is then, unless the player
  * cannot interact then, as {@link canInteract} tells, in which case it does
- * none of them, then or later.
+ * none of them, then or later.  A pick or a put-down leaves the motion as
+ * it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.
@@ -154,7 +178,7 @@ export function applyInput(
     const { x, z } = input.direction;
     return { ...motion, direction: { x, z } };
   }
-  if (!canInteract(motion)) {
+  if (input.type !== 'interact' || !canInteract(motion)) {
     return motion;
   }
   return { ...motion, isInteracting: true };

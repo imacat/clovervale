@@ -49,6 +49,7 @@ import type {
   InputProgress,
   MonsterState,
   PlayerState,
+  WorldItems,
 } from '@clovervale/shared';
 
 import { World } from './world.ts';
@@ -98,11 +99,13 @@ const SOCKET_FILE_MODE = 0o660;
  * peer disconnects.  The welcome also tells the peer how the day goes.  A
  * peer that sends anything but well-formed client messages, or inputs that
  * are not numbered upwards, or more inputs than can wait for their turn,
- * is disconnected.  All peers are sent snapshots of all the players and
- * the monsters, again and again, as the simulation of the world goes on,
- * each with how far its own player has got with its inputs and how its
- * latest slash was judged, and after each snapshot, once, the events that
- * have happened since the last.  A slash that names the time of the world
+ * is disconnected.  All peers are sent snapshots of all the players, the
+ * monsters, the patches of clover that have their clover and the items on
+ * the ground, again and again, as the simulation of the world goes on,
+ * each with how far its own player has got with its inputs, how its latest
+ * slash was judged and what it carries, which no other peer is told, and
+ * after each snapshot, once, the events that have happened since the last.
+ * A slash that names the time of the world
  * its peer showed is judged on the world as it was then, as far as the
  * world allows.
  *
@@ -272,13 +275,14 @@ function readText(data: RawData): string {
 
 /**
  * Keeps the simulation of a world going at its fixed rate, and sends every
- * peer a snapshot of the players and the monsters at the snapshot rate,
- * which tells the number of steps the simulation has taken, how far the
- * player of the peer has got with the inputs of the peer, and how its
- * latest slash was judged.  The world records every snapshot, for the
- * slashes to be judged on the world as a peer showed it.  Right after the
- * snapshots, it sends every peer the events that have happened since the
- * last snapshots, if any have, so that each peer hears of each event once.
+ * peer a snapshot of the players, the monsters and what there is to pick at
+ * the snapshot rate, which tells the number of steps the simulation has
+ * taken, how far the player of the peer has got with the inputs of the
+ * peer, how its latest slash was judged, and what it carries.  The world
+ * records every snapshot, for the slashes to be judged on the world as a
+ * peer showed it.  Right after the snapshots, it sends every peer the
+ * events that have happened since the last snapshots, if any have, so that
+ * each peer hears of each event once.
  *
  * @param {World} world - The world to simulate.
  * @param {ReadonlyMap<WebSocket, number>} playerIds - The identifiers of
@@ -306,6 +310,7 @@ function runSimulation(
       world.recordSnapshot();
       const players: PlayerState[] = world.listPlayers();
       const monsters: MonsterState[] = world.listMonsters();
+      const items: WorldItems = world.describeItems();
       const events: GameEvent[] = world.takeEvents();
       const eventData: string | null =
         events.length === 0
@@ -322,6 +327,8 @@ function runSimulation(
                 monsters,
                 own,
                 world.findSlash(id),
+                items,
+                world.findInventory(id) ?? [],
               ),
             ),
           );

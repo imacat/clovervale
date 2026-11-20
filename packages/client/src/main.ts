@@ -25,6 +25,7 @@ import type { Vector3 } from 'three';
 
 import {
   NOON,
+  NO_WORLD_ITEMS,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
   TOBY_FILE,
@@ -42,6 +43,7 @@ import type {
   GroundVector,
   HealEvent,
   HitEvent,
+  ItemKindId,
   MonsterState,
   PlayerInput,
   PlayerMotion,
@@ -50,10 +52,13 @@ import type {
   SlashJudgement,
   StampedInput,
   Villager,
+  WorldItems,
 } from '@clovervale/shared';
 
 import type { Actor } from './actor.ts';
 import { BackgroundMusic, MUSIC_FILE } from './background-music.ts';
+import { createBagView } from './bag-view.ts';
+import type { BagView } from './bag-view.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
@@ -75,6 +80,9 @@ import {
 import type { Prompt } from './interaction-prompt.ts';
 import { SnapshotTimeline } from './interpolation.ts';
 import type { PlayersView } from './interpolation.ts';
+import { InventoryBag } from './inventory-bag.ts';
+import type { BagResponse, ItemRequest } from './inventory-bag.ts';
+import { ItemFigures } from './item-figures.ts';
 import {
   chooseLanguage,
   findLanguageStorage,
@@ -103,7 +111,11 @@ import { createPanel } from './panel.ts';
 import type { Panel } from './panel.ts';
 import { PlayerFigures } from './player-figures.ts';
 import type { Figure } from './player-figures.ts';
-import { MoveKeys, findKeyCommand } from './player-input.ts';
+import {
+  MoveKeys,
+  chooseSpaceInput,
+  findKeyCommand,
+} from './player-input.ts';
 import type { KeyCommand } from './player-input.ts';
 import {
   describeDisplay,
@@ -188,6 +200,10 @@ let describeServer = (): string => translator.translate('server.connecting');
 let describeModels = (): string => translator.translate('models.loading');
 /** How the server judged the latest slash of the player of the page. */
 let lastSlash: SlashJudgement | null = null;
+/** What there is to pick in the world, as the server last told. */
+let worldItems: WorldItems | null = null;
+/** What the player of the page carries, as the server last told. */
+let inventory: readonly ItemKindId[] | null = null;
 
 /** The models that stand in the village whoever is connected. */
 const actors: Actor[] = [];
@@ -222,7 +238,18 @@ const shownHeals: HealEvent[] = [];
 const panel: Panel = createPanel(translator, switchLanguage);
 const music = new BackgroundMusic(new Audio(MUSIC_URL));
 const prompt: Prompt = createPrompt(document.body);
+/** The bag of the player of the page, which the person at the page opens. */
+const bag = new InventoryBag();
+const bagView: BagView = createBagView(
+  document.body,
+  translator,
+  bag,
+  (request: ItemRequest) => {
+    carryOutItemAction(request);
+  },
+);
 const { scene, daylight } = createVillageScene();
+const itemFigures = new ItemFigures(scene);
 const outlines = createObstacleOutlines(VILLAGE_TERRAIN);
 scene.add(outlines);
 const figures = new PlayerFigures(scene, (appearance: number) =>
@@ -264,6 +291,7 @@ Object.defineProperty(window, 'clovervale', {
     describeCamera: () => viewport.getFocus(),
     describeFigures: () => figures.describeFigures(),
     describeMonsters: () => monsterFigures.describeMonsters(),
+    describeItems: () => itemFigures.describe(),
     listLatestPlayers: () => timeline.latest ?? [],
     listLatestMonsters: () => timeline.latestMonsters ?? [],
     listShownHits: () => [...shownHits],
@@ -397,6 +425,20 @@ function sendInput(input: PlayerInput): boolean {
 }
 
 /**
+ * Carries out an action chosen in the menu of an item in the bag: a drop
+ * has the player of the page drop the item of the slot at its feet, unless
+ * it is dead.  Whether anything comes of it is for the server to decide.
+ *
+ * @param {ItemRequest} request - The action, and the slot of the item.
+ */
+function carryOutItemAction(request: ItemRequest): void {
+  // Dropping is the only action there is, and its request is its input.
+  if (prediction?.motion.action !== 'Die') {
+    sendInput({ type: request.action, slot: request.slot });
+  }
+}
+
+/**
  * Tells the server which way the keys held down move the player, if that
  * has changed since the server was last told.
  */
@@ -515,8 +557,12 @@ function showPlayers(): void {
   const predicted: PlayerMotion | null = prediction?.motion ?? null;
   // An interaction would start at the next step of the player.
   const nextStep: number = prediction?.readNextStep(now) ?? 0;
-  prompt.show(describePrompt(translator, predicted, nextStep));
-  panel.showInteraction(describeSpaceKey(translator, predicted, nextStep));
+  const world: WorldItems = worldItems ?? NO_WORLD_ITEMS;
+  const carried: readonly ItemKindId[] = inventory ?? [];
+  prompt.show(describePrompt(translator, predicted, nextStep, world, carried));
+  panel.showInteraction(
+    describeSpaceKey(translator, predicted, nextStep, world, carried),
+  );
   const villager: Villager | null = talks.noticeTalk(
     predicted,
     prediction?.step ?? 0,
@@ -614,6 +660,10 @@ function receiveMessage(data: string): void {
       panel.showMonster(describeMonster(translator, message.monsters));
       lastSlash = message.slash;
       panel.showSlash(describeSlash(translator, lastSlash));
+      worldItems = { clovers: message.clovers, items: message.items };
+      inventory = message.inventory;
+      itemFigures.show(worldItems);
+      bagView.show(inventory);
     }
     return;
   }
@@ -715,6 +765,10 @@ async function connectToServer(): Promise<void> {
     timeline.clear();
     schedule.clear();
     lastSlash = null;
+    worldItems = null;
+    inventory = null;
+    itemFigures.show(null);
+    bagView.show(null);
     panel.showMonster(describeMonster(translator, null));
     panel.showSlash(describeSlash(translator, null));
     panel.camera.followedId = null;
@@ -729,19 +783,56 @@ relabelPage();
 translator.addListener(relabelPage);
 
 window.addEventListener('keydown', (event: KeyboardEvent) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) {
+    return;
+  }
+  // The bag takes its keys first, so that while it is open the arrow keys,
+  // Enter and Esc do nothing else; the keys of play go on working.
+  const wasOpen: boolean = bag.isOpen;
+  const response: BagResponse =
+    event.repeat && event.code === 'KeyI'
+      ? { isHandled: true, request: null }
+      : bag.pressKey(event.code);
+  if (response.isHandled) {
+    event.preventDefault();
+    if (response.request !== null) {
+      carryOutItemAction(response.request);
+    }
+    if (bag.isOpen && !wasOpen) {
+      // An arrow key held down as the bag opens walks the player no more.
+      for (const code of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+        moveKeys.releaseKey(code);
+      }
+      sendMove();
+    }
+    bagView.render();
+    return;
+  }
   const command: KeyCommand | null = findKeyCommand(event.code);
-  if (command === null || event.altKey || event.ctrlKey || event.metaKey) {
+  if (command === null) {
     return;
   }
   event.preventDefault();
   if (command !== 'interact') {
     moveKeys.pressKey(event.code);
     sendMove();
-  } else if (!event.repeat && prediction?.motion.action !== 'Die') {
-    // A dead player cannot interact, and is not to once it is back for a
-    // key pressed while it was dead.
-    sendInput({ type: 'interact' });
+    return;
   }
+  // A dead player cannot interact, and is not to once it is back for a key
+  // pressed while it was dead.
+  if (
+    event.repeat ||
+    prediction === null ||
+    prediction.motion.action === 'Die'
+  ) {
+    return;
+  }
+  // The space bar picks what the prompt tells it picks, as the page knows
+  // it now; whether anything comes of it is for the server to decide.
+  const step: number = prediction.readNextStep(performance.now());
+  sendInput(
+    chooseSpaceInput(prediction.motion, step, worldItems ?? NO_WORLD_ITEMS),
+  );
 });
 window.addEventListener('keyup', (event: KeyboardEvent) => {
   moveKeys.releaseKey(event.code);

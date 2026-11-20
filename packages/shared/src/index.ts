@@ -59,13 +59,35 @@ export {
 } from './day-cycle.ts';
 export type { DayCycle, DayPeriod, DayPhase } from './day-cycle.ts';
 export {
+  FEET_REACH,
   FOUNTAIN_HEALING,
   FOUNTAIN_REACH,
   INTERACTION_HALF_ANGLE,
+  PICK_REACH,
   TALK_REACH,
   findInteraction,
+  findPickTarget,
   findVillager,
 } from './interaction.ts';
+export type { PickSource, PickTarget } from './interaction.ts';
+export {
+  CLOVER_KIND,
+  CLOVER_PATCHES,
+  CLOVER_REGROW_DURATION,
+  GROUND_ITEM_DURATION,
+  INVENTORY_SIZE,
+  ITEM_KINDS,
+  NO_WORLD_ITEMS,
+  findItemKind,
+  hasRoom,
+  isItemKindId,
+} from './items.ts';
+export type {
+  GroundItem,
+  ItemKind,
+  ItemKindId,
+  WorldItems,
+} from './items.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
 export type { Placed } from './interpolation.ts';
 export {
@@ -94,8 +116,10 @@ export {
   stepMotion,
 } from './player-motion.ts';
 export type {
+  DropInput,
   InteractInput,
   MoveInput,
+  PickInput,
   PlayerInput,
   PlayerMotion,
 } from './player-motion.ts';
@@ -117,6 +141,7 @@ export {
 } from './protocol.ts';
 export type {
   ClientMessage,
+  DropMessage,
   EntityKind,
   EntityRef,
   EventsMessage,
@@ -127,6 +152,7 @@ export type {
   MonsterMode,
   MonsterState,
   MoveMessage,
+  PickMessage,
   PlayerState,
   ServerMessage,
   SlashJudgement,

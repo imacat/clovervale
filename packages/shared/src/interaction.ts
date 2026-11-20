@@ -23,6 +23,8 @@
  */
 
 import type { Interaction } from './actions.ts';
+import { CLOVER_KIND, CLOVER_PATCHES } from './items.ts';
+import type { GroundItem, ItemKindId, WorldItems } from './items.ts';
 import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
 import type { Pose } from './terrain.ts';
@@ -54,6 +56,35 @@ export const FOUNTAIN_HEALING = 30;
  * centre to centre, in metres.
  */
 export const TALK_REACH = 1.6;
+
+/**
+ * The farthest a player can stand from a four-leaved clover in a patch, or
+ * from an item on the ground, to pick it, from centre to centre, in metres.
+ */
+export const PICK_REACH = 1.2;
+
+/**
+ * The farthest something a player picks can lie from the centre of the
+ * player to be at its feet, which the player can pick whichever way it
+ * faces, in metres.
+ */
+export const FEET_REACH = 0.1;
+
+/** Where a player picks something from. */
+export type PickSource = 'patch' | 'ground';
+
+/** Something a player can pick. */
+export interface PickTarget {
+  /** Whether it grows in a patch of clover or lies on the ground. */
+  readonly source: PickSource;
+  /**
+   * The number of the patch of clover, or the identifier of the item on the
+   * ground.
+   */
+  readonly id: number;
+  /** The kind of item the player gets. */
+  readonly kind: ItemKindId;
+}
 
 /** Something in the village a player can interact with. */
 interface Interactable {
@@ -153,13 +184,17 @@ function findInteractable(
  *   with stands.
  * @param {number} reach - The farthest the player can stand from that
  *   centre to interact with it, from centre to centre, in metres.
+ * @param {number} [nearReach] - The farthest the player can stand from
+ *   that centre to interact with it whichever way it faces, from centre to
+ *   centre, in metres, which is none by default.
  * @returns {boolean} Whether the player stands within the reach of the
- *   centre, facing it closely enough.
+ *   centre, facing it closely enough, or within the near reach of it.
  */
 function isWithinReach(
   pose: Pose,
   centre: GroundVector,
   reach: number,
+  nearReach = 0,
 ): boolean {
   const dx: number = centre.x - pose.x;
   const dz: number = centre.z - pose.z;
@@ -167,10 +202,68 @@ function isWithinReach(
   if (distance > reach) {
     return false;
   }
-  if (distance === 0) {
+  if (distance <= nearReach) {
     return true;
   }
   const yaw: number = (pose.yaw * Math.PI) / 180;
   const along: number = (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / distance;
   return along >= Math.cos((INTERACTION_HALF_ANGLE * Math.PI) / 180);
+}
+
+/**
+ * Finds what a player picks when it interacts with the world at a step of
+ * the simulation, standing as it does, before it would slash.
+ *
+ * A four-leaved clover in a patch, or an item on the ground, is within
+ * reach of the player if it is no farther than {@link PICK_REACH} from the
+ * player and no more than {@link INTERACTION_HALF_ANGLE} to either side of
+ * the way the player faces, or if it is no farther than {@link FEET_REACH}
+ * from the player, whichever way the player faces.  Drinking from the
+ * fountain and talking to a villager come first, as
+ * {@link findInteraction} tells: a player that can do either picks
+ * nothing.  Whether the player has room for what it picks is not for this
+ * to tell.
+ *
+ * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @param {number} step - The number of the step.
+ * @param {WorldItems} world - What there is to pick in the world.
+ * @returns {PickTarget | null} The nearest of the clovers and the items
+ *   within reach, a clover before an item as near, or `null` if there is
+ *   none, or if the player drinks or talks instead.
+ */
+export function findPickTarget(
+  pose: Pose,
+  step: number,
+  world: WorldItems,
+): PickTarget | null {
+  if (findInteraction(pose, step) !== 'Slash') {
+    return null;
+  }
+  const candidates: [PickTarget, GroundVector][] = [
+    ...world.clovers.flatMap(
+      (patch: number): [PickTarget, GroundVector][] => {
+        const centre: GroundVector | undefined = CLOVER_PATCHES[patch];
+        return centre === undefined
+          ? []
+          : [[{ source: 'patch', id: patch, kind: CLOVER_KIND }, centre]];
+      },
+    ),
+    ...world.items.map((item: GroundItem): [PickTarget, GroundVector] => [
+      { source: 'ground', id: item.id, kind: item.kind },
+      item,
+    ]),
+  ];
+  let found: PickTarget | null = null;
+  let nearest = Infinity;
+  for (const [target, centre] of candidates) {
+    const distance: number = Math.hypot(centre.x - pose.x, centre.z - pose.z);
+    if (
+      distance < nearest &&
+      isWithinReach(pose, centre, PICK_REACH, FEET_REACH)
+    ) {
+      found = target;
+      nearest = distance;
+    }
+  }
+  return found;
 }
