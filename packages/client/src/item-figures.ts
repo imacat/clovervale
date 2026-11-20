@@ -19,7 +19,8 @@
 
 /**
  * @module client/item-figures Showing the four-leaved clovers in the
- *   patches of clover, and the items that lie on the ground.
+ *   patches of clover, and the items that lie on the ground, each as what
+ *   it is.
  */
 
 import {
@@ -37,6 +38,9 @@ import {
 
 import { CLOVER_PATCHES } from '@clovervale/shared';
 import type { GroundItem, WorldItems } from '@clovervale/shared';
+
+import { LYING_ITEM_FILES } from './model-catalogue.ts';
+import type { LoadedModel } from './model-loader.ts';
 
 /** What is shown of the items in the world. */
 export interface ItemsView {
@@ -206,6 +210,7 @@ export class ItemFigures {
   readonly #parts: CloverParts = buildCloverParts();
   readonly #patches: Group[];
   readonly #lying = new Map<number, [GroundItem, Group]>();
+  #models: readonly LoadedModel[] = [];
 
   /**
    * Starts with a four-leaved clover drawn in no patch, and nothing on the
@@ -225,10 +230,25 @@ export class ItemFigures {
   }
 
   /**
+   * Draws the items on the ground from now on with the models of their
+   * kinds among the models, and those already on the ground at once.
+   *
+   * @param {readonly LoadedModel[]} models - The models.
+   */
+  useModels(models: readonly LoadedModel[]): void {
+    this.#models = models;
+    for (const [id, [item, figure]] of this.#lying) {
+      this.#parent.remove(figure);
+      this.#lying.set(id, [item, this.#layItem(item)]);
+    }
+  }
+
+  /**
    * Shows a four-leaved clover standing in each patch of clover that has
-   * its clover, and a four-leaved clover lying on the ground for each item
-   * there, where the item lies now, even if an item of the same number lay
-   * elsewhere before, and nothing else.
+   * its clover, and each item on the ground lying there as what it is, a
+   * four-leaved clover or the model of its kind, where the item lies now,
+   * even if an item of the same number lay elsewhere before, and nothing
+   * else.  An item whose model is not among the models is not drawn.
    *
    * @param {WorldItems | null} world - What there is to pick in the world,
    *   or `null` to show nothing.
@@ -241,25 +261,52 @@ export class ItemFigures {
     const items: readonly GroundItem[] = world?.items ?? [];
     const isSame = (a: GroundItem, b: GroundItem): boolean =>
       a.x === b.x && a.z === b.z;
-    for (const [id, [lying, clover]] of this.#lying) {
+    for (const [id, [lying, figure]] of this.#lying) {
       const item: GroundItem | undefined = items.find(
         (candidate: GroundItem) => candidate.id === id,
       );
       if (item === undefined || !isSame(item, lying)) {
-        this.#parent.remove(clover);
+        this.#parent.remove(figure);
         this.#lying.delete(id);
       }
     }
     for (const item of items) {
-      if (this.#lying.has(item.id)) {
-        continue;
+      if (!this.#lying.has(item.id)) {
+        this.#lying.set(item.id, [item, this.#layItem(item)]);
       }
-      const clover: Group = createLyingClover(this.#parts);
-      clover.position.set(item.x, 0, item.z);
-      clover.rotation.y = (((item.id * LYING_TURN) % 360) * Math.PI) / 180;
-      this.#parent.add(clover);
-      this.#lying.set(item.id, [item, clover]);
     }
+  }
+
+  /**
+   * Lays the figure of an item on the ground where it lies, turned on from
+   * the item before it.
+   *
+   * @param {GroundItem} item - The item.
+   * @returns {Group} The figure, a four-leaved clover, a copy of the model of
+   *   the kind of the item, or nothing if the model is not among the models.
+   */
+  #layItem(item: GroundItem): Group {
+    const figure = new Group();
+    if (item.kind === 'clover') {
+      figure.add(createLyingClover(this.#parts));
+    } else {
+      const file: string = LYING_ITEM_FILES[item.kind];
+      const model: LoadedModel | undefined = this.#models.find(
+        (candidate: LoadedModel) => candidate.file === file,
+      );
+      if (model !== undefined) {
+        const copy: Object3D = model.root.clone();
+        copy.traverse((node: Object3D) => {
+          node.castShadow = true;
+          node.receiveShadow = true;
+        });
+        figure.add(copy);
+      }
+    }
+    figure.position.set(item.x, 0, item.z);
+    figure.rotation.y = (((item.id * LYING_TURN) % 360) * Math.PI) / 180;
+    this.#parent.add(figure);
+    return figure;
   }
 
   /**
@@ -276,11 +323,11 @@ export class ItemFigures {
       }
     });
     const items: GroundItem[] = [...this.#lying.values()].map(
-      ([item, clover]: [GroundItem, Group]) => ({
+      ([item, figure]: [GroundItem, Group]) => ({
         id: item.id,
         kind: item.kind,
-        x: clover.position.x,
-        z: clover.position.z,
+        x: figure.position.x,
+        z: figure.position.z,
       }),
     );
     return { clovers, items };

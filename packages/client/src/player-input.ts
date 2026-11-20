@@ -72,8 +72,10 @@ export function findKeyCommand(code: string): KeyCommand | null {
  * Chooses the input the space bar gives the player of the page now: a
  * travel while a way into another map is within its reach and nothing
  * comes before it, as {@link findPassage} tells; or else a pick while
- * something to pick is within its reach and nothing comes before it,
- * whether or not the player has room for it; and an interaction otherwise.
+ * something to pick, or a chest or a barrel of the cave, is within its
+ * reach and nothing comes before it, whether or not the player has room
+ * for it and whether or not the container holds anything; and an
+ * interaction otherwise.
  *
  * @param {PlayerMotion} motion - The motion of the player as predicted.
  * @param {number} step - The number of the step of the server the input

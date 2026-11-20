@@ -23,7 +23,8 @@
  */
 
 import type { Interaction } from './actions.ts';
-import { CAVE_LANDING, CAVE_ROPE } from './cave.ts';
+import { CAVE_CONTAINERS, CAVE_LANDING, CAVE_ROPE } from './cave.ts';
+import type { CaveContainer } from './cave.ts';
 import { SLASH_REACH, isWithinStrike } from './combat.ts';
 import { CLOVER_KIND, CLOVER_PATCHES } from './items.ts';
 import type { GroundItem, ItemKindId, WorldItems } from './items.ts';
@@ -72,6 +73,12 @@ export const TALK_REACH = 1.6;
 export const PICK_REACH = 1.2;
 
 /**
+ * The farthest a player can stand from a chest or a barrel in the cave to
+ * loot it, from centre to centre, in metres.
+ */
+export const LOOT_REACH = 1.2;
+
+/**
  * The farthest something a player picks can lie from the centre of the
  * player to be at its feet, which the player can pick whichever way it
  * faces, in metres.
@@ -92,19 +99,25 @@ export const BURROW_REACH = 1.2;
 export const ROPE_REACH = 1.2;
 
 /** Where a player picks something from. */
-export type PickSource = 'patch' | 'ground';
+export type PickSource = 'patch' | 'ground' | 'container';
 
 /** Something a player can pick. */
 export interface PickTarget {
-  /** Whether it grows in a patch of clover or lies on the ground. */
+  /**
+   * Whether it grows in a patch of clover, lies on the ground, or is a
+   * container in the cave.
+   */
   readonly source: PickSource;
   /**
-   * The number of the patch of clover, or the identifier of the item on the
-   * ground.
+   * The number of the patch of clover, the identifier of the item on the
+   * ground, or the number of the container.
    */
   readonly id: number;
-  /** The kind of item the player gets. */
-  readonly kind: ItemKindId;
+  /**
+   * The kind of item the player gets, or `null` for a container that holds
+   * nothing, or nothing any more.
+   */
+  readonly kind: ItemKindId | null;
 }
 
 /** Something in the village a player can interact with. */
@@ -178,32 +191,37 @@ export const PASSAGES: readonly Passage[] = [
 ];
 
 /**
- * What a player can interact with in the village, before slashing, which a
- * player does when it can interact with none of it.
+ * Lists the villagers of a map as what a player can talk to.
+ *
+ * @param {MapId} map - The map.
+ * @returns {Interactable[]} The villagers there.
  */
-const VILLAGE_INTERACTABLES: readonly Interactable[] = [
-  {
-    interaction: 'Drink',
-    locate: (): GroundVector => PLAZA_CENTRE,
-    reach: FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH,
-  },
-  ...VILLAGERS.map(
+function listTalkables(map: MapId): Interactable[] {
+  return VILLAGERS.filter((villager: Villager) => villager.map === map).map(
     (villager: Villager): Interactable => ({
       interaction: 'Talk',
       locate: (step: number): GroundVector => locateVillager(villager, step),
       reach: TALK_REACH,
       villager,
     }),
-  ),
-];
+  );
+}
 
 /**
  * What a player can interact with in each map, before slashing, which a
- * player does when it can interact with none of it.
+ * player does when it can interact with none of it: the fountain and the
+ * villagers in the village, and the prisoner in the cave.
  */
 const INTERACTABLES: Readonly<Record<MapId, readonly Interactable[]>> = {
-  village: VILLAGE_INTERACTABLES,
-  cave: [],
+  village: [
+    {
+      interaction: 'Drink',
+      locate: (): GroundVector => PLAZA_CENTRE,
+      reach: FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH,
+    },
+    ...listTalkables('village'),
+  ],
+  cave: listTalkables('cave'),
 };
 
 /**
@@ -214,8 +232,9 @@ const INTERACTABLES: Readonly<Record<MapId, readonly Interactable[]>> = {
  * {@link INTERACTION_HALF_ANGLE} to either side of the way the player
  * faces: the fountain if the player stands within {@link FOUNTAIN_REACH} of
  * its rim, and a villager if the player stands within {@link TALK_REACH} of
- * where the villager is at the step.  Both are in the village; the cave has
- * nothing to interact with.
+ * where the villager is at the step.  The fountain is in the village, and
+ * each villager in its own map: the prisoner, the only one in the cave,
+ * is talked to through the bars of his cell.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
@@ -311,19 +330,26 @@ function isWithinReach(
  * reach of the player if it is no farther than {@link PICK_REACH} from the
  * player and no more than {@link INTERACTION_HALF_ANGLE} to either side of
  * the way the player faces, or if it is no farther than {@link FEET_REACH}
- * from the player, whichever way the player faces.  Drinking from the
- * fountain and talking to a villager come first, as
+ * from the player, whichever way the player faces.  A chest or a barrel in
+ * the cave is within reach of the player if it is no farther than
+ * {@link LOOT_REACH} from the player and no more than
+ * {@link INTERACTION_HALF_ANGLE} to either side of the way the player faces.
+ * Drinking from the fountain and talking to a villager come first, as
  * {@link findInteraction} tells: a player that can do either picks
  * nothing.  Whether the player has room for what it picks is not for this
- * to tell.  The patches of clover are in the village alone.
+ * to tell.  The patches of clover are in the village alone, and the chests
+ * and the barrels in the cave alone.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
  * @param {WorldItems} world - What there is to pick in the map.
  * @param {MapId} [map] - The map the player is in, the village by default.
- * @returns {PickTarget | null} The nearest of the clovers and the items
- *   within reach, a clover before an item as near, or `null` if there is
- *   none, or if the player drinks or talks instead.
+ * @returns {PickTarget | null} The nearest of the clovers, the items and
+ *   the containers that hold something within reach, a clover before an
+ *   item as near and an item before a container; or else the nearest of
+ *   the containers within reach that hold nothing or have been looted,
+ *   which give nothing; or `null` if there is none, or if the player drinks
+ *   or talks instead.
  */
 export function findPickTarget(
   pose: Pose,
@@ -334,33 +360,69 @@ export function findPickTarget(
   if (findInteraction(pose, step, map) !== 'Slash') {
     return null;
   }
-  const candidates: [PickTarget, GroundVector][] = [
+  const looted = new Set<number>(world.looted ?? []);
+  const containers: [PickTarget, GroundVector, number][] =
+    map === 'cave'
+      ? CAVE_CONTAINERS.map(
+          (
+            container: CaveContainer,
+            id: number,
+          ): [PickTarget, GroundVector, number] => [
+            {
+              source: 'container',
+              id,
+              kind: looted.has(id) ? null : container.item,
+            },
+            container,
+            LOOT_REACH,
+          ],
+        )
+      : [];
+  const candidates: [PickTarget, GroundVector, number][] = [
     ...(map === 'village' ? world.clovers : []).flatMap(
-      (patch: number): [PickTarget, GroundVector][] => {
+      (patch: number): [PickTarget, GroundVector, number][] => {
         const centre: GroundVector | undefined = CLOVER_PATCHES[patch];
         return centre === undefined
           ? []
-          : [[{ source: 'patch', id: patch, kind: CLOVER_KIND }, centre]];
+          : [
+              [
+                { source: 'patch', id: patch, kind: CLOVER_KIND },
+                centre,
+                PICK_REACH,
+              ],
+            ];
       },
     ),
-    ...world.items.map((item: GroundItem): [PickTarget, GroundVector] => [
-      { source: 'ground', id: item.id, kind: item.kind },
-      item,
-    ]),
+    ...world.items.map(
+      (item: GroundItem): [PickTarget, GroundVector, number] => [
+        { source: 'ground', id: item.id, kind: item.kind },
+        item,
+        PICK_REACH,
+      ],
+    ),
+    ...containers,
   ];
-  let found: PickTarget | null = null;
-  let nearest = Infinity;
-  for (const [target, centre] of candidates) {
-    const distance: number = Math.hypot(centre.x - pose.x, centre.z - pose.z);
-    if (
-      distance < nearest &&
-      isWithinReach(pose, centre, PICK_REACH, FEET_REACH)
-    ) {
-      found = target;
-      nearest = distance;
+  const findNearest = (isFull: boolean): PickTarget | null => {
+    let found: PickTarget | null = null;
+    let nearest = Infinity;
+    for (const [target, centre, reach] of candidates) {
+      const distance: number = Math.hypot(
+        centre.x - pose.x,
+        centre.z - pose.z,
+      );
+      const nearReach: number = target.source === 'container' ? 0 : FEET_REACH;
+      if (
+        (target.kind !== null) === isFull &&
+        distance < nearest &&
+        isWithinReach(pose, centre, reach, nearReach)
+      ) {
+        found = target;
+        nearest = distance;
+      }
     }
-  }
-  return found;
+    return found;
+  };
+  return findNearest(true) ?? findNearest(false);
 }
 
 /**

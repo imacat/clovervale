@@ -25,6 +25,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CAVE_CONTAINERS,
+  CAVE_PASSAGE,
   CAVE_ROPE,
   CLOVER_PATCHES,
   FOUNTAIN_RIM_RADIUS,
@@ -33,6 +35,7 @@ import {
   PLAZA_CENTRE,
   TALK_REACH,
   TOBY_LOOP_STEPS,
+  VILLAGERS,
   VILLAGE_TERRAIN,
   applyInput,
   createMotion,
@@ -40,10 +43,12 @@ import {
   findTobyPose,
   findTurn,
   killMotion,
+  locateVillager,
   stepMotion,
   turnVector,
 } from '@clovervale/shared';
 import type {
+  CaveContainer,
   GroundVector,
   ItemKindId,
   MonsterState,
@@ -478,5 +483,188 @@ describe('describePrompt by the ways into and out of the cave', () => {
 
   it('tells nothing of the rope on the same spot in the village', () => {
     expect(describeBoth(EN, BY_ROPE, 'village')).toEqual([null, 'slash']);
+  });
+});
+
+describe('describePrompt in the cave', () => {
+  /** The prisoner in the north cell. */
+  const envoy = VILLAGERS.find(({ id }) => id === 'envoy');
+
+  /** Where he stands, behind the bars. */
+  const at: GroundVector =
+    envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+
+  /** A player at the bars of his cell, before him, facing him. */
+  const AT_BARS: PlayerMotion = createMotion(
+    { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
+    180,
+  );
+
+  /** A full inventory. */
+  const FULL: ItemKindId[] = new Array<ItemKindId>(INVENTORY_SIZE).fill(
+    'clover',
+  );
+
+  /** The numbers of every container, as if all had been looted. */
+  const ALL_LOOTED: number[] = CAVE_CONTAINERS.map((_, id: number) => id);
+
+  /**
+   * Finds the first container of a kind that holds something, or none.
+   *
+   * @param {'chest' | 'barrel'} kind - The kind of container.
+   * @param {boolean} isFull - Whether it holds something.
+   * @returns {CaveContainer} The container.
+   * @throws {Error} If there is none.
+   */
+  function findContainer(
+    kind: 'chest' | 'barrel',
+    isFull: boolean,
+  ): CaveContainer {
+    const found: CaveContainer | undefined = CAVE_CONTAINERS.find(
+      (container: CaveContainer) =>
+        container.kind === kind && (container.item !== null) === isFull,
+    );
+    if (found === undefined) {
+      throw new Error(`There is no such ${kind}.`);
+    }
+    return found;
+  }
+
+  /**
+   * Makes a player in front of a container, close by it, facing it.
+   *
+   * @param {CaveContainer} container - The container.
+   * @returns {PlayerMotion} The player.
+   */
+  function standBefore(container: CaveContainer): PlayerMotion {
+    const yaw: number = (container.yaw * Math.PI) / 180;
+    return createMotion(
+      {
+        x: container.x + Math.sin(yaw) * 0.75,
+        z: container.z + Math.cos(yaw) * 0.75,
+      },
+      container.yaw + 180,
+    );
+  }
+
+  /**
+   * Words the prompt and the space key of a player in the cave, in a
+   * language.
+   *
+   * @param {Translator} translator - The translator.
+   * @param {PlayerMotion} motion - The player.
+   * @param {readonly number[]} [looted] - The containers looted, none by
+   *   default.
+   * @param {readonly ItemKindId[]} [carried] - What the player carries,
+   *   nothing by default.
+   * @returns {[string | null, string]} The prompt, and the space key.
+   */
+  function describeBoth(
+    translator: Translator,
+    motion: PlayerMotion,
+    looted: readonly number[] = [],
+    carried: readonly ItemKindId[] = [],
+  ): [string | null, string] {
+    const world: WorldItems = { clovers: [], items: [], looted };
+    return [
+      describePrompt(translator, motion, 0, world, carried, 'cave'),
+      describeSpaceKey(translator, motion, 0, world, carried, 'cave'),
+    ];
+  }
+
+  it('tells a player at the bars it can talk to the prisoner, in every language', async () => {
+    expect(describeBoth(EN, AT_BARS)).toEqual([
+      'Press Space to talk to Prisoner',
+      'talk to Prisoner',
+    ]);
+    expect(describeBoth(await createTranslator('zh-TW'), AT_BARS)).toEqual([
+      '按空白鍵與囚犯交談',
+      '與囚犯交談',
+    ]);
+    expect(describeBoth(await createTranslator('zh-CN'), AT_BARS)).toEqual([
+      '按空格键与囚犯交谈',
+      '与囚犯交谈',
+    ]);
+    expect(describeBoth(await createTranslator('ja'), AT_BARS)).toEqual([
+      'スペースキーで囚人と話す',
+      '囚人と話す',
+    ]);
+  });
+
+  it('tells a player before a full chest it can open it, in every language', async () => {
+    const before: PlayerMotion = standBefore(findContainer('chest', true));
+    expect(describeBoth(EN, before)).toEqual([
+      'Press Space to open the chest',
+      'open the chest',
+    ]);
+    expect(describeBoth(await createTranslator('zh-TW'), before)).toEqual([
+      '按空白鍵打開寶箱',
+      '打開寶箱',
+    ]);
+    expect(describeBoth(await createTranslator('zh-CN'), before)).toEqual([
+      '按空格键打开宝箱',
+      '打开宝箱',
+    ]);
+    expect(describeBoth(await createTranslator('ja'), before)).toEqual([
+      'スペースキーで宝箱を開ける',
+      '宝箱を開ける',
+    ]);
+  });
+
+  it('tells a player with a full inventory it can take nothing', async () => {
+    const before: PlayerMotion = standBefore(findContainer('barrel', true));
+    expect(describeBoth(EN, before, [], FULL)).toEqual([
+      'Your inventory is full, so you cannot take anything from the barrel',
+      'nothing, as the inventory is full',
+    ]);
+    expect(
+      describeBoth(await createTranslator('zh-TW'), before, [], FULL),
+    ).toEqual(['物品欄已滿，無法從木桶拿取物品', '無（物品欄已滿）']);
+  });
+
+  it('tells a player an empty or looted container is empty, in every language', async () => {
+    const empty: PlayerMotion = standBefore(findContainer('barrel', false));
+    const looted: PlayerMotion = standBefore(findContainer('chest', true));
+    expect(describeBoth(EN, empty)).toEqual([
+      'The barrel is empty',
+      'nothing, as the barrel is empty',
+    ]);
+    expect(describeBoth(EN, looted, ALL_LOOTED, FULL)).toEqual([
+      'The chest is empty',
+      'nothing, as the chest is empty',
+    ]);
+    expect(describeBoth(await createTranslator('zh-TW'), empty)).toEqual([
+      '木桶是空的',
+      '無（木桶是空的）',
+    ]);
+    expect(describeBoth(await createTranslator('zh-CN'), empty)).toEqual([
+      '木桶是空的',
+      '无（木桶是空的）',
+    ]);
+    expect(describeBoth(await createTranslator('ja'), empty)).toEqual([
+      '樽は空っぽだ',
+      'なし（樽は空っぽ）',
+    ]);
+  });
+
+  it('names the new items it picks up from the ground', async () => {
+    const motion: PlayerMotion = createMotion({ x: 9.25, z: 0 }, 0);
+    const world = (kind: ItemKindId): WorldItems => ({
+      clovers: [],
+      items: [{ id: 1, kind, x: 9.25, z: 0.6 }],
+    });
+    expect(describePrompt(EN, motion, 0, world('sword'), [], 'cave')).toBe(
+      'Press Space to pick up the sword',
+    );
+    expect(
+      describePrompt(EN, motion, 0, world('leather-armour'), [], 'cave'),
+    ).toBe('Press Space to pick up the leather armour');
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describePrompt(zhTw, motion, 0, world('sword'), [], 'cave')).toBe(
+      '按空白鍵拾取劍',
+    );
+    expect(
+      describePrompt(zhTw, motion, 0, world('leather-armour'), [], 'cave'),
+    ).toBe('按空白鍵拾取皮甲');
   });
 });

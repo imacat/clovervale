@@ -94,7 +94,7 @@ type PutOnWall = (
 ) => Shape;
 
 /** A part of an object, as its material and its shape. */
-type Part = readonly [string, Shape];
+export type Part = readonly [string, Shape];
 
 /** One degree, in radians. */
 const DEG: number = Math.PI / 180;
@@ -383,7 +383,7 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
  * @param {number} length - The length of the blade.
  * @returns {Part[]} The blade, the guard, the grip and the pommel.
  */
-function createSword(length: number): Part[] {
+export function createSword(length: number): Part[] {
   return [
     [
       'steel',

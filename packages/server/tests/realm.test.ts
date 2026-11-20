@@ -25,13 +25,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CAVE_CONTAINERS,
   CAVE_LANDING,
   CAVE_ROPE,
+  CAVE_TERRAIN,
   CLOVER_PATCHES,
   DEATH_DURATION,
   PLAYER_HEALTH,
   SIMULATION_RATE,
   SLASH_DURATION,
+  NavigationGraph,
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   WALK_SPEED,
@@ -44,6 +47,7 @@ import {
   isWithinStrike,
 } from '@clovervale/shared';
 import type {
+  CaveContainer,
   GroundVector,
   MonsterState,
   PlayerInput,
@@ -334,6 +338,34 @@ function walkToRope(realm: Realm, id: number): void {
 }
 
 /**
+ * Walks a player of a realm in the cave from where it stands up to a
+ * container, around what stands in the way, and turns it to face it.
+ *
+ * @param {Realm} realm - The realm.
+ * @param {number} id - The identifier of the player, in the cave.
+ * @param {CaveContainer} container - The container.
+ * @throws {Error} If the player finds no way there.
+ */
+function walkToContainer(
+  realm: Realm,
+  id: number,
+  container: CaveContainer,
+): void {
+  const yaw: number = (container.yaw * Math.PI) / 180;
+  const path: GroundVector[] | null = new NavigationGraph(
+    CAVE_TERRAIN,
+  ).findPath(findPlayer(realm, id), {
+    x: container.x + Math.sin(yaw) * 0.75,
+    z: container.z + Math.cos(yaw) * 0.75,
+  });
+  if (path === null) {
+    throw new Error('The player finds no way.');
+  }
+  walkAlong(realm, id, path);
+  turnPlayer(realm, id, container);
+}
+
+/**
  * Lists the snapshots in the messages for a player, as the realm composes
  * them.
  *
@@ -510,12 +542,30 @@ describe('the caves of the realm', () => {
     giveInput(realm, id, { type: 'drop', slot: 0 });
     realm.step();
     expect(first?.describeItems().items).toHaveLength(1);
+    const chest: CaveContainer | undefined = CAVE_CONTAINERS.find(
+      (container: CaveContainer) => container.item === 'sword',
+    );
+    if (chest === undefined) {
+      throw new Error('No chest holds a sword.');
+    }
+    walkToContainer(realm, id, chest);
+    giveInput(realm, id, { type: 'pick' });
+    realm.step();
+    expect(first?.describeItems().looted).toEqual([
+      CAVE_CONTAINERS.indexOf(chest),
+    ]);
+    walkAlong(realm, id, [{ x: chest.x, z: 0 }]);
     walkToRope(realm, id);
     travel(realm, id);
+    expect(realm.findWorld(id)?.findInventory(id)).toEqual(['sword']);
     walkInVillage(realm, id, BURROW);
     goDown(realm, id);
     expect(realm.findWorld(id)).not.toBe(first);
-    expect(realm.findWorld(id)?.describeItems().items).toEqual([]);
+    expect(realm.findWorld(id)?.describeItems()).toEqual({
+      clovers: [],
+      items: [],
+      looted: [],
+    });
   });
 });
 
@@ -635,6 +685,7 @@ describe('what the realm has sent to each player', () => {
       monsters: [],
       clovers: [],
       items: [],
+      looted: [],
     });
     expect(snapshot?.players.map((player: PlayerState) => player.id)).toEqual([
       id,

@@ -27,9 +27,19 @@ import {
   buildFountain,
   buildWeaponShop,
 } from './buildings.ts';
+import {
+  buildCaveBarrel,
+  buildCaveBarrelOpen,
+  buildCaveBars,
+  buildCaveChest,
+  buildCaveChestOpen,
+  buildCaveSkeleton,
+} from './cave-fixtures.ts';
 import { buildCave, buildCaveTorch } from './cave.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
+import { buildItemLeatherArmour, buildItemSword } from './gear.ts';
 import { buildNpcEmma } from './npc-emma.ts';
+import { buildNpcEnvoy } from './npc-envoy.ts';
 import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import { buildNpcToby } from './npc-toby.ts';
@@ -75,6 +85,7 @@ export function listModels(): ModelEntry[] {
     { name: 'npc-emma', build: buildNpcEmma },
     { name: 'npc-martha', build: buildNpcMartha },
     { name: 'npc-toby', build: buildNpcToby },
+    { name: 'npc-envoy', build: buildNpcEnvoy },
     { name: 'wild-dog', build: buildWildDog },
     { name: 'weapon-shop', build: buildWeaponShop },
     { name: 'fountain', build: buildFountain },
@@ -94,5 +105,13 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-old-well', build: buildOldWell },
     { name: 'prop-cave', build: buildCave },
     { name: 'prop-cave-torch', build: buildCaveTorch },
+    { name: 'prop-cave-bars', build: buildCaveBars },
+    { name: 'prop-cave-skeleton', build: buildCaveSkeleton },
+    { name: 'prop-cave-chest', build: buildCaveChest },
+    { name: 'prop-cave-chest-open', build: buildCaveChestOpen },
+    { name: 'prop-cave-barrel', build: buildCaveBarrel },
+    { name: 'prop-cave-barrel-open', build: buildCaveBarrelOpen },
+    { name: 'prop-item-sword', build: buildItemSword },
+    { name: 'prop-item-leather-armour', build: buildItemLeatherArmour },
   ];
 }

@@ -21,10 +21,14 @@
  * @module client/village-layout Arranging the models into a village.
  */
 
-import { CAVE_PLACEMENTS, VILLAGE_PLACEMENTS } from '@clovervale/shared';
-import type { Placement } from '@clovervale/shared';
+import {
+  CAVE_CONTAINER_FILES,
+  CAVE_PLACEMENTS,
+  VILLAGE_PLACEMENTS,
+} from '@clovervale/shared';
+import type { CaveContainerFiles, Placement } from '@clovervale/shared';
 
-import { classifyModel } from './model-catalogue.ts';
+import { LYING_ITEM_FILES, classifyModel } from './model-catalogue.ts';
 
 export type { Placement } from '@clovervale/shared';
 
@@ -53,6 +57,18 @@ function findSpareSpots(index: number): Spot[] {
 }
 
 /**
+ * The file names of the models that stand elsewhere than in the village:
+ * those of the cave and of what stands in it, and those of the items.
+ */
+const ELSEWHERE_FILES: ReadonlySet<string> = new Set<string>([
+  ...CAVE_PLACEMENTS.map((placement: Placement) => placement.file),
+  ...Object.values(CAVE_CONTAINER_FILES).flatMap(
+    ({ closed, open }: CaveContainerFiles) => [closed, open],
+  ),
+  ...Object.values(LYING_ITEM_FILES),
+]);
+
+/**
  * Arranges the models into a village.
  *
  * The fountain stands in the middle of a plaza, in front of the great tree,
@@ -64,10 +80,11 @@ function findSpareSpots(index: number): Spot[] {
  * sign stands by the gate, and the spawn stones of the monster are a little
  * way outside.  The characters and the monster have no place of their own,
  * as they stand wherever the server has them, and neither has Toby, who
- * runs about between the cottage and the gate.  The models of the cave
- * stand in the cave, not in the village.  Any other prop the village has
- * no place for stands by itself to one side, where it stands in nobody's
- * way.
+ * runs about between the cottage and the gate.  The models of the cave,
+ * and of what stands in it, stand in the cave, not in the village, and the
+ * models of the items lie wherever the items do.  Any other prop the
+ * village has no place for stands by itself to one side, where it stands in
+ * nobody's way.
  *
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.
@@ -82,10 +99,12 @@ export function layoutVillage(files: readonly string[]): Placement[] {
     const placed: Placement[] = VILLAGE_PLACEMENTS.filter(
       (placement: Placement) => placement.file === file,
     );
-    const isCave: boolean = CAVE_PLACEMENTS.some(
-      (placement: Placement) => placement.file === file,
-    );
-    if (placed.length === 0 && !isCave && classifyModel(file) === 'prop') {
+    const isElsewhere: boolean = ELSEWHERE_FILES.has(file);
+    if (
+      placed.length === 0 &&
+      !isElsewhere &&
+      classifyModel(file) === 'prop'
+    ) {
       for (const [x, z, yaw] of findSpareSpots(spareCount++)) {
         placed.push({ file, x, z, yaw });
       }

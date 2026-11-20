@@ -124,6 +124,9 @@ export const JA_MESSAGES: MessageTable = {
   'prompt.full': '持ち物がいっぱいで{item}を拾えない',
   'prompt.enter': 'スペースキーで巣穴に潜る',
   'prompt.climb': 'スペースキーでロープを登る',
+  'prompt.open': 'スペースキーで{container}を開ける',
+  'prompt.fullContainer': '持ち物がいっぱいで{container}から何も取り出せない',
+  'prompt.empty': '{container}は空っぽだ',
   'spaceKey.slash': '斬る',
   'spaceKey.drink': '噴水の水を飲む',
   'spaceKey.talk': '{name}と話す',
@@ -132,12 +135,18 @@ export const JA_MESSAGES: MessageTable = {
   'spaceKey.full': 'なし（持ち物がいっぱい）',
   'spaceKey.enter': '巣穴に潜る',
   'spaceKey.climb': 'ロープを登る',
+  'spaceKey.open': '{container}を開ける',
+  'spaceKey.empty': 'なし（{container}は空っぽ）',
 
   'inventory.title': '持ち物',
   'inventory.icon': '持ち物 (I)',
   'inventory.hint': '矢印キーで選択、Enter で使う、Esc か I で閉じる',
   'itemAction.drop': '捨てる',
   'item.clover': '四つ葉のクローバー',
+  'item.sword': '剣',
+  'item.leatherArmour': '革の鎧',
+  'container.chest': '宝箱',
+  'container.barrel': '樽',
 
   'villager.nancy.name': 'ナンシー',
   'villager.nancy.line.1':
@@ -161,4 +170,6 @@ export const JA_MESSAGES: MessageTable = {
     'おうちに住んでるよ。',
   'villager.toby.line.3':
     '四つ葉のをさがしてるんだ！見つけたら、いいことがあるんだよ。',
+  'villager.envoy.name': '囚人',
+  'villager.envoy.line.1': '誰かいるのか？助けてくれ！',
 };

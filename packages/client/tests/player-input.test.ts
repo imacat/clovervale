@@ -24,14 +24,20 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CAVE_CONTAINERS,
+  CAVE_PASSAGE,
   CAVE_ROPE,
   CLOVER_PATCHES,
+  PLAYER_RADIUS,
+  VILLAGERS,
   NO_WORLD_ITEMS,
   createMotion,
   findPlacement,
   killMotion,
+  locateVillager,
 } from '@clovervale/shared';
 import type {
+  CaveContainer,
   GroundVector,
   MonsterState,
   PlayerMotion,
@@ -269,5 +275,50 @@ describe('MoveKeys', () => {
   it('gives the same direction for headings that barely differ', () => {
     const direction = resolveKeys(['KeyW'], 37);
     expect(resolveKeys(['KeyW'], 37 + 1e-9)).toEqual(direction);
+  });
+});
+
+describe('chooseSpaceInput in the cave', () => {
+  /**
+   * Makes a player in front of a container, close by it, facing it.
+   *
+   * @param {CaveContainer} container - The container.
+   * @returns {PlayerMotion} The player.
+   */
+  function standBefore(container: CaveContainer): PlayerMotion {
+    const yaw: number = (container.yaw * Math.PI) / 180;
+    return createMotion(
+      {
+        x: container.x + Math.sin(yaw) * 0.75,
+        z: container.z + Math.cos(yaw) * 0.75,
+      },
+      container.yaw + 180,
+    );
+  }
+
+  it('interacts before the prisoner, to talk to him through his bars', () => {
+    const envoy = VILLAGERS.find(({ id }) => id === 'envoy');
+    const at: GroundVector =
+      envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+    const before: PlayerMotion = createMotion(
+      { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
+      180,
+    );
+    expect(chooseSpaceInput(before, 0, NO_WORLD_ITEMS, 'cave')).toEqual({
+      type: 'interact',
+    });
+  });
+
+  it('picks before a container, full or not', () => {
+    const looted: number[] = CAVE_CONTAINERS.map((_, id: number) => id);
+    for (const container of CAVE_CONTAINERS) {
+      const motion: PlayerMotion = standBefore(container);
+      expect(chooseSpaceInput(motion, 0, NO_WORLD_ITEMS, 'cave')).toEqual({
+        type: 'pick',
+      });
+      expect(
+        chooseSpaceInput(motion, 0, { ...NO_WORLD_ITEMS, looted }, 'cave'),
+      ).toEqual({ type: 'pick' });
+    }
   });
 });

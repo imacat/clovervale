@@ -19,14 +19,16 @@
 
 /**
  * @module shared/cave The cave under the burrow of the wild dog: its
- *   passage and chambers, where its models stand, and the ground they take
- *   up.
+ *   passage and chambers, where its models stand, what its store rooms hold,
+ *   and the ground they take up.
  *
  * The cave has a frame of its own, apart from the village.  X runs east
  * from the foot of the old well shaft, along the middle of the passage,
  * and Z runs south across it, so that north is -Z, as in the village.
  */
 
+import type { ItemKindId } from './items.ts';
+import { findYaw } from './movement.ts';
 import type { GroundVector } from './movement.ts';
 import { Terrain, placeShape } from './terrain.ts';
 import type { Boundary, Pose, Shape } from './terrain.ts';
@@ -182,6 +184,143 @@ export const CAVE_FILE = 'prop-cave.glb';
 export const CAVE_TORCH_FILE = 'prop-cave-torch.glb';
 
 /**
+ * The file name of the model of the row of iron bars that closes off a cell
+ * from the passage, across its whole opening.
+ */
+export const CAVE_BARS_FILE = 'prop-cave-bars.glb';
+
+/** The file name of the model of the prisoner in the north cell. */
+export const CAVE_ENVOY_FILE = 'npc-envoy.glb';
+
+/**
+ * The file name of the model of the bones of a dead prisoner, slumped
+ * against the back wall of the south cell.
+ */
+export const CAVE_SKELETON_FILE = 'prop-cave-skeleton.glb';
+
+/**
+ * How far the bars of a cell reach to either side of the edge of the
+ * passage they stand on, in metres.
+ */
+export const CAVE_BARS_HALF_DEPTH = 0.05;
+
+/**
+ * How far behind the bars of his cell the prisoner stands, from their
+ * middle to his, in metres: close enough for his hands to hold them.
+ */
+export const CAVE_ENVOY_BEHIND_BARS = 0.42;
+
+/**
+ * Half the depth of the bones of the dead prisoner, from the middle of
+ * their model to the back wall they lean on, in metres.
+ */
+const SKELETON_HALF_DEPTH = 0.385;
+
+/** A kind of container in the store rooms. */
+export type CaveContainerKind = 'chest' | 'barrel';
+
+/**
+ * A container in a store room: where it stands, the way its front faces,
+ * and what it holds while nobody has looted it.
+ */
+export interface CaveContainer extends Pose {
+  /** Whether it is a chest or a barrel. */
+  readonly kind: CaveContainerKind;
+  /** The kind of item it holds, or `null` if it is empty. */
+  readonly item: ItemKindId | null;
+}
+
+/** The file names of the models of a kind of container. */
+export interface CaveContainerFiles {
+  /** The model of the container shut, as it stands while it holds its item. */
+  readonly closed: string;
+  /** The model of the container open and empty. */
+  readonly open: string;
+}
+
+/** The file names of the models of each kind of container. */
+export const CAVE_CONTAINER_FILES: Readonly<
+  Record<CaveContainerKind, CaveContainerFiles>
+> = {
+  chest: { closed: 'prop-cave-chest.glb', open: 'prop-cave-chest-open.glb' },
+  barrel: {
+    closed: 'prop-cave-barrel.glb',
+    open: 'prop-cave-barrel-open.glb',
+  },
+};
+
+/** The radius of a barrel, round the widest of its belly, in metres. */
+const BARREL_RADIUS = 0.3;
+
+/** Half the width of a chest, from its middle to the end of a handle. */
+const CHEST_HALF_WIDTH = 0.52;
+
+/** Half the depth of a chest, from its middle to its back or its lock. */
+const CHEST_HALF_DEPTH = 0.3;
+
+/**
+ * Finds the way the front of a barrel in a corner faces: towards the middle
+ * of its store room.
+ *
+ * @param {GroundVector} at - Where the barrel stands.
+ * @param {CaveRoom} room - The store room.
+ * @returns {number} The yaw, in degrees.
+ */
+function faceMiddle(at: GroundVector, room: CaveRoom): number {
+  return findYaw({
+    x: (room.west + room.east) / 2 - at.x,
+    z: (room.north + room.south) / 2 - at.z,
+  });
+}
+
+/**
+ * The containers in the store rooms, numbered by their place in the list,
+ * from 0, each along a wall with room to walk up to it: in the north store
+ * room, a chest with a sword against its back wall, a barrel with a
+ * four-leaved clover in its corner to the west of the chest, and an empty
+ * barrel against its east wall near the passage; in the south store room,
+ * a chest with a leather armour against its back wall, an empty barrel in
+ * its corner to the east of the chest, and a barrel with a four-leaved
+ * clover against its west wall near the passage.
+ */
+export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
+  const [north, south] = CAVE_STORE_ROOMS;
+  const middle: number = (north.west + north.east) / 2;
+  const back: number = CAVE_CHAMBER_DEPTH + CAVE_PASSAGE_HALF_WIDTH;
+  const chestZ: number = back - CHEST_HALF_DEPTH - 0.05;
+  const corner: number = back - 0.5;
+  const nearZ: number = CAVE_PASSAGE_HALF_WIDTH + 1.2;
+  const westX: number = north.west + 0.5;
+  const eastX: number = north.east - 0.5;
+  return [
+    { kind: 'chest', x: middle, z: -chestZ, yaw: 0, item: 'sword' },
+    {
+      kind: 'barrel',
+      x: westX,
+      z: -corner,
+      yaw: faceMiddle({ x: westX, z: -corner }, north),
+      item: 'clover',
+    },
+    { kind: 'barrel', x: eastX, z: -nearZ, yaw: -90, item: null },
+    {
+      kind: 'chest',
+      x: middle,
+      z: chestZ,
+      yaw: 180,
+      item: 'leather-armour',
+    },
+    {
+      kind: 'barrel',
+      x: eastX,
+      z: corner,
+      yaw: faceMiddle({ x: eastX, z: corner }, south),
+      item: null,
+    },
+    { kind: 'barrel', x: westX, z: nearZ, yaw: 90, item: 'clover' },
+  ];
+})();
+
+/**
  * The middle of the ground the model of the cave covers, which it stands
  * on: from 2.75 m west of the foot of the well shaft to 23.25 m east of
  * it, and 6.5 m either side of the passage.
@@ -205,15 +344,43 @@ const TORCH_SPOTS: readonly Pose[] = TORCH_DISTANCES.flatMap(
 );
 
 /**
- * Where the models of the cave stand: the rock, the floor and the
- * stonework in one, and the torches on the walls of the passage.
+ * Where the models of the cave stand, but for its containers: the rock,
+ * the floor and the stonework in one; the torches on the walls of the
+ * passage; the bars across the opening of each cell, along the edge of the
+ * passage; the prisoner in the north cell, right behind its bars, half way
+ * along them, facing the passage; and the bones of a dead prisoner in the
+ * south cell, slumped against its back wall, facing the passage.
  */
-export const CAVE_PLACEMENTS: readonly Placement[] = [
-  { file: CAVE_FILE, x: CAVE_MODEL_CENTRE.x, z: CAVE_MODEL_CENTRE.z, yaw: 0 },
-  ...TORCH_SPOTS.map(
-    (spot: Pose): Placement => ({ file: CAVE_TORCH_FILE, ...spot }),
-  ),
-];
+export const CAVE_PLACEMENTS: readonly Placement[] = (() => {
+  const [northCell, southCell] = CAVE_CELLS;
+  const middle: number = (northCell.west + northCell.east) / 2;
+  const edge: number = CAVE_PASSAGE_HALF_WIDTH;
+  return [
+    {
+      file: CAVE_FILE,
+      x: CAVE_MODEL_CENTRE.x,
+      z: CAVE_MODEL_CENTRE.z,
+      yaw: 0,
+    },
+    ...TORCH_SPOTS.map(
+      (spot: Pose): Placement => ({ file: CAVE_TORCH_FILE, ...spot }),
+    ),
+    { file: CAVE_BARS_FILE, x: middle, z: -edge, yaw: 0 },
+    { file: CAVE_BARS_FILE, x: middle, z: edge, yaw: 180 },
+    {
+      file: CAVE_ENVOY_FILE,
+      x: middle,
+      z: northCell.south - CAVE_ENVOY_BEHIND_BARS,
+      yaw: 0,
+    },
+    {
+      file: CAVE_SKELETON_FILE,
+      x: middle + 0.6,
+      z: southCell.south - SKELETON_HALF_DEPTH,
+      yaw: 180,
+    },
+  ];
+})();
 
 /** Where the flame of each torch burns, above the floor of the passage. */
 export const CAVE_FLAMES: readonly GroundVector[] = TORCH_SPOTS.map(
@@ -307,15 +474,74 @@ const CAVE_SHAPES: readonly Shape[] = (() => {
   return shapes;
 })();
 
+/**
+ * The ground each model that stands in the cave besides the rock takes up
+ * where nobody can walk, as the model has it before it is placed: the bars
+ * of a cell, the prisoner, and the chests and the barrels, open or not.
+ * The torches hang above the heads of the players, and the bones of the
+ * dead prisoner lie where nobody can come.
+ */
+export const CAVE_FIXTURE_FOOTPRINTS: Readonly<
+  Record<string, readonly Shape[]>
+> = (() => {
+  const half: number = (CAVE_CELLS[0].east - CAVE_CELLS[0].west) / 2;
+  const { chest, barrel } = CAVE_CONTAINER_FILES;
+  const chestShape: Shape = makeBox(
+    -CHEST_HALF_WIDTH,
+    CHEST_HALF_WIDTH,
+    -CHEST_HALF_DEPTH,
+    CHEST_HALF_DEPTH,
+  );
+  const barrelShape: Shape = {
+    shape: 'circle',
+    x: 0,
+    z: 0,
+    radius: BARREL_RADIUS,
+  };
+  return {
+    [CAVE_BARS_FILE]: [
+      makeBox(-half, half, -CAVE_BARS_HALF_DEPTH, CAVE_BARS_HALF_DEPTH),
+    ],
+    [CAVE_ENVOY_FILE]: [{ shape: 'circle', x: 0, z: 0, radius: 0.3 }],
+    [chest.closed]: [chestShape],
+    [chest.open]: [chestShape],
+    [barrel.closed]: [barrelShape],
+    [barrel.open]: [barrelShape],
+  };
+})();
+
+/**
+ * The ground the bars, the prisoner and the containers take up where they
+ * stand, in the frame of the cave.
+ */
+const FIXTURE_SHAPES: readonly Shape[] = [
+  ...CAVE_PLACEMENTS,
+  ...CAVE_CONTAINERS.map(
+    (container: CaveContainer): Placement => ({
+      ...container,
+      file: CAVE_CONTAINER_FILES[container.kind].closed,
+    }),
+  ),
+].flatMap((placement: Placement) =>
+  (CAVE_FIXTURE_FOOTPRINTS[placement.file] ?? []).map((shape: Shape) =>
+    placeShape(placement, shape),
+  ),
+);
+
 /** The circle on the ground around the cave that players cannot leave. */
 export const CAVE_BOUNDARY: Boundary = { x: 9.25, z: 0, radius: 12 };
 
 /**
- * The ground of the cave: the rock, the stonework, the slope and the rope,
- * and the boundary.  Nothing but the passage, the side chambers off it and
- * the round bottom of the well shaft is clear to stand on.
+ * The ground of the cave: the rock, the stonework, the slope and the rope;
+ * the bars of the cells, the prisoner and the containers; and the boundary.
+ * Nothing but the passage, the store rooms off it and the round bottom of
+ * the well shaft is clear to walk on; the cells are clear, but closed off
+ * by their bars.
  */
-export const CAVE_TERRAIN: Terrain = new Terrain(CAVE_SHAPES, CAVE_BOUNDARY);
+export const CAVE_TERRAIN: Terrain = new Terrain(
+  [...CAVE_SHAPES, ...FIXTURE_SHAPES],
+  CAVE_BOUNDARY,
+);
 
 /**
  * The ground the model of the cave takes up where nobody can walk, as the

@@ -23,7 +23,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { TOBY_FILE, findSpawnPoint } from '@clovervale/shared';
+import {
+  CAVE_ENVOY_FILE,
+  TOBY_FILE,
+  findSpawnPoint,
+} from '@clovervale/shared';
 
 import {
   CHARACTER_FILES,
@@ -72,14 +76,15 @@ function findOnly(placements: readonly Placement[], file: string): Placement {
 }
 
 describe('layoutVillage', () => {
-  it('stands each required model that never moves in one place', () => {
+  it('stands each required model of the village that never moves in one place', () => {
     const placements: Placement[] = layoutVillage(REQUIRED_MODEL_FILES);
     expect(placements.map((placement: Placement) => placement.file)).toEqual(
       REQUIRED_MODEL_FILES.filter(
         (file: string) =>
           !CHARACTER_FILES.includes(file) &&
           file !== MONSTER_FILE &&
-          file !== TOBY_FILE,
+          file !== TOBY_FILE &&
+          file !== CAVE_ENVOY_FILE,
       ),
     );
   });
@@ -204,6 +209,20 @@ describe('layoutVillage', () => {
     expect(files).not.toContain('prop-cave.glb');
     expect(files).not.toContain('prop-cave-torch.glb');
     expect(files).toContain('prop-rock.glb');
+  });
+
+  it('leaves what stands in the cave, and the items, out of the village', () => {
+    const files: string[] = [
+      'prop-cave-bars.glb',
+      'prop-cave-skeleton.glb',
+      'prop-cave-chest.glb',
+      'prop-cave-chest-open.glb',
+      'prop-cave-barrel.glb',
+      'prop-cave-barrel-open.glb',
+      'prop-item-sword.glb',
+      'prop-item-leather-armour.glb',
+    ];
+    expect(layoutVillage([...files, 'npc-envoy.glb'])).toEqual([]);
   });
 
   it('stands nothing where there are no models', () => {

@@ -119,6 +119,86 @@ function drawClover(): SVGElement {
 }
 
 /**
+ * Draws a small sword, its point up and to the right: its blade, its
+ * crossguard, its grip and its pommel.
+ *
+ * @returns {SVGElement} The sword.
+ */
+function drawSword(): SVGElement {
+  const turn = 'rotate(45 32 32)';
+  return drawPicture([
+    createSvgElement('path', {
+      d: 'M32 3 L36.5 10 L36.5 41 L27.5 41 L27.5 10Z',
+      transform: turn,
+      class: 'bag-sword-blade',
+    }),
+    createSvgElement('path', {
+      d: 'M32 9 L32 39',
+      transform: turn,
+      class: 'bag-sword-fuller',
+    }),
+    createSvgElement('rect', {
+      x: '30',
+      y: '45',
+      width: '4',
+      height: '10',
+      transform: turn,
+      class: 'bag-sword-grip',
+    }),
+    createSvgElement('rect', {
+      x: '21',
+      y: '40',
+      width: '22',
+      height: '5',
+      rx: '2',
+      transform: turn,
+      class: 'bag-sword-guard',
+    }),
+    createSvgElement('circle', {
+      cx: '32',
+      cy: '58',
+      r: '3.5',
+      transform: turn,
+      class: 'bag-sword-guard',
+    }),
+  ]);
+}
+
+/**
+ * Draws a small leather armour for the upper body, seen from the front:
+ * its body, cut low at the neck and round at the arms, laced up its front
+ * and belted at its waist.
+ *
+ * @returns {SVGElement} The armour.
+ */
+function drawLeatherArmour(): SVGElement {
+  return drawPicture([
+    createSvgElement('path', {
+      d:
+        'M21 9 L27 9 C28 16 36 16 37 9 L43 9 L53 16 L50 27 C47 27 46 29 ' +
+        '46 32 L46 54 C38 58 26 58 18 54 L18 32 C18 29 17 27 14 27 ' +
+        'L11 16Z',
+      class: 'bag-armour-body',
+    }),
+    createSvgElement('path', {
+      d: 'M32 16 L32 46',
+      class: 'bag-armour-lacing',
+    }),
+    createSvgElement('path', {
+      d: 'M18 46 C26 48 38 48 46 46',
+      class: 'bag-armour-belt',
+    }),
+  ]);
+}
+
+/** What each kind of item is drawn as in a slot of the bag. */
+const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
+  clover: drawClover,
+  sword: drawSword,
+  'leather-armour': drawLeatherArmour,
+};
+
+/**
  * Draws a small bag, tied at its neck.
  *
  * @returns {SVGElement} The bag.
@@ -162,7 +242,8 @@ function createClickable(
 /**
  * Creates the bag of the player of the page: its icon in the bottom left
  * corner, with the key that opens it, I, on it, and
- * above it, while the bag is open, its title, its slots in a square grid
+ * above it, while the bag is open, its title, its slots in a square grid,
+ * each item drawn small as what it is,
  * with its cursor, the menu of the item the cursor is on while it is open,
  * and a line that tells the keys.  A click on the icon, a slot or an action
  * of the menu does to the bag what {@link InventoryBag} tells; no click on
@@ -264,7 +345,7 @@ export function createBagView(
           return;
         }
         slot.classList.toggle('is-cursor', index === bag.cursor);
-        const wasFilled: boolean = slot.dataset.kind !== undefined;
+        const isSame: boolean = slot.dataset.kind === view.kind;
         if (view.kind === null) {
           delete slot.dataset.kind;
           slot.removeAttribute('title');
@@ -275,8 +356,8 @@ export function createBagView(
         slot.dataset.kind = view.kind;
         slot.title = view.name ?? '';
         slot.setAttribute('aria-label', view.name ?? '');
-        if (!wasFilled) {
-          slot.replaceChildren(drawClover());
+        if (!isSame) {
+          slot.replaceChildren(ITEM_PICTURES[view.kind]());
         }
       },
     );

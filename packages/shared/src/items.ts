@@ -37,6 +37,8 @@ export interface ItemKind {
 /** Every kind of item there is. */
 export const ITEM_KINDS = [
   { id: 'clover', nameKey: 'item.clover' },
+  { id: 'sword', nameKey: 'item.sword' },
+  { id: 'leather-armour', nameKey: 'item.leatherArmour' },
 ] as const satisfies readonly ItemKind[];
 
 /** The identifier of a kind of item. */
@@ -89,6 +91,11 @@ export interface WorldItems {
   readonly clovers: readonly number[];
   /** The items that lie on the ground. */
   readonly items: readonly GroundItem[];
+  /**
+   * The numbers of the containers of the cave that have been looted, in
+   * ascending order, none if left out.
+   */
+  readonly looted?: readonly number[];
 }
 
 /** A world with nothing to pick. */

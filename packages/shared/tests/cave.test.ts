@@ -27,19 +27,30 @@ import { describe, expect, it } from 'vitest';
 import {
   CAVE_CELLS,
   CAVE_CHAMBERS,
+  CAVE_CONTAINERS,
   CAVE_LANDING,
   CAVE_PASSAGE,
   CAVE_ROPE,
   CAVE_STORE_ROOMS,
   CAVE_TERRAIN,
+  NO_WORLD_ITEMS,
   NavigationGraph,
   PLAYER_RADIUS,
+  VILLAGERS,
   WALK_SPEED,
   createMotion,
+  findPickTarget,
   findYaw,
+  locateVillager,
   stepMotion,
 } from '../src/index.ts';
-import type { CaveRoom, GroundVector, PlayerMotion } from '../src/index.ts';
+import type {
+  CaveContainer,
+  CaveRoom,
+  GroundVector,
+  PlayerMotion,
+  Pose,
+} from '../src/index.ts';
 
 /** The least room every point a test walks to has, in metres. */
 const ROOM = 0.05;
@@ -74,6 +85,39 @@ function listFloorPoints(room: CaveRoom): GroundVector[] {
     }
   }
   return points;
+}
+
+/**
+ * Finds where the people and the things that stand on the floor of the
+ * cave stand: the prisoner in his cell and the containers in the store
+ * rooms.
+ *
+ * @returns {GroundVector[]} Where each of them stands.
+ */
+function listStanding(): GroundVector[] {
+  return [
+    ...CAVE_CONTAINERS,
+    ...VILLAGERS.filter(({ map }) => map === 'cave').map((villager) =>
+      locateVillager(villager, 0),
+    ),
+  ];
+}
+
+/**
+ * Finds where a player stands in front of a container, close by it, facing
+ * it.
+ *
+ * @param {CaveContainer} container - The container.
+ * @returns {Pose} Where the player stands, and which way it faces.
+ */
+function findSpotBefore(container: CaveContainer): Pose {
+  const yaw: number = (container.yaw * Math.PI) / 180;
+  const distance = 0.75;
+  return {
+    x: container.x + Math.sin(yaw) * distance,
+    z: container.z + Math.cos(yaw) * distance,
+    yaw: container.yaw + 180,
+  };
 }
 
 /**
@@ -129,24 +173,61 @@ describe('the plan of the cave', () => {
 });
 
 describe('the ground of the cave', () => {
-  it('is clear on the passage and in every chamber', () => {
+  it('is clear on the passage and in every chamber, but where things stand', () => {
+    const standing: GroundVector[] = listStanding();
     for (const room of [CAVE_PASSAGE, ...CAVE_CHAMBERS]) {
       for (const point of listFloorPoints(room)) {
-        if (Math.hypot(point.x - CAVE_ROPE.x, point.z - CAVE_ROPE.z) > 0.5) {
-          expect(CAVE_TERRAIN.isClear(point), JSON.stringify(point)).toBe(
-            true,
-          );
+        const isNear = ({ x, z }: GroundVector): boolean =>
+          Math.hypot(point.x - x, point.z - z) < 1;
+        if (isNear(CAVE_ROPE) || standing.some(isNear)) {
+          continue;
         }
+        expect(CAVE_TERRAIN.isClear(point), JSON.stringify(point)).toBe(true);
       }
     }
   });
 
-  it('leads from the landing to the rope, and into every chamber', () => {
+  it('leads from the landing to the rope, and into each store room', () => {
     const graph = new NavigationGraph(CAVE_TERRAIN);
     const byRope: GroundVector = { x: CAVE_ROPE.x + 0.8, z: CAVE_ROPE.z };
     expect(graph.findPath(CAVE_LANDING, byRope)).not.toBeNull();
-    for (const room of CAVE_CHAMBERS) {
+    for (const room of CAVE_STORE_ROOMS) {
       expect(graph.findPath(CAVE_LANDING, findMiddle(room))).not.toBeNull();
+    }
+  });
+
+  it('leads up to each container, close enough to open it', () => {
+    const graph = new NavigationGraph(CAVE_TERRAIN);
+    CAVE_CONTAINERS.forEach((container: CaveContainer, id: number) => {
+      const spot: Pose = findSpotBefore(container);
+      expect(CAVE_TERRAIN.isClear(spot), JSON.stringify(spot)).toBe(true);
+      expect(graph.findPath(CAVE_LANDING, spot)).not.toBeNull();
+      const motion: PlayerMotion = createMotion(spot, spot.yaw);
+      expect(
+        findPickTarget(motion, 0, NO_WORLD_ITEMS, 'cave'),
+      ).toMatchObject({ source: 'container', id });
+    });
+  });
+
+  it('keeps every player out of the cells, behind their bars', () => {
+    const graph = new NavigationGraph(CAVE_TERRAIN);
+    for (const cell of CAVE_CELLS) {
+      const middle: GroundVector = findMiddle(cell);
+      expect(CAVE_TERRAIN.isClear(middle)).toBe(true);
+      expect(graph.findPath(CAVE_LANDING, middle)).toBeNull();
+      const side: number = Math.sign(middle.z);
+      for (const x of [cell.west + 0.4, middle.x, cell.east - 0.4]) {
+        let motion: PlayerMotion = {
+          ...createMotion({ x, z: 0 }, side > 0 ? 0 : 180),
+          direction: { x: 0, z: side },
+        };
+        for (let step = 1; step <= 60; step++) {
+          motion = stepMotion(motion, step, 'cave');
+        }
+        expect(Math.abs(motion.z)).toBeLessThanOrEqual(
+          CAVE_PASSAGE.south - PLAYER_RADIUS,
+        );
+      }
     }
   });
 

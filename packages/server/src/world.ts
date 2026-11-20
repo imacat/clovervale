@@ -19,7 +19,7 @@
 
 /**
  * @module server/world A world the server simulates, in one map, with its
- *   players, its monster and its items.
+ *   players, its monster, its items and its containers.
  */
 
 import {
@@ -179,8 +179,22 @@ interface Slasher {
 const MONSTER_REF: EntityRef = { kind: 'monster', id: MONSTER_ID };
 
 /**
+ * Creates the monster of a world of a map.
+ *
+ * @param {MapId} map - The map.
+ * @param {() => number} drawRandom - Gives a random number from 0 up to but
+ *   not including 1, for what the monster does.
+ * @returns {Monster | null} The wild dog at its home in the village, or
+ *   `null` for the cave, which has no monster.
+ */
+function createMonster(map: MapId, drawRandom: () => number): Monster | null {
+  return map === 'village' ? new Monster(drawRandom) : null;
+}
+
+/**
  * A world the server simulates, in one map: the village, with its monster
- * and its clover, or a cave, empty but for whoever is in it.
+ * and its clover, or a cave, with its chests and barrels full, and nobody
+ * in it but its player and the prisoner behind the bars of his cell.
  */
 export class World {
   readonly #map: MapId;
@@ -200,11 +214,14 @@ export class World {
   readonly #regrowSteps: number[];
   #lyingItems: LyingItem[] = [];
   #lastItemId = 0;
+  /** The numbers of the containers of the cave that have been looted. */
+  readonly #looted = new Set<number>();
 
   /**
    * Starts a world without players and with nothing on the ground: in the
    * village, with the monster idling at its home and a four-leaved clover
-   * in every patch of clover, and in a cave, with nothing else.
+   * in every patch of clover, and in a cave, with every chest and barrel
+   * holding what it holds.
    *
    * @param {() => number} [drawRandom] - Gives a random number from 0 up to
    *   but not including 1, for what the monster does.  `Math.random` by
@@ -218,9 +235,9 @@ export class World {
   ) {
     this.#map = map;
     this.#stepCount = step;
-    const isVillage: boolean = map === 'village';
-    this.#monster = isVillage ? new Monster(drawRandom) : null;
-    this.#regrowSteps = isVillage ? CLOVER_PATCHES.map(() => 0) : [];
+    this.#monster = createMonster(map, drawRandom);
+    this.#regrowSteps =
+      map === 'village' ? CLOVER_PATCHES.map(() => 0) : [];
   }
 
   /**
@@ -395,7 +412,10 @@ export class World {
    * its reach, from where it stands after the step, if its inventory has
    * room for it.  A four-leaved clover so picked from a patch is gone from
    * the patch until it regrows {@link CLOVER_REGROW_DURATION} seconds
-   * later, and an item picked up from the ground is gone from there.  The
+   * later, an item picked up from the ground is gone from there, and a
+   * chest or a barrel in the cave so looted holds nothing from then on.  A
+   * container that holds nothing gives nothing, whether or not the
+   * inventory has room.  The
    * picks are judged player by player, in the order the players came in, so
    * that of two players who pick the same thing at the same step, the one
    * who came in first gets it, and the other gets nothing.  A put-down that
@@ -562,8 +582,9 @@ export class World {
    * Describes what there is to pick in the world as it is now, which
    * everyone is to be told.
    *
-   * @returns {WorldItems} The patches of clover that have their clover, and
-   *   the items on the ground, in the order they were put down.
+   * @returns {WorldItems} The patches of clover that have their clover, the
+   *   items on the ground, in the order they were put down, and the
+   *   containers that have been looted, in ascending order.
    */
   describeItems(): WorldItems {
     const clovers: number[] = [];
@@ -575,7 +596,10 @@ export class World {
     const items: GroundItem[] = this.#lyingItems.map(
       (lying: LyingItem) => lying.item,
     );
-    return { clovers, items };
+    const looted: number[] = [...this.#looted].sort(
+      (a: number, b: number) => a - b,
+    );
+    return { clovers, items, looted };
   }
 
   /**
@@ -691,17 +715,20 @@ export class World {
       this.describeItems(),
       this.#map,
     );
-    if (target === null) {
+    const kind: ItemKindId | null = target?.kind ?? null;
+    if (target === null || kind === null) {
       return;
     }
     if (target.source === 'patch') {
       this.#regrowSteps[target.id] = this.#stepCount + REGROW_STEPS;
+    } else if (target.source === 'container') {
+      this.#looted.add(target.id);
     } else {
       this.#lyingItems = this.#lyingItems.filter(
         (lying: LyingItem) => lying.item.id !== target.id,
       );
     }
-    player.inventory.push(target.kind);
+    player.inventory.push(kind);
   }
 
   /**

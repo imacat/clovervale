@@ -23,6 +23,7 @@
  */
 
 import {
+  CAVE_CONTAINERS,
   NO_WORLD_ITEMS,
   canInteract,
   findInteraction,
@@ -71,6 +72,22 @@ export function nameItem(translator: Translator, kind: ItemKindId): string {
 }
 
 /**
+ * Names the container a player would loot.
+ *
+ * @param {Translator} translator - The translator of the text of the page.
+ * @param {PickTarget} target - What the player would pick, a container.
+ * @returns {string} The name of the kind of the container, in the language
+ *   of the page.
+ */
+function nameContainer(translator: Translator, target: PickTarget): string {
+  return translator.translate(
+    CAVE_CONTAINERS[target.id]?.kind === 'barrel'
+      ? 'container.barrel'
+      : 'container.chest',
+  );
+}
+
+/**
  * Describes what the space bar makes the player of the page do now.
  *
  * @param {Translator} translator - The translator of the text of the page.
@@ -86,9 +103,10 @@ export function nameItem(translator: Translator, kind: ItemKindId): string {
  * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
  *   as the server last told, none by default.
  * @returns {string} What the player does, that it does nothing while it
- *   cannot interact, as while it is dead, or while what is within its reach
- *   to pick does not fit in its inventory, or `–` while there is no player,
- *   in the language of the page.
+ *   cannot interact, as while it is dead, while what is within its reach to
+ *   pick does not fit in its inventory, or while the container within its
+ *   reach is empty, or `–` while there is no player, in the language of the
+ *   page.
  */
 export function describeSpaceKey(
   translator: Translator,
@@ -123,17 +141,28 @@ export function describeSpaceKey(
   if (target === null) {
     return translator.translate('spaceKey.slash');
   }
-  return hasRoom(inventory)
-    ? translator.translate('spaceKey.pick', {
-        item: nameItem(translator, target.kind),
+  if (target.kind === null) {
+    return translator.translate('spaceKey.empty', {
+      container: nameContainer(translator, target),
+    });
+  }
+  if (!hasRoom(inventory)) {
+    return translator.translate('spaceKey.full');
+  }
+  return target.source === 'container'
+    ? translator.translate('spaceKey.open', {
+        container: nameContainer(translator, target),
       })
-    : translator.translate('spaceKey.full');
+    : translator.translate('spaceKey.pick', {
+        item: nameItem(translator, target.kind),
+      });
 }
 
 /**
  * Words the prompt that tells what the space bar makes the player of the
  * page do now, unless that is only a slash, or that tells that what is
- * within its reach to pick does not fit in its inventory.
+ * within its reach to pick does not fit in its inventory, or that the
+ * container within its reach is empty.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {PlayerMotion | null} motion - The motion of the player as
@@ -180,6 +209,18 @@ export function describePrompt(
   const target: PickTarget | null = findPickTarget(motion, step, world, map);
   if (target === null) {
     return null;
+  }
+  // Only a container gives nothing.
+  if (target.kind === null) {
+    return translator.translate('prompt.empty', {
+      container: nameContainer(translator, target),
+    });
+  }
+  if (target.source === 'container') {
+    const container: string = nameContainer(translator, target);
+    return hasRoom(inventory)
+      ? translator.translate('prompt.open', { container })
+      : translator.translate('prompt.fullContainer', { container });
   }
   const item: string = nameItem(translator, target.kind);
   return hasRoom(inventory)

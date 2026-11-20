@@ -26,8 +26,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BURROW_REACH,
+  CAVE_CONTAINERS,
   CAVE_LANDING,
   CAVE_ROPE,
+  CAVE_TERRAIN,
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
   CLOVER_PATCHES,
@@ -40,8 +42,10 @@ import {
   ROPE_REACH,
   SLASH_REACH,
   TOBY_LOOP_STEPS,
+  VILLAGERS,
   VILLAGE_TERRAIN,
   WELL_STAND,
+  createMotion,
   findInteraction,
   findPassage,
   findPickTarget,
@@ -49,7 +53,9 @@ import {
   findTobyPose,
   findTurn,
   findVillager,
+  locateVillager,
   placePoint,
+  stepMotion,
   turnVector,
 } from '../src/index.ts';
 import type {
@@ -58,7 +64,9 @@ import type {
   MonsterState,
   Passage,
   Placement,
+  PlayerMotion,
   Pose,
+  Villager,
   WorldItems,
 } from '../src/index.ts';
 
@@ -199,6 +207,7 @@ describe('findInteraction by Emma the smith', () => {
       expect(findVillager(pose, 0)).toEqual({
         id: 'emma',
         file: 'npc-emma.glb',
+        map: 'village',
       });
     }
   });
@@ -228,6 +237,7 @@ describe('findVillager', () => {
     expect(findVillager(standByNancy(TALK_REACH - 0.1, 180), 0)).toEqual({
       id: 'nancy',
       file: 'npc-nancy.glb',
+      map: 'village',
     });
   });
 
@@ -235,6 +245,7 @@ describe('findVillager', () => {
     expect(findVillager(standBeforeMartha(), 0)).toEqual({
       id: 'martha',
       file: 'npc-martha.glb',
+      map: 'village',
     });
   });
 
@@ -266,6 +277,7 @@ describe('findVillager by Toby', () => {
     expect(findVillager(facing, RUNNING)).toEqual({
       id: 'toby',
       file: 'npc-toby.glb',
+      map: 'village',
     });
     expect(findInteraction(facing, RUNNING)).toBe('Talk');
   });
@@ -508,5 +520,147 @@ describe('the spot beside the old well', () => {
     const along: number =
       (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / Math.hypot(dx, dz);
     expect(along).toBeLessThan(0);
+  });
+});
+
+describe('the prisoner in the north cell of the cave', () => {
+  /** The prisoner. */
+  const envoy: Villager | undefined = VILLAGERS.find(
+    (villager: Villager) => villager.id === 'envoy',
+  );
+
+  /** Where he stands, behind the bars of his cell. */
+  const at: GroundVector =
+    envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+
+  /**
+   * Walks a player along the passage up to the bars of his cell, and has it
+   * stop there, facing them.
+   *
+   * @param {number} x - How far east of the foot of the well shaft the
+   *   player walks up to the bars, in metres.
+   * @returns {Pose} Where it stops, and which way it faces.
+   */
+  function walkToBars(x: number): Pose {
+    let motion: PlayerMotion = {
+      ...createMotion({ x, z: 0 }, 180),
+      direction: { x: 0, z: -1 },
+    };
+    for (let step = 1; step <= 60; step++) {
+      motion = stepMotion(motion, step, 'cave');
+    }
+    return motion;
+  }
+
+  it('stands in the cave, and in no other map', () => {
+    expect(envoy?.map).toBe('cave');
+    expect(CAVE_TERRAIN.isClear(at)).toBe(false);
+    expect(findVillager({ x: at.x, z: at.z + 0.8, yaw: 180 }, 0)).toBeNull();
+  });
+
+  it('is talked to through the bars, before him and along them', () => {
+    for (const x of [at.x - 0.8, at.x, at.x + 0.8]) {
+      const pose: Pose = walkToBars(x);
+      expect(findVillager(pose, 0, 'cave')?.id).toBe('envoy');
+      expect(findInteraction(pose, 0, 'cave')).toBe('Talk');
+    }
+  });
+
+  it('is talked to rather than picked by', () => {
+    const pose: Pose = walkToBars(at.x);
+    const world: WorldItems = {
+      clovers: [],
+      items: [layItem(1, { x: pose.x, z: pose.z })],
+    };
+    expect(findPickTarget(pose, 0, world, 'cave')).toBeNull();
+  });
+
+  it('is not talked to facing away from him', () => {
+    const pose: Pose = { ...walkToBars(at.x), yaw: 0 };
+    expect(findVillager(pose, 0, 'cave')).toBeNull();
+    expect(findInteraction(pose, 0, 'cave')).toBe('Slash');
+  });
+});
+
+describe('findPickTarget by the containers of the cave', () => {
+  /**
+   * Makes the pose of a player in front of a container, close by it,
+   * facing it.
+   *
+   * @param {number} id - The number of the container.
+   * @returns {Pose} The pose.
+   */
+  function standBefore(id: number): Pose {
+    const container = CAVE_CONTAINERS[id];
+    if (container === undefined) {
+      throw new Error(`There is no container ${String(id)}.`);
+    }
+    const yaw: number = (container.yaw * Math.PI) / 180;
+    return {
+      x: container.x + Math.sin(yaw) * 0.75,
+      z: container.z + Math.cos(yaw) * 0.75,
+      yaw: container.yaw + 180,
+    };
+  }
+
+  /** The numbers of the chests, and of the barrels. */
+  const [chests, barrels] = [
+    CAVE_CONTAINERS.flatMap((container, id: number) =>
+      container.kind === 'chest' ? [id] : [],
+    ),
+    CAVE_CONTAINERS.flatMap((container, id: number) =>
+      container.kind === 'barrel' ? [id] : [],
+    ),
+  ];
+
+  /** Nothing to pick in the cave, but the containers. */
+  const NOTHING: WorldItems = { clovers: [], items: [] };
+
+  it('has a chest with a sword, a chest with a leather armour, and four barrels', () => {
+    expect(chests.map((id: number) => CAVE_CONTAINERS[id]?.item)).toEqual([
+      'sword',
+      'leather-armour',
+    ]);
+    expect(
+      barrels.map((id: number) => CAVE_CONTAINERS[id]?.item ?? null).sort(),
+    ).toEqual(['clover', 'clover', null, null]);
+  });
+
+  it('takes what a container holds while it has not been looted', () => {
+    CAVE_CONTAINERS.forEach((container, id: number) => {
+      expect(findPickTarget(standBefore(id), 0, NOTHING, 'cave')).toEqual({
+        source: 'container',
+        id,
+        kind: container.item,
+      });
+    });
+  });
+
+  it('finds nothing to take from a container once it has been looted', () => {
+    const looted: number[] = CAVE_CONTAINERS.map((_, id: number) => id);
+    CAVE_CONTAINERS.forEach((_, id: number) => {
+      expect(
+        findPickTarget(standBefore(id), 0, { ...NOTHING, looted }, 'cave'),
+      ).toEqual({ source: 'container', id, kind: null });
+    });
+  });
+
+  it('picks an item on the ground before an empty container', () => {
+    const [empty] = barrels.filter(
+      (id: number) => CAVE_CONTAINERS[id]?.item === null,
+    );
+    const pose: Pose = standBefore(empty ?? -1);
+    const item: GroundItem = layItem(7, { x: pose.x, z: pose.z });
+    expect(
+      findPickTarget(pose, 0, { ...NOTHING, items: [item] }, 'cave'),
+    ).toEqual({ source: 'ground', id: 7, kind: 'clover' });
+  });
+
+  it('finds no container facing away, nor in the village', () => {
+    const pose: Pose = standBefore(chests[0] ?? -1);
+    expect(
+      findPickTarget({ ...pose, yaw: pose.yaw + 180 }, 0, NOTHING, 'cave'),
+    ).toBeNull();
+    expect(findPickTarget(pose, 0, NOTHING, 'village')).toBeNull();
   });
 });

@@ -127,6 +127,10 @@ export const EN_MESSAGES = {
   'prompt.full': 'Your inventory is full, so you cannot pick up the {item}',
   'prompt.enter': 'Press Space to go down the burrow',
   'prompt.climb': 'Press Space to climb up the rope',
+  'prompt.open': 'Press Space to open the {container}',
+  'prompt.fullContainer':
+    'Your inventory is full, so you cannot take anything from the {container}',
+  'prompt.empty': 'The {container} is empty',
   'spaceKey.slash': 'slash',
   'spaceKey.drink': 'drink from the fountain',
   'spaceKey.talk': 'talk to {name}',
@@ -135,12 +139,18 @@ export const EN_MESSAGES = {
   'spaceKey.full': 'nothing, as the inventory is full',
   'spaceKey.enter': 'go down the burrow',
   'spaceKey.climb': 'climb up the rope',
+  'spaceKey.open': 'open the {container}',
+  'spaceKey.empty': 'nothing, as the {container} is empty',
 
   'inventory.title': 'Inventory',
   'inventory.icon': 'Inventory (I)',
   'inventory.hint': 'Arrow keys to choose, Enter to use, Esc or I to close',
   'itemAction.drop': 'Drop',
   'item.clover': 'four-leaved clover',
+  'item.sword': 'sword',
+  'item.leatherArmour': 'leather armour',
+  'container.chest': 'chest',
+  'container.barrel': 'barrel',
 
   'villager.nancy.name': 'Nancy',
   // The lines of the villagers are written whole, each in one string, so
@@ -162,6 +172,8 @@ export const EN_MESSAGES = {
     'If you want something, go and see the village chief. She lives in the biggest house!',
   'villager.toby.line.3':
     "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
+  'villager.envoy.name': 'Prisoner',
+  'villager.envoy.line.1': 'Is anyone there? Help me!',
 } as const;
 
 /** A message of the page. */

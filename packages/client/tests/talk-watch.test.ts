@@ -25,17 +25,26 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CAVE_PASSAGE,
+  PLAYER_RADIUS,
   SIMULATION_RATE,
   TALK_REACH,
   TALK_STEPS,
   TOBY_LOOP_STEPS,
+  VILLAGERS,
   applyInput,
   createMotion,
   findPlacement,
   findTobyPose,
+  locateVillager,
   stepMotion,
 } from '@clovervale/shared';
-import type { PlayerMotion, TobyPose } from '@clovervale/shared';
+import type {
+  GroundVector,
+  PlayerMotion,
+  TobyPose,
+  Villager,
+} from '@clovervale/shared';
 
 import { TalkWatch } from '../src/talk-watch.ts';
 
@@ -126,5 +135,25 @@ describe('TalkWatch', () => {
     const later: PlayerMotion = stepTimes(talking, TALK_STEPS - 1, step + 1);
     const watch = new TalkWatch();
     expect(watch.noticeTalk(later, step + TALK_STEPS - 1)?.id).toBe('toby');
+  });
+
+  it('notices a talk to the prisoner through the bars of his cell', () => {
+    const envoy: Villager | undefined = VILLAGERS.find(
+      (villager: Villager) => villager.id === 'envoy',
+    );
+    const at: GroundVector =
+      envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+    const before: PlayerMotion = createMotion(
+      { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
+      180,
+    );
+    const talking: PlayerMotion = stepMotion(
+      applyInput(before, { type: 'interact' }),
+      0,
+      'cave',
+    );
+    expect(talking.action).toBe('Talk');
+    const watch = new TalkWatch();
+    expect(watch.noticeTalk(talking, 0, 'cave')?.id).toBe('envoy');
   });
 });

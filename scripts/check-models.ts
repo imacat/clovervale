@@ -41,14 +41,22 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import {
+  CAVE_BARS_FILE,
+  CAVE_CELLS,
+  CAVE_CONTAINERS,
+  CAVE_CONTAINER_FILES,
+  CAVE_ENVOY_FILE,
   CAVE_FILE,
+  CAVE_FIXTURE_FOOTPRINTS,
   CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
+  CAVE_FOOTPRINT,
   CAVE_MODEL_CENTRE,
   CAVE_PASSAGE,
   CAVE_PASSAGE_HALF_WIDTH,
   CAVE_PLACEMENTS,
   CAVE_ROPE,
+  CAVE_SKELETON_FILE,
   CAVE_TERRAIN,
   CAVE_TORCH_FILE,
   PLAYER_RADIUS,
@@ -56,11 +64,18 @@ import {
   TOBY_ACTIVITY_STEPS,
   TOBY_FILE,
   TOBY_RUN_SPEED,
+  Terrain,
   VILLAGE_PLACEMENTS,
   findPlacement,
   placePoint,
+  placeShape,
 } from '@clovervale/shared';
-import type { GroundVector, Placement } from '@clovervale/shared';
+import type {
+  CaveContainer,
+  GroundVector,
+  Placement,
+  Shape,
+} from '@clovervale/shared';
 
 import { getItem } from './models/items.ts';
 
@@ -297,6 +312,7 @@ const REQUIRED_FILES: readonly string[] = [
   'npc-emma.glb',
   'npc-martha.glb',
   TOBY_FILE,
+  CAVE_ENVOY_FILE,
   'wild-dog.glb',
   'weapon-shop.glb',
   'fountain.glb',
@@ -508,6 +524,27 @@ const CAVE_SAMPLE_SPACING = 0.2;
 const CAVE_SLOPE_RISE = 0.9;
 /** The farthest the flame of a torch may be from where it is to burn. */
 const FLAME_TOLERANCE = 0.03;
+/**
+ * The farthest an edge of what stands in the cave may lie from the edge of
+ * the ground it takes up, inside it or out, in metres.
+ */
+const FOOTPRINT_TOLERANCE = 0.03;
+/** The material of the hands of the prisoner, which hold the bars. */
+const HAND_MATERIAL = 'hand';
+/** The material of the bars of a cell. */
+const BAR_MATERIAL = 'iron';
+/**
+ * The farthest the middle of a fist of the prisoner may be from the bar it
+ * holds, along the ground, in metres.
+ */
+const GRIP_TOLERANCE = 0.03;
+/** How many times in his idle clip the prisoner is looked at. */
+const ENVOY_SAMPLES = 48;
+/**
+ * The least room between the axis of a bar of a cell and anything of the
+ * prisoner but his fists, along the ground, in metres: the radius of a bar.
+ */
+const BAR_CLEARANCE = 0.022;
 /** The magic number of a binary glTF file. */
 const GLB_MAGIC = 0x46546c67;
 /** The type of the JSON chunk of a binary glTF file. */
@@ -1525,6 +1562,17 @@ async function loadCavePlaced(file: string): Promise<GLTF> {
   if (placement === undefined) {
     throw new Error(`The cave has no place for ${file}.`);
   }
+  return loadAt(placement);
+}
+
+/**
+ * Loads a model the way the client does, and stands it in a place.
+ *
+ * @param {Placement} placement - The model, and where it stands.
+ * @returns {Promise<GLTF>} The model, standing there.
+ */
+async function loadAt(placement: Placement): Promise<GLTF> {
+  const { file } = placement;
   const glb: Buffer = readFileSync(path.join(modelsDir, file));
   const model: GLTF = await loader.parseAsync(new Uint8Array(glb).buffer, '');
   model.scene.position.set(placement.x, 0, placement.z);
@@ -1539,7 +1587,8 @@ async function loadCavePlaced(file: string): Promise<GLTF> {
  * the cave lights them from.
  *
  * Looking straight down on the cave standing in its place: where a player
- * can stand, the floor is seen, and nothing above it but a flat stone;
+ * could stand but for what stands in the side chambers, the floor is seen,
+ * and nothing above it but a flat stone;
  * where the rock or the stonework stands in the way, it stands taller than
  * a player; and the slope from the burrow, which stands in the way at the
  * east end of the passage, rises steeply from its foot.  The flame of a
@@ -1550,6 +1599,13 @@ async function loadCavePlaced(file: string): Promise<GLTF> {
  */
 async function checkCave(): Promise<StrikeResult> {
   const cave: GLTF = await loadCavePlaced(CAVE_FILE);
+  // The ground the model of the cave takes up, without what stands in it.
+  const rock = new Terrain(
+    CAVE_FOOTPRINT.map((shape: Shape) =>
+      placeShape({ ...CAVE_MODEL_CENTRE, yaw: 0 }, shape),
+    ),
+    CAVE_TERRAIN.boundary,
+  );
   const raycaster = new Raycaster();
   const down = new Vector3(0, -1, 0);
   const findTop = (x: number, z: number): number | null => {
@@ -1557,7 +1613,7 @@ async function checkCave(): Promise<StrikeResult> {
     const [hit] = raycaster.intersectObject(cave.scene, true);
     return hit === undefined ? null : hit.point.y;
   };
-  const { boundary } = CAVE_TERRAIN;
+  const { boundary } = rock;
   const failures: string[] = [];
   let floorCount = 0;
   let rockCount = 0;
@@ -1578,17 +1634,14 @@ async function checkCave(): Promise<StrikeResult> {
     ) {
       const point: GroundVector = { x, z };
       const top: number | null = findTop(x, z);
-      if (CAVE_TERRAIN.isClear(point)) {
+      if (rock.isClear(point)) {
         floorCount++;
         if (top === null || top > CAVE_FLOOR_HEIGHT) {
           report(`${CAVE_FILE} has no bare floor`, x, z);
         }
         continue;
       }
-      const isInside = !CAVE_TERRAIN.isClear(
-        point,
-        -PLAYER_RADIUS - CAVE_INSIDE,
-      );
+      const isInside = !rock.isClear(point, -PLAYER_RADIUS - CAVE_INSIDE);
       const isRope: boolean =
         Math.hypot(x - CAVE_ROPE.x, z - CAVE_ROPE.z) <= PLAYER_RADIUS;
       if (!isInside || isRope) {
@@ -1645,6 +1698,217 @@ async function checkCave(): Promise<StrikeResult> {
     `${CAVE_FILE} stands where the cave stands in the way ` +
     `(${String(floorCount)} points of floor, ${String(rockCount)} of rock), ` +
     `and ${CAVE_TORCH_FILE} burns where it is lit`;
+  return { summary, failures };
+}
+
+/**
+ * Finds the extent of the ground some shapes take up, along X and Z.
+ *
+ * @param {readonly Shape[]} shapes - The shapes, in the world.
+ * @returns {[number, number, number, number]} The least and the greatest X,
+ *   and the least and the greatest Z.
+ */
+function measureShapes(
+  shapes: readonly Shape[],
+): [number, number, number, number] {
+  let [minX, maxX, minZ, maxZ] = [Infinity, -Infinity, Infinity, -Infinity];
+  for (const shape of shapes) {
+    const corners: GroundVector[] =
+      shape.shape === 'circle'
+        ? [
+            { x: shape.x - shape.radius, z: shape.z - shape.radius },
+            { x: shape.x + shape.radius, z: shape.z + shape.radius },
+          ]
+        : [-1, 1].flatMap((u: number) =>
+            [-1, 1].map((v: number) =>
+              placePoint(shape, {
+                x: u * shape.halfWidth,
+                z: v * shape.halfDepth,
+              }),
+            ),
+          );
+    for (const { x, z } of corners) {
+      [minX, maxX] = [Math.min(minX, x), Math.max(maxX, x)];
+      [minZ, maxZ] = [Math.min(minZ, z), Math.max(maxZ, z)];
+    }
+  }
+  return [minX, maxX, minZ, maxZ];
+}
+
+/**
+ * Finds the axes of the bars of a cell, along X, as its model stands.
+ *
+ * @param {Object3D} root - The model of the bars, standing in its place.
+ * @returns {number[]} Where the axis of each bar stands along X, in order.
+ */
+function findBarAxes(root: Object3D): number[] {
+  const xs: number[] = listMaterialVertices(root, BAR_MATERIAL)
+    .map((p: Vector3) => p.x)
+    .sort((a: number, b: number) => a - b);
+  const axes: number[] = [];
+  let first: number | undefined = xs[0];
+  xs.forEach((x: number, index: number) => {
+    const next: number | undefined = xs[index + 1];
+    if (next === undefined || next - x > 0.05) {
+      axes.push(((first ?? x) + x) / 2);
+      first = next;
+    }
+  });
+  return axes;
+}
+
+/**
+ * Checks that what stands in the side chambers of the cave stands where the
+ * cave has it, and takes up the ground the cave has it take up.
+ *
+ * Each of the bars, the bones and the containers, shut and open, standing
+ * in its place, reaches out to the edges of the ground it takes up, and no
+ * farther; the bars of each cell run across its whole opening, on the edge
+ * of the passage; and the bones lean on the back wall of the south cell.
+ * Through his idle clip, both fists of the prisoner close round a bar of
+ * his cell, and nothing else of him passes into a bar or through the bars
+ * into the passage.
+ *
+ * @returns {Promise<StrikeResult>} The outcome.
+ */
+async function checkCaveFixtures(): Promise<StrikeResult> {
+  const failures: string[] = [];
+  const placements: Placement[] = [
+    ...CAVE_PLACEMENTS.filter(
+      ({ file }: Placement) =>
+        file === CAVE_BARS_FILE || file === CAVE_SKELETON_FILE,
+    ),
+    ...CAVE_CONTAINERS.flatMap((container: CaveContainer): Placement[] => {
+      const { closed, open } = CAVE_CONTAINER_FILES[container.kind];
+      return [
+        { ...container, file: closed },
+        { ...container, file: open },
+      ];
+    }),
+  ];
+  for (const placement of placements) {
+    const model: GLTF = await loadAt(placement);
+    const box: Box3 = new Box3().setFromObject(model.scene, true);
+    const shapes: Shape[] = (CAVE_FIXTURE_FOOTPRINTS[placement.file] ?? []).map(
+      (shape: Shape) => placeShape(placement, shape),
+    );
+    const where = `${placement.file} at (${placement.x.toFixed(2)}, ` +
+      `${placement.z.toFixed(2)})`;
+    if (shapes.length > 0) {
+      const [minX, maxX, minZ, maxZ] = measureShapes(shapes);
+      const gaps: number[] = [
+        box.min.x - minX,
+        maxX - box.max.x,
+        box.min.z - minZ,
+        maxZ - box.max.z,
+      ];
+      if (gaps.some((gap: number) => Math.abs(gap) > FOOTPRINT_TOLERANCE)) {
+        failures.push(`${where} does not take up the ground it stands on`);
+      }
+    }
+    if (placement.file === CAVE_BARS_FILE) {
+      const cell = CAVE_CELLS[placement.z < 0 ? 0 : 1];
+      if (
+        Math.abs(box.min.x - cell.west) > FOOTPRINT_TOLERANCE ||
+        Math.abs(box.max.x - cell.east) > FOOTPRINT_TOLERANCE ||
+        Math.abs(Math.abs(placement.z) - CAVE_PASSAGE_HALF_WIDTH) > 1e-9
+      ) {
+        failures.push(`${where} does not close off the whole cell`);
+      }
+    }
+    if (placement.file === CAVE_SKELETON_FILE) {
+      const wall: number = CAVE_CELLS[1].south;
+      if (box.max.z > wall || box.max.z < wall - FOOTPRINT_TOLERANCE) {
+        failures.push(`${where} does not lean on the back wall of its cell`);
+      }
+    }
+  }
+
+  const envoyPlacement: Placement | undefined = CAVE_PLACEMENTS.find(
+    ({ file }: Placement) => file === CAVE_ENVOY_FILE,
+  );
+  const barsPlacement: Placement | undefined = CAVE_PLACEMENTS.find(
+    ({ file, z }: Placement) => file === CAVE_BARS_FILE && z < 0,
+  );
+  let closest = Infinity;
+  let loosest = 0;
+  if (envoyPlacement !== undefined && barsPlacement !== undefined) {
+    const envoy: GLTF = await loadAt(envoyPlacement);
+    const bars: GLTF = await loadAt(barsPlacement);
+    const axes: number[] = findBarAxes(bars.scene);
+    const barTop: number = new Box3().setFromObject(bars.scene).max.y;
+    const barZ: number = barsPlacement.z;
+    const findBarDistance = (p: Vector3): number =>
+      Math.min(...axes.map((x: number) => Math.hypot(p.x - x, p.z - barZ)));
+    const clip: AnimationClip | undefined = envoy.animations.find(
+      (candidate: AnimationClip) => candidate.name === 'Idle',
+    );
+    if (clip === undefined) {
+      failures.push(`${CAVE_ENVOY_FILE} does not idle`);
+    } else {
+      let isHeld = true;
+      let isClear = true;
+      for (let k = 0; k <= ENVOY_SAMPLES; k++) {
+        const mixer: AnimationMixer = poseModel(
+          envoy,
+          clip,
+          (clip.duration * k) / ENVOY_SAMPLES,
+        );
+        const hands: Vector3[] = listMaterialVertices(
+          envoy.scene,
+          HAND_MATERIAL,
+        );
+        for (const side of [-1, 1]) {
+          const fist: Vector3[] = hands.filter(
+            (p: Vector3) => Math.sign(p.x - envoyPlacement.x) === side,
+          );
+          const middle = new Vector3();
+          for (const p of fist) {
+            middle.add(p);
+          }
+          middle.divideScalar(Math.max(fist.length, 1));
+          const grip: number =
+            fist.length === 0 ? Infinity : findBarDistance(middle);
+          loosest = Math.max(loosest, grip);
+          if (grip > GRIP_TOLERANCE) {
+            isHeld = false;
+          }
+        }
+        const rest: Mesh[] = [];
+        envoy.scene.traverse((node: Object3D) => {
+          if (
+            isMesh(node) &&
+            !Array.isArray(node.material) &&
+            node.material.name !== HAND_MATERIAL
+          ) {
+            rest.push(node);
+          }
+        });
+        for (const p of rest.flatMap(
+          (node: Mesh) => listWorldVertices(node).positions,
+        )) {
+          const distance: number = findBarDistance(p);
+          closest = Math.min(closest, distance);
+          if (p.z > barZ || (p.y < barTop && distance < BAR_CLEARANCE)) {
+            isClear = false;
+          }
+        }
+        resetModel(envoy, mixer);
+      }
+      if (!isHeld) {
+        failures.push(`the fists of ${CAVE_ENVOY_FILE} do not hold the bars`);
+      }
+      if (!isClear) {
+        failures.push(`${CAVE_ENVOY_FILE} passes into the bars of his cell`);
+      }
+    }
+  }
+  const summary =
+    `what stands in the side chambers of the cave takes up its ground ` +
+    `(${String(placements.length)} models), and ${CAVE_ENVOY_FILE} holds ` +
+    `the bars, his fists ${(loosest * 1000).toFixed(0)} mm from their ` +
+    `axes at the most, and the rest of him ${(closest * 1000).toFixed(0)} ` +
+    `mm at the least`;
   return { summary, failures };
 }
 
@@ -1708,6 +1972,18 @@ async function checkModels(): Promise<boolean> {
       ? await checkCave()
       : { summary: '', failures: [] };
   problems.push(...cave.failures);
+  // The models of the side chambers are required with the prisoner, and
+  // optional props otherwise; without all of them, they are not checked.
+  const fixtures: StrikeResult = [
+    CAVE_ENVOY_FILE,
+    ...new Set(CAVE_PLACEMENTS.map(({ file }: Placement) => file)),
+    ...Object.values(CAVE_CONTAINER_FILES).flatMap(
+      ({ closed, open }) => [closed, open],
+    ),
+  ].every((file: string) => files.includes(file))
+    ? await checkCaveFixtures()
+    : { summary: '', failures: [] };
+  problems.push(...fixtures.failures);
   const characters: ModelResult[] = results.filter(
     (result: ModelResult) => result.kind === 'character',
   );
@@ -1725,7 +2001,7 @@ async function checkModels(): Promise<boolean> {
       console.log(`     - ${failure}`);
     }
   }
-  for (const meeting of [strike, sight, cave]) {
+  for (const meeting of [strike, sight, cave, fixtures]) {
     if (meeting.summary !== '') {
       const mark: string = meeting.failures.length > 0 ? 'FAIL' : 'ok  ';
       console.log(`${mark} ${meeting.summary}`);

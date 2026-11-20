@@ -25,6 +25,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   APPEARANCE_COUNT,
+  AuthoritativePlayer,
+  CAVE_CONTAINERS,
+  CAVE_LANDING,
+  CAVE_TERRAIN,
   CLOVER_PATCHES,
   CLOVER_REGROW_DURATION,
   DEATH_DURATION,
@@ -45,21 +49,28 @@ import {
   TOBY_ENDS,
   TOBY_LOOP_STEPS,
   TOBY_RADIUS,
+  NavigationGraph,
+  VILLAGERS,
   WALK_SPEED,
   createInteractMessage,
+  createMotion,
   createMoveMessage,
   findPlacement,
   findSpawnPoint,
   findTobyPose,
   findVillagePath,
   isWithinStrike,
+  locateVillager,
 } from '@clovervale/shared';
 import type {
+  CaveContainer,
   GameEvent,
   GroundItem,
   GroundVector,
+  ItemKindId,
   MonsterState,
   PlayerState,
+  Villager,
 } from '@clovervale/shared';
 
 import {
@@ -68,6 +79,7 @@ import {
   MONSTER_ID,
 } from '../src/monster.ts';
 import { LAG_COMPENSATION_LIMIT, World } from '../src/world.ts';
+import type { Player } from '../src/world.ts';
 
 /** The number of simulation steps a dead player lies where it fell. */
 const DEATH_STEPS: number = DEATH_DURATION * SIMULATION_RATE;
@@ -1590,5 +1602,210 @@ describe('the inventory of a player', () => {
     world.removePlayer(id);
     expect(world.findInventory(id)).toBeNull();
     expect(world.describeItems().items).toEqual([]);
+  });
+});
+
+describe('a world of the cave', () => {
+  /** The ways around the cave. */
+  const graph = new NavigationGraph(CAVE_TERRAIN);
+
+  /** The prisoner in the north cell. */
+  const envoy: Villager | undefined = VILLAGERS.find(
+    (villager: Villager) => villager.id === 'envoy',
+  );
+
+  /**
+   * Makes a fresh cave with a player in it at the landing, as it comes down
+   * from the village.
+   *
+   * @param {readonly ItemKindId[]} [carried] - What the player carries,
+   *   nothing by default.
+   * @returns {[World, number]} The cave, and the identifier of the player.
+   */
+  function enterCave(carried: readonly ItemKindId[] = []): [World, number] {
+    const world = new World(createRandom(), { map: 'cave' });
+    const player: Player = {
+      id: 1,
+      appearance: 1,
+      mover: new AuthoritativePlayer(createMotion(CAVE_LANDING, 0)),
+      health: PLAYER_HEALTH,
+      deathSteps: 0,
+      lastSlash: null,
+      inventory: [...carried],
+    };
+    world.admitPlayer(player, CAVE_LANDING);
+    return [world, player.id];
+  }
+
+  /**
+   * Walks a player of the cave to a point around what stands in the way,
+   * steering it at every step, and stops it there.
+   *
+   * @param {World} world - The cave.
+   * @param {number} id - The identifier of the player.
+   * @param {GroundVector} to - The point.
+   * @throws {Error} If the player finds no way there.
+   */
+  function walkInCave(world: World, id: number, to: GroundVector): void {
+    const path: GroundVector[] | null = graph.findPath(
+      findPlayer(world, id),
+      to,
+    );
+    if (path === null) {
+      throw new Error('The player finds no way.');
+    }
+    for (const point of path) {
+      for (let step = 0; step < 100 * SIMULATION_RATE; step++) {
+        const { x, z }: PlayerState = findPlayer(world, id);
+        if (Math.hypot(point.x - x, point.z - z) <= STEP_DISTANCE) {
+          break;
+        }
+        steerPlayer(world, id, { x: point.x - x, z: point.z - z });
+        world.step();
+      }
+    }
+    steerPlayer(world, id, { x: 0, z: 0 });
+    world.step();
+  }
+
+  /**
+   * Walks a player of the cave up to a container, and turns it to face it.
+   *
+   * @param {World} world - The cave.
+   * @param {number} id - The identifier of the player.
+   * @param {CaveContainer} container - The container.
+   */
+  function walkToContainer(
+    world: World,
+    id: number,
+    container: CaveContainer,
+  ): void {
+    const yaw: number = (container.yaw * Math.PI) / 180;
+    walkInCave(world, id, {
+      x: container.x + Math.sin(yaw) * 0.75,
+      z: container.z + Math.cos(yaw) * 0.75,
+    });
+    turnPlayer(world, id, container);
+  }
+
+  /**
+   * Finds the container that holds a kind of item.
+   *
+   * @param {ItemKindId} item - The kind of item.
+   * @returns {CaveContainer} The first container that holds it.
+   * @throws {Error} If no container holds it.
+   */
+  function findContainer(item: ItemKindId): CaveContainer {
+    const found: CaveContainer | undefined = CAVE_CONTAINERS.find(
+      (container: CaveContainer) => container.item === item,
+    );
+    if (found === undefined) {
+      throw new Error(`No container holds ${item}.`);
+    }
+    return found;
+  }
+
+  /**
+   * Has a player of a world pick what is within its reach at the next step,
+   * and takes that step.
+   *
+   * @param {World} world - The world.
+   * @param {number} id - The identifier of the player.
+   */
+  function pickOnce(world: World, id: number): void {
+    const stamp = { sequence: ++lastSequence, after: 0 };
+    world.receiveInput(id, { type: 'pick', ...stamp });
+    world.step();
+  }
+
+  it('gives what each container holds once, and leaves it looted', () => {
+    const [world, id] = enterCave();
+    const taken: ItemKindId[] = [];
+    CAVE_CONTAINERS.forEach((container: CaveContainer, number: number) => {
+      walkToContainer(world, id, container);
+      pickOnce(world, id);
+      if (container.item !== null) {
+        taken.push(container.item);
+      }
+      expect(world.findInventory(id)).toEqual(taken);
+      pickOnce(world, id);
+      expect(world.findInventory(id)).toEqual(taken);
+      if (container.item !== null) {
+        expect(world.describeItems().looted).toContain(number);
+      }
+    });
+    expect([...taken].sort()).toEqual([
+      'clover',
+      'clover',
+      'leather-armour',
+      'sword',
+    ]);
+    expect(world.describeItems().looted).toEqual(
+      CAVE_CONTAINERS.flatMap((container: CaveContainer, number: number) =>
+        container.item === null ? [] : [number],
+      ),
+    );
+  });
+
+  it('starts with every container full', () => {
+    const [world] = enterCave();
+    expect(world.describeItems()).toEqual({
+      clovers: [],
+      items: [],
+      looted: [],
+    });
+  });
+
+  it('takes nothing into a full inventory, and leaves the container full', () => {
+    const full: ItemKindId[] = new Array<ItemKindId>(INVENTORY_SIZE).fill(
+      'clover',
+    );
+    const [world, id] = enterCave(full);
+    walkToContainer(world, id, findContainer('sword'));
+    pickOnce(world, id);
+    expect(world.findInventory(id)).toEqual(full);
+    expect(world.describeItems().looted).toEqual([]);
+  });
+
+  it('lets the new items be put down and picked up again', () => {
+    for (const item of ['sword', 'leather-armour'] as const) {
+      const [world, id] = enterCave();
+      walkToContainer(world, id, findContainer(item));
+      pickOnce(world, id);
+      const stamp = { sequence: ++lastSequence, after: 0 };
+      world.receiveInput(id, { type: 'drop', slot: 0, ...stamp });
+      world.step();
+      expect(world.findInventory(id)).toEqual([]);
+      const { x, z }: PlayerState = findPlayer(world, id);
+      const lying: GroundItem[] = [...world.describeItems().items];
+      expect(lying.map((ground: GroundItem) => ground.kind)).toEqual([item]);
+      expect(lying[0]?.x).toBeCloseTo(x, 2);
+      expect(lying[0]?.z).toBeCloseTo(z, 2);
+      pickOnce(world, id);
+      expect(world.findInventory(id)).toEqual([item]);
+      expect(world.describeItems().items).toEqual([]);
+    }
+  });
+
+  it('has the prisoner talked to through his bars, unhurt', () => {
+    const [world, id] = enterCave();
+    const at: GroundVector =
+      envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+    walkInCave(world, id, { x: at.x, z: 0 });
+    steerPlayer(world, id, { x: 0, z: -1 });
+    stepTimes(world, 2 * SIMULATION_RATE);
+    steerPlayer(world, id, { x: 0, z: 0 });
+    world.step();
+    const before: PlayerState = findPlayer(world, id);
+    expect(before.z).toBeGreaterThan(at.z);
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id)).toMatchObject({
+      action: 'Talk',
+      x: before.x,
+      z: before.z,
+    });
+    expect(world.findSlash(id)).toBeNull();
+    expect(world.takeEvents()).toEqual([]);
   });
 });

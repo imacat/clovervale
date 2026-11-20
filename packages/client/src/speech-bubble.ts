@@ -266,12 +266,12 @@ export function measureSpeechDuration(line: string): number {
 }
 
 /**
- * Finds the top of the head of a villager, where it stands in the village
- * at a step of the simulation.
+ * Finds the top of the head of a villager, where it stands in its map at a
+ * step of the simulation.
  *
  * @param {Villager} villager - The villager.
  * @param {Object3D | null} root - The root of the model of the villager,
- *   as it stands in the village, or `null` if it has no model.
+ *   as it stands in its map, or `null` if it has no model.
  * @param {number} step - The number of the step, which may fall between
  *   two steps.
  * @returns {Vector3} The point above where the villager stands at the
@@ -498,6 +498,11 @@ export class SpeechBubble {
       return;
     }
     shown.sprite.material.opacity = Math.min(left / FADE_DURATION, 1);
+  }
+
+  /** Takes the bubble away at once, if there is one. */
+  clear(): void {
+    this.#hide();
   }
 
   /**

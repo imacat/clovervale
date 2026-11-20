@@ -289,7 +289,7 @@ const monsterFigures = new MonsterFigures(stage, () =>
   createMonsterFigure(models),
 );
 const markers = new HitMarkers(stage);
-const speech = new SpeechBubble(scene, translator);
+const speech = new SpeechBubble(stage, translator);
 /** What notices each talk of the player of the page to a villager. */
 const talks = new TalkWatch();
 const fade = createMapFade(document.body);
@@ -326,6 +326,7 @@ Object.defineProperty(window, 'clovervale', {
     describeFigures: () => figures.describeFigures(),
     describeMonsters: () => monsterFigures.describeMonsters(),
     describeItems: () => itemFigures.describe(),
+    describeContainers: () => cave.describeContainers(),
     listLatestPlayers: () => timeline.latest ?? [],
     listLatestMonsters: () => timeline.latestMonsters ?? [],
     listShownHits: () => [...shownHits],
@@ -364,6 +365,7 @@ async function showModels(): Promise<void> {
   models = loaded.models;
   actors.push(...populateVillage(scene, models));
   cave.populate(models);
+  itemFigures.useModels(models);
   windowGlow = new WindowGlow(scene);
   const child: Figure | null = createVillagerFigure(models, TOBY_FILE);
   if (child !== null) {
@@ -624,6 +626,7 @@ function showPlayers(): void {
   const villager: Villager | null = talks.noticeTalk(
     predicted,
     prediction?.step ?? 0,
+    shownMap,
   );
   if (villager !== null) {
     speech.say(villager, findShownHead(villager, shownStep ?? 0));
@@ -736,9 +739,14 @@ function receiveMessage(data: string): void {
       panel.showMonster(describeMonster(translator, message.monsters));
       lastSlash = message.slash;
       panel.showSlash(describeSlash(translator, lastSlash));
-      worldItems = { clovers: message.clovers, items: message.items };
+      worldItems = {
+        clovers: message.clovers,
+        items: message.items,
+        looted: message.looted,
+      };
       inventory = message.inventory;
       itemFigures.show(worldItems);
+      cave.showLooted(message.looted);
       bagView.show(inventory);
     }
     return;
@@ -764,8 +772,8 @@ function receiveMessage(data: string): void {
  * Forgets what the page was shown of the map the player of the page has
  * left, before it is shown the first snapshot of the map it is in now: the
  * snapshots, and with them the players and the monsters seen, the items on
- * the ground, the events yet to be shown, those shown, and the numbers of
- * the hits and the heals still floating.  The items, the monsters and the
+ * the ground, the events yet to be shown, those shown, the numbers of the
+ * hits and the heals still floating, and what a villager there was saying.  The items, the monsters and the
  * events of each map are numbered on their own, so that nothing of one map
  * is taken for something of another.
  */
@@ -775,6 +783,7 @@ function leaveMap(): void {
   shownHits.length = 0;
   shownHeals.length = 0;
   markers.clear();
+  speech.clear();
   monsterFigures.showMonsters([]);
   worldItems = null;
   itemFigures.show(null);

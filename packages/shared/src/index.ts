@@ -59,11 +59,18 @@ export {
 } from './day-cycle.ts';
 export type { DayCycle, DayPeriod, DayPhase } from './day-cycle.ts';
 export {
+  CAVE_BARS_FILE,
+  CAVE_BARS_HALF_DEPTH,
   CAVE_BOUNDARY,
   CAVE_CELLS,
   CAVE_CHAMBERS,
   CAVE_CHAMBER_DEPTH,
+  CAVE_CONTAINERS,
+  CAVE_CONTAINER_FILES,
+  CAVE_ENVOY_BEHIND_BARS,
+  CAVE_ENVOY_FILE,
   CAVE_FILE,
+  CAVE_FIXTURE_FOOTPRINTS,
   CAVE_FLAMES,
   CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
@@ -78,18 +85,25 @@ export {
   CAVE_PLACEMENTS,
   CAVE_ROPE,
   CAVE_SHAFT_RADIUS,
+  CAVE_SKELETON_FILE,
   CAVE_STORE_ROOMS,
   CAVE_TERRAIN,
   CAVE_TORCH_DEPTH,
   CAVE_TORCH_FILE,
 } from './cave.ts';
-export type { CaveRoom } from './cave.ts';
+export type {
+  CaveContainer,
+  CaveContainerFiles,
+  CaveContainerKind,
+  CaveRoom,
+} from './cave.ts';
 export {
   BURROW_REACH,
   FEET_REACH,
   FOUNTAIN_HEALING,
   FOUNTAIN_REACH,
   INTERACTION_HALF_ANGLE,
+  LOOT_REACH,
   PICK_REACH,
   PASSAGES,
   ROPE_REACH,

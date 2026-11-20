@@ -24,6 +24,7 @@
 import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
 import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
+import { CAVE_CONTAINERS } from './cave.ts';
 import type { DayCycle } from './day-cycle.ts';
 import {
   CLOVER_PATCHES,
@@ -45,7 +46,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 20;
+export const PROTOCOL_VERSION = 21;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -235,6 +236,11 @@ export interface SnapshotMessage {
   /** The items that lie on the ground. */
   readonly items: readonly GroundItem[];
   /**
+   * The numbers of the containers of the cave that have been looted, in
+   * ascending order, which are none outside the cave.
+   */
+  readonly looted: readonly number[];
+  /**
    * The items the player of the peer carries, one for each filled slot of
    * its inventory, in the order of the slots.
    */
@@ -338,8 +344,8 @@ export function createWelcomeMessage(
  * @param {SlashJudgement | null} [slash] - The latest slash of the player
  *   of the peer, as the server judged it, or `null` before its first,
  *   which it is by default.
- * @param {WorldItems} [world] - What there is to pick in the world, which
- *   is nothing by default.
+ * @param {WorldItems} [world] - What there is to pick in the world, and
+ *   which containers have been looted there, which is nothing by default.
  * @param {readonly ItemKindId[]} [inventory] - The items the player of the
  *   peer carries, in the order of its slots, which are none by default.
  * @returns {SnapshotMessage} The snapshot message.
@@ -353,7 +359,7 @@ export function createSnapshotMessage(
   world: WorldItems = NO_WORLD_ITEMS,
   inventory: readonly ItemKindId[] = [],
 ): SnapshotMessage {
-  const { clovers, items } = world;
+  const { clovers, items, looted = [] } = world;
   return {
     type: 'snapshot',
     step,
@@ -363,6 +369,7 @@ export function createSnapshotMessage(
     slash,
     clovers,
     items,
+    looted,
     inventory,
   };
 }
@@ -477,8 +484,9 @@ export function decodeServerMessage(data: string): ServerMessage {
     Array.isArray(value.monsters) &&
     isInputProgress(value.own) &&
     (value.slash === null || isSlashJudgement(value.slash)) &&
-    isPatchList(value.clovers) &&
+    isNumberList(value.clovers, CLOVER_PATCHES.length) &&
     Array.isArray(value.items) &&
+    isNumberList(value.looted, CAVE_CONTAINERS.length) &&
     isInventory(value.inventory)
   ) {
     const players: unknown[] = value.players;
@@ -539,6 +547,7 @@ export function decodeServerMessage(data: string): ServerMessage {
           x,
           z,
         })),
+        looted: [...value.looted],
         inventory: [...value.inventory],
       };
     }
@@ -786,20 +795,22 @@ function isSlashJudgement(value: unknown): value is SlashJudgement {
 }
 
 /**
- * Checks whether a decoded value lists patches of clover: the numbers of
- * patches the village has, each once, in ascending order.
+ * Checks whether a decoded value lists things by their numbers, such as
+ * patches of clover or containers: numbers of things there are, each once,
+ * in ascending order.
  *
  * @param {unknown} value - The value to check.
+ * @param {number} count - How many such things there are, numbered from 0.
  * @returns {boolean} Whether it does.
  */
-function isPatchList(value: unknown): value is number[] {
+function isNumberList(value: unknown, count: number): value is number[] {
   return (
     Array.isArray(value) &&
     value.every(
-      (patch: unknown, index: number) =>
-        isCount(patch) &&
-        patch < CLOVER_PATCHES.length &&
-        (index === 0 || patch > (value[index - 1] as number)),
+      (number: unknown, index: number) =>
+        isCount(number) &&
+        number < count &&
+        (index === 0 || number > (value[index - 1] as number)),
     )
   );
 }

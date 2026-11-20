@@ -19,7 +19,8 @@
 
 /**
  * @module client/cave-scene Building the cave under the burrow of the wild
- *   dog, and lighting it by its torches.
+ *   dog, with the prisoner, the bones and the containers in it, and
+ *   lighting it by its torches.
  */
 
 import {
@@ -47,6 +48,8 @@ import {
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import {
+  CAVE_CONTAINERS,
+  CAVE_CONTAINER_FILES,
   CAVE_FLAMES,
   CAVE_FLAME_HEIGHT,
   CAVE_MOUTH,
@@ -56,8 +59,14 @@ import {
   CAVE_TORCH_FILE,
   NOON,
 } from '@clovervale/shared';
-import type { GroundVector, Placement } from '@clovervale/shared';
+import type {
+  CaveContainer,
+  CaveContainerFiles,
+  GroundVector,
+  Placement,
+} from '@clovervale/shared';
 
+import { Actor } from './actor.ts';
 import { findDaylight } from './daylight.ts';
 import type { DaylightLook } from './daylight.ts';
 import type { LoadedModel } from './model-loader.ts';
@@ -154,23 +163,48 @@ export interface MouthLight {
   readonly strength: number;
 }
 
+/** The two models of a container, one of which is shown. */
+interface ContainerFigure {
+  /** The container shut, or `null` without its model. */
+  readonly closed: Object3D | null;
+  /** The container open and empty, or `null` without its model. */
+  readonly open: Object3D | null;
+}
+
 /** The cave without its models, and its light. */
 export interface CaveScene {
   /** The scene to add the models to. */
   readonly scene: Scene;
   /**
    * Stands the models of the cave in it, those that are among the models,
-   * the flames of the torches burning bright, unlit by anything.
+   * the flames of the torches burning bright, unlit by anything, the
+   * prisoner idling, and each container shut or open as it was last shown,
+   * all shut but those that hold nothing if never.
    *
    * @param {readonly LoadedModel[]} models - The models.
    */
   readonly populate: (models: readonly LoadedModel[]) => void;
   /**
-   * Makes the torches flicker on, for one frame.
+   * Makes the torches flicker on, and the prisoner idle on, for one frame.
    *
    * @param {number} seconds - The time since the last frame, in seconds.
    */
   readonly update: (seconds: number) => void;
+  /**
+   * Shows each container open and empty if it holds nothing or has been
+   * looted, and shut otherwise.
+   *
+   * @param {readonly number[]} looted - The numbers of the containers that
+   *   have been looted.
+   */
+  readonly showLooted: (looted: readonly number[]) => void;
+  /**
+   * Tells which containers are shown open, for looking at.
+   *
+   * @returns {boolean[]} Whether each container is shown open, by its
+   *   number.
+   */
+  readonly describeContainers: () => boolean[];
   /**
    * Shows the daylight outside at the mouth of the burrow as it is at a
    * time of day.
@@ -330,29 +364,83 @@ export function createCaveScene(): CaveScene {
   spill.lookAt(CAVE_PASSAGE.east, 0, CAVE_MOUTH.z);
   scene.add(spill);
   let elapsed = 0;
+  const actors: Actor[] = [];
+  let figures: ContainerFigure[] = [];
+  let looted = new Set<number>();
+  const showContainers = (): void => {
+    figures.forEach((figure: ContainerFigure, id: number) => {
+      const isOpen: boolean =
+        looted.has(id) || CAVE_CONTAINERS[id]?.item === null;
+      if (figure.closed !== null) {
+        figure.closed.visible = !isOpen;
+      }
+      if (figure.open !== null) {
+        figure.open.visible = isOpen;
+      }
+    });
+  };
   return {
     scene,
     populate: (models: readonly LoadedModel[]): void => {
       const used = new Set<string>();
-      for (const placement of CAVE_PLACEMENTS) {
+      const stand = (placement: Placement): LoadedModel | null => {
         const model: LoadedModel | undefined = models.find(
           (candidate: LoadedModel) => candidate.file === placement.file,
         );
         if (model === undefined) {
-          continue;
+          return null;
         }
+        // A model that stands in several places is copied for all but the
+        // first.
         const root: Object3D = used.has(model.file)
           ? clone(model.root)
           : model.root;
         used.add(model.file);
-        if (placement.file === CAVE_TORCH_FILE) {
-          lightFlames(root);
-        }
         placeModel(scene, root, placement);
+        return { ...model, root };
+      };
+      for (const placement of CAVE_PLACEMENTS) {
+        const model: LoadedModel | null = stand(placement);
+        if (model === null) {
+          continue;
+        }
+        if (placement.file === CAVE_TORCH_FILE) {
+          lightFlames(model.root);
+        }
+        if (model.clips.length > 0) {
+          model.root.traverse((node: Object3D) => {
+            // An animated model moves out of the bounds of its resting pose.
+            node.frustumCulled = false;
+          });
+          actors.push(new Actor(model.root, model.clips));
+        }
       }
+      figures = CAVE_CONTAINERS.map(
+        (container: CaveContainer): ContainerFigure => {
+          const files: CaveContainerFiles =
+            CAVE_CONTAINER_FILES[container.kind];
+          return {
+            closed: stand({ ...container, file: files.closed })?.root ?? null,
+            open: stand({ ...container, file: files.open })?.root ?? null,
+          };
+        },
+      );
+      showContainers();
     },
+    showLooted: (numbers: readonly number[]): void => {
+      looted = new Set<number>(numbers);
+      showContainers();
+    },
+    describeContainers: (): boolean[] =>
+      CAVE_CONTAINERS.map(
+        (container: CaveContainer, id: number) =>
+          looted.has(id) || container.item === null,
+      ),
     update: (seconds: number): void => {
       elapsed += seconds;
+      for (const actor of actors) {
+        actor.update(seconds);
+      }
       torches.forEach((light: PointLight, index: number) => {
         const [first, second] = FLICKER_PERIODS;
         const wave: number =

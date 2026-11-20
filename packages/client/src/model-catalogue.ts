@@ -21,7 +21,12 @@
  * @module client/model-catalogue Knowing which model files the game uses.
  */
 
-import { APPEARANCE_COUNT, TOBY_FILE } from '@clovervale/shared';
+import {
+  APPEARANCE_COUNT,
+  CAVE_ENVOY_FILE,
+  TOBY_FILE,
+} from '@clovervale/shared';
+import type { ItemKindId } from '@clovervale/shared';
 
 /** What a model stands for in the game. */
 export type ModelKind = 'character' | 'npc' | 'monster' | 'building' | 'prop';
@@ -46,6 +51,17 @@ export const CHARACTER_FILES: readonly string[] = Array.from(
 /** The file name of the monster, the wild dog. */
 export const MONSTER_FILE = 'wild-dog.glb';
 
+/**
+ * The file names of the models of the items drawn as they lie on the
+ * ground, by their kinds, for every kind but the four-leaved clover.
+ */
+export const LYING_ITEM_FILES: Readonly<
+  Record<Exclude<ItemKindId, 'clover'>, string>
+> = {
+  sword: 'prop-item-sword.glb',
+  'leather-armour': 'prop-item-leather-armour.glb',
+};
+
 /** The file name of the healing fountain. */
 export const FOUNTAIN_FILE = 'fountain.glb';
 
@@ -59,6 +75,7 @@ const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
     ['npc-emma.glb', 'npc'],
     ['npc-martha.glb', 'npc'],
     [TOBY_FILE, 'npc'],
+    [CAVE_ENVOY_FILE, 'npc'],
     [MONSTER_FILE, 'monster'],
     [WEAPON_SHOP_FILE, 'building'],
     [FOUNTAIN_FILE, 'building'],

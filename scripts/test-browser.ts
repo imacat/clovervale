@@ -40,14 +40,23 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { inflateSync } from 'node:zlib';
 
 import {
+  CAVE_CONTAINERS,
   CAVE_LANDING,
   CAVE_ROPE,
   SIMULATION_RATE,
   TOBY_ACTIVITIES,
+  VILLAGERS,
   WELL_STAND,
   findTobyPose,
+  locateVillager,
 } from '@clovervale/shared';
-import type { TobyActivity, TobyPose } from '@clovervale/shared';
+import type {
+  CaveContainer,
+  GroundVector,
+  TobyActivity,
+  TobyPose,
+  Villager,
+} from '@clovervale/shared';
 
 /** A message received from the browser over WebDriver BiDi. */
 interface BidiMessage {
@@ -122,6 +131,14 @@ interface CaveLook {
   readonly spaceKey: string;
   /** The prompt at the foot of the page, if it is shown. */
   readonly prompt: string | null;
+  /** What the bubble above a villager shows, if one is shown. */
+  readonly speech: SpeechView | null;
+  /** Whether each container of the cave is shown open, by its number. */
+  readonly containers: readonly boolean[];
+  /** Whether the bag is open. */
+  readonly isBagOpen: boolean;
+  /** The kind of the item in each slot of the bag, or `''` if it is empty. */
+  readonly slots: readonly string[];
 }
 
 /** A page as it is at one moment: what it tells, and what it draws. */
@@ -251,6 +268,14 @@ interface SpeechView {
   readonly y: number;
   /** The position of the foot of the bubble along the Z axis, in metres. */
   readonly z: number;
+}
+
+/** The name of a villager and what it says, as a bubble shows them. */
+interface SpeechWordsView {
+  /** The name of the villager. */
+  readonly name: string;
+  /** What it says. */
+  readonly line: string;
 }
 
 /** How a page shows a player by a villager, and what the villager says. */
@@ -572,6 +597,44 @@ const ENTER_PROMPT = 'Press Space to go down the burrow';
 const CLIMB_KEY = 'climb up the rope';
 /** The prompt by the rope in the cave. */
 const CLIMB_PROMPT = 'Press Space to climb up the rope';
+/** What the panel tells the space bar does at the bars before the prisoner. */
+const ENVOY_TALK_KEY = 'talk to Prisoner';
+/** The prompt at the bars before the prisoner. */
+const ENVOY_TALK_PROMPT = 'Press Space to talk to Prisoner';
+/** The name of the prisoner, and what he says, in English. */
+const ENVOY_WORDS: SpeechWordsView = {
+  name: 'Prisoner',
+  line: 'Is anyone there? Help me!',
+};
+/** The name of the prisoner, and what he says, in Traditional Chinese. */
+const ZH_TW_ENVOY_WORDS: SpeechWordsView = {
+  name: '囚犯',
+  line: '有人嗎？救救我！',
+};
+/** What the panel tells the space bar does before a shut chest. */
+const OPEN_CHEST_KEY = 'open the chest';
+/** The prompt before a shut chest. */
+const OPEN_CHEST_PROMPT = 'Press Space to open the chest';
+/** What the panel tells the space bar does before a chest looted. */
+const EMPTY_CHEST_KEY = 'nothing, as the chest is empty';
+/** What the panel tells the space bar does before a shut barrel. */
+const OPEN_BARREL_KEY = 'open the barrel';
+/** How many turns of the mouse wheel bring the camera close to the bones. */
+const SKELETON_ZOOM_TURNS = 5;
+/** How far the camera turns from looking west to look into the south cell. */
+const SKELETON_TURN = -0.25;
+/**
+ * How far down the view the camera is dragged to look steeply down, as a
+ * share of its height.
+ */
+const STEEP_TILT = 0.15;
+/** How long a page takes to draw what it has just changed, in ms. */
+const VIEW_SETTLE_DURATION = 500;
+/**
+ * The farthest from the middle of the passage a player is taken to be on
+ * it, across it, in metres.
+ */
+const ON_PASSAGE = 0.15;
 /** How long the view takes to clear after the player changes maps, in ms. */
 const FADE_DURATION = 1000;
 /** The least brightness of the view of the cave, from 0 to 255. */
@@ -1007,6 +1070,14 @@ function createCaveExpression(id: number): string {
       figures: window.clovervale.describeFigures().map((figure) => figure.id),
       spaceKey: panel['Space key'] ?? '',
       prompt: prompt === null || prompt.hidden ? null : prompt.textContent,
+      speech: window.clovervale.describeSpeech(),
+      containers: window.clovervale.describeContainers(),
+      isBagOpen: (() => {
+        const bag = document.querySelector('.bag-window');
+        return bag !== null && !bag.hidden;
+      })(),
+      slots: [...document.querySelectorAll('.bag-slot')]
+        .map((slot) => slot.dataset.kind ?? ''),
     });
   })()`;
 }
@@ -3863,9 +3934,15 @@ function describeCaveLook(look: CaveLook): string {
         `facing ${own.yaw.toFixed(0)} degrees, doing "${own.action}"`;
   const prompt: string =
     look.prompt === null ? 'no prompt' : `the prompt "${look.prompt}"`;
+  const speech: string =
+    look.speech === null
+      ? 'no bubble'
+      : `a bubble of ${look.speech.name} saying "${look.speech.line}"`;
   return (
     `the ${look.map} ${player}, the players ${JSON.stringify(look.figures)}, ` +
-    `the space bar to "${look.spaceKey}" and ${prompt}`
+    `the space bar to "${look.spaceKey}", ${prompt}, ${speech}, the ` +
+    `containers open ${JSON.stringify(look.containers)}, the bag ` +
+    `${look.isBagOpen ? 'open' : 'closed'} with ${JSON.stringify(look.slots)}`
   );
 }
 
@@ -3928,6 +4005,44 @@ async function turnCamera(
           { type: 'pointerMove', x, y },
           { type: 'pointerDown', button: 0 },
           { type: 'pointerMove', x: x + across, y, duration: 300 },
+          { type: 'pointerUp', button: 0 },
+        ],
+      },
+    ],
+  });
+  await sleep(CAMERA_SETTLE_DURATION);
+}
+
+/**
+ * Tilts the camera of a page around what it looks at, by dragging down or
+ * up the view with the left mouse button, and waits for it to settle.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} share - How far to drag, as a share of the height of the
+ *   view: down, to look down more steeply, above zero, and up below it.
+ * @returns {Promise<void>} A promise settled once it has settled.
+ */
+async function tiltCamera(
+  session: BidiSession,
+  context: string,
+  share: number,
+): Promise<void> {
+  const state: PageState = await readPageState(session, context);
+  const down: number = Math.round(state.height * share);
+  const x: number = Math.round(state.width / 3);
+  const y: number = Math.round(state.height / 2 - down / 2);
+  await session.send('input.performActions', {
+    context,
+    actions: [
+      {
+        type: 'pointer',
+        id: 'mouse',
+        parameters: { pointerType: 'mouse' },
+        actions: [
+          { type: 'pointerMove', x, y },
+          { type: 'pointerDown', button: 0 },
+          { type: 'pointerMove', x, y: y + down, duration: 300 },
           { type: 'pointerUp', button: 0 },
         ],
       },
@@ -4006,13 +4121,403 @@ async function saveCaveViews(
 }
 
 /**
+ * Walks the player of a page in the cave with a key held down, until the
+ * page tells it has got where it is to be, and waits until it idles there.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @param {string} key - The character of the key that walks it that way.
+ * @param {(look: CaveLook) => boolean} isThere - Tells whether it has got
+ *   there.
+ * @param {string} where - Where it is to get, for the error messages.
+ * @returns {Promise<CaveLook>} How the page shows it once it idles there.
+ * @throws {Error} If it does not get there in time.
+ */
+async function walkInCave(
+  session: BidiSession,
+  context: string,
+  id: number,
+  key: string,
+  isThere: (look: CaveLook) => boolean,
+  where: string,
+): Promise<CaveLook> {
+  const look = (): Promise<CaveLook> => readCaveLook(session, context, id);
+  const describeProblem = (seen: CaveLook): string =>
+    `Walking its player ${where} with the ${key.toUpperCase()} key, the ` +
+    `first page tells ${describeCaveLook(seen)}.`;
+  if (!isThere(await look())) {
+    await sendKey(session, context, 'keyDown', key);
+    try {
+      await waitFor(look, isThere, LEG_TIMEOUT, describeProblem);
+    } finally {
+      await sendKey(session, context, 'keyUp', key);
+    }
+  }
+  return waitFor(
+    look,
+    (seen: CaveLook) => seen.own?.action === 'Idle' && isThere(seen),
+    ACTION_TIMEOUT,
+    describeProblem,
+  );
+}
+
+/**
+ * Has the player of a page loot the container in front of it with the
+ * space bar, and waits until the page shows it open, with what it held in
+ * the bag.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @param {number} number - The number of the container.
+ * @returns {Promise<CaveLook>} How the page shows it once it is looted.
+ * @throws {Error} If the page does not show it so in time.
+ */
+async function lootContainer(
+  session: BidiSession,
+  context: string,
+  id: number,
+  number: number,
+): Promise<CaveLook> {
+  const container: CaveContainer | undefined = CAVE_CONTAINERS[number];
+  const before: CaveLook = await readCaveLook(session, context, id);
+  const count = (look: CaveLook): number =>
+    look.slots.filter((kind: string) => kind === container?.item).length;
+  await sendKey(session, context, 'keyDown', ' ');
+  await sendKey(session, context, 'keyUp', ' ');
+  return waitFor(
+    () => readCaveLook(session, context, id),
+    (seen: CaveLook) =>
+      seen.containers[number] === true &&
+      count(seen) === count(before) + 1 &&
+      seen.spaceKey === `nothing, as the ${container?.kind ?? ''} is empty`,
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With the space bar pressed before the ${container?.kind ?? ''} ` +
+      `with the ${container?.item ?? 'nothing'}, the first page tells ` +
+      `${describeCaveLook(seen)}.`,
+  );
+}
+
+/**
+ * Saves views of the cells for the owner to look at, if the environment
+ * names a directory for the views: looking steeply down on both cells from
+ * the middle of the passage between them, and close on the bones in the
+ * south cell from its bars, the camera turned to look into it.  The camera
+ * ends as it started, with the player at the bars of the south cell.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the views are saved.
+ */
+async function saveCellViews(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  if (SCREENSHOT_DIR === undefined) {
+    return;
+  }
+  await walkInCave(
+    session,
+    context,
+    id,
+    'a',
+    (seen: CaveLook) => (seen.own?.z ?? -Infinity) >= -ON_PASSAGE,
+    'back to the middle of the passage',
+  );
+  await tiltCamera(session, context, STEEP_TILT);
+  await saveView(session, context, 'cave-cells.png');
+  await tiltCamera(session, context, -STEEP_TILT);
+  await walkInCave(
+    session,
+    context,
+    id,
+    'a',
+    (seen: CaveLook) => (seen.own?.z ?? -Infinity) >= 1.1,
+    'up to the bars of the south cell',
+  );
+  for (let turn = 0; turn < SKELETON_ZOOM_TURNS; turn++) {
+    await zoomCamera(session, context, -ZOOM_DELTA);
+  }
+  await turnCamera(session, context, SKELETON_TURN);
+  await saveView(session, context, 'cave-skeleton.png');
+  await turnCamera(session, context, -SKELETON_TURN);
+  for (let turn = 0; turn < SKELETON_ZOOM_TURNS; turn++) {
+    await zoomCamera(session, context, ZOOM_DELTA);
+  }
+}
+
+/**
+ * Saves a view of the north store room for the owner to look at, if the
+ * environment names a directory for the views: the camera turned to look
+ * into it, and steeply down.  The camera ends as it started.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page, whose player
+ *   stands in the north store room.
+ * @returns {Promise<void>} A promise settled once the view is saved.
+ */
+async function saveStoreView(
+  session: BidiSession,
+  context: string,
+): Promise<void> {
+  if (SCREENSHOT_DIR === undefined) {
+    return;
+  }
+  await turnCamera(session, context, -SKELETON_TURN);
+  await tiltCamera(session, context, STEEP_TILT);
+  await saveView(session, context, 'cave-store.png');
+  await tiltCamera(session, context, -STEEP_TILT);
+  await turnCamera(session, context, SKELETON_TURN);
+}
+
+/**
+ * Checks that a player in its cave talks to the prisoner through the bars
+ * of his cell, and loots the chests and a barrel of the store rooms, and
+ * sees what it takes in its bag.
+ *
+ * The player walks west along the middle of the passage to before the
+ * prisoner, and north up to the bars of his cell, which stop it, where its
+ * page tells the space bar talks to him.  Once the space bar is pressed,
+ * his bubble shows what he says, worded again once Traditional Chinese is
+ * chosen in the panel, and once English is again.  It walks on to the
+ * north store room, up to the chest at its back, where its page tells the
+ * space bar opens it; once it is pressed, the chest shows open, the sword
+ * shows in the bag, and the space bar does nothing more there.  It loots
+ * the barrel with a clover in the corner, and the chest of the south store
+ * room, and opens its bag, which shows the sword, the leather armour and a
+ * clover, worded in Traditional Chinese for a moment, and closes it.  It
+ * ends on the middle of the passage, before the store rooms.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page of the
+ *   player, which stands at the landing, facing west, with the camera
+ *   looking that way.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the player has passed.
+ * @throws {Error} If the page does not show it so.
+ */
+async function checkCaveChambers(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const look = (): Promise<CaveLook> => readCaveLook(session, context, id);
+  const envoy: Villager | undefined = VILLAGERS.find(
+    (villager: Villager) => villager.map === 'cave',
+  );
+  const atEnvoy: GroundVector =
+    envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+  await walkInCave(
+    session,
+    context,
+    id,
+    'w',
+    (seen: CaveLook) => (seen.own?.x ?? Infinity) <= atEnvoy.x + 0.05,
+    'along the passage to the cells',
+  );
+  const atBars: CaveLook = await walkInCave(
+    session,
+    context,
+    id,
+    'd',
+    (seen: CaveLook) => (seen.own?.z ?? 0) <= -1.1,
+    'up to the bars of the cell of the prisoner',
+  );
+  if (
+    atBars.spaceKey !== ENVOY_TALK_KEY ||
+    atBars.prompt !== ENVOY_TALK_PROMPT
+  ) {
+    throw new Error(
+      `At the bars before the prisoner, the first page tells ` +
+        `${describeCaveLook(atBars)}.`,
+    );
+  }
+  await sendKey(session, context, 'keyDown', ' ');
+  await sendKey(session, context, 'keyUp', ' ');
+  const isSaying = (seen: CaveLook, words: SpeechWordsView): boolean =>
+    seen.speech?.name === words.name && seen.speech.line === words.line;
+  await waitFor(
+    look,
+    (seen: CaveLook) =>
+      seen.own?.action === 'Talk' && isSaying(seen, ENVOY_WORDS),
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With the space bar pressed at the bars before the prisoner, the ` +
+      `first page tells ${describeCaveLook(seen)}.`,
+  );
+  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
+  await waitFor(
+    look,
+    (seen: CaveLook) => isSaying(seen, ZH_TW_ENVOY_WORDS),
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With "${ZH_TW_NAME}" chosen while the prisoner speaks, the first ` +
+      `page tells ${describeCaveLook(seen)}.`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'cave-envoy-talk.png');
+  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
+  await waitFor(
+    look,
+    (seen: CaveLook) =>
+      seen.spaceKey === ENVOY_TALK_KEY &&
+      (seen.speech === null || isSaying(seen, ENVOY_WORDS)),
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With "${EN_NAME}" chosen again before the prisoner, the first page ` +
+      `tells ${describeCaveLook(seen)}.`,
+  );
+
+  await saveCellViews(session, context, id);
+
+  // The chest at the back of the north store room, with the sword.
+  const [northChest, cornerBarrel, , southChest] = CAVE_CONTAINERS.map(
+    (_: CaveContainer, number: number) => number,
+  );
+  const north: CaveContainer | undefined = CAVE_CONTAINERS[northChest ?? 0];
+  await walkInCave(
+    session,
+    context,
+    id,
+    'a',
+    (seen: CaveLook) => (seen.own?.z ?? -Infinity) >= -ON_PASSAGE,
+    'back to the middle of the passage',
+  );
+  await walkInCave(
+    session,
+    context,
+    id,
+    'w',
+    (seen: CaveLook) => (seen.own?.x ?? Infinity) <= (north?.x ?? 0) + 0.05,
+    'along the passage to the store rooms',
+  );
+  const byChest: CaveLook = await walkInCave(
+    session,
+    context,
+    id,
+    'd',
+    (seen: CaveLook) => seen.spaceKey === OPEN_CHEST_KEY,
+    'up to the chest of the north store room',
+  );
+  if (byChest.prompt !== OPEN_CHEST_PROMPT) {
+    throw new Error(
+      `Before the chest of the north store room, the first page tells ` +
+        `${describeCaveLook(byChest)}.`,
+    );
+  }
+  const looted: CaveLook = await lootContainer(
+    session,
+    context,
+    id,
+    northChest ?? 0,
+  );
+  if (!looted.slots.includes('sword') || looted.spaceKey !== EMPTY_CHEST_KEY) {
+    throw new Error(
+      `With the chest of the north store room looted, the first page ` +
+        `tells ${describeCaveLook(looted)}.`,
+    );
+  }
+
+  // The barrel with a clover in the corner beside the chest.
+  const corner: CaveContainer | undefined =
+    CAVE_CONTAINERS[cornerBarrel ?? 0];
+  await walkInCave(
+    session,
+    context,
+    id,
+    'w',
+    (seen: CaveLook) => (seen.own?.x ?? Infinity) <= (corner?.x ?? 0) + 0.65,
+    'across the north store room',
+  );
+  await walkInCave(
+    session,
+    context,
+    id,
+    'd',
+    (seen: CaveLook) => seen.spaceKey === OPEN_BARREL_KEY,
+    'up to the barrel in the corner of the north store room',
+  );
+  await lootContainer(session, context, id, cornerBarrel ?? 0);
+  await saveStoreView(session, context);
+
+  // The chest at the back of the south store room, with the armour.
+  const south: CaveContainer | undefined = CAVE_CONTAINERS[southChest ?? 0];
+  await walkInCave(
+    session,
+    context,
+    id,
+    'a',
+    (seen: CaveLook) => (seen.own?.z ?? -Infinity) >= -ON_PASSAGE,
+    'back to the middle of the passage',
+  );
+  await walkInCave(
+    session,
+    context,
+    id,
+    's',
+    (seen: CaveLook) => (seen.own?.x ?? -Infinity) >= (south?.x ?? 0) - 0.05,
+    'along the passage before the store rooms',
+  );
+  await walkInCave(
+    session,
+    context,
+    id,
+    'a',
+    (seen: CaveLook) => seen.spaceKey === OPEN_CHEST_KEY,
+    'up to the chest of the south store room',
+  );
+  await lootContainer(session, context, id, southChest ?? 0);
+
+  // The bag, with what was taken.
+  await sendKey(session, context, 'keyDown', 'i');
+  await sendKey(session, context, 'keyUp', 'i');
+  const isShown = (seen: CaveLook): boolean =>
+    seen.isBagOpen &&
+    ['sword', 'leather-armour', 'clover'].every((kind: string) =>
+      seen.slots.includes(kind),
+    );
+  await waitFor(look, isShown, ACTION_TIMEOUT, (seen: CaveLook) =>
+    `With its bag opened after looting, the first page tells ` +
+    `${describeCaveLook(seen)}.`,
+  );
+  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'cave-bag.png');
+  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
+  await sendKey(session, context, 'keyDown', 'i');
+  await sendKey(session, context, 'keyUp', 'i');
+  await waitFor(
+    look,
+    (seen: CaveLook) => !seen.isBagOpen && seen.spaceKey === EMPTY_CHEST_KEY,
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With its bag closed again, the first page tells ` +
+      `${describeCaveLook(seen)}.`,
+  );
+  await walkInCave(
+    session,
+    context,
+    id,
+    'd',
+    (seen: CaveLook) => (seen.own?.z ?? Infinity) <= ON_PASSAGE,
+    'back to the middle of the passage',
+  );
+}
+
+/**
  * Checks that a player goes down into a cave of its own at the burrow of
  * the wild dog among the spawn stones, and climbs back up out of it by the
  * rope at the bottom of the old well shaft.  In the burrow, its page tells
  * the space bar goes down, and once the space bar is pressed, the page
  * shows the cave, lit by its torches, with the player at the landing at the
  * foot of the slope, alone, while the other page no longer shows the
- * player.  The player walks west down the passage to the rope, where its
+ * player.  The player talks to the prisoner and loots the store rooms, as
+ * {@link checkCaveChambers} tells, and walks on west down the passage to
+ * the rope, where its
  * page tells the space bar climbs up, and once it is pressed, both pages
  * show the player beside the old well in the yard of the chief's house.
  *
@@ -4145,6 +4650,7 @@ async function checkCave(
   }
   await saveView(session, actor, 'cave-landing.png');
   await saveCaveViews(session, actor);
+  await checkCaveChambers(session, actor, id);
 
   await sendKey(session, actor, 'keyDown', 'w');
   try {
@@ -4727,8 +5233,9 @@ try {
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, show Toby ' +
       'alike, hear what Nancy says, speak the language chosen, pick, ' +
-      'carry and put down a clover, go down into a cave of their own and ' +
-      'climb back up, have the ' +
+      'carry and put down a clover, go down into a cave of their own, talk ' +
+      'to the prisoner through his bars, loot the store rooms, and climb ' +
+      'back up, have the ' +
       'camera follow another player, darken at night, preview a time of ' +
       'day on their own, and agree on the time of day.',
   );

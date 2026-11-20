@@ -111,7 +111,12 @@ const OWN: InputProgress = {
 const DAY: DayCycle = { origin: 0.3, length: 1_200_000 };
 
 /** What a snapshot tells when there is nothing to pick or carry. */
-const NOTHING_TO_PICK = { clovers: [], items: [], inventory: [] } as const;
+const NOTHING_TO_PICK = {
+  clovers: [],
+  items: [],
+  looted: [],
+  inventory: [],
+} as const;
 
 /** An item on the ground, to put in snapshots. */
 const ITEM: GroundItem = { id: 4, kind: 'clover', x: 2.5, z: -9.25 };
@@ -492,8 +497,48 @@ describe('the server message codec', () => {
       slash: null,
       clovers: [0, 3, 10],
       items: [ITEM, second],
+      looted: [],
       inventory: ['clover', 'clover'],
     });
+  });
+
+  it('decodes a snapshot message that tells which containers are looted', () => {
+    const message = createSnapshotMessage(
+      42,
+      [PLAYER],
+      [],
+      OWN,
+      null,
+      { clovers: [], items: [], looted: [0, 4] },
+      ['sword', 'leather-armour', 'clover'],
+    );
+    expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
+      type: 'snapshot',
+      looted: [0, 4],
+      inventory: ['sword', 'leather-armour', 'clover'],
+    });
+  });
+
+  it.each([
+    ['is missing', { looted: undefined }],
+    ['is not a list', { looted: 2 }],
+    ['names a container the cave lacks', { looted: [0, 6] }],
+    ['names a container twice', { looted: [1, 1] }],
+    ['is out of order', { looted: [3, 0] }],
+  ])('rejects a snapshot whose list of looted containers %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: null,
+      clovers: [],
+      items: [],
+      inventory: [],
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
   });
 
   it.each([
@@ -512,6 +557,7 @@ describe('the server message codec', () => {
       own: OWN,
       slash: null,
       items: [],
+      looted: [],
       inventory: [],
       ...flaw,
     });
@@ -532,6 +578,7 @@ describe('the server message codec', () => {
       own: OWN,
       slash: null,
       clovers: [],
+      looted: [],
       inventory: [],
       ...flaw,
     });
@@ -556,6 +603,7 @@ describe('the server message codec', () => {
       slash: null,
       clovers: [],
       items: [],
+      looted: [],
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();

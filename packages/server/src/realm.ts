@@ -193,8 +193,9 @@ export class Realm {
    * Each player is sent, first, which map it is in, if that is not the map
    * it was last told of, the village if it was told of none; then a
    * snapshot of the world it is in, with every player and monster to be
-   * seen there and what there is to pick there, and with what that player
-   * alone is told of itself; and then the events that have happened in
+   * seen there, what there is to pick there and, in its cave, which of the
+   * chests and barrels it has looted, and with what that player alone is
+   * told of itself; and then the events that have happened in
    * that world since the last snapshots, if any have, so that each player
    * hears of each event of the world it is in once.  A player is told
    * nothing of any other world.

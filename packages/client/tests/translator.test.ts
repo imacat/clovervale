@@ -186,6 +186,14 @@ describe('loadMessages', () => {
     ]);
   });
 
+  it('has every message in every language, and no other', async () => {
+    const ids: string[] = Object.keys(EN_MESSAGES).sort();
+    for (const { code } of LANGUAGES) {
+      const table: Partial<MessageTable> = await loadMessages(code);
+      expect([code, Object.keys(table).sort()]).toEqual([code, ids]);
+    }
+  });
+
   it('gives every message the same values in every language', async () => {
     const ids = Object.keys(EN_MESSAGES) as MessageId[];
     for (const { code } of LANGUAGES.filter(
