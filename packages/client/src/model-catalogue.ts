@@ -23,7 +23,7 @@
 
 import {
   APPEARANCE_COUNT,
-  CAVE_ENVOY_FILE,
+  CAVE_EDWIN_FILE,
   TOBY_FILE,
 } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
@@ -76,7 +76,7 @@ const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
     ['npc-emma.glb', 'npc'],
     ['npc-martha.glb', 'npc'],
     [TOBY_FILE, 'npc'],
-    [CAVE_ENVOY_FILE, 'npc'],
+    [CAVE_EDWIN_FILE, 'npc'],
     [MONSTER_FILE, 'monster'],
     [WEAPON_SHOP_FILE, 'building'],
     [FOUNTAIN_FILE, 'building'],

@@ -489,11 +489,11 @@ describe('describePrompt by the ways into and out of the cave', () => {
 
 describe('describePrompt in the cave', () => {
   /** The prisoner in the north cell. */
-  const envoy = VILLAGERS.find(({ id }) => id === 'envoy');
+  const edwin = VILLAGERS.find(({ id }) => id === 'edwin');
 
   /** Where he stands, behind the bars. */
   const at: GroundVector =
-    envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
 
   /** A player at the bars of his cell, before him, facing him. */
   const AT_BARS: PlayerMotion = createMotion(

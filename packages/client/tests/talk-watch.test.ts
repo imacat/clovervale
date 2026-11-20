@@ -138,11 +138,11 @@ describe('TalkWatch', () => {
   });
 
   it('notices a talk to the prisoner through the bars of his cell', () => {
-    const envoy: Villager | undefined = VILLAGERS.find(
-      (villager: Villager) => villager.id === 'envoy',
+    const edwin: Villager | undefined = VILLAGERS.find(
+      (villager: Villager) => villager.id === 'edwin',
     );
     const at: GroundVector =
-      envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
     const before: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       180,
@@ -154,6 +154,6 @@ describe('TalkWatch', () => {
     );
     expect(talking.action).toBe('Talk');
     const watch = new TalkWatch();
-    expect(watch.noticeTalk(talking, 0, 'cave')?.id).toBe('envoy');
+    expect(watch.noticeTalk(talking, 0, 'cave')?.id).toBe('edwin');
   });
 });

@@ -202,7 +202,7 @@ export const CAVE_TORCH_FILE = 'prop-cave-torch.glb';
 export const CAVE_BARS_FILE = 'prop-cave-bars.glb';
 
 /** The file name of the model of the prisoner in the north cell. */
-export const CAVE_ENVOY_FILE = 'npc-envoy.glb';
+export const CAVE_EDWIN_FILE = 'npc-edwin.glb';
 
 /**
  * The file name of the model of the bones of a dead prisoner, slumped
@@ -220,7 +220,7 @@ export const CAVE_BARS_HALF_DEPTH = 0.05;
  * How far behind the bars of his cell the prisoner stands, from their
  * middle to his, in metres: close enough for his hands to hold them.
  */
-export const CAVE_ENVOY_BEHIND_BARS = 0.42;
+export const CAVE_EDWIN_BEHIND_BARS = 0.42;
 
 /**
  * Half the depth of the bones of the dead prisoner, from the middle of
@@ -380,9 +380,9 @@ export const CAVE_PLACEMENTS: readonly Placement[] = (() => {
     { file: CAVE_BARS_FILE, x: middle, z: -edge, yaw: 0 },
     { file: CAVE_BARS_FILE, x: middle, z: edge, yaw: 180 },
     {
-      file: CAVE_ENVOY_FILE,
+      file: CAVE_EDWIN_FILE,
       x: middle,
-      z: northCell.south - CAVE_ENVOY_BEHIND_BARS,
+      z: northCell.south - CAVE_EDWIN_BEHIND_BARS,
       yaw: 0,
     },
     {
@@ -514,7 +514,7 @@ export const CAVE_FIXTURE_FOOTPRINTS: Readonly<
     [CAVE_BARS_FILE]: [
       makeBox(-half, half, -CAVE_BARS_HALF_DEPTH, CAVE_BARS_HALF_DEPTH),
     ],
-    [CAVE_ENVOY_FILE]: [{ shape: 'circle', x: 0, z: 0, radius: 0.3 }],
+    [CAVE_EDWIN_FILE]: [{ shape: 'circle', x: 0, z: 0, radius: 0.3 }],
     [chest.closed]: [chestShape],
     [chest.open]: [chestShape],
     [barrel.closed]: [barrelShape],

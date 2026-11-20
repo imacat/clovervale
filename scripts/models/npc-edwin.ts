@@ -18,11 +18,11 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/npc-envoy The prisoner in the north cell of the
+ * @module scripts/models/npc-edwin The prisoner in the north cell of the
  *   cave, a courier of a kingdom, who waits at the bars of his cell.
  */
 
-import { CAVE_ENVOY_BEHIND_BARS } from '@clovervale/shared';
+import { CAVE_EDWIN_BEHIND_BARS } from '@clovervale/shared';
 
 import {
   SIDES,
@@ -86,7 +86,7 @@ const BAR_X = 0.24;
  * the mirror bar.  The fist, a little in front of the wrist with the hand
  * turned forward, closes round the bar, a little above the shoulder.
  */
-const WRIST_ON_BAR: Triple = [BAR_X, 0.92, CAVE_ENVOY_BEHIND_BARS - 0.015];
+const WRIST_ON_BAR: Triple = [BAR_X, 0.92, CAVE_EDWIN_BEHIND_BARS - 0.015];
 
 /** The pitch of the hands, turned forward to hold the bars. */
 const HAND_PITCH = -90;
@@ -165,8 +165,8 @@ function createCrown(): Shape {
  * @returns {BuiltModel} The animated model and the measurements taken while
  *   baking.
  */
-export function buildNpcEnvoy(): BuiltModel {
-  const model = new Model('NpcEnvoy');
+export function buildNpcEdwin(): BuiltModel {
+  const model = new Model('NpcEdwin');
   setFaceMaterials(model, SKINS.light);
   model.setMaterial('hand', SKINS.light);
   model.setMaterial('blush', '#e9b79c');

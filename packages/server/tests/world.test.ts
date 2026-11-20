@@ -1748,8 +1748,8 @@ describe('a world of the cave', () => {
   const graph = new NavigationGraph(CAVE_TERRAIN);
 
   /** The prisoner in the north cell. */
-  const envoy: Villager | undefined = VILLAGERS.find(
-    (villager: Villager) => villager.id === 'envoy',
+  const edwin: Villager | undefined = VILLAGERS.find(
+    (villager: Villager) => villager.id === 'edwin',
   );
 
   /**
@@ -2174,7 +2174,7 @@ describe('a world of the cave', () => {
   it('has the prisoner talked to through his bars, unhurt', () => {
     const [world, id] = enterCave();
     const at: GroundVector =
-      envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
     walkInCave(world, id, { x: at.x, z: 0 });
     steerPlayer(world, id, { x: 0, z: -1 });
     stepTimes(world, 2 * SIMULATION_RATE);

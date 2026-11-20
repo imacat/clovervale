@@ -24,7 +24,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CAVE_ENVOY_FILE,
+  CAVE_EDWIN_FILE,
   TOBY_FILE,
   findSpawnPoint,
 } from '@clovervale/shared';
@@ -84,7 +84,7 @@ describe('layoutVillage', () => {
           !CHARACTER_FILES.includes(file) &&
           file !== MONSTER_FILE &&
           file !== TOBY_FILE &&
-          file !== CAVE_ENVOY_FILE,
+          file !== CAVE_EDWIN_FILE,
       ),
     );
   });
@@ -223,7 +223,7 @@ describe('layoutVillage', () => {
       'prop-item-leather-armour.glb',
       'prop-item-healing-potion.glb',
     ];
-    expect(layoutVillage([...files, 'npc-envoy.glb'])).toEqual([]);
+    expect(layoutVillage([...files, 'npc-edwin.glb'])).toEqual([]);
   });
 
   it('stands nothing where there are no models', () => {

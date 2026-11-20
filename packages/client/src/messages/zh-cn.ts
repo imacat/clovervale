@@ -165,6 +165,6 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'villager.toby.line.1': '妈妈说不可以出去，外面有野狗。',
   'villager.toby.line.2': '有事要找村长哦，她住在最大的那间房子。',
   'villager.toby.line.3': '我在找四叶的！找到就会有好运哦。',
-  'villager.envoy.name': '囚犯',
-  'villager.envoy.line.1': '有人吗？救救我！',
+  'villager.edwin.name': '囚犯',
+  'villager.edwin.line.1': '有人吗？救救我！',
 };

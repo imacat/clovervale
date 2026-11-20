@@ -175,8 +175,8 @@ export const EN_MESSAGES = {
     'If you want something, go and see the village chief. She lives in the biggest house!',
   'villager.toby.line.3':
     "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
-  'villager.envoy.name': 'Prisoner',
-  'villager.envoy.line.1': 'Is anyone there? Help me!',
+  'villager.edwin.name': 'Prisoner',
+  'villager.edwin.line.1': 'Is anyone there? Help me!',
 } as const;
 
 /** A message of the page. */

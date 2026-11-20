@@ -39,7 +39,7 @@ import { buildCave, buildCaveTorch } from './cave.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
 import { buildItemLeatherArmour, buildItemSword } from './gear.ts';
 import { buildNpcEmma } from './npc-emma.ts';
-import { buildNpcEnvoy } from './npc-envoy.ts';
+import { buildNpcEdwin } from './npc-edwin.ts';
 import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import { buildNpcToby } from './npc-toby.ts';
@@ -86,7 +86,7 @@ export function listModels(): ModelEntry[] {
     { name: 'npc-emma', build: buildNpcEmma },
     { name: 'npc-martha', build: buildNpcMartha },
     { name: 'npc-toby', build: buildNpcToby },
-    { name: 'npc-envoy', build: buildNpcEnvoy },
+    { name: 'npc-edwin', build: buildNpcEdwin },
     { name: 'wild-dog', build: buildWildDog },
     { name: 'weapon-shop', build: buildWeaponShop },
     { name: 'fountain', build: buildFountain },

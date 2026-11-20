@@ -22,7 +22,7 @@
  *   prisoner in the cave, whom a player talks to as to them.
  */
 
-import { CAVE_ENVOY_FILE, CAVE_PLACEMENTS } from './cave.ts';
+import { CAVE_EDWIN_FILE, CAVE_PLACEMENTS } from './cave.ts';
 import type { GroundVector } from './movement.ts';
 import { TOBY_FILE, findTobyPose } from './toby.ts';
 import { findPlacement } from './village-layout.ts';
@@ -33,7 +33,7 @@ import type { MapId } from './world-map.ts';
  * The identifier of a villager, which never changes, for the client to
  * find what the villager is called and what it says.
  */
-export type VillagerId = 'nancy' | 'emma' | 'martha' | 'toby' | 'envoy';
+export type VillagerId = 'nancy' | 'emma' | 'martha' | 'toby' | 'edwin';
 
 /** A villager a player can talk to. */
 export interface Villager {
@@ -57,7 +57,7 @@ export const VILLAGERS: readonly Villager[] = [
   { id: 'emma', file: 'npc-emma.glb', map: 'village' },
   { id: 'martha', file: 'npc-martha.glb', map: 'village' },
   { id: 'toby', file: TOBY_FILE, map: 'village' },
-  { id: 'envoy', file: CAVE_ENVOY_FILE, map: 'cave' },
+  { id: 'edwin', file: CAVE_EDWIN_FILE, map: 'cave' },
 ];
 
 /**

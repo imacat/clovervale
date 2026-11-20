@@ -526,13 +526,13 @@ describe('the spot beside the old well', () => {
 
 describe('the prisoner in the north cell of the cave', () => {
   /** The prisoner. */
-  const envoy: Villager | undefined = VILLAGERS.find(
-    (villager: Villager) => villager.id === 'envoy',
+  const edwin: Villager | undefined = VILLAGERS.find(
+    (villager: Villager) => villager.id === 'edwin',
   );
 
   /** Where he stands, behind the bars of his cell. */
   const at: GroundVector =
-    envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
 
   /**
    * Walks a player along the passage up to the bars of his cell, and has it
@@ -554,7 +554,7 @@ describe('the prisoner in the north cell of the cave', () => {
   }
 
   it('stands in the cave, and in no other map', () => {
-    expect(envoy?.map).toBe('cave');
+    expect(edwin?.map).toBe('cave');
     expect(CAVE_TERRAIN.isClear(at)).toBe(false);
     expect(findVillager({ x: at.x, z: at.z + 0.8, yaw: 180 }, 0)).toBeNull();
   });
@@ -562,7 +562,7 @@ describe('the prisoner in the north cell of the cave', () => {
   it('is talked to through the bars, before him and along them', () => {
     for (const x of [at.x - 0.8, at.x, at.x + 0.8]) {
       const pose: Pose = walkToBars(x);
-      expect(findVillager(pose, 0, 'cave')?.id).toBe('envoy');
+      expect(findVillager(pose, 0, 'cave')?.id).toBe('edwin');
       expect(findInteraction(pose, 0, 'cave')).toBe('Talk');
     }
   });

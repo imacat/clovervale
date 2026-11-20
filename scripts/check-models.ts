@@ -45,7 +45,7 @@ import {
   CAVE_CELLS,
   CAVE_CONTAINERS,
   CAVE_CONTAINER_FILES,
-  CAVE_ENVOY_FILE,
+  CAVE_EDWIN_FILE,
   CAVE_FILE,
   CAVE_FIXTURE_FOOTPRINTS,
   CAVE_FLAME_AHEAD,
@@ -312,7 +312,7 @@ const REQUIRED_FILES: readonly string[] = [
   'npc-emma.glb',
   'npc-martha.glb',
   TOBY_FILE,
-  CAVE_ENVOY_FILE,
+  CAVE_EDWIN_FILE,
   'wild-dog.glb',
   'weapon-shop.glb',
   'fountain.glb',
@@ -539,7 +539,7 @@ const BAR_MATERIAL = 'iron';
  */
 const GRIP_TOLERANCE = 0.03;
 /** How many times in his idle clip the prisoner is looked at. */
-const ENVOY_SAMPLES = 48;
+const EDWIN_SAMPLES = 48;
 /**
  * The least room between the axis of a bar of a cell and anything of the
  * prisoner but his fists, along the ground, in metres: the radius of a bar.
@@ -1824,43 +1824,43 @@ async function checkCaveFixtures(): Promise<StrikeResult> {
     }
   }
 
-  const envoyPlacement: Placement | undefined = CAVE_PLACEMENTS.find(
-    ({ file }: Placement) => file === CAVE_ENVOY_FILE,
+  const edwinPlacement: Placement | undefined = CAVE_PLACEMENTS.find(
+    ({ file }: Placement) => file === CAVE_EDWIN_FILE,
   );
   const barsPlacement: Placement | undefined = CAVE_PLACEMENTS.find(
     ({ file, z }: Placement) => file === CAVE_BARS_FILE && z < 0,
   );
   let closest = Infinity;
   let loosest = 0;
-  if (envoyPlacement !== undefined && barsPlacement !== undefined) {
-    const envoy: GLTF = await loadAt(envoyPlacement);
+  if (edwinPlacement !== undefined && barsPlacement !== undefined) {
+    const edwin: GLTF = await loadAt(edwinPlacement);
     const bars: GLTF = await loadAt(barsPlacement);
     const axes: number[] = findBarAxes(bars.scene);
     const barTop: number = new Box3().setFromObject(bars.scene).max.y;
     const barZ: number = barsPlacement.z;
     const findBarDistance = (p: Vector3): number =>
       Math.min(...axes.map((x: number) => Math.hypot(p.x - x, p.z - barZ)));
-    const clip: AnimationClip | undefined = envoy.animations.find(
+    const clip: AnimationClip | undefined = edwin.animations.find(
       (candidate: AnimationClip) => candidate.name === 'Idle',
     );
     if (clip === undefined) {
-      failures.push(`${CAVE_ENVOY_FILE} does not idle`);
+      failures.push(`${CAVE_EDWIN_FILE} does not idle`);
     } else {
       let isHeld = true;
       let isClear = true;
-      for (let k = 0; k <= ENVOY_SAMPLES; k++) {
+      for (let k = 0; k <= EDWIN_SAMPLES; k++) {
         const mixer: AnimationMixer = poseModel(
-          envoy,
+          edwin,
           clip,
-          (clip.duration * k) / ENVOY_SAMPLES,
+          (clip.duration * k) / EDWIN_SAMPLES,
         );
         const hands: Vector3[] = listMaterialVertices(
-          envoy.scene,
+          edwin.scene,
           HAND_MATERIAL,
         );
         for (const side of [-1, 1]) {
           const fist: Vector3[] = hands.filter(
-            (p: Vector3) => Math.sign(p.x - envoyPlacement.x) === side,
+            (p: Vector3) => Math.sign(p.x - edwinPlacement.x) === side,
           );
           const middle = new Vector3();
           for (const p of fist) {
@@ -1875,7 +1875,7 @@ async function checkCaveFixtures(): Promise<StrikeResult> {
           }
         }
         const rest: Mesh[] = [];
-        envoy.scene.traverse((node: Object3D) => {
+        edwin.scene.traverse((node: Object3D) => {
           if (
             isMesh(node) &&
             !Array.isArray(node.material) &&
@@ -1893,19 +1893,19 @@ async function checkCaveFixtures(): Promise<StrikeResult> {
             isClear = false;
           }
         }
-        resetModel(envoy, mixer);
+        resetModel(edwin, mixer);
       }
       if (!isHeld) {
-        failures.push(`the fists of ${CAVE_ENVOY_FILE} do not hold the bars`);
+        failures.push(`the fists of ${CAVE_EDWIN_FILE} do not hold the bars`);
       }
       if (!isClear) {
-        failures.push(`${CAVE_ENVOY_FILE} passes into the bars of his cell`);
+        failures.push(`${CAVE_EDWIN_FILE} passes into the bars of his cell`);
       }
     }
   }
   const summary =
     `what stands in the side chambers of the cave takes up its ground ` +
-    `(${String(placements.length)} models), and ${CAVE_ENVOY_FILE} holds ` +
+    `(${String(placements.length)} models), and ${CAVE_EDWIN_FILE} holds ` +
     `the bars, his fists ${(loosest * 1000).toFixed(0)} mm from their ` +
     `axes at the most, and the rest of him ${(closest * 1000).toFixed(0)} ` +
     `mm at the least`;
@@ -1975,7 +1975,7 @@ async function checkModels(): Promise<boolean> {
   // The models of the side chambers are required with the prisoner, and
   // optional props otherwise; without all of them, they are not checked.
   const fixtures: StrikeResult = [
-    CAVE_ENVOY_FILE,
+    CAVE_EDWIN_FILE,
     ...new Set(CAVE_PLACEMENTS.map(({ file }: Placement) => file)),
     ...Object.values(CAVE_CONTAINER_FILES).flatMap(
       ({ closed, open }) => [closed, open],

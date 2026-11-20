@@ -642,16 +642,16 @@ const CLIMB_KEY = 'climb up the rope';
 /** The prompt by the rope in the cave. */
 const CLIMB_PROMPT = 'Press Space to climb up the rope';
 /** What the panel tells the space bar does at the bars before the prisoner. */
-const ENVOY_TALK_KEY = 'talk to Prisoner';
+const EDWIN_TALK_KEY = 'talk to Prisoner';
 /** The prompt at the bars before the prisoner. */
-const ENVOY_TALK_PROMPT = 'Press Space to talk to Prisoner';
+const EDWIN_TALK_PROMPT = 'Press Space to talk to Prisoner';
 /** The name of the prisoner, and what he says, in English. */
-const ENVOY_WORDS: SpeechWordsView = {
+const EDWIN_WORDS: SpeechWordsView = {
   name: 'Prisoner',
   line: 'Is anyone there? Help me!',
 };
 /** The name of the prisoner, and what he says, in Traditional Chinese. */
-const ZH_TW_ENVOY_WORDS: SpeechWordsView = {
+const ZH_TW_EDWIN_WORDS: SpeechWordsView = {
   name: '囚犯',
   line: '有人嗎？救救我！',
 };
@@ -4438,17 +4438,17 @@ async function checkCaveChambers(
   id: number,
 ): Promise<void> {
   const look = (): Promise<CaveLook> => readCaveLook(session, context, id);
-  const envoy: Villager | undefined = VILLAGERS.find(
+  const edwin: Villager | undefined = VILLAGERS.find(
     (villager: Villager) => villager.map === 'cave',
   );
-  const atEnvoy: GroundVector =
-    envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+  const atEdwin: GroundVector =
+    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
   await walkInCave(
     session,
     context,
     id,
     'w',
-    (seen: CaveLook) => (seen.own?.x ?? Infinity) <= atEnvoy.x + 0.05,
+    (seen: CaveLook) => (seen.own?.x ?? Infinity) <= atEdwin.x + 0.05,
     'along the passage to the cells',
   );
   const atBars: CaveLook = await walkInCave(
@@ -4460,8 +4460,8 @@ async function checkCaveChambers(
     'up to the bars of the cell of the prisoner',
   );
   if (
-    atBars.spaceKey !== ENVOY_TALK_KEY ||
-    atBars.prompt !== ENVOY_TALK_PROMPT
+    atBars.spaceKey !== EDWIN_TALK_KEY ||
+    atBars.prompt !== EDWIN_TALK_PROMPT
   ) {
     throw new Error(
       `At the bars before the prisoner, the first page tells ` +
@@ -4475,7 +4475,7 @@ async function checkCaveChambers(
   await waitFor(
     look,
     (seen: CaveLook) =>
-      seen.own?.action === 'Talk' && isSaying(seen, ENVOY_WORDS),
+      seen.own?.action === 'Talk' && isSaying(seen, EDWIN_WORDS),
     ACTION_TIMEOUT,
     (seen: CaveLook) =>
       `With the space bar pressed at the bars before the prisoner, the ` +
@@ -4484,20 +4484,20 @@ async function checkCaveChambers(
   await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
   await waitFor(
     look,
-    (seen: CaveLook) => isSaying(seen, ZH_TW_ENVOY_WORDS),
+    (seen: CaveLook) => isSaying(seen, ZH_TW_EDWIN_WORDS),
     ACTION_TIMEOUT,
     (seen: CaveLook) =>
       `With "${ZH_TW_NAME}" chosen while the prisoner speaks, the first ` +
       `page tells ${describeCaveLook(seen)}.`,
   );
   await sleep(VIEW_SETTLE_DURATION);
-  await saveView(session, context, 'cave-envoy-talk.png');
+  await saveView(session, context, 'cave-edwin-talk.png');
   await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
   await waitFor(
     look,
     (seen: CaveLook) =>
-      seen.spaceKey === ENVOY_TALK_KEY &&
-      (seen.speech === null || isSaying(seen, ENVOY_WORDS)),
+      seen.spaceKey === EDWIN_TALK_KEY &&
+      (seen.speech === null || isSaying(seen, EDWIN_WORDS)),
     ACTION_TIMEOUT,
     (seen: CaveLook) =>
       `With "${EN_NAME}" chosen again before the prisoner, the first page ` +

@@ -298,9 +298,9 @@ describe('chooseSpaceInput in the cave', () => {
   }
 
   it('interacts before the prisoner, to talk to him through his bars', () => {
-    const envoy = VILLAGERS.find(({ id }) => id === 'envoy');
+    const edwin = VILLAGERS.find(({ id }) => id === 'edwin');
     const at: GroundVector =
-      envoy === undefined ? { x: NaN, z: NaN } : locateVillager(envoy, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
     const before: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       180,
