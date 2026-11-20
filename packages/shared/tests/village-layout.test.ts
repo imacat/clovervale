@@ -48,10 +48,16 @@ import type {
   Shape,
 } from '../src/index.ts';
 
-/** The models a player can walk over or into the middle of. */
+/**
+ * The models a player can walk over or into the middle of, Martha, who
+ * stands in the way of nobody, and her pitchfork, which leans against the
+ * wall of her house.
+ */
 const OPEN_FILES: readonly string[] = [
   'prop-clover.glb',
   'prop-spawn-stones.glb',
+  'npc-martha.glb',
+  'prop-pitchfork.glb',
 ];
 
 /** A gap in a fence that the way goes through. */
@@ -777,24 +783,8 @@ describe('Martha the village chief', () => {
     expect(findMarthaFront().z).toBeGreaterThanOrEqual(0);
   });
 
-  it('takes up the ground she stands on, overlapping no other footprint', () => {
-    const martha: Placement = findPlacement(MARTHA_FILE);
-    expect(VILLAGE_TERRAIN.isClear(martha)).toBe(false);
-    const own: CircleShape[] = VILLAGE_TERRAIN.shapes.filter(
-      (shape: Shape): shape is CircleShape =>
-        shape.shape === 'circle' &&
-        shape.x === martha.x &&
-        shape.z === martha.z,
-    );
-    expect(own.map((shape: CircleShape) => shape.radius)).toEqual([
-      MARTHA_RADIUS,
-    ]);
-    const [footprint] = own;
-    for (const shape of VILLAGE_TERRAIN.shapes) {
-      if (footprint !== undefined && shape !== footprint) {
-        expect(measureGap(footprint, shape)).toBeGreaterThanOrEqual(0);
-      }
-    }
+  it('stands in the way of nobody, as the monsters do', () => {
+    expect(VILLAGE_TERRAIN.isClear(findPlacement(MARTHA_FILE))).toBe(true);
   });
 
   it('stands out of the way from the plaza to the door', () => {

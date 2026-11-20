@@ -258,6 +258,55 @@ function drawClovervaleMessage(): SVGElement {
   ]);
 }
 
+/**
+ * Draws a small token of the Clovervale spy: a chunky gold signet ring,
+ * seen from the front a little from above, with a thick band, swelling
+ * shoulders and a broad oval bezel on top, the enemy's emblem on its face.
+ *
+ * @returns {SVGElement} The token.
+ */
+function drawSpyToken(): SVGElement {
+  return drawPicture([
+    createSvgElement('path', {
+      d:
+        'M32 20 C44 20 52 29 52 40 C52 51 43 59 32 59 C21 59 12 51 12 40 ' +
+        'C12 29 20 20 32 20Z M32 29 C25 29 21 34 21 40 C21 46 26 50 32 50 ' +
+        'C38 50 43 46 43 40 C43 34 39 29 32 29Z',
+      'fill-rule': 'evenodd',
+      class: 'bag-token-band',
+    }),
+    ...[
+      [19, 25],
+      [45, 25],
+    ].map(([cx, cy]: number[]) =>
+      createSvgElement('circle', {
+        cx: String(cx),
+        cy: String(cy),
+        r: '6',
+        class: 'bag-token-band',
+      }),
+    ),
+    createSvgElement('ellipse', {
+      cx: '32',
+      cy: '19',
+      rx: '18',
+      ry: '12',
+      class: 'bag-token-bezel',
+    }),
+    createSvgElement('ellipse', {
+      cx: '32',
+      cy: '18',
+      rx: '13',
+      ry: '8',
+      class: 'bag-token-seal',
+    }),
+    createSvgElement('path', {
+      d: 'M32 12 L38 18 L32 24 L26 18Z M23 18 L25 18 M39 18 L41 18',
+      class: 'bag-token-emblem',
+    }),
+  ]);
+}
+
 /** What each kind of item is drawn as in a slot of the bag. */
 const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
   clover: drawClover,
@@ -265,6 +314,7 @@ const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
   'leather-armour': drawLeatherArmour,
   'healing-potion': drawHealingPotion,
   'clovervale-message': drawClovervaleMessage,
+  'spy-token': drawSpyToken,
 };
 
 /**

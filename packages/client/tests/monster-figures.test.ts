@@ -25,9 +25,9 @@ import { AnimationClip, NumberKeyframeTrack, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { MONSTER_KINDS } from '@clovervale/shared';
-import type { MonsterState } from '@clovervale/shared';
+import type { MonsterKindId, MonsterState } from '@clovervale/shared';
 
-import { MonsterFigures } from '../src/monster-figures.ts';
+import { MonsterFigures, PITCHFORK_BONE } from '../src/monster-figures.ts';
 import type { MonsterView } from '../src/monster-figures.ts';
 import type { Figure } from '../src/player-figures.ts';
 
@@ -138,5 +138,44 @@ describe('MonsterFigures', () => {
     figure = createFigure();
     figures.showMonsters([MONSTER]);
     expect(findOnly(figures).clip).toBe('Idle');
+  });
+
+  it('shows Martha with her pitchfork as told, and her health as she fights', () => {
+    const scene = new Object3D();
+    const figures = new MonsterFigures(scene, (kind: MonsterKindId) => {
+      const figure: Figure = createFigure();
+      if (kind === 'martha') {
+        const pitchfork = new Object3D();
+        pitchfork.name = PITCHFORK_BONE;
+        figure.root.add(pitchfork);
+      }
+      return figure;
+    });
+    const martha: MonsterState = {
+      ...MONSTER,
+      kind: 'martha',
+      health: MONSTER_KINDS.martha.health,
+    };
+    figures.showMonsters([{ ...martha, mode: 'idle', isArmed: false }]);
+    expect(findOnly(figures)).toMatchObject({
+      isBarShown: false,
+      isPitchforkShown: false,
+    });
+    figures.showMonsters([{ ...martha, mode: 'talk', isArmed: true }]);
+    expect(findOnly(figures)).toMatchObject({
+      isBarShown: false,
+      isPitchforkShown: true,
+    });
+    figures.showMonsters([{ ...martha, mode: 'chase', isArmed: true }]);
+    expect(findOnly(figures)).toMatchObject({
+      isBarShown: true,
+      isPitchforkShown: true,
+    });
+    figures.showMonsters([
+      { ...martha, mode: 'sit', health: 0, isArmed: true },
+    ]);
+    expect(findOnly(figures)).toMatchObject({ isBarShown: false });
+    figures.showMonsters([{ ...martha, mode: 'return', isArmed: false }]);
+    expect(findOnly(figures)).toMatchObject({ isPitchforkShown: false });
   });
 });

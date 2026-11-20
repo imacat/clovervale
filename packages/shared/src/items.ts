@@ -48,6 +48,7 @@ export const ITEM_KINDS = [
   { id: 'leather-armour', nameKey: 'item.leatherArmour' },
   { id: 'healing-potion', nameKey: 'item.healingPotion', healing: 50 },
   { id: 'clovervale-message', nameKey: 'item.clovervaleMessage' },
+  { id: 'spy-token', nameKey: 'item.spyToken' },
 ] as const satisfies readonly ItemKind[];
 
 /** The identifier of a kind of item. */

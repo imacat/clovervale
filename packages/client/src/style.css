@@ -429,3 +429,23 @@ canvas {
   stroke-width: 2;
   stroke-linecap: round;
 }
+
+.bag-token-band,
+.bag-token-bezel {
+  fill: #d1a23f;
+  stroke: #6b4a1e;
+  stroke-width: 2;
+}
+
+.bag-token-seal {
+  fill: #5c3d1a;
+  stroke: #e8c46a;
+  stroke-width: 1.5;
+}
+
+.bag-token-emblem {
+  fill: none;
+  stroke: #e8c46a;
+  stroke-width: 2;
+  stroke-linecap: round;
+}

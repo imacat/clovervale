@@ -44,6 +44,7 @@ import { buildNpcEdwin } from './npc-edwin.ts';
 import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import { buildNpcToby } from './npc-toby.ts';
+import { buildPropPitchfork, buildPropPitchforkLying } from './pitchfork.ts';
 import { buildItemHealingPotion } from './potion.ts';
 import {
   buildBush,
@@ -60,6 +61,7 @@ import {
   buildYardWallEnd,
 } from './props.ts';
 import type { BuiltModel } from './rig.ts';
+import { buildItemSpyToken } from './token.ts';
 import { buildWildDog } from './wild-dog.ts';
 
 /** A model to generate. */
@@ -105,6 +107,8 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-yard-wall', build: buildYardWall },
     { name: 'prop-yard-wall-end', build: buildYardWallEnd },
     { name: 'prop-old-well', build: buildOldWell },
+    { name: 'prop-pitchfork', build: buildPropPitchfork },
+    { name: 'prop-pitchfork-lying', build: buildPropPitchforkLying },
     { name: 'prop-cave', build: buildCave },
     { name: 'prop-cave-torch', build: buildCaveTorch },
     { name: 'prop-cave-bars', build: buildCaveBars },
@@ -120,5 +124,6 @@ export function listModels(): ModelEntry[] {
       name: 'prop-item-clovervale-message',
       build: buildItemClovervaleMessage,
     },
+    { name: 'prop-item-spy-token', build: buildItemSpyToken },
   ];
 }

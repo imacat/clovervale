@@ -202,6 +202,50 @@ describe('the server message codec', () => {
     });
   });
 
+  it('decodes a snapshot message of Martha, sitting beaten', () => {
+    const monsters: MonsterState[] = [
+      MONSTER,
+      {
+        ...MONSTER,
+        id: 2,
+        kind: 'martha',
+        action: 'Sit',
+        mode: 'sit',
+        isArmed: true,
+      },
+    ];
+    const message = createSnapshotMessage(42, [PLAYER], monsters, OWN);
+    expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
+      monsters,
+    });
+  });
+
+  it.each(['approach', 'talk'] as const)(
+    'decodes a snapshot message of Martha up to %s',
+    (mode: MonsterState['mode']) => {
+      const monsters: MonsterState[] = [
+        { ...MONSTER, kind: 'martha', action: 'Walk', mode, isArmed: false },
+      ];
+      const message = createSnapshotMessage(42, [PLAYER], monsters, OWN);
+      expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject(
+        { monsters },
+      );
+    },
+  );
+
+  it('rejects a snapshot message of Martha armed with no yes or no', () => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      ...NOTHING_TO_PICK,
+      step: 4,
+      players: [PLAYER],
+      monsters: [{ ...MONSTER, kind: 'martha', isArmed: 'yes' }],
+      own: OWN,
+      slash: null,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
   it('rejects a snapshot message with two monsters of one identifier', () => {
     const data = JSON.stringify({
       type: 'snapshot',

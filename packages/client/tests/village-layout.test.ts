@@ -31,6 +31,7 @@ import {
 
 import {
   CHARACTER_FILES,
+  MARTHA_FILE,
   MONSTER_FILE,
   REQUIRED_MODEL_FILES,
 } from '../src/model-catalogue.ts';
@@ -84,14 +85,20 @@ describe('layoutVillage', () => {
           !CHARACTER_FILES.includes(file) &&
           file !== MONSTER_FILE &&
           file !== TOBY_FILE &&
+          file !== MARTHA_FILE &&
           file !== CAVE_EDWIN_FILE,
       ),
     );
   });
 
-  it('leaves the characters, the monster and Toby to go about', () => {
+  it('leaves the characters, the monster, Martha and Toby to go about', () => {
     expect(
-      layoutVillage([...CHARACTER_FILES, MONSTER_FILE, TOBY_FILE]),
+      layoutVillage([
+        ...CHARACTER_FILES,
+        MONSTER_FILE,
+        MARTHA_FILE,
+        TOBY_FILE,
+      ]),
     ).toEqual([]);
   });
 

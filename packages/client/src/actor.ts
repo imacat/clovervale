@@ -63,13 +63,17 @@ export class Actor {
    * Plays the clip of the model for what it is doing, from its beginning.
    *
    * Idling, walking, drinking and talking go on in a loop, and a slash, an
-   * attack or a death is played once, after which the model holds its last
-   * pose.  A model that lacks the clip idles instead.
+   * attack, a death or sitting down is played once, after which the model
+   * holds its last pose.  A model that holds a weapon plays its clip for
+   * doing it armed, if it has one.  A model that lacks the clip idles
+   * instead.
    *
    * @param {ActionState | MonsterAction} action - What the model is doing.
+   * @param {boolean} [isArmed] - Whether the model holds a weapon, which it
+   *   does not by default.
    */
-  play(action: ActionState | MonsterAction): void {
-    this.#start(chooseClip(action, [...this.#clips.keys()]));
+  play(action: ActionState | MonsterAction, isArmed = false): void {
+    this.#start(chooseClip(action, [...this.#clips.keys()], isArmed));
   }
 
   /**

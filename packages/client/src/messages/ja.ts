@@ -105,11 +105,15 @@ export const JA_MESSAGES: MessageTable = {
   'monsterAction.Walk': '歩行',
   'monsterAction.Attack': '攻撃',
   'monsterAction.Die': '死亡',
+  'monsterAction.Sit': '座る',
   'monsterMode.idle': '待機',
   'monsterMode.wander': '徘徊',
   'monsterMode.chase': '追跡',
   'monsterMode.return': '帰還',
   'monsterMode.dead': '死亡',
+  'monsterMode.approach': '接近',
+  'monsterMode.talk': '会話',
+  'monsterMode.sit': '座り込み',
   'monster.gone': '不在',
   'slash.hit': '命中',
   'slash.missed': 'ミス',
@@ -151,6 +155,7 @@ export const JA_MESSAGES: MessageTable = {
   'item.leatherArmour': '革の鎧',
   'item.healingPotion': '回復薬',
   'item.clovervaleMessage': '四葉谷の情報',
+  'item.spyToken': '四葉谷のスパイの証',
   'container.chest': '宝箱',
   'container.barrel': '樽',
 
@@ -191,4 +196,11 @@ export const JA_MESSAGES: MessageTable = {
   'dialogue.edwin.tellLost': '預かった情報、なくしちゃった。',
   'dialogue.edwin.rewrite':
     '大丈夫だ、もう一度書こう。すぐに国王のところへ持って行ってくれ。一刻を争うんだ、急いでくれ！',
+  'dialogue.martha.ask': 'あなた、誰？どうして井戸から出てきたの？',
+  'dialogue.martha.tellEnvoy':
+    '村長！井戸の中に王国の使者が閉じ込められてるんだ。早く助けてあげて！',
+  'dialogue.martha.tellPrisoner':
+    '村長！井戸の中に人が閉じ込められてるんだ。早く助けてあげて！',
+  'dialogue.martha.confession':
+    'なるほど、バレちゃったのね！私は敵国のスパイよ。王国の使者が情報を持ってこっそり逃げようとしたから、捕まえて閉じ込めてやったの。あなたも知ってしまったからには、ここに残ってあの人の相手でもしてもらうわ！',
 };

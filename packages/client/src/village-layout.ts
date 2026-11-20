@@ -24,11 +24,20 @@
 import {
   CAVE_CONTAINER_FILES,
   CAVE_PLACEMENTS,
+  VILLAGERS,
   VILLAGE_PLACEMENTS,
 } from '@clovervale/shared';
-import type { CaveContainerFiles, Placement } from '@clovervale/shared';
+import type {
+  CaveContainerFiles,
+  Placement,
+  Villager,
+} from '@clovervale/shared';
 
-import { LYING_ITEM_FILES, classifyModel } from './model-catalogue.ts';
+import {
+  LYING_ITEM_FILES,
+  LYING_PITCHFORK_FILE,
+  classifyModel,
+} from './model-catalogue.ts';
 
 export type { Placement } from '@clovervale/shared';
 
@@ -58,7 +67,8 @@ function findSpareSpots(index: number): Spot[] {
 
 /**
  * The file names of the models that stand elsewhere than in the village:
- * those of the cave and of what stands in it, and those of the items.
+ * those of the cave and of what stands in it, those of the items, and
+ * that of Martha's pitchfork as it lies wherever she has dropped it.
  */
 const ELSEWHERE_FILES: ReadonlySet<string> = new Set<string>([
   ...CAVE_PLACEMENTS.map((placement: Placement) => placement.file),
@@ -66,7 +76,18 @@ const ELSEWHERE_FILES: ReadonlySet<string> = new Set<string>([
     ({ closed, open }: CaveContainerFiles) => [closed, open],
   ),
   ...Object.values(LYING_ITEM_FILES),
+  LYING_PITCHFORK_FILE,
 ]);
+
+/**
+ * The file names of the models of the villagers who fight as monsters,
+ * who stand wherever the server has them, as the monsters do.
+ */
+const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
+  VILLAGERS.filter(
+    (villager: Villager) => villager.fighter !== undefined,
+  ).map((villager: Villager) => villager.file),
+);
 
 /**
  * Arranges the models into a village.
@@ -75,11 +96,11 @@ const ELSEWHERE_FILES: ReadonlySet<string> = new Set<string>([
  * and the cottages, the weapon shop and the house of the village chief, in
  * its open yard with the old well, stand around the plaza, each facing
  * it.  Nancy the villager is by the fountain, as is the healing stele,
- * Emma the smith works at the anvil by the forge of the weapon shop, and
- * Martha the village chief stands on the porch of her house.  The village
- * sign stands by the gate, and the spawn stones of the monster are a little
- * way outside.  The characters and the monster have no place of their own,
- * as they stand wherever the server has them, and neither has Toby, who
+ * and Emma the smith works at the anvil by the forge of the weapon shop.
+ * The village sign stands by the gate, and the spawn stones of the monster
+ * are a little way outside.  The characters and the monster have no place
+ * of their own, as they stand wherever the server has them, and neither
+ * has Martha the village chief, who fights as a monster, nor Toby, who
  * runs about between the cottage and the gate.  The models of the cave,
  * and of what stands in it, stand in the cave, not in the village, and the
  * models of the items lie wherever the items do.  Any other prop the
@@ -89,16 +110,19 @@ const ELSEWHERE_FILES: ReadonlySet<string> = new Set<string>([
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.
  * @returns {Placement[]} Where each model stands.  A model can stand in
- *   several places, and a character, the monster, an NPC without a place
- *   of its own or a file the game does not use stands nowhere.
+ *   several places, and a character, the monster, a villager who fights
+ *   as a monster, an NPC without a place of its own or a file the game
+ *   does not use stands nowhere.
  */
 export function layoutVillage(files: readonly string[]): Placement[] {
   const placements: Placement[] = [];
   let spareCount = 0;
   for (const file of files) {
-    const placed: Placement[] = VILLAGE_PLACEMENTS.filter(
-      (placement: Placement) => placement.file === file,
-    );
+    const placed: Placement[] = FIGHTER_FILES.has(file)
+      ? []
+      : VILLAGE_PLACEMENTS.filter(
+          (placement: Placement) => placement.file === file,
+        );
     const isElsewhere: boolean = ELSEWHERE_FILES.has(file);
     if (
       placed.length === 0 &&

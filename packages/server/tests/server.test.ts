@@ -400,6 +400,10 @@ describe('the game server', () => {
         kind: 'village-dog',
         health: MONSTER_KINDS['village-dog'].health,
       }),
+      expect.objectContaining({
+        kind: 'martha',
+        health: MONSTER_KINDS.martha.health,
+      }),
     ]);
     const other: TimedSnapshot = await second.receiveSnapshotWhere(
       () => true,

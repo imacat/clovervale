@@ -33,7 +33,11 @@ import {
 import type { Object3D } from 'three';
 
 import { locateVillager } from '@clovervale/shared';
-import type { Villager, VillagerId } from '@clovervale/shared';
+import type {
+  MonsterState,
+  Villager,
+  VillagerId,
+} from '@clovervale/shared';
 
 import { findLanguage } from './language.ts';
 import type { LanguageCode } from './language.ts';
@@ -280,6 +284,9 @@ export function measureSpeechDuration(line: string): number {
  *   as it stands in its map, or `null` if it has no model.
  * @param {number} step - The number of the step, which may fall between
  *   two steps.
+ * @param {readonly MonsterState[]} [monsters] - The monsters of its map,
+ *   as they are shown, which tell where a villager who fights as a monster
+ *   stands, none by default.
  * @returns {Vector3} The point above where the villager stands at the
  *   height of the top of its model, or at a usual height without one.
  */
@@ -287,8 +294,9 @@ export function findHeadTop(
   villager: Villager,
   root: Object3D | null,
   step: number,
+  monsters: readonly MonsterState[] = [],
 ): Vector3 {
-  const { x, z } = locateVillager(villager, step);
+  const { x, z } = locateVillager(villager, step, monsters);
   const top: number =
     root === null ? NaN : new Box3().setFromObject(root).max.y;
   return new Vector3(x, Number.isFinite(top) ? top : DEFAULT_HEAD_TOP, z);

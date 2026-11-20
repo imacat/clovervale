@@ -94,6 +94,50 @@ describe('chooseClip', () => {
   });
 });
 
+describe('chooseClip for a model that holds a weapon', () => {
+  /** The clips of Martha, who stands and walks on her guard when armed. */
+  const MARTHA_CLIPS: readonly string[] = [
+    'Idle',
+    'IdleArmed',
+    'Walk',
+    'WalkArmed',
+    'Attack',
+    'Sit',
+  ];
+
+  it('plays the armed clip of an action, as the action is played', () => {
+    expect(chooseClip('Walk', MARTHA_CLIPS, true)).toEqual({
+      name: 'WalkArmed',
+      playback: 'loop',
+    });
+  });
+
+  it('plays the clip of an action without an armed one', () => {
+    expect(chooseClip('Attack', MARTHA_CLIPS, true)).toEqual({
+      name: 'Attack',
+      playback: 'hold',
+    });
+    expect(chooseClip('Sit', MARTHA_CLIPS, true)).toEqual({
+      name: 'Sit',
+      playback: 'hold',
+    });
+  });
+
+  it('plays the unarmed clip of an unarmed model', () => {
+    expect(chooseClip('Idle', MARTHA_CLIPS)).toEqual({
+      name: 'Idle',
+      playback: 'loop',
+    });
+  });
+
+  it('idles armed for an action it has no clip for', () => {
+    expect(chooseClip('Die', MARTHA_CLIPS, true)).toEqual({
+      name: 'IdleArmed',
+      playback: 'loop',
+    });
+  });
+});
+
 describe('chooseStandingClip', () => {
   it('loops the work of a model that has a clip for it', () => {
     expect(chooseStandingClip(['Idle', 'Work'])).toEqual({

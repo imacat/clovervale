@@ -23,7 +23,12 @@
  */
 
 import { TALK_STEPS, findVillager } from '@clovervale/shared';
-import type { MapId, PlayerMotion, Villager } from '@clovervale/shared';
+import type {
+  MapId,
+  MonsterState,
+  PlayerMotion,
+  Villager,
+} from '@clovervale/shared';
 
 /** What notices each talk of the player of the page once. */
 export class TalkWatch {
@@ -40,6 +45,9 @@ export class TalkWatch {
    *   is after.
    * @param {MapId} [map] - The map the player is in, the village by
    *   default.
+   * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+   *   as the server last told, which tell where a villager who fights as a
+   *   monster stands and whether it is free, none by default.
    * @returns {Villager | null} The villager the player talks to, where it
    *   was at the step the talk started, if the motion shows a talk not
    *   noticed before, or `null` otherwise.
@@ -48,6 +56,7 @@ export class TalkWatch {
     motion: PlayerMotion | null,
     step: number,
     map: MapId = 'village',
+    monsters: readonly MonsterState[] = [],
   ): Villager | null {
     if (motion?.action !== 'Talk' || motion.actionCount === this.#talkCount) {
       return null;
@@ -57,6 +66,7 @@ export class TalkWatch {
       motion,
       step - (TALK_STEPS - motion.actionSteps),
       map,
+      monsters,
     );
   }
 }

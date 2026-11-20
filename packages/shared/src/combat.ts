@@ -35,7 +35,7 @@ export const PLAYER_HEALTH = 100;
 export const DEATH_DURATION = 2;
 
 /** The kinds of monster there are. */
-export const MONSTER_KIND_IDS = ['village-dog', 'cave-dog'] as const;
+export const MONSTER_KIND_IDS = ['village-dog', 'cave-dog', 'martha'] as const;
 
 /** A kind of monster. */
 export type MonsterKindId = (typeof MONSTER_KIND_IDS)[number];
@@ -69,16 +69,21 @@ export interface MonsterKind {
   readonly leashRange: number;
   /**
    * How long after it dies the monster comes back to life at its home, in
-   * seconds.
+   * seconds, or, for Martha, who never dies, how long she sits on the
+   * ground once beaten before she gets up.
    */
   readonly respawnDelay: number;
 }
 
 /**
  * The numbers of each kind of monster: the wild dog of the village, which
- * a player can get away from, and the tougher wild dogs of the cave, which
+ * a player can get away from, the tougher wild dogs of the cave, which
  * bite more often, and give up only well away from their homes, so most
- * of the cave is within their chase.
+ * of the cave is within their chase, and Martha, the village chief, who is
+ * the enemy spy, and fights with a pitchfork at the pace of the dogs, never
+ * wandering from her porch, and giving up well short of the fountain, so
+ * that her yard and its well are hers, and the plaza is not.  Her bite is
+ * the thrust of her pitchfork.
  */
 export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
   'village-dog': {
@@ -102,6 +107,17 @@ export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
     noticeRange: 5,
     leashRange: 12,
     respawnDelay: 300,
+  },
+  martha: {
+    health: 100,
+    biteDamage: 20,
+    biteInterval: 1.5,
+    chaseSpeed: 1.3,
+    wanderSpeed: 0.8,
+    wanderRadius: 0,
+    noticeRange: 5,
+    leashRange: 7,
+    respawnDelay: 10,
   },
 };
 

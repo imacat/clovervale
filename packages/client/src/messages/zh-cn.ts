@@ -106,11 +106,15 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'monsterAction.Walk': '行走',
   'monsterAction.Attack': '攻击',
   'monsterAction.Die': '死亡',
+  'monsterAction.Sit': '坐下',
   'monsterMode.idle': '待机',
   'monsterMode.wander': '游荡',
   'monsterMode.chase': '追击',
   'monsterMode.return': '返回',
   'monsterMode.dead': '死亡',
+  'monsterMode.approach': '接近',
+  'monsterMode.talk': '交谈',
+  'monsterMode.sit': '坐地',
   'monster.gone': '不在',
   'slash.hit': '命中',
   'slash.missed': '未命中',
@@ -152,6 +156,7 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'item.leatherArmour': '皮甲',
   'item.healingPotion': '治疗药水',
   'item.clovervaleMessage': '四叶谷的情报',
+  'item.spyToken': '四叶谷间谍的信物',
   'container.chest': '宝箱',
   'container.barrel': '木桶',
 
@@ -183,4 +188,9 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'dialogue.edwin.tellLost': '我把情报弄丢了。',
   'dialogue.edwin.rewrite':
     '没事，我再写一份。你赶紧拿去给国王。这事十万火急，快去！',
+  'dialogue.martha.ask': '你是谁？怎么会从井里出来？',
+  'dialogue.martha.tellEnvoy': '村长！井里关着王国的使者，快去救他！',
+  'dialogue.martha.tellPrisoner': '村长！井里关着人，快去救他！',
+  'dialogue.martha.confession':
+    '原来如此，让你发现了！我是敌国的间谍。王国的使者带着情报想偷偷溜走，被我逮了个正着，我就把他关起来了。现在你也知道了，那就留下来陪他吧！',
 };

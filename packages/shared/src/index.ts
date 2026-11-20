@@ -196,6 +196,7 @@ export {
   decodeServerMessage,
   encodeClientMessage,
   encodeServerMessage,
+  isFighting,
 } from './protocol.ts';
 export type {
   ClientMessage,
@@ -258,6 +259,7 @@ export {
   VILLAGE_BOUNDARY,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
+  PITCHFORK_STAND,
   WELL_STAND,
   findPlacement,
 } from './village-layout.ts';
@@ -269,7 +271,12 @@ export {
   SPAWN_YAW,
   findSpawnPoint,
 } from './village.ts';
-export { VILLAGERS, isVillagerId, locateVillager } from './villagers.ts';
+export {
+  VILLAGERS,
+  isVillagerFree,
+  isVillagerId,
+  locateVillager,
+} from './villagers.ts';
 export { MAP_IDS, findMapTerrain, isMapId } from './world-map.ts';
 export type { MapId } from './world-map.ts';
 export type { Villager, VillagerId } from './villagers.ts';

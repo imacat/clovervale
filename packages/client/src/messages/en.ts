@@ -108,11 +108,15 @@ export const EN_MESSAGES = {
   'monsterAction.Walk': 'Walk',
   'monsterAction.Attack': 'Attack',
   'monsterAction.Die': 'Die',
+  'monsterAction.Sit': 'Sit',
   'monsterMode.idle': 'idle',
   'monsterMode.wander': 'wander',
   'monsterMode.chase': 'chase',
   'monsterMode.return': 'return',
   'monsterMode.dead': 'dead',
+  'monsterMode.approach': 'approach',
+  'monsterMode.talk': 'talk',
+  'monsterMode.sit': 'sit',
   'monster.gone': 'gone',
   'slash.hit': 'hit',
   'slash.missed': 'missed',
@@ -155,6 +159,7 @@ export const EN_MESSAGES = {
   'item.leatherArmour': 'leather armour',
   'item.healingPotion': 'healing potion',
   'item.clovervaleMessage': 'message from Clovervale',
+  'item.spyToken': 'token of the Clovervale spy',
   'container.chest': 'chest',
   'container.barrel': 'barrel',
 
@@ -194,6 +199,14 @@ export const EN_MESSAGES = {
   'dialogue.edwin.tellLost': 'I lost the message.',
   'dialogue.edwin.rewrite':
     "Don't worry, I'll write it out again. Take it to the king, now. It's urgent. Hurry!",
+  'dialogue.martha.ask':
+    'Who are you? And what were you doing coming out of the well?',
+  'dialogue.martha.tellEnvoy':
+    "Chief! There's an envoy of the kingdom locked up down the well. Quick, go and save him!",
+  'dialogue.martha.tellPrisoner':
+    "Chief! There's someone locked up down the well. Quick, go and save them!",
+  'dialogue.martha.confession':
+    "So you've worked it out! I'm a spy for the enemy. That envoy of the kingdom tried to sneak off with what he'd found out, so I caught him and locked him up. Now you know too, so you can stay down there and keep him company!",
 } as const;
 
 /** A message of the page. */

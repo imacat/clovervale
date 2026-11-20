@@ -19,7 +19,8 @@
 
 /**
  * @module server/dialogue What the villagers with something to tell say to
- *   a player who talks to them, and what comes of it.
+ *   a player who talks to them, or whom they come up to, and what comes of
+ *   it.
  */
 
 import type { ItemKindId, VillagerId } from '@clovervale/shared';
@@ -38,6 +39,8 @@ export interface DialogueCondition {
   readonly carries?: ItemKindId;
   /** An item the player must not carry. */
   readonly lacks?: ItemKindId;
+  /** Another villager who must have told the player who it is. */
+  readonly knows?: VillagerId;
 }
 
 /** What comes of a line once it is said to a player. */
@@ -88,6 +91,12 @@ export interface DialogueScript {
    * with the first whose condition holds.
    */
   readonly openings: readonly string[];
+  /**
+   * The names of the nodes a dialogue the villager opens itself, on coming
+   * up to a player, can start with, in order: it starts with the first
+   * whose condition holds.  None if left out.
+   */
+  readonly approaches?: readonly string[];
 }
 
 /** What a player is, as far as a dialogue goes. */
@@ -146,6 +155,35 @@ const EDWIN_SCRIPT: DialogueScript = {
 };
 
 /**
+ * What Martha, the village chief, who is the enemy spy, says to a player
+ * she has come up to as it climbs out of her well: she asks who it is and
+ * why it has come out of the well; the player tells her of the envoy of
+ * the kingdom shut in down there, if Edwin has told it who he is, or else
+ * of somebody shut in down there; and she owns up to being the spy, and
+ * tells the player it is to stay down there too.  None of it is said
+ * when the player talks to her: she only chatters then.
+ */
+const MARTHA_SCRIPT: DialogueScript = {
+  nodes: {
+    askEnvoy: {
+      condition: { knows: 'edwin' },
+      line: 'dialogue.martha.ask',
+      replies: [{ text: 'dialogue.martha.tellEnvoy', next: 'confession' }],
+    },
+    ask: {
+      line: 'dialogue.martha.ask',
+      replies: [{ text: 'dialogue.martha.tellPrisoner', next: 'confession' }],
+    },
+    confession: {
+      line: 'dialogue.martha.confession',
+      replies: [],
+    },
+  },
+  openings: [],
+  approaches: ['askEnvoy', 'ask'],
+};
+
+/**
  * What the villagers with something to tell say, by villager.  A villager
  * without a script only chatters, which the peers word themselves.
  */
@@ -153,6 +191,7 @@ export const DIALOGUE_SCRIPTS: Readonly<
   Partial<Record<VillagerId, DialogueScript>>
 > = {
   edwin: EDWIN_SCRIPT,
+  martha: MARTHA_SCRIPT,
 };
 
 /**
@@ -198,6 +237,30 @@ export function findOpening(
 }
 
 /**
+ * Finds the line a dialogue a villager opens itself with a player, on
+ * coming up to it, starts with.
+ *
+ * @param {VillagerId} villager - The villager.
+ * @param {Listener} listener - The player.
+ * @returns {string | null} The name of the node of the first of the
+ *   approaches of the script of the villager whose condition holds of the
+ *   player, or `null` if none does, or if the villager has no script.
+ */
+export function findApproach(
+  villager: VillagerId,
+  listener: Listener,
+): string | null {
+  const approaches: readonly string[] =
+    DIALOGUE_SCRIPTS[villager]?.approaches ?? [];
+  return (
+    approaches.find((name: string) => {
+      const node: DialogueNode | null = findDialogueNode(villager, name);
+      return node !== null && meetsCondition(node, villager, listener);
+    }) ?? null
+  );
+}
+
+/**
  * Tells whether the condition of a line holds of a player.
  *
  * @param {DialogueNode} node - The line.
@@ -210,11 +273,12 @@ export function meetsCondition(
   villager: VillagerId,
   listener: Listener,
 ): boolean {
-  const { isAcquainted, carries, lacks } = node.condition ?? {};
+  const { isAcquainted, carries, lacks, knows } = node.condition ?? {};
   return (
     (isAcquainted === undefined ||
       listener.acquaintances.includes(villager) === isAcquainted) &&
     (carries === undefined || listener.inventory.includes(carries)) &&
-    (lacks === undefined || !listener.inventory.includes(lacks))
+    (lacks === undefined || !listener.inventory.includes(lacks)) &&
+    (knows === undefined || listener.acquaintances.includes(knows))
   );
 }

@@ -61,27 +61,45 @@ const PLAYBACKS: Readonly<Record<ActionState | MonsterAction, Playback>> = {
   Talk: 'loop',
   Attack: 'hold',
   Die: 'hold',
+  Sit: 'hold',
 };
+
+/**
+ * The ending of the name of the clip of a model doing something while it
+ * holds a weapon, as Martha does her pitchfork, which it plays rather than
+ * the clip of doing it without, if it has one.
+ */
+export const ARMED_CLIP_SUFFIX = 'Armed';
 
 /**
  * Chooses the clip a model plays for what it is doing.
  *
- * A model that lacks the clip for it idles instead.
+ * A model that holds a weapon plays the clip for doing it armed, if it has
+ * one, named after the action with {@link ARMED_CLIP_SUFFIX}, and played as
+ * the action is.  A model that lacks the clip for it idles instead, armed
+ * if it holds a weapon and has a clip for that.
  *
  * @param {ActionState | MonsterAction} action - What the model is doing.
  * @param {readonly string[]} clipNames - The names of the clips of the model.
+ * @param {boolean} [isArmed] - Whether the model holds a weapon, which it
+ *   does not by default.
  * @returns {ClipPlan | null} The clip to play, or `null` if the model has
  *   nothing to play.
  */
 export function chooseClip(
   action: ActionState | MonsterAction,
   clipNames: readonly string[],
+  isArmed = false,
 ): ClipPlan | null {
+  const armed = `${action}${ARMED_CLIP_SUFFIX}`;
+  if (isArmed && clipNames.includes(armed)) {
+    return { name: armed, playback: PLAYBACKS[action] };
+  }
   if (clipNames.includes(action)) {
     return { name: action, playback: PLAYBACKS[action] };
   }
-  if (clipNames.includes(IDLE_CLIP)) {
-    return { name: IDLE_CLIP, playback: PLAYBACKS.Idle };
+  if (action !== IDLE_CLIP) {
+    return chooseClip(IDLE_CLIP, clipNames, isArmed);
   }
   return null;
 }

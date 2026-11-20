@@ -100,7 +100,7 @@ export function chooseSpaceInput(
   if (findPassage(motion, step, map, monsters) !== null) {
     return { type: 'travel' };
   }
-  return findPickTarget(motion, step, world, map) !== null
+  return findPickTarget(motion, step, world, map, monsters) !== null
     ? { type: 'pick' }
     : { type: 'interact' };
 }

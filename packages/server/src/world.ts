@@ -46,6 +46,7 @@ import {
   findVillager,
   hasRoom,
   interpolatePlaced,
+  isFighting,
   isWithinStrike,
 } from '@clovervale/shared';
 import type {
@@ -71,10 +72,23 @@ import type {
   WorldItems,
 } from '@clovervale/shared';
 
-import { findDialogueNode, findOpening, meetsCondition } from './dialogue.ts';
+import {
+  findApproach,
+  findDialogueNode,
+  findOpening,
+  meetsCondition,
+} from './dialogue.ts';
 import type { DialogueNode, DialogueReply } from './dialogue.ts';
+import { MARTHA_STRIKE_REACH, Martha } from './martha.ts';
+import type { MarthaDeed, Suspect } from './martha.ts';
 import { MONSTER_ATTACK_REACH, MONSTER_SPAWNS, Monster } from './monster.ts';
 import type { MonsterSpawn, Quarry } from './monster.ts';
+
+/**
+ * The item Martha's foe gets once it has beaten her, which keeps her from
+ * coming up to it as it climbs out of her well.
+ */
+export const SPY_TOKEN: ItemKindId = 'spy-token';
 
 /**
  * The furthest back on the clock of the server a slash can be judged on
@@ -136,6 +150,11 @@ export interface Player {
   dialogue: Dialogue | null;
   /** The number of lines said to the player in its dialogues so far. */
   turnCount: number;
+  /**
+   * Whether Martha hunts the player, as it has got away from her in a
+   * fight, or died in one, and has not beaten her since.
+   */
+  isHunted: boolean;
   /**
    * What the villagers have said to the player in passing since it was last
    * taken, in the order they said it.
@@ -217,26 +236,37 @@ interface Slasher {
   readonly viewTime: number | undefined;
 }
 
+/** A monster that strikes at the players, or Martha. */
+interface Striker {
+  /** The identifier of the monster. */
+  readonly id: number;
+  /** The health a strike of the monster that hits takes from a player. */
+  readonly biteDamage: number;
+}
+
 /**
  * Tells of a monster as the events do.
  *
- * @param {Monster} monster - The monster.
+ * @param {Striker} monster - The monster, or Martha.
  * @returns {EntityRef} Who the monster is.
  */
-function referToMonster(monster: Monster): EntityRef {
+function referToMonster(monster: Striker): EntityRef {
   return { kind: 'monster', id: monster.id };
 }
 
 /**
  * A world the server simulates, in one map: the village, with its wild
- * dog and its clover, or a cave, with its two wild dogs, its chests and
- * barrels full, and nobody else in it but its player and the prisoner
- * behind the bars of his cell, who has something to tell the player.
+ * dog, its clover and Martha, the village chief, who is the enemy spy, or
+ * a cave, with its two wild dogs, its chests and barrels full, and nobody
+ * else in it but its player and the prisoner behind the bars of his cell,
+ * who has something to tell the player.
  */
 export class World {
   readonly #map: MapId;
   readonly #players = new Map<number, Player>();
   readonly #monsters: readonly Monster[];
+  /** Martha, in the village, or `null` elsewhere. */
+  readonly #martha: Martha | null;
   #lastId = 0;
   #stepCount: number;
   #departures: Departure[] = [];
@@ -257,8 +287,9 @@ export class World {
   /**
    * Starts a world without players and with nothing on the ground, with
    * every monster idling at its home at full health: in the village, with
-   * a four-leaved clover in every patch of clover, and in a cave, with
-   * every chest and barrel holding what it holds.
+   * a four-leaved clover in every patch of clover, and with Martha idling
+   * on her porch at full health, numbered among the monsters after them,
+   * and in a cave, with every chest and barrel holding what it holds.
    *
    * @param {() => number} [drawRandom] - Gives a random number from 0 up to
    *   but not including 1, for what the monsters do.  `Math.random` by
@@ -276,6 +307,8 @@ export class World {
       (spawn: MonsterSpawn, index: number) =>
         new Monster(index + 1, map, spawn, drawRandom),
     );
+    this.#martha =
+      map === 'village' ? new Martha(this.#monsters.length + 1) : null;
     this.#regrowSteps =
       map === 'village' ? CLOVER_PATCHES.map(() => 0) : [];
   }
@@ -297,7 +330,7 @@ export class World {
    * lowest-numbered one if several tie), and a place on the plaza clear of
    * the obstacles and, while there is room, of everyone else, where it
    * idles facing the fountain, at full health, carrying nothing, in no
-   * dialogue, and told by no villager who it is.
+   * dialogue, told by no villager who it is, and not hunted by Martha.
    *
    * @param {readonly number[]} [elsewhere] - The appearances of the players
    *   in other worlds, none by default.
@@ -317,6 +350,7 @@ export class World {
       acquaintances: [],
       dialogue: null,
       turnCount: 0,
+      isHunted: false,
       speeches: [],
     };
     this.#players.set(player.id, player);
@@ -334,9 +368,12 @@ export class World {
 
   /**
    * Brings a player from another world into this one, with its health,
-   * what it carries, the villagers who have told it who they are, and the
-   * inputs of its peer still to come.  It stops whatever it was doing and
-   * idles where it arrives, but still wants to move the way it did.
+   * what it carries, the villagers who have told it who they are, whether
+   * Martha hunts it, and the inputs of its peer still to come.  It stops
+   * whatever it was doing and idles where it arrives, but still wants to
+   * move the way it did.  A player that arrives in the village somewhere
+   * in particular, as one that climbs out of the well does, and that does
+   * not carry {@link SPY_TOKEN}, Martha is to deal with.
    *
    * @param {Player} player - The player, as it left the other world.
    * @param {Pose | null} arrival - Where it is to stand, and which way it
@@ -350,6 +387,9 @@ export class World {
       player.mover.relocate(arrival, arrival.yaw);
     }
     this.#players.set(player.id, player);
+    if (arrival !== null && !player.inventory.includes(SPY_TOKEN)) {
+      this.#martha?.summon(player.id);
+    }
   }
 
   /**
@@ -428,6 +468,14 @@ export class World {
    * travels.  The monsters of a cave whose player is in a dialogue do
    * nothing at all at the step.
    *
+   * In the village, Martha then goes about her business, as {@link Martha}
+   * tells, with every player of the village as it stands after the step:
+   * a player she comes up to is in a dialogue with her from then on, which
+   * starts with the first of her approaches, as {@link findApproach} finds,
+   * and a player she loses in a fight, or that leaves the village while
+   * she fights it, she hunts from then on.  The village is never held
+   * still for a dialogue.
+   *
    * Then the strikes are judged.  A slash that starts at the step hits
    * every monster that is alive, and was alive, in front of the player and
    * within reach in the world at the time the slash names, each by where
@@ -439,12 +487,19 @@ export class World {
    * step and no later than the step: an earlier or later time counts as the
    * nearest of these, and a slash that names no time is judged on the world
    * as it is after the step.  The player itself stands where it does after
-   * the step.  How each slash was judged is kept for its player: as a hit
-   * if it hit any monster.  A strike of a living monster hits every player
-   * alive in front of it and within its reach after the step, for the bite
-   * damage of its kind; a player killed by one strike is not hit by
-   * another.  The players cannot hurt each other.  Every hit is an event,
-   * which names the monster by its identifier.
+   * the step.  Martha is hit so only by the player she fights, and only
+   * while she chases it, and is hit by nobody else; a slash that leaves
+   * her no health beats her, which gives the player {@link SPY_TOKEN}, laid
+   * at its feet as if put down if its inventory has no room for it, and
+   * has her hunt it no more.  How each slash was judged is kept for its
+   * player: as a hit if it hit any monster.  A strike of a living monster
+   * hits every player alive in front of it and within its reach after the
+   * step, for the bite damage of its kind, but a thrust of Martha's pitchfork
+   * hits only the player she fights, within {@link MARTHA_STRIKE_REACH},
+   * and only while she has not been beaten at the step; a player killed
+   * by one strike is not hit by another.  The players cannot hurt each
+   * other.  Every hit is an event, which names the monster by its
+   * identifier.
    *
    * A player with no health left dies, and lies where it fell for
    * {@link DEATH_DURATION} seconds, neither moving, turning, interacting,
@@ -464,13 +519,13 @@ export class World {
    *
    * A pick that comes into effect at the step, while the player could start
    * to interact, gets the player what {@link findPickTarget} finds within
-   * its reach, from where it stands after the step, if its inventory has
-   * room for it.  A four-leaved clover so picked from a patch is gone from
-   * the patch until it regrows {@link CLOVER_REGROW_DURATION} seconds
-   * later, an item picked up from the ground is gone from there, and a
-   * chest or a barrel in the cave so looted holds nothing from then on.  A
-   * container that holds nothing gives nothing, whether or not the
-   * inventory has room.  The
+   * its reach, from where it stands after the step, with the monsters as
+   * they were before the step, if its inventory has room for it.  A
+   * four-leaved clover so picked from a patch is gone from the patch until
+   * it regrows {@link CLOVER_REGROW_DURATION} seconds later, an item picked
+   * up from the ground is gone from there, and a chest or a barrel in the
+   * cave so looted holds nothing from then on.  A container that holds
+   * nothing gives nothing, whether or not the inventory has room.  The
    * picks are judged player by player, in the order the players came in, so
    * that of two players who pick the same thing at the same step, the one
    * who came in first gets it, and the other gets nothing.  A put-down that
@@ -479,16 +534,16 @@ export class World {
    * after it closing up, and lays it on the ground where the player stands
    * after the step, where it lies for {@link GROUND_ITEM_DURATION} seconds
    * and is then gone.  A put-down that names an empty slot, or one the
-   * inventory does not have, does nothing.  A use that comes into effect
-   * at the step, while the player is alive and lacks health, uses up the
-   * item in the slot it names, if that item can be used: the item is taken
-   * out of the inventory, the items after it closing up, and the player
-   * gets back the health of its kind at once, or as much as it lacks of
-   * its full health if that is less, which is an event.  A use that names
-   * an empty slot, one the inventory does not have, or an item that cannot
-   * be used, or that comes at full health, does nothing, and the item stays
-   * where it is.  Picking, putting down and using neither move
-   * the player nor change what it is doing.
+   * inventory does not have, does nothing.  A use that comes into effect at
+   * the step, while the player is alive and lacks health, uses up the item
+   * in the slot it names, if that item can be used: the item is taken out
+   * of the inventory, the items after it closing up, and the player gets
+   * back the health of its kind at once, or as much as it lacks of its full
+   * health if that is less, which is an event.  A use that names an empty
+   * slot, one the inventory does not have, or an item that cannot be used,
+   * or that comes at full health, does nothing, and the item stays where it
+   * is.  Picking, putting down and using neither move the player nor change
+   * what it is doing.
    */
   step(): void {
     this.#stepCount++;
@@ -510,7 +565,7 @@ export class World {
       const after: PlayerMotion = player.mover.motion;
       for (const input of applied) {
         if (input.type === 'pick' && canInteract(before) && !isHeld) {
-          this.#pickItem(player);
+          this.#pickItem(player, monsters);
         }
         if (input.type === 'drop' && before.action !== 'Die') {
           this.#dropItem(player, input.slot);
@@ -542,7 +597,7 @@ export class World {
         this.#healPlayer(player, FOUNTAIN_HEALING);
       }
       if (isStarted && after.action === 'Talk') {
-        this.#startTalk(player, after);
+        this.#startTalk(player, after, monsters);
       }
       if (isStarted && after.action === 'Slash') {
         const interaction: StampedInput | undefined = applied.findLast(
@@ -567,6 +622,9 @@ export class World {
       }
     }
     for (const player of leaving) {
+      if (this.#martha?.isFightingWith(player.id) === true) {
+        player.isHunted = true;
+      }
       this.#players.delete(player.id);
     }
     const living: Player[] = [...this.#players.values()].filter(
@@ -585,11 +643,28 @@ export class World {
     const strikers: Monster[] = isPaused
       ? []
       : this.#monsters.filter((monster: Monster) => monster.step(quarries));
+    const deeds: MarthaDeed[] =
+      this.#martha?.step(this.#listSuspects()) ?? [];
+    for (const deed of deeds) {
+      const player: Player | undefined = this.#players.get(deed.player);
+      if (player === undefined) {
+        continue;
+      }
+      if (deed.type === 'greet') {
+        const approach: string | null = findApproach('martha', player);
+        if (approach !== null) {
+          this.#reachNode(player, 'martha', approach);
+        }
+      } else if (deed.type === 'hunt') {
+        player.isHunted = true;
+      }
+    }
     for (const slasher of slashers) {
       if (!leaving.has(slasher.player)) {
         this.#judgeSlash(slasher);
       }
     }
+    this.#thrustPitchfork(deeds);
     for (const monster of strikers) {
       if (!monster.isAlive) {
         continue;
@@ -770,13 +845,19 @@ export class World {
    * Lists every monster in the world that is to be seen as it is now.
    *
    * @returns {MonsterState[]} The monsters, which leave out a monster that
-   *   has been dead for so long that it is gone.
+   *   has been dead for so long that it is gone, and Martha last, in the
+   *   village.
    */
   listMonsters(): MonsterState[] {
-    return this.#monsters.flatMap((monster: Monster) => {
-      const state: MonsterState | null = monster.state;
-      return state === null ? [] : [state];
-    });
+    const monsters: MonsterState[] = this.#monsters.flatMap(
+      (monster: Monster) => {
+        const state: MonsterState | null = monster.state;
+        return state === null ? [] : [state];
+      },
+    );
+    return this.#martha === null
+      ? monsters
+      : [...monsters, this.#martha.state];
   }
 
   /**
@@ -804,10 +885,21 @@ export class World {
         isWithinStrike(player.mover.motion, target, SLASH_REACH)
       );
     });
+    const martha: Martha | null = this.#martha;
+    const seenMartha: MonsterState | undefined =
+      martha === null
+        ? undefined
+        : seen.find((state: MonsterState) => state.id === martha.id);
+    const isMarthaHit: boolean =
+      martha !== null &&
+      martha.isFightingWith(player.id) &&
+      seenMartha !== undefined &&
+      isFighting(seenMartha) &&
+      isWithinStrike(player.mover.motion, seenMartha, SLASH_REACH);
     player.lastSlash = {
       step: this.#stepCount,
       rewind: now - time,
-      isHit: hit.length > 0,
+      isHit: hit.length > 0 || isMarthaHit,
     };
     for (const monster of hit) {
       const damage: number = monster.takeHit(SLASH_DAMAGE, player.id);
@@ -817,6 +909,60 @@ export class World {
         damage,
       );
     }
+    if (martha !== null && isMarthaHit) {
+      const damage: number = martha.takeHit(SLASH_DAMAGE, player.id);
+      this.#recordHit(
+        { kind: 'player', id: player.id },
+        referToMonster(martha),
+        damage,
+      );
+      if (martha.state.mode === 'sit') {
+        player.isHunted = false;
+        this.#giveItem(player, SPY_TOKEN);
+      }
+    }
+  }
+
+  /**
+   * Has the thrusts of Martha's pitchfork that strike at this step hit the
+   * player she fights, if it is alive, in front of her and within reach.
+   *
+   * @param {readonly MarthaDeed[]} deeds - What she does at the step.
+   */
+  #thrustPitchfork(deeds: readonly MarthaDeed[]): void {
+    const martha: Martha | null = this.#martha;
+    if (martha === null) {
+      return;
+    }
+    for (const deed of deeds) {
+      const player: Player | undefined = this.#players.get(deed.player);
+      if (
+        deed.type === 'strike' &&
+        player?.deathSteps === 0 &&
+        martha.isFightingWith(player.id) &&
+        isWithinStrike(martha.pose, player.mover.motion, MARTHA_STRIKE_REACH)
+      ) {
+        this.#hurtPlayer(player, martha);
+      }
+    }
+  }
+
+  /**
+   * Lists the players of the world as Martha sees them.
+   *
+   * @returns {Suspect[]} The players, in the order they came in.
+   */
+  #listSuspects(): Suspect[] {
+    return [...this.#players.values()].map(
+      (player: Player): Suspect => ({
+        id: player.id,
+        x: player.mover.motion.x,
+        z: player.mover.motion.z,
+        isAlive: player.deathSteps === 0,
+        isHunted: player.isHunted,
+        isInDialogue: player.dialogue !== null,
+      }),
+    );
   }
 
   /**
@@ -860,8 +1006,10 @@ export class World {
    * room for it.
    *
    * @param {Player} player - The player.
+   * @param {readonly MonsterState[]} monsters - The monsters as they were
+   *   before the step.
    */
-  #pickItem(player: Player): void {
+  #pickItem(player: Player, monsters: readonly MonsterState[]): void {
     if (!hasRoom(player.inventory)) {
       return;
     }
@@ -870,6 +1018,7 @@ export class World {
       this.#stepCount,
       this.describeItems(),
       this.#map,
+      monsters,
     );
     const kind: ItemKindId | null = target?.kind ?? null;
     if (target === null || kind === null) {
@@ -933,12 +1082,19 @@ export class World {
    * @param {Player} player - The player.
    * @param {PlayerMotion} pose - Where the player stands, and which way it
    *   faces, as its talk starts.
+   * @param {readonly MonsterState[]} monsters - The monsters as they were
+   *   before the step.
    */
-  #startTalk(player: Player, pose: PlayerMotion): void {
+  #startTalk(
+    player: Player,
+    pose: PlayerMotion,
+    monsters: readonly MonsterState[],
+  ): void {
     const villager: Villager | null = findVillager(
       pose,
       this.#stepCount,
       this.#map,
+      monsters,
     );
     if (villager === null) {
       return;
@@ -1021,13 +1177,23 @@ export class World {
     if (introduces && !player.acquaintances.includes(villager)) {
       player.acquaintances.push(villager);
     }
-    if (gives === undefined) {
-      return;
+    if (gives !== undefined) {
+      this.#giveItem(player, gives);
     }
+  }
+
+  /**
+   * Gives a player an item, which is laid at its feet as if put down if
+   * its inventory has no room for it.
+   *
+   * @param {Player} player - The player.
+   * @param {ItemKindId} kind - The kind of the item.
+   */
+  #giveItem(player: Player, kind: ItemKindId): void {
     if (hasRoom(player.inventory)) {
-      player.inventory.push(gives);
+      player.inventory.push(kind);
     } else {
-      this.#layItem(player, gives);
+      this.#layItem(player, kind);
     }
   }
 
@@ -1052,12 +1218,13 @@ export class World {
   }
 
   /**
-   * Has a monster bite a player, which dies if that leaves it no health.
+   * Has a monster bite a player, or Martha thrust at it, which dies if that
+   * leaves it no health.
    *
    * @param {Player} player - The player.
-   * @param {Monster} monster - The monster.
+   * @param {Striker} monster - The monster, or Martha.
    */
-  #hurtPlayer(player: Player, monster: Monster): void {
+  #hurtPlayer(player: Player, monster: Striker): void {
     const lost: number = Math.min(monster.biteDamage, player.health);
     player.health -= lost;
     this.#recordHit(

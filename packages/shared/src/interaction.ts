@@ -29,6 +29,7 @@ import { SLASH_REACH, isWithinStrike } from './combat.ts';
 import { CLOVER_KIND, CLOVER_PATCHES } from './items.ts';
 import type { GroundItem, ItemKindId, WorldItems } from './items.ts';
 import type { GroundVector } from './movement.ts';
+import { isFighting } from './protocol.ts';
 import type { MonsterState } from './protocol.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
 import type { Pose } from './terrain.ts';
@@ -38,7 +39,7 @@ import {
   findPlacement,
 } from './village-layout.ts';
 import { PLAZA_CENTRE } from './village.ts';
-import { VILLAGERS, locateVillager } from './villagers.ts';
+import { VILLAGERS, isVillagerFree, locateVillager } from './villagers.ts';
 import type { Villager } from './villagers.ts';
 import type { MapId } from './world-map.ts';
 
@@ -128,9 +129,13 @@ interface Interactable {
    * Finds where its centre stands at a step of the simulation.
    *
    * @param {number} step - The number of the step.
+   * @param {readonly MonsterState[]} monsters - The monsters in the map.
    * @returns {GroundVector} Where its centre stands.
    */
-  readonly locate: (step: number) => GroundVector;
+  readonly locate: (
+    step: number,
+    monsters: readonly MonsterState[],
+  ) => GroundVector;
   /**
    * The farthest a player can stand from its centre to interact with it,
    * from centre to centre, in metres.
@@ -200,7 +205,10 @@ function listTalkables(map: MapId): Interactable[] {
   return VILLAGERS.filter((villager: Villager) => villager.map === map).map(
     (villager: Villager): Interactable => ({
       interaction: 'Talk',
-      locate: (step: number): GroundVector => locateVillager(villager, step),
+      locate: (
+        step: number,
+        monsters: readonly MonsterState[],
+      ): GroundVector => locateVillager(villager, step, monsters),
       reach: TALK_REACH,
       villager,
     }),
@@ -235,8 +243,11 @@ const INTERACTABLES: Readonly<Record<MapId, readonly Interactable[]>> = {
  * its rim, and a villager if the player stands within {@link TALK_REACH} of
  * where the villager is at the step.  The fountain is in the village, and
  * each villager in its own map: the prisoner, the only one in the cave,
- * is talked to through the bars of his cell.  A slash at a living monster
- * the slash would hit, as {@link isWithinStrike} tells with
+ * is talked to through the bars of his cell.  Martha, who fights as a
+ * monster, stands where she is among the monsters, if she is among them,
+ * and cannot be talked to while she is not free, as {@link isVillagerFree}
+ * tells.  A slash at a monster in a fight, as {@link isFighting} tells,
+ * that the slash would hit, as {@link isWithinStrike} tells with
  * {@link SLASH_REACH}, comes before talking to a villager.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
@@ -245,8 +256,8 @@ const INTERACTABLES: Readonly<Record<MapId, readonly Interactable[]>> = {
  * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
  *   none by default.
  * @returns {Interaction} A drink, if the fountain is within reach, or else
- *   a talk, if a villager is and no living monster is within the reach of a
- *   slash, or else a slash.
+ *   a talk, if a villager is and no monster in a fight is within the reach
+ *   of a slash, or else a slash.
  */
 export function findInteraction(
   pose: Pose,
@@ -287,9 +298,9 @@ export function findVillager(
  * @param {MapId} map - The map the player is in.
  * @param {readonly MonsterState[]} monsters - The monsters in the map.
  * @returns {Interactable | undefined} The first of the
- *   {@link INTERACTABLES} of the map within reach of the player, if any,
- *   unless it is a villager and a living monster is within the reach of a
- *   slash of the player.
+ *   {@link INTERACTABLES} of the map within reach of the player, leaving out
+ *   a villager who is not free, if any, unless it is a villager and a
+ *   monster in a fight is within the reach of a slash of the player.
  */
 function findInteractable(
   pose: Pose,
@@ -299,7 +310,13 @@ function findInteractable(
 ): Interactable | undefined {
   const found: Interactable | undefined = INTERACTABLES[map].find(
     (interactable: Interactable) =>
-      isWithinReach(pose, interactable.locate(step), interactable.reach),
+      (interactable.villager === undefined ||
+        isVillagerFree(interactable.villager, monsters)) &&
+      isWithinReach(
+        pose,
+        interactable.locate(step, monsters),
+        interactable.reach,
+      ),
   );
   return found?.villager !== undefined && isMonsterWithinSlash(pose, monsters)
     ? undefined
@@ -307,13 +324,13 @@ function findInteractable(
 }
 
 /**
- * Tells whether a slash of a player would hit a living monster.
+ * Tells whether a player would slash at a monster in a fight.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {readonly MonsterState[]} monsters - The monsters in the map.
- * @returns {boolean} Whether a living monster is within
- *   {@link SLASH_REACH} in front of the player, as {@link isWithinStrike}
- *   tells.
+ * @returns {boolean} Whether a monster in a fight, as {@link isFighting}
+ *   tells, is within {@link SLASH_REACH} in front of the player, as
+ *   {@link isWithinStrike} tells.
  */
 function isMonsterWithinSlash(
   pose: Pose,
@@ -321,7 +338,7 @@ function isMonsterWithinSlash(
 ): boolean {
   return monsters.some(
     (monster: MonsterState) =>
-      monster.mode !== 'dead' && isWithinStrike(pose, monster, SLASH_REACH),
+      isFighting(monster) && isWithinStrike(pose, monster, SLASH_REACH),
   );
 }
 
@@ -372,15 +389,17 @@ function isWithinReach(
  * {@link LOOT_REACH} from the player and no more than
  * {@link INTERACTION_HALF_ANGLE} to either side of the way the player faces.
  * Drinking from the fountain and talking to a villager come first, as
- * {@link findInteraction} tells: a player that can do either picks
- * nothing.  Whether the player has room for what it picks is not for this
- * to tell.  The patches of clover are in the village alone, and the chests
- * and the barrels in the cave alone.
+ * {@link findInteraction} tells, with the monsters there as they are: a
+ * player that can do either picks nothing.  Whether the player has room for
+ * what it picks is not for this to tell.  The patches of clover are in the
+ * village alone, and the chests and the barrels in the cave alone.
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
  * @param {WorldItems} world - What there is to pick in the map.
  * @param {MapId} [map] - The map the player is in, the village by default.
+ * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+ *   none by default.
  * @returns {PickTarget | null} The nearest of the clovers, the items and
  *   the containers that hold something within reach, a clover before an
  *   item as near and an item before a container; or else the nearest of
@@ -393,8 +412,9 @@ export function findPickTarget(
   step: number,
   world: WorldItems,
   map: MapId = 'village',
+  monsters: readonly MonsterState[] = [],
 ): PickTarget | null {
-  if (findInteraction(pose, step, map) !== 'Slash') {
+  if (findInteraction(pose, step, map, monsters) !== 'Slash') {
     return null;
   }
   const looted = new Set<number>(world.looted ?? []);
@@ -474,7 +494,7 @@ export function findPickTarget(
  * whichever way the player faces, and the rope in the cave within
  * {@link ROPE_REACH}.  Drinking from the fountain and talking to a
  * villager come first, as {@link findInteraction} tells, and so does a
- * slash at a living monster the slash would hit, as
+ * slash at a monster in a fight that the slash would hit, as
  * {@link isWithinStrike} tells with {@link SLASH_REACH}: a player that can
  * do any of these takes no way.
  *
@@ -492,7 +512,7 @@ export function findPassage(
   monsters: readonly MonsterState[],
 ): Passage | null {
   if (
-    findInteraction(pose, step, map) !== 'Slash' ||
+    findInteraction(pose, step, map, monsters) !== 'Slash' ||
     isMonsterWithinSlash(pose, monsters)
   ) {
     return null;

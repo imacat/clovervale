@@ -121,6 +121,30 @@ describe('chooseSpaceInput', () => {
       type: 'interact',
     });
   });
+
+  it('picks before the porch of Martha while she is away', () => {
+    const porch: GroundVector = findPlacement('npc-martha.glb');
+    const martha: MonsterState = {
+      id: 2,
+      kind: 'martha',
+      x: porch.x,
+      z: porch.z + 5,
+      yaw: 0,
+      action: 'Idle',
+      actionCount: 0,
+      health: 100,
+      mode: 'chase',
+    };
+    const item = { id: 7, kind: 'clover' as const, x: porch.x, z: porch.z };
+    const world = { clovers: [], items: [item] };
+    const pose: PlayerMotion = createMotion(
+      { x: porch.x, z: porch.z + 0.8 },
+      180,
+    );
+    expect(chooseSpaceInput(pose, 0, world, 'village', [martha])).toEqual({
+      type: 'pick',
+    });
+  });
 });
 
 describe('chooseSpaceInput by the ways into and out of the cave', () => {

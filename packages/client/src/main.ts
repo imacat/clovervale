@@ -53,6 +53,7 @@ import type {
   InputProgress,
   ItemKindId,
   MapId,
+  MonsterKindId,
   MonsterState,
   PlayerInput,
   PlayerMotion,
@@ -112,6 +113,8 @@ import type { LanguageCode, LanguageStorage } from './language.ts';
 import { createMapFade } from './map-fade.ts';
 import {
   FOUNTAIN_FILE,
+  LYING_PITCHFORK_FILE,
+  PITCHFORK_FILE,
   REQUIRED_MODEL_FILES,
   WEAPON_SHOP_FILE,
   planModels,
@@ -181,12 +184,22 @@ const TOBY_VILLAGER: Villager | undefined = VILLAGERS.find(
 const EDWIN_VILLAGER: Villager | undefined = VILLAGERS.find(
   (villager: Villager) => villager.file === CAVE_EDWIN_FILE,
 );
+/** Martha, the village chief, who fights as a monster, as a villager. */
+const MARTHA_VILLAGER: Villager | undefined = VILLAGERS.find(
+  (villager: Villager) => villager.fighter !== undefined,
+);
 
 /**
  * The least angle the camera looks down at the player of the page in the
  * cave, in degrees, steep enough to look over the walls of the passage.
  */
 const CAVE_LEAST_ELEVATION = 40;
+
+/**
+ * How far to her right Martha's pitchfork lies from her middle once she
+ * has dropped it, beaten, in metres.
+ */
+const DROPPED_PITCHFORK_ASIDE = 0.6;
 
 /** The colour of the number of a hit on the player of the page. */
 const OWN_HIT_COLOUR = '#ff4b3e';
@@ -253,6 +266,16 @@ let forgeGlow: ForgeGlow | null = null;
 let windowGlow: WindowGlow | null = null;
 /** Toby, once his model has been loaded. */
 let toby: TobyFigure | null = null;
+/**
+ * Martha's pitchfork as it leans against the wall of her house, once its
+ * model has been loaded.
+ */
+let wallPitchfork: Object3D | null = null;
+/**
+ * Martha's pitchfork as it lies on the ground where she has dropped it,
+ * once its model has been loaded.
+ */
+let lyingPitchfork: Object3D | null = null;
 
 /** The time of day of the world, as the page reckons it. */
 const dayClock = new DayClock();
@@ -266,6 +289,8 @@ let shownTime: number = NOON;
 const timeline = new SnapshotTimeline();
 /** The events from the server that are yet to be shown. */
 const schedule = new EventSchedule();
+/** The monsters as they were last shown. */
+let shownMonsters: readonly MonsterState[] = [];
 /** The latest hits that have been shown, the latest last. */
 const shownHits: HitEvent[] = [];
 /** The latest heals that have been shown, the latest last. */
@@ -319,8 +344,8 @@ cave.scene.add(caveOutlines);
 const figures = new PlayerFigures(stage, (appearance: number) =>
   createPlayerFigure(models, appearance),
 );
-const monsterFigures = new MonsterFigures(stage, () =>
-  createMonsterFigure(models),
+const monsterFigures = new MonsterFigures(stage, (kind: MonsterKindId) =>
+  createMonsterFigure(models, kind),
 );
 const markers = new HitMarkers(stage);
 const speech = new SpeechBubble(stage, translator);
@@ -362,6 +387,7 @@ const viewport: Viewport = showScene(
 Object.defineProperty(window, 'clovervale', {
   value: {
     describeCamera: () => viewport.getFocus(),
+    describeHeading: () => viewport.getHeading(),
     describeMap: () => shownMap,
     describeFigures: () => figures.describeFigures(),
     describeMonsters: () => monsterFigures.describeMonsters(),
@@ -374,6 +400,10 @@ Object.defineProperty(window, 'clovervale', {
     describeSpeech: () => speech.describe(),
     describeDialogue: () => dialogueView.describe(),
     describeToby: () => toby?.describe() ?? null,
+    describePitchfork: () => ({
+      isOnWall: wallPitchfork?.visible ?? null,
+      isOnGround: lyingPitchfork?.visible ?? null,
+    }),
     describeTimeOfDay: () => ({
       world: dayClock.read(performance.now()),
       shown: shownTime,
@@ -412,6 +442,19 @@ async function showModels(): Promise<void> {
   if (child !== null) {
     scene.add(child.root);
     toby = new TobyFigure(child.root, child.clips);
+  }
+  wallPitchfork =
+    models.find((model: LoadedModel) => model.file === PITCHFORK_FILE)
+      ?.root ?? null;
+  lyingPitchfork =
+    models.find((model: LoadedModel) => model.file === LYING_PITCHFORK_FILE)
+      ?.root ?? null;
+  if (lyingPitchfork !== null) {
+    lyingPitchfork.visible = false;
+    lyingPitchfork.traverse((node: Object3D) => {
+      node.castShadow = true;
+    });
+    scene.add(lyingPitchfork);
   }
   const fountain: LoadedModel | undefined = models.find(
     (model: LoadedModel) => model.file === FOUNTAIN_FILE,
@@ -566,6 +609,8 @@ function showEvents(view: PlayersView): void {
       const colour: string =
         target.id === ownId ? OWN_HIT_COLOUR : PLAYER_HIT_COLOUR;
       markers.show(shown, text, colour);
+    } else if ('kind' in shown && shown.kind === 'martha') {
+      markers.show(shown, text, MONSTER_HIT_COLOUR);
     } else {
       markers.show(shown, text, MONSTER_HIT_COLOUR, MONSTER_HIT_HEIGHT);
     }
@@ -602,7 +647,9 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * he is when the others are shown otherwise.  Once the player of the page
  * starts to talk to a villager that chatters, as predicted, what the villager
  * says is shown above its head, and follows the head of Toby as he goes on and
- * squats.  The prompt is hidden while the player is in a dialogue.
+ * squats, and that of Martha as she goes about.  Martha's pitchfork is shown
+ * where it is, as {@link showPitchfork} tells.  The prompt is hidden while the
+ * player is in a dialogue.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -635,6 +682,8 @@ function showPlayers(): void {
   }
   figures.showPlayers(view.players);
   monsterFigures.showMonsters(view.monsters);
+  shownMonsters = view.monsters;
+  showPitchfork(view.monsters);
   showEvents(view);
   panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
   panel.showPrediction(describePrediction(translator, prediction));
@@ -674,6 +723,7 @@ function showPlayers(): void {
     predicted,
     prediction?.step ?? 0,
     shownMap,
+    monsters,
   );
   // A villager with something to tell says what the server tells it to.
   if (
@@ -685,6 +735,9 @@ function showPlayers(): void {
   if (TOBY_VILLAGER !== undefined && shownStep !== null) {
     speech.follow(TOBY_VILLAGER, findShownHead(TOBY_VILLAGER, shownStep));
   }
+  if (MARTHA_VILLAGER !== undefined) {
+    speech.follow(MARTHA_VILLAGER, findShownHead(MARTHA_VILLAGER, 0));
+  }
   const followedId: number | null = panel.camera.followedId ?? ownId;
   const followed: PlayerState | undefined = view.players.find(
     (player: PlayerState) => player.id === followedId,
@@ -695,7 +748,40 @@ function showPlayers(): void {
 }
 
 /**
- * Finds the top of the head of a villager as it is shown.
+ * Shows Martha's pitchfork where it is when she does not hold it: on the
+ * ground at her right, lying the way she faces, while she sits beaten,
+ * and against the wall of her house otherwise.
+ *
+ * @param {readonly MonsterState[]} monsters - The monsters as they are
+ *   shown.
+ */
+function showPitchfork(monsters: readonly MonsterState[]): void {
+  const martha: MonsterState | undefined = monsters.find(
+    (monster: MonsterState) => monster.kind === 'martha',
+  );
+  const isArmed: boolean = martha?.isArmed === true;
+  const isDropped: boolean = martha?.mode === 'sit' && !isArmed;
+  if (wallPitchfork !== null) {
+    wallPitchfork.visible = !isArmed && !isDropped;
+  }
+  if (lyingPitchfork === null) {
+    return;
+  }
+  lyingPitchfork.visible = martha !== undefined && isDropped;
+  if (martha !== undefined && isDropped) {
+    const yaw: number = (martha.yaw * Math.PI) / 180;
+    lyingPitchfork.position.set(
+      martha.x - Math.cos(yaw) * DROPPED_PITCHFORK_ASIDE,
+      0,
+      martha.z + Math.sin(yaw) * DROPPED_PITCHFORK_ASIDE,
+    );
+    lyingPitchfork.rotation.y = yaw;
+  }
+}
+
+/**
+ * Finds the top of the head of a villager as it is shown, and of a
+ * villager who fights as a monster where the monsters are shown.
  *
  * @param {Villager} villager - The villager.
  * @param {number} step - The step of the server the villager is shown at,
@@ -711,7 +797,7 @@ function findShownHead(villager: Villager, step: number): Vector3 {
   const model: LoadedModel | undefined = models.find(
     (candidate: LoadedModel) => candidate.file === villager.file,
   );
-  return findHeadTop(villager, model?.root ?? null, step);
+  return findHeadTop(villager, model?.root ?? null, step, shownMonsters);
 }
 
 /**
@@ -928,6 +1014,7 @@ function leaveMap(): void {
   markers.clear();
   speech.clear();
   monsterFigures.showMonsters([]);
+  shownMonsters = [];
   worldItems = null;
   itemFigures.show(null);
 }

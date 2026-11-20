@@ -23,7 +23,9 @@
  */
 
 import { CAVE_EDWIN_FILE, CAVE_PLACEMENTS } from './cave.ts';
+import type { MonsterKindId } from './combat.ts';
 import type { GroundVector } from './movement.ts';
+import type { MonsterState } from './protocol.ts';
 import { TOBY_FILE, findTobyPose } from './toby.ts';
 import { findPlacement } from './village-layout.ts';
 import type { Placement } from './village-layout.ts';
@@ -46,16 +48,28 @@ export interface Villager {
   readonly file: string;
   /** The map the villager is in. */
   readonly map: MapId;
+  /**
+   * The kind of monster the villager fights as, if it ever fights, whose
+   * state among the monsters of its map tells where it stands and whether
+   * it is free to be talked to.
+   */
+  readonly fighter?: MonsterKindId;
 }
 
 /**
  * The villagers a player can talk to: those of the village, and the
- * prisoner in the north cell of the cave.
+ * prisoner in the north cell of the cave.  Martha, the village chief, is
+ * the enemy spy, and fights as a monster.
  */
 export const VILLAGERS: readonly Villager[] = [
   { id: 'nancy', file: 'npc-nancy.glb', map: 'village' },
   { id: 'emma', file: 'npc-emma.glb', map: 'village' },
-  { id: 'martha', file: 'npc-martha.glb', map: 'village' },
+  {
+    id: 'martha',
+    file: 'npc-martha.glb',
+    map: 'village',
+    fighter: 'martha',
+  },
   { id: 'toby', file: TOBY_FILE, map: 'village' },
   { id: 'edwin', file: CAVE_EDWIN_FILE, map: 'cave' },
 ];
@@ -71,20 +85,71 @@ export function isVillagerId(value: unknown): value is VillagerId {
 }
 
 /**
+ * Finds the state of a villager who fights as a monster among the
+ * monsters of its map.
+ *
+ * @param {Villager} villager - The villager.
+ * @param {readonly MonsterState[]} monsters - The monsters.
+ * @returns {MonsterState | undefined} Its state, if the villager fights
+ *   and is among them.
+ */
+function findFighterState(
+  villager: Villager,
+  monsters: readonly MonsterState[],
+): MonsterState | undefined {
+  return villager.fighter === undefined
+    ? undefined
+    : monsters.find(
+        (monster: MonsterState) => monster.kind === villager.fighter,
+      );
+}
+
+/**
+ * Tells whether a villager is free to be talked to, with the monsters of
+ * its map as they are.
+ *
+ * @param {Villager} villager - The villager.
+ * @param {readonly MonsterState[]} [monsters] - The monsters of its map,
+ *   none by default.
+ * @returns {boolean} Whether it is: always, but for a villager who fights
+ *   as a monster and is among them, who is free only while she idles or
+ *   walks back home, not while she walks up to a player, talks with one,
+ *   fights or sits on the ground.
+ */
+export function isVillagerFree(
+  villager: Villager,
+  monsters: readonly MonsterState[] = [],
+): boolean {
+  const mode: string | undefined = findFighterState(villager, monsters)?.mode;
+  return mode === undefined || mode === 'idle' || mode === 'return';
+}
+
+/**
  * Finds where a villager stands at a step of the simulation, in the frame
  * of its map.
  *
  * @param {Villager} villager - The villager.
  * @param {number} step - The number of the step, which may fall between
  *   two steps.
+ * @param {readonly MonsterState[]} [monsters] - The monsters of its map,
+ *   none by default.
  * @returns {GroundVector} Where Toby is at the step, as he runs his course,
- *   or where its map has a place for any other villager.
+ *   where a villager who fights as a monster is among the monsters, if she
+ *   is among them, or where its map has a place for any other villager.
  * @throws {Error} If its map has no place for the villager.
  */
 export function locateVillager(
   villager: Villager,
   step: number,
+  monsters: readonly MonsterState[] = [],
 ): GroundVector {
+  const fighter: MonsterState | undefined = findFighterState(
+    villager,
+    monsters,
+  );
+  if (fighter !== undefined) {
+    return { x: fighter.x, z: fighter.z };
+  }
   if (villager.file === TOBY_FILE) {
     const { x, z } = findTobyPose(step);
     return { x, z };

@@ -25,9 +25,15 @@ import { CircleGeometry, Fog, Mesh, MeshStandardMaterial, Scene } from 'three';
 import type { Object3D } from 'three';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
+import type { MonsterKindId } from '@clovervale/shared';
+
 import { Actor } from './actor.ts';
 import { Daylight } from './daylight.ts';
-import { CHARACTER_FILES, MONSTER_FILE } from './model-catalogue.ts';
+import {
+  CHARACTER_FILES,
+  MARTHA_FILE,
+  MONSTER_FILE,
+} from './model-catalogue.ts';
 import type { LoadedModel } from './model-loader.ts';
 import { createMountains } from './mountains.ts';
 import type { Figure } from './player-figures.ts';
@@ -248,17 +254,22 @@ export function createVillagerFigure(
 }
 
 /**
- * Makes a model to show a wild dog with, ready to stand in any map.
+ * Makes a model to show a monster with, ready to stand in any map: a wild
+ * dog, or Martha, the village chief, who fights as one.
  *
  * @param {readonly LoadedModel[]} models - The models.
- * @returns {Figure | null} A copy of the wild dog, or `null` if the wild
- *   dog is not among the models.
+ * @param {MonsterKindId} kind - The kind of the monster.
+ * @returns {Figure | null} A copy of the model of Martha, for her, or of
+ *   the wild dog, for a dog, or `null` if that model is not among the
+ *   models.
  */
 export function createMonsterFigure(
   models: readonly LoadedModel[],
+  kind: MonsterKindId,
 ): Figure | null {
+  const file: string = kind === 'martha' ? MARTHA_FILE : MONSTER_FILE;
   const model: LoadedModel | undefined = models.find(
-    (candidate: LoadedModel) => candidate.file === MONSTER_FILE,
+    (candidate: LoadedModel) => candidate.file === file,
   );
   if (model === undefined) {
     return null;

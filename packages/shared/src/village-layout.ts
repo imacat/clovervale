@@ -72,6 +72,25 @@ const CHIEF_HOUSE_SPOT: Spot = [9.75, -17, -60];
 const CHIEF_ON_PORCH: Spot = [1.1, 2.7, 7];
 
 /**
+ * Where Martha's pitchfork leans against the front wall of her house while
+ * she does not hold it, as the model of the house has it: the middle of
+ * the ground it stands over, on the floor of the porch near its right-hand
+ * end, as one faces the house, on the side of the well, just to the left
+ * of the box of flowers under the window beside it, with its butt on the
+ * floor a little out from the wall, and the tips of its tines against the
+ * wall, clear of the box of flowers and of the posts of the porch.
+ */
+const PITCHFORK_AGAINST_WALL: Spot = [1.9, 1.947, 0];
+
+/**
+ * Where Martha stands to take up her pitchfork from the wall, or to lean
+ * it there again, as the model of the house has it: on the porch, just in
+ * front of it, between her place on the porch and the post on the side of
+ * the well.
+ */
+const BEFORE_PITCHFORK: Spot = [1.9, 2.65, 0];
+
+/**
  * Where the old well stands in the yard of the chief's house, as the model
  * of the house has it: beside the house on the side of the weapon shop, a
  * little forward of its front wall, in sight of the porch.
@@ -165,6 +184,7 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
   ],
   'prop-chief-house.glb': [CHIEF_HOUSE_SPOT],
   'npc-martha.glb': [placeSpot(CHIEF_HOUSE_SPOT, CHIEF_ON_PORCH)],
+  'prop-pitchfork.glb': [placeSpot(CHIEF_HOUSE_SPOT, PITCHFORK_AGAINST_WALL)],
   'prop-old-well.glb': [placeSpot(CHIEF_HOUSE_SPOT, WELL_IN_YARD)],
   'prop-yard-wall.glb': YARD_WALL_ON_HOUSE.map((spot: Spot) =>
     placeSpot(CHIEF_HOUSE_SPOT, spot),
@@ -277,6 +297,15 @@ export const WELL_STAND: Pose = (() => {
 })();
 
 /**
+ * Where Martha stands to take up her pitchfork from the front wall of her
+ * house, or to lean it there again: on the porch, just in front of it.
+ */
+export const PITCHFORK_STAND: GroundVector = (() => {
+  const [x, z] = placeSpot(CHIEF_HOUSE_SPOT, BEFORE_PITCHFORK);
+  return { x, z };
+})();
+
+/**
  * Makes a round footprint.
  *
  * @param {number} x - The centre along the X axis of the model.
@@ -322,7 +351,8 @@ export const FOUNTAIN_RIM_RADIUS = 1.6;
 /**
  * The ground each model takes up where nobody can walk, as the model has it
  * before it is placed.  The clover, which anyone can step over, takes up
- * none.
+ * none, and neither does Martha, who goes about as the monsters do, and
+ * stands in nobody's way, as they do not.
  */
 const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   // The rim of the basin, inside the low step around it.
@@ -341,7 +371,6 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   ],
   'npc-nancy.glb': [makeCircle(0, 0, 0.35)],
   'npc-emma.glb': [makeCircle(0, 0, 0.3)],
-  'npc-martha.glb': [makeCircle(0, 0, 0.35)],
   // The five standing stones, and not the burrow they stand round.
   'prop-spawn-stones.glb': Array.from({ length: 5 }, (_, index: number) => {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));

@@ -341,6 +341,31 @@ const CLIP_DURATIONS: Readonly<
   static: {},
 };
 /**
+ * The shortest and the longest each clip of Martha, the village chief, may
+ * last, in seconds: she fights as a monster, walking, standing and walking
+ * on her guard with her pitchfork, thrusting it as long as an attack of a
+ * monster lasts, and sitting down on the ground once beaten, which she
+ * does not do as a monster dies.
+ */
+const CHIEF_CLIP_DURATIONS: Readonly<
+  Record<string, readonly [number, number]>
+> = {
+  Idle: [0, Infinity],
+  IdleArmed: [0, Infinity],
+  Walk: [0.9, 1.1],
+  WalkArmed: [0.9, 1.1],
+  Attack: [0, 0.6],
+  Sit: [0, 1.5],
+};
+/**
+ * The clip of Martha each of her clips that does not loop starts from, by
+ * name: she thrusts her pitchfork, and sits down beaten, from her guard.
+ */
+const CHIEF_CLIP_ORIGINS: Readonly<Record<string, string>> = {
+  Attack: 'IdleArmed',
+  Sit: 'IdleArmed',
+};
+/**
  * The shortest and the longest each clip a model may have besides those it
  * must have may last, in seconds, by kind.  An NPC may work.
  */
@@ -413,7 +438,9 @@ const CLOVER_AHEAD = 0.12;
 /** The clips that loop. */
 const LOOPING_CLIPS: readonly string[] = [
   'Idle',
+  'IdleArmed',
   'Walk',
+  'WalkArmed',
   'Work',
   'Run',
   'Pick',
@@ -1163,7 +1190,11 @@ async function checkModel(file: string): Promise<ModelResult> {
     );
     [skeletonHash, clipsHash] = hashRig(parsed);
     const required =
-      file === TOBY_FILE ? CHILD_CLIP_DURATIONS : CLIP_DURATIONS[kind];
+      file === TOBY_FILE
+        ? CHILD_CLIP_DURATIONS
+        : file === CHIEF_FILE
+          ? CHIEF_CLIP_DURATIONS
+          : CLIP_DURATIONS[kind];
     const durations = { ...OPTIONAL_CLIP_DURATIONS[kind], ...required };
     const clipNames: string[] = [...measured.clips.keys()];
     check(
@@ -1211,16 +1242,22 @@ async function checkModel(file: string): Promise<ModelResult> {
           `${name} does not end on the first ${to} frame`,
         );
       } else {
+        const origin: string =
+          (file === CHIEF_FILE ? CHIEF_CLIP_ORIGINS[name] : undefined) ??
+          'Idle';
+        const originStart: readonly number[] =
+          measured.clips.get(origin)?.start ?? [];
         check(
-          clip.startFromIdle < TOLERANCE,
-          `${name} does not start from the first Idle frame`,
+          originStart.length > 0 &&
+            measureDifference(clip.start, originStart) < TOLERANCE,
+          `${name} does not start from the first ${origin} frame`,
         );
-      }
-      if (SETTLING_CLIPS.includes(name)) {
-        check(
-          clip.endFromIdle < TOLERANCE,
-          `${name} does not end on the first Idle frame`,
-        );
+        if (SETTLING_CLIPS.includes(name)) {
+          check(
+            measureDifference(clip.end, originStart) < TOLERANCE,
+            `${name} does not end on the first ${origin} frame`,
+          );
+        }
       }
       const treading: number = TREADING_SPEEDS[name]?.(clip.duration) ?? 0;
       for (const [foot, speed] of clip.footSpeeds) {

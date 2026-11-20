@@ -24,8 +24,8 @@
 
 import type { Object3D } from 'three';
 
-import { MONSTER_KINDS } from '@clovervale/shared';
-import type { MonsterState } from '@clovervale/shared';
+import { MONSTER_KINDS, isFighting } from '@clovervale/shared';
+import type { MonsterKindId, MonsterState } from '@clovervale/shared';
 
 import { Actor } from './actor.ts';
 import { HealthBar } from './health-bar.ts';
@@ -35,11 +35,18 @@ import type { Figure } from './player-figures.ts';
 const HEALTH_COLOUR = '#e0453a';
 
 /**
- * Makes the model to show a monster with.
+ * The name of the bone of the pitchfork in the hands of Martha, who holds
+ * it only while she is out to deal with a player.
+ */
+export const PITCHFORK_BONE = 'Pitchfork';
+
+/**
+ * Makes the model to show a monster of a kind with.
  *
+ * @param {MonsterKindId} kind - The kind of the monster.
  * @returns {Figure | null} The model, or `null` if there is none for now.
  */
-export type MonsterSource = () => Figure | null;
+export type MonsterSource = (kind: MonsterKindId) => Figure | null;
 
 /** A monster as it is shown. */
 export interface MonsterView {
@@ -55,6 +62,13 @@ export interface MonsterView {
   readonly clip: string | null;
   /** How much of the health bar of the monster is filled, from 0 to 1. */
   readonly health: number;
+  /** Whether the health bar of the monster is to be seen. */
+  readonly isBarShown: boolean;
+  /**
+   * Whether the monster holds a pitchfork, as Martha does while she is out
+   * to deal with a player, which is `false` for a monster that has none.
+   */
+  readonly isPitchforkShown: boolean;
 }
 
 /** A monster that is shown. */
@@ -65,8 +79,12 @@ interface ShownMonster {
   readonly actor: Actor;
   /** The health bar above the monster. */
   readonly bar: HealthBar;
+  /** The bone of the pitchfork in its hands, if it has one. */
+  readonly pitchfork: Object3D | null;
   /** The action count of the action the model is playing the clip of. */
   actionCount: number;
+  /** Whether the model plays its clip as holding a weapon. */
+  isArmed: boolean;
 }
 
 /** The monsters, shown exactly as they are told from moment to moment. */
@@ -94,8 +112,12 @@ export class MonsterFigures {
    * Each monster stands where its state tells, facing the way it tells, and
    * plays the clip of the action it tells, which starts over whenever the
    * action count of the monster changes, with a health bar above it that
-   * shows its health against the full health of its kind, which is hidden
-   * once it is dead.  A monster without a model to show it with is left out.
+   * shows its health against the full health of its kind, which is shown
+   * only while it is in a fight, as {@link isFighting} tells: hidden once
+   * it is dead, and for Martha, but while she fights.  Martha holds her
+   * pitchfork only while her state tells she does, and plays her clips as
+   * holding it then.  A monster without a model to show it with is left
+   * out.
    *
    * @param {readonly MonsterState[]} monsters - The monsters as they are to
    *   be shown.
@@ -119,10 +141,16 @@ export class MonsterFigures {
       shown.root.position.set(monster.x, 0, monster.z);
       shown.root.rotation.y = (monster.yaw * Math.PI) / 180;
       shown.bar.show(monster.health, MONSTER_KINDS[monster.kind].health);
-      shown.bar.isVisible = monster.mode !== 'dead';
-      if (shown.actionCount !== monster.actionCount) {
+      shown.bar.isVisible = isFighting(monster);
+      shown.pitchfork?.scale.setScalar(monster.isArmed === true ? 1 : 0);
+      const isArmed: boolean = monster.isArmed === true;
+      if (
+        shown.actionCount !== monster.actionCount ||
+        shown.isArmed !== isArmed
+      ) {
         shown.actionCount = monster.actionCount;
-        shown.actor.play(monster.action);
+        shown.isArmed = isArmed;
+        shown.actor.play(monster.action, isArmed);
       }
     }
   }
@@ -152,6 +180,9 @@ export class MonsterFigures {
       yaw: (shown.root.rotation.y * 180) / Math.PI,
       clip: shown.actor.clipName,
       health: shown.bar.fraction,
+      isBarShown: shown.bar.isVisible,
+      isPitchforkShown:
+        shown.pitchfork !== null && shown.pitchfork.scale.x > 0,
     }));
   }
 
@@ -163,7 +194,7 @@ export class MonsterFigures {
    *   is no model to show it with.
    */
   #addMonster(monster: MonsterState): ShownMonster | null {
-    const figure: Figure | null = this.#createFigure();
+    const figure: Figure | null = this.#createFigure(monster.kind);
     if (figure === null) {
       return null;
     }
@@ -171,9 +202,11 @@ export class MonsterFigures {
       root: figure.root,
       actor: new Actor(figure.root, figure.clips),
       bar: new HealthBar(figure.root, HEALTH_COLOUR),
+      pitchfork: figure.root.getObjectByName(PITCHFORK_BONE) ?? null,
       actionCount: monster.actionCount,
+      isArmed: monster.isArmed === true,
     };
-    shown.actor.play(monster.action);
+    shown.actor.play(monster.action, shown.isArmed);
     this.#parent.add(figure.root);
     this.#shown.set(monster.id, shown);
     return shown;

@@ -774,6 +774,7 @@ describe('what the realm has sent to each player', () => {
     ]);
     expect(snapshot?.monsters).toEqual([
       expect.objectContaining({ id: 1, kind: 'village-dog' }),
+      expect.objectContaining({ id: 2, kind: 'martha' }),
     ]);
     expect(snapshot?.clovers).toHaveLength(CLOVER_PATCHES.length);
     expect(snapshot?.step).toBe(realm.stepCount);

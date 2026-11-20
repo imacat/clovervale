@@ -51,6 +51,21 @@ export const CHARACTER_FILES: readonly string[] = Array.from(
 /** The file name of the monster, the wild dog. */
 export const MONSTER_FILE = 'wild-dog.glb';
 
+/** The file name of Martha, the village chief, who fights as a monster. */
+export const MARTHA_FILE = 'npc-martha.glb';
+
+/**
+ * The file name of Martha's pitchfork, as it leans against the wall of her
+ * house while she does not hold it.
+ */
+export const PITCHFORK_FILE = 'prop-pitchfork.glb';
+
+/**
+ * The file name of Martha's pitchfork as it lies on the ground beside her
+ * where she has dropped it, beaten.
+ */
+export const LYING_PITCHFORK_FILE = 'prop-pitchfork-lying.glb';
+
 /**
  * The file names of the models of the items drawn as they lie on the
  * ground, by their kinds, for every kind but the four-leaved clover.
@@ -62,6 +77,7 @@ export const LYING_ITEM_FILES: Readonly<
   'leather-armour': 'prop-item-leather-armour.glb',
   'healing-potion': 'prop-item-healing-potion.glb',
   'clovervale-message': 'prop-item-clovervale-message.glb',
+  'spy-token': 'prop-item-spy-token.glb',
 };
 
 /** The file name of the healing fountain. */
@@ -75,7 +91,7 @@ const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
   [
     ['npc-nancy.glb', 'npc'],
     ['npc-emma.glb', 'npc'],
-    ['npc-martha.glb', 'npc'],
+    [MARTHA_FILE, 'npc'],
     [TOBY_FILE, 'npc'],
     [CAVE_EDWIN_FILE, 'npc'],
     [MONSTER_FILE, 'monster'],

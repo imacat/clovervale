@@ -147,7 +147,13 @@ export function describeSpaceKey(
       passage.destination === 'cave' ? 'spaceKey.enter' : 'spaceKey.climb',
     );
   }
-  const target: PickTarget | null = findPickTarget(motion, step, world, map);
+  const target: PickTarget | null = findPickTarget(
+    motion,
+    step,
+    world,
+    map,
+    monsters,
+  );
   if (target === null) {
     return translator.translate('spaceKey.slash');
   }
@@ -225,7 +231,13 @@ export function describePrompt(
       passage.destination === 'cave' ? 'prompt.enter' : 'prompt.climb',
     );
   }
-  const target: PickTarget | null = findPickTarget(motion, step, world, map);
+  const target: PickTarget | null = findPickTarget(
+    motion,
+    step,
+    world,
+    map,
+    monsters,
+  );
   if (target === null) {
     return null;
   }

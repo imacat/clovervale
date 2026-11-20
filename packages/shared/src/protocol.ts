@@ -54,7 +54,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 24;
+export const PROTOCOL_VERSION = 25;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -95,11 +95,16 @@ export const MONSTER_MODES = [
   'chase',
   'return',
   'dead',
+  'approach',
+  'talk',
+  'sit',
 ] as const;
 
 /**
  * What a monster is up to: idling or wandering near its home, chasing a
- * player, walking back home after giving up, or lying dead.
+ * player, walking back home after giving up, or lying dead.  Martha, who
+ * fights as a monster, also walks up to a player, talks with it, and sits
+ * on the ground once beaten, and chases only the player she fights.
  */
 export type MonsterMode = (typeof MONSTER_MODES)[number];
 
@@ -126,6 +131,26 @@ export interface MonsterState {
   readonly health: number;
   /** What the monster is up to. */
   readonly mode: MonsterMode;
+  /**
+   * Whether Martha holds her pitchfork, rather than leaving it against the
+   * wall of her house, or on the ground beside her as she sits beaten,
+   * which is left out for every other monster.
+   */
+  readonly isArmed?: boolean;
+}
+
+/**
+ * Tells whether a monster is in a fight, which a slash can hit, and which
+ * a player slashes at rather than talks to a villager: a monster that is
+ * alive, or Martha only while she chases the player she fights.
+ *
+ * @param {MonsterState} monster - The monster.
+ * @returns {boolean} Whether it is.
+ */
+export function isFighting(monster: MonsterState): boolean {
+  return monster.kind === 'martha'
+    ? monster.mode === 'chase'
+    : monster.mode !== 'dead';
 }
 
 /** What can take part in a fight. */
@@ -599,6 +624,9 @@ export function decodeServerMessage(data: string): ServerMessage {
           actionCount: monster.actionCount,
           health: monster.health,
           mode: monster.mode,
+          ...(monster.isArmed === undefined
+            ? {}
+            : { isArmed: monster.isArmed }),
         })),
         own: {
           sequence,
@@ -889,7 +917,8 @@ function isMonsterState(value: unknown): value is MonsterState {
     MONSTER_ACTIONS.some((action: MonsterAction) => action === value.action) &&
     Number.isInteger(value.actionCount) &&
     isCount(value.health) &&
-    MONSTER_MODES.some((mode: MonsterMode) => mode === value.mode)
+    MONSTER_MODES.some((mode: MonsterMode) => mode === value.mode) &&
+    (value.isArmed === undefined || typeof value.isArmed === 'boolean')
   );
 }
 

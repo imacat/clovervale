@@ -53,6 +53,8 @@ import {
   NavigationGraph,
   VILLAGERS,
   WALK_SPEED,
+  PITCHFORK_STAND,
+  WELL_STAND,
   createInteractMessage,
   createMotion,
   createMoveMessage,
@@ -72,6 +74,7 @@ import type {
   ItemKindId,
   MonsterKind,
   MonsterState,
+  Placement,
   PlayerState,
   Pose,
   Villager,
@@ -952,6 +955,11 @@ describe('the monster in the world', () => {
         kind: 'village-dog',
         health: VILLAGE_DOG.health,
       }),
+      expect.objectContaining({
+        kind: 'martha',
+        health: MONSTER_KINDS.martha.health,
+        mode: 'idle',
+      }),
     ]);
   });
 
@@ -1032,7 +1040,10 @@ describe('a slash', () => {
     let hits = 0;
     for (
       let tries = 0;
-      tries < 20 && world.listMonsters().length > 0;
+      tries < 20 &&
+      world
+        .listMonsters()
+        .some((monster: MonsterState) => monster.kind === 'village-dog');
       tries++
     ) {
       const monster: MonsterState = findMonster(world);
@@ -1050,7 +1061,9 @@ describe('a slash', () => {
     }
     expect(hits).toBe(VILLAGE_DOG.health / SLASH_DAMAGE);
     stepTimes(world, 5 * SIMULATION_RATE);
-    expect(world.listMonsters()).toEqual([]);
+    expect(
+      world.listMonsters().map((monster: MonsterState) => monster.kind),
+    ).toEqual(['martha']);
   });
 });
 
@@ -1603,6 +1616,7 @@ function admitCarrier(
     acquaintances: [],
     dialogue: null,
     turnCount: 0,
+    isHunted: false,
     speeches: [],
   };
   world.admitPlayer(player, isInCave ? CAVE_LANDING : null);
@@ -1791,6 +1805,7 @@ describe('a world of the cave', () => {
       acquaintances: [],
       dialogue: null,
       turnCount: 0,
+      isHunted: false,
       speeches: [],
     };
     world.admitPlayer(player, CAVE_LANDING);
@@ -2404,5 +2419,339 @@ describe('a world of the cave', () => {
     steerPlayer(world, id, { x: 0, z: 0 });
     stepTimes(world, 10 * SIMULATION_RATE);
     expect(world.listMonsters()).not.toEqual(dogs);
+  });
+});
+
+describe('Martha in the village', () => {
+  /** The numbers of Martha. */
+  const MARTHA: MonsterKind = MONSTER_KINDS.martha;
+
+  /** The number of steps Martha sits on the ground once beaten. */
+  const SIT_STEPS: number = MARTHA.respawnDelay * SIMULATION_RATE;
+
+  /** Where Martha stands on her porch. */
+  const PORCH: Placement = findPlacement('npc-martha.glb');
+
+  /** The number of the latest player a test has had climb out. */
+  let lastClimber = 100;
+
+  /**
+   * Makes a village without its wild dog, so that nothing but Martha gets
+   * in the way of the players.
+   *
+   * @returns {World} The village.
+   */
+  function createVillage(): World {
+    return new World(createRandom(), { monsters: [] });
+  }
+
+  /**
+   * Has a player climb out of the well into a village.
+   *
+   * @param {World} world - The village.
+   * @param {readonly ItemKindId[]} [carried] - What the player carries,
+   *   nothing by default.
+   * @param {readonly Villager['id'][]} [known] - The villagers who have
+   *   told the player who they are, none by default.
+   * @returns {Player} The player.
+   */
+  function climbOut(
+    world: World,
+    carried: readonly ItemKindId[] = [],
+    known: readonly Villager['id'][] = [],
+  ): Player {
+    const player: Player = {
+      id: ++lastClimber,
+      appearance: 1,
+      mover: new AuthoritativePlayer(createMotion(CAVE_LANDING, 0)),
+      health: PLAYER_HEALTH,
+      deathSteps: 0,
+      lastSlash: null,
+      inventory: [...carried],
+      acquaintances: [...known],
+      dialogue: null,
+      turnCount: 0,
+      isHunted: false,
+      speeches: [],
+    };
+    world.admitPlayer(player, WELL_STAND);
+    return player;
+  }
+
+  /**
+   * Finds Martha in a world as she is now.
+   *
+   * @param {World} world - The village.
+   * @returns {MonsterState} Martha.
+   * @throws {Error} If she is not among the monsters.
+   */
+  function findMartha(world: World): MonsterState {
+    const martha: MonsterState | undefined = world
+      .listMonsters()
+      .find((monster: MonsterState) => monster.kind === 'martha');
+    if (martha === undefined) {
+      throw new Error('Martha is not to be seen.');
+    }
+    return martha;
+  }
+
+  /**
+   * Moves a world forward until Martha is up to something, or for a while.
+   *
+   * @param {World} world - The village.
+   * @param {MonsterState['mode']} mode - What she is to be up to.
+   * @param {number} [seconds] - The longest to wait, in seconds, 20 by
+   *   default.
+   */
+  function waitForMartha(
+    world: World,
+    mode: MonsterState['mode'],
+    seconds = 20,
+  ): void {
+    for (let step = 0; step < seconds * SIMULATION_RATE; step++) {
+      if (findMartha(world).mode === mode) {
+        return;
+      }
+      world.step();
+    }
+  }
+
+  /**
+   * Has a player choose a reply in its dialogue, and takes a step.
+   *
+   * @param {World} world - The village.
+   * @param {number} id - The identifier of the player.
+   */
+  function reply(world: World, id: number): void {
+    world.receiveInput(id, {
+      type: 'reply',
+      choice: 0,
+      sequence: ++lastSequence,
+      after: 0,
+    });
+    world.step();
+  }
+
+  /**
+   * Has a player climb out of the well, wait for Martha to come up to it,
+   * and talk with her to the end, so that she fights it.
+   *
+   * @param {World} world - The village.
+   * @returns {number} The identifier of the player.
+   */
+  function startFight(world: World): number {
+    const { id }: Player = climbOut(world);
+    waitForMartha(world, 'talk');
+    world.step();
+    reply(world, id);
+    reply(world, id);
+    world.step();
+    return id;
+  }
+
+  /**
+   * Has a player slash at Martha until she sits beaten on the ground, or
+   * for a while.
+   *
+   * @param {World} world - The village.
+   * @param {number} id - The identifier of the player.
+   */
+  function beatMartha(world: World, id: number): void {
+    for (let tries = 0; tries < 20; tries++) {
+      if (findMartha(world).mode === 'sit') {
+        return;
+      }
+      turnPlayer(world, id, findMartha(world));
+      interactPlayer(world, id);
+      stepTimes(world, SLASH_STEPS + 1);
+    }
+  }
+
+  /**
+   * Walks a player straight away from Martha's porch until it is beyond
+   * her leash, and stops it.
+   *
+   * @param {World} world - The village.
+   * @param {number} id - The identifier of the player.
+   */
+  function runAway(world: World, id: number): void {
+    walkPlayer(world, id, BEYOND_LEASH);
+  }
+
+  /** A point on the plaza beyond Martha's leash, and clear of the fountain. */
+  const BEYOND_LEASH: GroundVector = { x: 4, z: -6 };
+
+  it('walks up to a player who climbs out of the well, and talks with it', () => {
+    const world: World = createVillage();
+    expect(findMartha(world).isArmed).toBe(false);
+    const { id }: Player = climbOut(world);
+    world.step();
+    expect(findMartha(world).mode).toBe('approach');
+    waitForMartha(world, 'talk');
+    expect(
+      measureDistance(findMartha(world), findPlayer(world, id)),
+    ).toBeLessThanOrEqual(1.2);
+    expect(findMartha(world).isArmed).toBe(true);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'martha',
+      line: 'dialogue.martha.ask',
+      replies: ['dialogue.martha.tellPrisoner'],
+      turn: 1,
+    });
+  });
+
+  it('is told of the envoy by a player Edwin has told who he is', () => {
+    const world: World = createVillage();
+    const { id }: Player = climbOut(world, [], ['edwin']);
+    waitForMartha(world, 'talk');
+    expect(world.findDialogue(id)?.replies).toEqual([
+      'dialogue.martha.tellEnvoy',
+    ]);
+    reply(world, id);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'martha',
+      line: 'dialogue.martha.confession',
+      replies: [],
+      turn: 2,
+    });
+  });
+
+  it('takes up her pitchfork from the wall on her way, and leans it back', () => {
+    const world: World = createVillage();
+    climbOut(world);
+    let isAtWall = false;
+    for (let step = 0; step < 10 * SIMULATION_RATE; step++) {
+      world.step();
+      const martha: MonsterState = findMartha(world);
+      if (measureDistance(martha, PITCHFORK_STAND) === 0) {
+        isAtWall = true;
+        expect(martha.isArmed).toBe(true);
+        break;
+      }
+      expect(martha.isArmed).toBe(false);
+    }
+    expect(isAtWall).toBe(true);
+  });
+
+  it('lets a player that carries her token be', () => {
+    const world: World = createVillage();
+    climbOut(world, ['spy-token']);
+    stepTimes(world, 5 * SIMULATION_RATE);
+    expect(findMartha(world)).toMatchObject({
+      mode: 'idle',
+      x: PORCH.x,
+      z: PORCH.z,
+    });
+  });
+
+  it('fights the player once the dialogue is over, with her pitchfork', () => {
+    const world: World = createVillage();
+    const id: number = startFight(world);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(findMartha(world).mode).toBe('chase');
+    world.takeEvents();
+    stepTimes(world, 3 * SIMULATION_RATE);
+    const hits: GameEvent[] = world
+      .takeEvents()
+      .filter((event: GameEvent) => event.type === 'hit');
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0]).toMatchObject({
+      attacker: { kind: 'monster', id: findMartha(world).id },
+      target: { kind: 'player', id },
+      damage: MARTHA.biteDamage,
+    });
+  });
+
+  it('sits once beaten, gives the token, and gets up later', () => {
+    const world: World = createVillage();
+    const id: number = startFight(world);
+    beatMartha(world, id);
+    expect(findMartha(world)).toMatchObject({
+      mode: 'sit',
+      action: 'Sit',
+      isArmed: false,
+    });
+    expect(world.findInventory(id)).toEqual(['spy-token']);
+    stepTimes(world, SIT_STEPS);
+    expect(findMartha(world)).toMatchObject({
+      mode: 'return',
+      health: MARTHA.health,
+      isArmed: true,
+    });
+    waitForMartha(world, 'idle');
+    expect(findMartha(world)).toMatchObject({
+      x: PORCH.x,
+      z: PORCH.z,
+      isArmed: false,
+    });
+  });
+
+  it('is not hurt by anyone but the player she fights', () => {
+    const world: World = createVillage();
+    startFight(world);
+    const { id: other }: PlayerState = world.addPlayer();
+    walkPlayer(world, other, findMartha(world));
+    world.takeEvents();
+    for (let tries = 0; tries < 3; tries++) {
+      turnPlayer(world, other, findMartha(world));
+      interactPlayer(world, other);
+      stepTimes(world, SLASH_STEPS + 1);
+    }
+    const struck: GameEvent[] = world
+      .takeEvents()
+      .filter((event: GameEvent) => event.target.kind === 'monster');
+    expect(struck).toEqual([]);
+    expect(findMartha(world).health).toBe(MARTHA.health);
+  });
+
+  it('lets a player go that leaves before she comes up to it', () => {
+    const world: World = createVillage();
+    const { id }: Player = climbOut(world);
+    runAway(world, id);
+    waitForMartha(world, 'idle');
+    expect(findMartha(world)).toMatchObject({ x: PORCH.x, z: PORCH.z });
+    walkPlayer(world, id, WELL_STAND);
+    stepTimes(world, 2 * SIMULATION_RATE);
+    expect(findMartha(world).mode).toBe('idle');
+  });
+
+  it('hunts a player that gets away in a fight, without a word', () => {
+    const world: World = createVillage();
+    const id: number = startFight(world);
+    runAway(world, id);
+    waitForMartha(world, 'idle');
+    walkPlayer(world, id, WELL_STAND);
+    waitForMartha(world, 'chase', 3);
+    expect(findMartha(world).mode).toBe('chase');
+    expect(world.findDialogue(id)).toBeNull();
+  });
+
+  it('hunts a player she has killed, once it is back', () => {
+    const world: World = createVillage();
+    const id: number = startFight(world);
+    for (let step = 0; step < 30 * SIMULATION_RATE; step++) {
+      if (findPlayer(world, id).health === 0) {
+        break;
+      }
+      world.step();
+    }
+    expect(findPlayer(world, id).health).toBe(0);
+    stepTimes(world, DEATH_STEPS);
+    waitForMartha(world, 'idle');
+    walkPlayer(world, id, WELL_STAND);
+    waitForMartha(world, 'chase', 3);
+    expect(findMartha(world).mode).toBe('chase');
+  });
+
+  it('deals with the players who climb out one at a time, in turn', () => {
+    const world: World = createVillage();
+    const first: number = startFight(world);
+    const { id: second }: Player = climbOut(world);
+    stepTimes(world, SIMULATION_RATE);
+    expect(world.findDialogue(second)).toBeNull();
+    beatMartha(world, first);
+    stepTimes(world, SIT_STEPS);
+    waitForMartha(world, 'talk');
+    expect(world.findDialogue(second)?.villager).toBe('martha');
   });
 });

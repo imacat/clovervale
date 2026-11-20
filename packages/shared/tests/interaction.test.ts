@@ -246,6 +246,7 @@ describe('findVillager', () => {
       id: 'martha',
       file: 'npc-martha.glb',
       map: 'village',
+      fighter: 'martha',
     });
   });
 
@@ -256,6 +257,92 @@ describe('findVillager', () => {
   it('finds nobody by the fountain, facing it', () => {
     const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
     expect(findVillager({ x: PLAZA_CENTRE.x, z, yaw: 180 }, 0)).toBeNull();
+  });
+});
+
+describe('findVillager by Martha, who fights as a monster', () => {
+  /**
+   * Places Martha, as the monsters tell of her.
+   *
+   * @param {GroundVector} point - Where she stands.
+   * @param {MonsterState['mode']} mode - What she is up to.
+   * @returns {MonsterState} Martha.
+   */
+  function placeMartha(
+    point: GroundVector,
+    mode: MonsterState['mode'],
+  ): MonsterState {
+    return {
+      id: 2,
+      kind: 'martha',
+      x: point.x,
+      z: point.z,
+      yaw: 0,
+      action: 'Idle',
+      actionCount: 0,
+      health: 100,
+      mode,
+    };
+  }
+
+  it.each(['approach', 'talk', 'chase', 'sit'] as const)(
+    'finds nobody before her while she is up to %s',
+    (mode: MonsterState['mode']) => {
+      const martha: MonsterState = placeMartha(MARTHA, mode);
+      expect(findVillager(standBeforeMartha(), 0, 'village', [martha])).toBe(
+        null,
+      );
+      expect(
+        findInteraction(standBeforeMartha(), 0, 'village', [martha]),
+      ).toBe('Slash');
+    },
+  );
+
+  it('finds her where she is as she walks back home', () => {
+    const away: GroundVector = { x: MARTHA.x, z: MARTHA.z + 3 };
+    const martha: MonsterState = placeMartha(away, 'return');
+    const facing: Pose = { x: away.x, z: away.z - 1, yaw: 0 };
+    expect(findVillager(facing, 0, 'village', [martha])?.id).toBe('martha');
+    expect(findVillager(standBeforeMartha(), 0, 'village', [martha])).toBe(
+      null,
+    );
+  });
+
+  it.each(['chase', 'sit'] as const)(
+    'picks up an item before her porch while she is up to %s away',
+    (mode: MonsterState['mode']) => {
+      const pose: Pose = standBeforeMartha();
+      const item: GroundItem = layItem(7, MARTHA);
+      const away: GroundVector = { x: MARTHA.x, z: MARTHA.z + 5 };
+      const martha: MonsterState = placeMartha(away, mode);
+      expect(
+        findPickTarget(pose, 0, { clovers: [], items: [item] }, 'village', [
+          martha,
+        ]),
+      ).toMatchObject({ source: 'ground', id: 7 });
+    },
+  );
+
+  it('picks up an item beside her while she sits beaten', () => {
+    const pose: Pose = standBeforeMartha();
+    const item: GroundItem = layItem(7, MARTHA);
+    const martha: MonsterState = placeMartha(MARTHA, 'sit');
+    expect(
+      findPickTarget(pose, 0, { clovers: [], items: [item] }, 'village', [
+        martha,
+      ]),
+    ).toMatchObject({ source: 'ground', id: 7 });
+  });
+
+  it('leaves talking to her at her porch before picking', () => {
+    const pose: Pose = standBeforeMartha();
+    const item: GroundItem = layItem(7, MARTHA);
+    const martha: MonsterState = placeMartha(MARTHA, 'idle');
+    expect(
+      findPickTarget(pose, 0, { clovers: [], items: [item] }, 'village', [
+        martha,
+      ]),
+    ).toBeNull();
   });
 });
 

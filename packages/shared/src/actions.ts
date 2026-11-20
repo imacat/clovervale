@@ -50,8 +50,17 @@ export const DRINK_DURATION = 1;
 /** How long a talk to a villager lasts, in seconds. */
 export const TALK_DURATION = 0.5;
 
-/** What a monster can be doing. */
-export const MONSTER_ACTIONS = ['Idle', 'Walk', 'Attack', 'Die'] as const;
+/**
+ * What a monster can be doing, and Martha, the village chief, who fights
+ * as one: she sits on the ground once beaten.
+ */
+export const MONSTER_ACTIONS = [
+  'Idle',
+  'Walk',
+  'Attack',
+  'Die',
+  'Sit',
+] as const;
 
 /** What a monster is doing. */
 export type MonsterAction = (typeof MONSTER_ACTIONS)[number];
