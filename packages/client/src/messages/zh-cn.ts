@@ -143,10 +143,12 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'inventory.icon': '物品栏 (I)',
   'inventory.hint': '方向键选择，Enter 使用，Esc 或 I 关闭',
   'itemNotice.gained': '取得{item}',
+  'itemAction.use': '使用',
   'itemAction.drop': '丢弃',
   'item.clover': '四叶幸运草',
   'item.sword': '短剑',
   'item.leatherArmour': '皮甲',
+  'item.healingPotion': '治疗药水',
   'container.chest': '宝箱',
   'container.barrel': '木桶',
 

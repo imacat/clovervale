@@ -37,7 +37,9 @@ import {
   SPAWN_POINT_COUNT,
   SPAWN_YAW,
   canInteract,
+  canUseItem,
   createMotion,
+  findItemKind,
   findPassage,
   findPickTarget,
   findSpawnPoint,
@@ -51,6 +53,7 @@ import type {
   GroundItem,
   GroundVector,
   InputProgress,
+  ItemKind,
   ItemKindId,
   MapId,
   MonsterState,
@@ -325,11 +328,11 @@ export class World {
    * A move changes the way the player wants to move, and an interaction
    * makes it slash, drink from the fountain or talk to a villager, as the
    * rules tell from where it stands and which way it faces then, unless it
-   * is doing any of them already or dead.  A pick or a put-down changes
-   * what the player carries, as a step of the world tells.  Any input shows
-   * from the step at which it comes into effect: no sooner than the next
-   * one, and no sooner than the player has taken as many steps since its
-   * previous input came into effect as the input tells.
+   * is doing any of them already or dead.  A pick, a put-down or a use
+   * changes what the player carries, as a step of the world tells.  Any
+   * input shows from the step at which it comes into effect: no sooner than
+   * the next one, and no sooner than the player has taken as many steps
+   * since its previous input came into effect as the input tells.
    *
    * @param {number} id - The identifier of the player.
    * @param {StampedInput} input - The input.
@@ -412,8 +415,16 @@ export class World {
    * after it closing up, and lays it on the ground where the player stands
    * after the step, where it lies for {@link GROUND_ITEM_DURATION} seconds
    * and is then gone.  A put-down that names an empty slot, or one the
-   * inventory does not have, does nothing.  Picking and putting down
-   * neither move the player nor change what it is doing.
+   * inventory does not have, does nothing.  A use that comes into effect
+   * at the step, while the player is alive and lacks health, uses up the
+   * item in the slot it names, if that item can be used: the item is taken
+   * out of the inventory, the items after it closing up, and the player
+   * gets back the health of its kind at once, or as much as it lacks of
+   * its full health if that is less, which is an event.  A use that names
+   * an empty slot, one the inventory does not have, or an item that cannot
+   * be used, or that comes at full health, does nothing, and the item stays
+   * where it is.  Picking, putting down and using neither move
+   * the player nor change what it is doing.
    */
   step(): void {
     this.#stepCount++;
@@ -436,6 +447,9 @@ export class World {
         }
         if (input.type === 'drop' && before.action !== 'Die') {
           this.#dropItem(player, input.slot);
+        }
+        if (input.type === 'use' && before.action !== 'Die') {
+          this.#useItem(player, input.slot);
         }
         const passage: Passage | null =
           input.type === 'travel' && canInteract(before) && !leaving.has(player)
@@ -759,6 +773,26 @@ export class World {
       },
       goneStep: this.#stepCount + GROUND_ITEM_STEPS,
     });
+  }
+
+  /**
+   * Has a player use the item of a slot of its inventory, the items after
+   * it closing up, if the slot holds an item that can be used and the
+   * player lacks health for it to give back.
+   *
+   * @param {Player} player - The player.
+   * @param {number} slot - The number of the slot, from 0.
+   */
+  #useItem(player: Player, slot: number): void {
+    const kind: ItemKindId | undefined = Number.isInteger(slot)
+      ? player.inventory[slot]
+      : undefined;
+    if (kind === undefined || !canUseItem(kind, player.health)) {
+      return;
+    }
+    player.inventory.splice(slot, 1);
+    const used: ItemKind = findItemKind(kind);
+    this.#healPlayer(player, used.healing ?? 0);
   }
 
   /**

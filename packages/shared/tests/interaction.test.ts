@@ -624,7 +624,7 @@ describe('findPickTarget by the containers of the cave', () => {
     ]);
     expect(
       barrels.map((id: number) => CAVE_CONTAINERS[id]?.item ?? null).sort(),
-    ).toEqual(['clover', 'clover', null, null]);
+    ).toEqual(['clover', 'clover', 'healing-potion', null]);
   });
 
   it('takes what a container holds while it has not been looted', () => {

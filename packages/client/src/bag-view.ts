@@ -30,8 +30,8 @@ import { nameItem } from './interaction-prompt.ts';
 import { BAG_COLUMNS, ITEM_ACTIONS, describeSlots } from './inventory-bag.ts';
 import type {
   InventoryBag,
-  ItemAction,
   ItemRequest,
+  MenuEntry,
   SlotView,
 } from './inventory-bag.ts';
 import type { Translator } from './translator.ts';
@@ -39,13 +39,18 @@ import type { Translator } from './translator.ts';
 /** The bag as the page shows it. */
 export interface BagView {
   /**
-   * Takes in what the player carries now, or that there is no player, and
-   * shows the bag so.
+   * Takes in what the player carries now and its health, or that there is
+   * no player, and shows the bag so.
    *
    * @param {(readonly ItemKindId[]) | null} inventory - The items, in the
    *   order of the slots they fill, or `null` while there is no player.
+   * @param {number} health - The health of the player, which tells
+   *   whether an item can be used.
    */
-  readonly show: (inventory: readonly ItemKindId[] | null) => void;
+  readonly show: (
+    inventory: readonly ItemKindId[] | null,
+    health: number,
+  ) => void;
   /** Shows the bag as it is now, after a key has changed it. */
   readonly render: () => void;
 }
@@ -192,11 +197,47 @@ function drawLeatherArmour(): SVGElement {
   ]);
 }
 
+/**
+ * Draws a small healing potion: a round bottle of red liquid with a
+ * narrow neck, stopped with a cork, and a gleam on its glass.
+ *
+ * @returns {SVGElement} The potion.
+ */
+function drawHealingPotion(): SVGElement {
+  return drawPicture([
+    createSvgElement('path', {
+      d:
+        'M27 14 L37 14 L37 25 C46 28 52 35 52 43 C52 53 43 59 32 59 ' +
+        'C21 59 12 53 12 43 C12 35 18 28 27 25Z',
+      class: 'bag-potion-glass',
+    }),
+    createSvgElement('path', {
+      d:
+        'M15 41 C21 38 27 44 32 41 C37 38 43 44 49 41 C50 51 42 56 32 56 ' +
+        'C22 56 14 51 15 41Z',
+      class: 'bag-potion-liquid',
+    }),
+    createSvgElement('path', {
+      d: 'M19 38 C20 34 23 31 27 29',
+      class: 'bag-potion-gleam',
+    }),
+    createSvgElement('rect', {
+      x: '26',
+      y: '5',
+      width: '12',
+      height: '10',
+      rx: '2',
+      class: 'bag-potion-cork',
+    }),
+  ]);
+}
+
 /** What each kind of item is drawn as in a slot of the bag. */
 const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
   clover: drawClover,
   sword: drawSword,
   'leather-armour': drawLeatherArmour,
+  'healing-potion': drawHealingPotion,
 };
 
 /**
@@ -242,15 +283,15 @@ function createClickable(
 
 /**
  * Creates the bag of the player of the page: its icon in the bottom left
- * corner, with the key that opens it, I, on it, and
- * above it, while the bag is open, its title, its slots in a square grid,
- * each item drawn small as what it is,
- * with its cursor, the menu of the item the cursor is on while it is open,
- * a line under the slots that names the item the cursor is on, blank for
- * an empty slot, and a line that tells the keys.  A click on the icon, a slot or an action
- * of the menu does to the bag what {@link InventoryBag} tells; no click on
- * any part of the bag reaches the game underneath.  What the bag shows is
- * worded again in each language the page comes to speak.
+ * corner, with the key that opens it, I, on it, and above it, while the bag
+ * is open, its title, its slots in a square grid, each item drawn small as
+ * what it is, with its cursor, the menu of the item the cursor is on while
+ * it is open, with the actions that cannot be chosen now greyed out, a line
+ * under the slots that names the item the cursor is on, blank for an empty
+ * slot, and a line that tells the keys.  A click on the icon, a slot or an
+ * action of the menu does to the bag what {@link InventoryBag} tells; no
+ * click on any part of the bag reaches the game underneath.  What the bag
+ * shows is worded again in each language the page comes to speak.
  *
  * @param {HTMLElement} parent - What the bag is added to.
  * @param {Translator} translator - The translator of the text of the page.
@@ -266,6 +307,7 @@ export function createBagView(
   carryOut: (request: ItemRequest) => void,
 ): BagView {
   let shown: readonly ItemKindId[] | null = null;
+  let shownHealth: number | null = null;
   let render: () => void = () => undefined;
   const root: HTMLDivElement = document.createElement('div');
   root.className = 'bag';
@@ -312,7 +354,6 @@ export function createBagView(
         render();
       });
       entry.setAttribute('role', 'menuitem');
-      menu.append(entry);
       return entry;
     },
   );
@@ -371,21 +412,32 @@ export function createBagView(
     // The menu stands beside the row of the slot it is open on.
     const top: number = (slots[bag.cursor]?.offsetTop ?? 0) - grid.offsetTop;
     menu.style.marginTop = `${String(top)}px`;
-    entries.forEach((entry: HTMLDivElement, index: number) => {
-      const action: ItemAction | undefined = ITEM_ACTIONS[index];
-      entry.textContent =
-        action === undefined ? '' : translator.translate(action.labelKey);
+    const listed: readonly MenuEntry[] = bag.menuEntries;
+    menu.replaceChildren(...entries.slice(0, listed.length));
+    listed.forEach((listing: MenuEntry, index: number) => {
+      const entry: HTMLDivElement | undefined = entries[index];
+      if (entry === undefined) {
+        return;
+      }
+      entry.textContent = translator.translate(listing.action.labelKey);
       entry.classList.toggle('is-cursor', index === bag.menuCursor);
+      entry.classList.toggle('is-disabled', !listing.isEnabled);
+      entry.setAttribute('aria-disabled', String(!listing.isEnabled));
     });
   };
   render();
   translator.addListener(render);
   return {
-    show: (inventory: readonly ItemKindId[] | null): void => {
-      if (JSON.stringify(inventory) === JSON.stringify(shown)) {
+    show: (inventory: readonly ItemKindId[] | null, health: number): void => {
+      if (
+        JSON.stringify(inventory) === JSON.stringify(shown) &&
+        health === shownHealth
+      ) {
         return;
       }
       shown = inventory === null ? null : [...inventory];
+      shownHealth = health;
+      bag.noticeHealth(health);
       bag.noticeInventory(shown ?? []);
       render();
     },

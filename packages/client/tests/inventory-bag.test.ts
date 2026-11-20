@@ -24,7 +24,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { INVENTORY_SIZE } from '@clovervale/shared';
+import { INVENTORY_SIZE, PLAYER_HEALTH } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
 import {
@@ -33,7 +33,11 @@ import {
   InventoryBag,
   describeSlots,
 } from '../src/inventory-bag.ts';
-import type { BagResponse, SlotView } from '../src/inventory-bag.ts';
+import type {
+  BagResponse,
+  MenuEntry,
+  SlotView,
+} from '../src/inventory-bag.ts';
 import { Translator } from '../src/translator.ts';
 
 /** A translator of the text into English. */
@@ -73,6 +77,34 @@ function pressTimes(bag: InventoryBag, code: string, times: number): void {
   for (let count = 0; count < times; count++) {
     bag.pressKey(code);
   }
+}
+
+/**
+ * Opens a bag that holds a healing potion and a clover after it.
+ *
+ * @param {number} health - The health of the player.
+ * @returns {InventoryBag} The open bag.
+ */
+function openPotionBag(health: number): InventoryBag {
+  const bag = new InventoryBag();
+  bag.noticeInventory(['healing-potion', 'clover']);
+  bag.noticeHealth(health);
+  bag.pressKey('KeyI');
+  return bag;
+}
+
+/**
+ * Lists what the menu of a bag offers for the item under its cursor.
+ *
+ * @param {InventoryBag} bag - The bag.
+ * @returns {[string, boolean][]} The identifier of each action, and
+ *   whether it can be chosen.
+ */
+function listMenu(bag: InventoryBag): [string, boolean][] {
+  return bag.menuEntries.map((entry: MenuEntry): [string, boolean] => [
+    entry.action.id,
+    entry.isEnabled,
+  ]);
 }
 
 describe('the bag', () => {
@@ -139,15 +171,80 @@ describe('the bag', () => {
     expect(bag.menuCursor).toBe(0);
   });
 
-  it('offers to drop the item, as the only action for now', () => {
-    expect(ITEM_ACTIONS.map((action) => action.id)).toEqual(['drop']);
+  it('knows using an item, and then dropping it', () => {
+    expect(ITEM_ACTIONS.map((action) => action.id)).toEqual(['use', 'drop']);
+  });
+
+  it('offers to use an item that can be used before dropping it', () => {
+    const bag: InventoryBag = openPotionBag(50);
+    bag.pressKey('Enter');
+    expect(listMenu(bag)).toEqual([
+      ['use', true],
+      ['drop', true],
+    ]);
+  });
+
+  it('offers only to drop an item that cannot be used', () => {
+    const bag: InventoryBag = openPotionBag(50);
+    bag.pressKey('ArrowRight');
+    bag.pressKey('Enter');
+    expect(listMenu(bag)).toEqual([['drop', true]]);
+  });
+
+  it('offers no actions on an empty slot', () => {
+    const bag: InventoryBag = openPotionBag(50);
+    pressTimes(bag, 'ArrowRight', 2);
+    expect(listMenu(bag)).toEqual([]);
+  });
+
+  it('asks to use the item of the slot the menu is open on', () => {
+    const bag: InventoryBag = openPotionBag(50);
+    bag.pressKey('Enter');
+    expect(bag.pressKey('Enter').request).toEqual({ action: 'use', slot: 0 });
+    expect(bag.menuCursor).toBeNull();
+  });
+
+  it('offers using at full health, but cannot have it chosen', () => {
+    const bag: InventoryBag = openPotionBag(PLAYER_HEALTH);
+    bag.pressKey('Enter');
+    expect(listMenu(bag)).toEqual([
+      ['use', false],
+      ['drop', true],
+    ]);
+    expect(bag.pressKey('Enter')).toEqual({ isHandled: true, request: null });
+    expect(bag.menuCursor).toBe(0);
+    expect(bag.clickAction(0)).toBeNull();
+    expect(bag.menuCursor).toBe(0);
+    bag.pressKey('ArrowDown');
+    expect(bag.pressKey('Enter').request).toEqual({ action: 'drop', slot: 0 });
+  });
+
+  it('offers using while the player lies dead, but cannot have it chosen', () => {
+    const bag: InventoryBag = openPotionBag(0);
+    bag.pressKey('Enter');
+    expect(listMenu(bag)).toEqual([
+      ['use', false],
+      ['drop', true],
+    ]);
+    expect(bag.clickAction(0)).toBeNull();
+  });
+
+  it('lets using be chosen again once health is lost', () => {
+    const bag: InventoryBag = openPotionBag(PLAYER_HEALTH);
+    bag.pressKey('Enter');
+    bag.noticeHealth(PLAYER_HEALTH - 1);
+    expect(listMenu(bag)[0]).toEqual(['use', true]);
+    expect(bag.clickAction(0)).toEqual({ action: 'use', slot: 0 });
   });
 
   it('keeps the cursor of the menu within its actions', () => {
     const bag: InventoryBag = openBag(1);
     bag.pressKey('Enter');
     pressTimes(bag, 'ArrowDown', 3);
-    expect(bag.menuCursor).toBe(ITEM_ACTIONS.length - 1);
+    expect(bag.menuCursor).toBe(0);
+    bag.noticeInventory(['healing-potion']);
+    pressTimes(bag, 'ArrowDown', 3);
+    expect(bag.menuCursor).toBe(1);
     pressTimes(bag, 'ArrowUp', 3);
     expect(bag.menuCursor).toBe(0);
     // The arrows move the cursor of the menu, not of the bag.

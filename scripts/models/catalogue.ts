@@ -43,6 +43,7 @@ import { buildNpcEnvoy } from './npc-envoy.ts';
 import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import { buildNpcToby } from './npc-toby.ts';
+import { buildItemHealingPotion } from './potion.ts';
 import {
   buildBush,
   buildClover,
@@ -113,5 +114,6 @@ export function listModels(): ModelEntry[] {
     { name: 'prop-cave-barrel-open', build: buildCaveBarrelOpen },
     { name: 'prop-item-sword', build: buildItemSword },
     { name: 'prop-item-leather-armour', build: buildItemLeatherArmour },
+    { name: 'prop-item-healing-potion', build: buildItemHealingPotion },
   ];
 }

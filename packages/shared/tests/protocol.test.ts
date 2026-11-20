@@ -739,6 +739,37 @@ describe('the client message codec', () => {
     expect(() => decodeClientMessage(data)).toThrow();
   });
 
+  it('decodes a use message with the slot it names', () => {
+    const data = JSON.stringify({
+      type: 'use',
+      sequence: 4,
+      after: 2,
+      slot: 3,
+      x: 1,
+    });
+    expect(decodeClientMessage(data)).toEqual({
+      type: 'use',
+      sequence: 4,
+      after: 2,
+      slot: 3,
+    });
+  });
+
+  it.each([
+    ['is missing', {}],
+    ['is not a whole number', { slot: 1.5 }],
+    ['is below zero', { slot: -1 }],
+    ['is not a number', { slot: '1' }],
+  ])('rejects a use message whose slot %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'use',
+      sequence: 4,
+      after: 2,
+      ...flaw,
+    });
+    expect(() => decodeClientMessage(data)).toThrow();
+  });
+
   it.each([
     ['a string', '100'],
     ['an object', {}],

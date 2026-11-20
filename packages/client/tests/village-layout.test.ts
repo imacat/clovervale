@@ -221,6 +221,7 @@ describe('layoutVillage', () => {
       'prop-cave-barrel-open.glb',
       'prop-item-sword.glb',
       'prop-item-leather-armour.glb',
+      'prop-item-healing-potion.glb',
     ];
     expect(layoutVillage([...files, 'npc-envoy.glb'])).toEqual([]);
   });

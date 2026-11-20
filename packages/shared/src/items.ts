@@ -22,6 +22,7 @@
  *   where they are to be found in the village.
  */
 
+import { PLAYER_HEALTH } from './combat.ts';
 import type { GroundVector } from './movement.ts';
 import { VILLAGE_PLACEMENTS } from './village-layout.ts';
 import type { Placement } from './village-layout.ts';
@@ -32,6 +33,12 @@ export interface ItemKind {
   readonly id: string;
   /** The message that names the kind for the person at a page. */
   readonly nameKey: string;
+  /**
+   * The health an item of the kind gives back to the player who uses it,
+   * once and at once, which uses the item up.  An item of a kind without it
+   * cannot be used.
+   */
+  readonly healing?: number;
 }
 
 /** Every kind of item there is. */
@@ -39,6 +46,7 @@ export const ITEM_KINDS = [
   { id: 'clover', nameKey: 'item.clover' },
   { id: 'sword', nameKey: 'item.sword' },
   { id: 'leather-armour', nameKey: 'item.leatherArmour' },
+  { id: 'healing-potion', nameKey: 'item.healingPotion', healing: 50 },
 ] as const satisfies readonly ItemKind[];
 
 /** The identifier of a kind of item. */
@@ -125,6 +133,30 @@ export function findItemKind(id: ItemKindId): (typeof ITEM_KINDS)[number] {
     throw new Error(`There is no kind of item "${id}".`);
   }
   return kind;
+}
+
+/**
+ * Tells whether an item of a kind can be used.
+ *
+ * @param {ItemKindId} id - The identifier of the kind.
+ * @returns {boolean} Whether it can, whatever the health of the player.
+ */
+export function isUsableItem(id: ItemKindId): boolean {
+  const kind: ItemKind = findItemKind(id);
+  return kind.healing !== undefined;
+}
+
+/**
+ * Tells whether a player with some health would get anything from using
+ * an item of a kind: whether the item can be used, and the player lacks
+ * health for it to give back.  Whether the player is alive does not count.
+ *
+ * @param {ItemKindId} id - The identifier of the kind.
+ * @param {number} health - The health of the player.
+ * @returns {boolean} Whether the player would.
+ */
+export function canUseItem(id: ItemKindId, health: number): boolean {
+  return isUsableItem(id) && health < PLAYER_HEALTH;
 }
 
 /**

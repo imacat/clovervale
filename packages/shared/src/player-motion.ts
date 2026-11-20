@@ -131,6 +131,18 @@ export interface DropInput {
 }
 
 /**
+ * The input that makes a player use the item of a slot of its inventory.
+ * It changes nothing in the motion of the player; what comes of it is for
+ * the server alone to decide.
+ */
+export interface UseInput {
+  /** The input discriminator. */
+  readonly type: 'use';
+  /** The number of the slot, from 0. */
+  readonly slot: number;
+}
+
+/**
  * The input that makes a player take the way into another map within its
  * reach: down the burrow of the wild dog into the cave, or up the rope out
  * of it.  It changes nothing in the motion of the player; what comes of it
@@ -147,6 +159,7 @@ export type PlayerInput =
   | InteractInput
   | PickInput
   | DropInput
+  | UseInput
   | TravelInput;
 
 /**
@@ -181,8 +194,8 @@ export function createMotion(
  * {@link findInteraction} tells from where it stands and which way it faces
  * at the step it starts, and from where Toby is then, unless the player
  * cannot interact then, as {@link canInteract} tells, in which case it does
- * none of them, then or later.  A pick, a put-down or a travel leaves the
- * motion as it is.
+ * none of them, then or later.  A pick, a put-down, a use or a travel
+ * leaves the motion as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {PlayerInput} input - The input.

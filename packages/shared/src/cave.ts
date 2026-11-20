@@ -291,9 +291,9 @@ function faceMiddle(at: GroundVector, room: CaveRoom): number {
  * room, a chest with a sword against its back wall, a barrel with a
  * four-leaved clover in its corner to the west of the chest, and an empty
  * barrel against its east wall near the passage; in the south store room,
- * a chest with a leather armour against its back wall, an empty barrel in
- * its corner to the east of the chest, and a barrel with a four-leaved
- * clover against its west wall near the passage.
+ * a chest with a leather armour against its back wall, a barrel with a
+ * healing potion in its corner to the east of the chest, and a barrel with
+ * a four-leaved clover against its west wall near the passage.
  */
 export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
   const [north, south] = CAVE_STORE_ROOMS;
@@ -326,7 +326,7 @@ export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
       x: eastX,
       z: corner,
       yaw: faceMiddle({ x: eastX, z: corner }, south),
-      item: null,
+      item: 'healing-potion',
     },
     { kind: 'barrel', x: westX, z: nearZ, yaw: 90, item: 'clover' },
   ];

@@ -23,7 +23,12 @@
  *   an item.
  */
 
-import { INVENTORY_SIZE } from '@clovervale/shared';
+import {
+  INVENTORY_SIZE,
+  PLAYER_HEALTH,
+  canUseItem,
+  isUsableItem,
+} from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
 import { nameItem } from './interaction-prompt.ts';
@@ -35,18 +40,28 @@ export const BAG_COLUMNS: number = Math.round(Math.sqrt(INVENTORY_SIZE));
 /** Something the person at the page can do with an item in the bag. */
 export interface ItemAction {
   /** The identifier of the action. */
-  readonly id: 'drop';
+  readonly id: 'use' | 'drop';
   /** The message that names the action. */
-  readonly labelKey: 'itemAction.drop';
+  readonly labelKey: 'itemAction.use' | 'itemAction.drop';
 }
 
 /**
- * What can be done with an item in the bag, in the order its menu lists
- * them: dropping it at the feet of the player.
+ * What can be done with an item in the bag, in the order a menu lists
+ * them: using it, for an item that can be used, and dropping it at the feet
+ * of the player.
  */
 export const ITEM_ACTIONS: readonly ItemAction[] = [
+  { id: 'use', labelKey: 'itemAction.use' },
   { id: 'drop', labelKey: 'itemAction.drop' },
 ];
+
+/** An action the menu of an item lists. */
+export interface MenuEntry {
+  /** The action. */
+  readonly action: ItemAction;
+  /** Whether the action can be chosen now. */
+  readonly isEnabled: boolean;
+}
 
 /** An action chosen in the menu of an item, to carry out on the item. */
 export interface ItemRequest {
@@ -125,15 +140,17 @@ export function describeSlots(
  * {@link BAG_COLUMNS} rows of as many slots, stopping at the edges, and
  * Enter or a click on a slot that holds an item opens the menu of the item.
  * While the menu is open, the up and down arrows move its cursor over the
- * {@link ITEM_ACTIONS}, and Enter or a click on one carries it out, which
- * closes the menu and leaves the bag open.  Esc closes the menu if it is
- * open, and the bag otherwise.
+ * {@link menuEntries}, and Enter or a click on one carries it out, which
+ * closes the menu and leaves the bag open, unless it cannot be chosen, in
+ * which case nothing happens.  Esc closes the menu if it is open, and the
+ * bag otherwise.
  */
 export class InventoryBag {
   #isOpen = false;
   #cursor = 0;
   #menuCursor: number | null = null;
   #inventory: readonly ItemKindId[] = [];
+  #health: number = PLAYER_HEALTH;
 
   /**
    * Whether the bag is open.
@@ -166,10 +183,46 @@ export class InventoryBag {
    * The action the cursor of the menu is on, while the menu is open.
    *
    * @returns {number | null} The place of the action among the
-   *   {@link ITEM_ACTIONS}, from 0, or `null` while the menu is closed.
+   *   {@link menuEntries}, from 0, or `null` while the menu is closed.
    */
   get menuCursor(): number | null {
     return this.#menuCursor;
+  }
+
+  /**
+   * What the menu of the item in the slot the cursor of the bag is on
+   * lists, whether or not the menu is open: using the item, if it can be
+   * used, which can be chosen only while the player is alive and lacks
+   * health, and then dropping it, which can always be chosen.
+   *
+   * @returns {readonly MenuEntry[]} The actions, in the order the menu
+   *   lists them, or none for an empty slot.
+   */
+  get menuEntries(): readonly MenuEntry[] {
+    const kind: ItemKindId | null = this.cursorItem;
+    if (kind === null) {
+      return [];
+    }
+    return ITEM_ACTIONS.filter(
+      (action: ItemAction) => action.id !== 'use' || isUsableItem(kind),
+    ).map(
+      (action: ItemAction): MenuEntry => ({
+        action,
+        isEnabled:
+          action.id !== 'use' ||
+          (this.#health > 0 && canUseItem(kind, this.#health)),
+      }),
+    );
+  }
+
+  /**
+   * Takes in the health the player has now, which tells whether an item
+   * can be used.
+   *
+   * @param {number} health - The health, 0 while the player lies dead.
+   */
+  noticeHealth(health: number): void {
+    this.#health = health;
   }
 
   /**
@@ -177,7 +230,8 @@ export class InventoryBag {
    *
    * Once the items close up after an item is gone, the cursor moves back
    * to the last filled slot if it was past it.  The menu of a slot that is
-   * emptied closes.
+   * emptied closes, and the cursor of a menu that lists fewer actions now
+   * moves back to its last action if it was past it.
    *
    * @param {readonly ItemKindId[]} inventory - The items, in the order of
    *   the slots they fill.
@@ -192,6 +246,8 @@ export class InventoryBag {
     this.#inventory = [...inventory];
     if (!this.#isFilled(this.#cursor)) {
       this.#menuCursor = null;
+    } else if (this.#menuCursor !== null) {
+      this.#menuCursor = clamp(this.#menuCursor, this.menuEntries.length - 1);
     }
   }
 
@@ -241,7 +297,7 @@ export class InventoryBag {
     if (this.#menuCursor !== null) {
       this.#menuCursor = clamp(
         this.#menuCursor + rows,
-        ITEM_ACTIONS.length - 1,
+        this.menuEntries.length - 1,
       );
       return IGNORED;
     }
@@ -283,20 +339,21 @@ export class InventoryBag {
 
   /**
    * Carries out an action of the open menu on the item of the slot it is
-   * open on, and closes the menu.
+   * open on, and closes the menu, if the action can be chosen.
    *
    * @param {number} index - The place of the action among the
-   *   {@link ITEM_ACTIONS}, from 0.
+   *   {@link menuEntries}, from 0.
    * @returns {ItemRequest | null} The action, and the slot whose item it
-   *   is for, or `null` if the menu is not open or there is no such action.
+   *   is for, or `null` if the menu is not open, there is no such action,
+   *   or it cannot be chosen now.
    */
   clickAction(index: number): ItemRequest | null {
-    const action: ItemAction | undefined = ITEM_ACTIONS[index];
-    if (this.#menuCursor === null || action === undefined) {
+    const entry: MenuEntry | undefined = this.menuEntries[index];
+    if (this.#menuCursor === null || entry?.isEnabled !== true) {
       return null;
     }
     this.#menuCursor = null;
-    return { action: action.id, slot: this.#cursor };
+    return { action: entry.action.id, slot: this.#cursor };
   }
 
   /**

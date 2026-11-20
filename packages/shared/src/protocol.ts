@@ -43,12 +43,13 @@ import type {
   PickInput,
   PlayerMotion,
   TravelInput,
+  UseInput,
 } from './player-motion.ts';
 import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 22;
+export const PROTOCOL_VERSION = 23;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -303,6 +304,12 @@ export type PickMessage = PickInput & InputStamp;
 export type DropMessage = DropInput & InputStamp;
 
 /**
+ * What a peer sends whenever its player wants to use the item of a slot of
+ * its inventory.  What comes of it is for the server to decide.
+ */
+export type UseMessage = UseInput & InputStamp;
+
+/**
  * What a peer sends whenever its player wants to take the way into another
  * map within its reach.  What comes of it is for the server to decide.
  */
@@ -314,6 +321,7 @@ export type ClientMessage =
   | InteractMessage
   | PickMessage
   | DropMessage
+  | UseMessage
   | TravelMessage;
 
 /**
@@ -620,6 +628,9 @@ export function decodeClientMessage(data: string): ClientMessage {
     }
     if (value.type === 'drop' && isCount(value.slot)) {
       return { type: 'drop', sequence, after, slot: value.slot };
+    }
+    if (value.type === 'use' && isCount(value.slot)) {
+      return { type: 'use', sequence, after, slot: value.slot };
     }
   }
   throw new Error('The client message is malformed.');

@@ -142,10 +142,12 @@ export const JA_MESSAGES: MessageTable = {
   'inventory.icon': '持ち物 (I)',
   'inventory.hint': '矢印キーで選択、Enter で使う、Esc か I で閉じる',
   'itemNotice.gained': '{item}を手に入れた',
+  'itemAction.use': '使う',
   'itemAction.drop': '捨てる',
   'item.clover': '四つ葉のクローバー',
   'item.sword': '短剣',
   'item.leatherArmour': '革の鎧',
+  'item.healingPotion': '回復薬',
   'container.chest': '宝箱',
   'container.barrel': '樽',
 

@@ -244,6 +244,17 @@ canvas {
   color: #1a1a1a;
 }
 
+/* An action that cannot be chosen now, greyed out, the cursor on it too. */
+.bag-action.is-disabled {
+  color: #8a8a8a;
+  cursor: default;
+}
+
+.bag-action.is-disabled.is-cursor {
+  background: #6a6a6a;
+  color: #b8b8b8;
+}
+
 /* The name of the item the cursor is on, its line kept for an empty slot. */
 .bag-item-name {
   min-height: 1.2em;
@@ -315,4 +326,30 @@ canvas {
   stroke: #4e2e1a;
   stroke-width: 3.5;
   stroke-linecap: round;
+}
+
+.bag-potion-glass {
+  fill: #dfeef2;
+  fill-opacity: 0.35;
+  stroke: #e8f4f7;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.bag-potion-liquid {
+  fill: #d0263a;
+}
+
+.bag-potion-gleam {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-opacity: 0.8;
+}
+
+.bag-potion-cork {
+  fill: #b98a55;
+  stroke: #5e3f1f;
+  stroke-width: 1.5;
 }

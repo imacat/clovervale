@@ -28,6 +28,7 @@ import {
   CAVE_TERRAIN,
   NOON,
   NO_WORLD_ITEMS,
+  PLAYER_HEALTH,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
   SPAWN_YAW,
@@ -469,14 +470,15 @@ function sendInput(input: PlayerInput): boolean {
 }
 
 /**
- * Carries out an action chosen in the menu of an item in the bag: a drop
- * has the player of the page drop the item of the slot at its feet, unless
- * it is dead.  Whether anything comes of it is for the server to decide.
+ * Carries out an action chosen in the menu of an item in the bag: a use has
+ * the player of the page use the item of the slot, and a drop has it drop
+ * the item at its feet, unless it is dead.  Whether anything comes of it is
+ * for the server to decide, and shows once the server tells it.
  *
  * @param {ItemRequest} request - The action, and the slot of the item.
  */
 function carryOutItemAction(request: ItemRequest): void {
-  // Dropping is the only action there is, and its request is its input.
+  // The request of each action is its input.
   if (prediction?.motion.action !== 'Die') {
     sendInput({ type: request.action, slot: request.slot });
   }
@@ -754,7 +756,10 @@ function receiveMessage(data: string): void {
       inventory = message.inventory;
       itemFigures.show(worldItems);
       cave.showLooted(message.looted);
-      bagView.show(inventory);
+      const health: number =
+        message.players.find((player: PlayerState) => player.id === ownId)
+          ?.health ?? PLAYER_HEALTH;
+      bagView.show(inventory, health);
     }
     return;
   }
@@ -925,7 +930,7 @@ async function connectToServer(): Promise<void> {
     worldItems = null;
     inventory = null;
     itemFigures.show(null);
-    bagView.show(null);
+    bagView.show(null, PLAYER_HEALTH);
     panel.showMonster(describeMonster(translator, null));
     panel.showSlash(describeSlash(translator, null));
     panel.camera.followedId = null;

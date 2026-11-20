@@ -166,8 +166,23 @@ interface CaveLook {
   readonly slots: readonly string[];
   /** The name the bag shows of the item under its cursor, or `''`. */
   readonly bagItemName: string;
+  /**
+   * The actions the open menu of an item lists, each with whether it can
+   * be chosen, or `null` if no menu is open.
+   */
+  readonly menu: readonly MenuActionView[] | null;
   /** The notices of the items got that the page shows, the earliest first. */
   readonly notices: readonly string[];
+  /** The latest heals the page has shown, the latest last. */
+  readonly heals: readonly HealView[];
+}
+
+/** An action the open menu of an item in the bag lists. */
+interface MenuActionView {
+  /** The name of the action. */
+  readonly label: string;
+  /** Whether it can be chosen. */
+  readonly isEnabled: boolean;
 }
 
 /** A page as it is at one moment: what it tells, and what it draws. */
@@ -648,6 +663,8 @@ const OPEN_CHEST_PROMPT = 'Press Space to open the chest';
 const EMPTY_CHEST_KEY = 'nothing, as the chest is empty';
 /** What the panel tells the space bar does before a shut barrel. */
 const OPEN_BARREL_KEY = 'open the barrel';
+/** What the panel tells the space bar does before a barrel looted. */
+const EMPTY_BARREL_KEY = 'nothing, as the barrel is empty';
 /** How many turns of the mouse wheel bring the camera close to the bones. */
 const SKELETON_ZOOM_TURNS = 5;
 /** How far the camera turns from looking west to look into the south cell. */
@@ -709,6 +726,38 @@ const ZH_TW_SWORD = '短劍';
 const SWORD_SLOT_CLICK_EXPRESSION = `(() => {
   const slots = [...document.querySelectorAll('.bag-slot')];
   const index = slots.findIndex((slot) => slot.dataset.kind === 'sword');
+  slots[index]?.click();
+  return String(index);
+})()`;
+/** The notice of the healing potion got from a barrel. */
+const POTION_NOTICE = 'You got the healing potion';
+/** The name of the healing potion in Traditional Chinese. */
+const ZH_TW_POTION = '治療藥水';
+/**
+ * Lists the actions the menu of the healing potion in the bag lists in
+ * Traditional Chinese.
+ *
+ * @param {boolean} isHurt - Whether the player lacks health.
+ * @returns {MenuActionView[]} The actions: using the potion, which can be
+ *   chosen only while the player lacks health, and dropping it.
+ */
+function listZhTwPotionActions(isHurt: boolean): MenuActionView[] {
+  return [
+    { label: '使用', isEnabled: isHurt },
+    { label: '丟棄', isEnabled: true },
+  ];
+}
+/** The health a healing potion gives back. */
+const POTION_HEALING = 50;
+/**
+ * The expression that clicks the slot of the healing potion in the bag of
+ * a page, and gives the number of the slot, or -1.
+ */
+const POTION_SLOT_CLICK_EXPRESSION = `(() => {
+  const slots = [...document.querySelectorAll('.bag-slot')];
+  const index = slots.findIndex(
+    (slot) => slot.dataset.kind === 'healing-potion',
+  );
   slots[index]?.click();
   return String(index);
 })()`;
@@ -1127,8 +1176,18 @@ function createCaveExpression(id: number): string {
         .map((slot) => slot.dataset.kind ?? ''),
       bagItemName:
         document.querySelector('.bag-item-name')?.textContent ?? '',
+      menu: (() => {
+        const menu = document.querySelector('.bag-menu');
+        return menu === null || menu.hidden
+          ? null
+          : [...menu.querySelectorAll('.bag-action')].map((action) => ({
+              label: action.textContent,
+              isEnabled: action.getAttribute('aria-disabled') !== 'true',
+            }));
+      })(),
       notices: [...document.querySelectorAll('.item-notice')]
         .map((notice) => notice.textContent),
+      heals: window.clovervale.listShownHeals(),
     });
   })()`;
 }
@@ -4004,7 +4063,9 @@ function describeCaveLook(look: CaveLook): string {
     `the space bar to "${look.spaceKey}", ${prompt}, ${speech}, the ` +
     `containers open ${JSON.stringify(look.containers)}, the bag ` +
     `${look.isBagOpen ? 'open' : 'closed'} with ${JSON.stringify(look.slots)} ` +
-    `naming "${look.bagItemName}", the notices ${JSON.stringify(look.notices)}`
+    `naming "${look.bagItemName}" and the menu ${JSON.stringify(look.menu)}, ` +
+    `the notices ${JSON.stringify(look.notices)}, the heals ` +
+    JSON.stringify(look.heals)
   );
 }
 
@@ -4338,8 +4399,8 @@ async function saveStoreView(
 
 /**
  * Checks that a player in its cave talks to the prisoner through the bars
- * of his cell, and loots the chests and a barrel of the store rooms, and
- * sees what it takes in its bag.
+ * of his cell, loots the chests and two barrels of the store rooms, sees
+ * what it takes in its bag, and uses the healing potion from it.
  *
  * The player walks west along the middle of the passage to before the
  * prisoner, and north up to the bars of his cell, which stop it, where its
@@ -4350,12 +4411,18 @@ async function saveStoreView(
  * space bar opens it; once it is pressed, the chest shows open, the sword
  * shows in the bag, and the space bar does nothing more there.  It loots
  * the barrel with a clover in the corner, and the chest of the south store
- * room, and opens its bag, which shows the sword, the leather armour and a
- * clover, worded in Traditional Chinese for a moment, with the name of the
- * sword under the slots once its slot is clicked, and closes it.  Each
+ * room and the barrel with the healing potion in its corner, and opens its
+ * bag, which shows the sword, the leather armour and a clover, worded in
+ * Traditional Chinese for a moment, with the name of the sword under the
+ * slots once its slot is clicked.  Once the slot of the potion is clicked,
+ * the menu of the potion offers to use it and to drop it.  If the fights
+ * have left the player hurt, both can be chosen, and with Enter, the potion
+ * is gone from the bag, and the player gets health back, as much as a
+ * potion gives or as it lacks, shown as a heal.  If they have not, using
+ * it is greyed out, and Enter leaves the potion in the bag, the menu open
+ * and the player at full health.  It closes the bag.  Each
  * item looted is told in a notice, in Traditional Chinese too once it is
- * chosen.  It
- * ends on the middle of the passage, before the store rooms.
+ * chosen.  It ends on the middle of the passage, before the store rooms.
  *
  * @param {BidiSession} session - The session with the browser.
  * @param {string} context - The browsing context of the page of the
@@ -4440,9 +4507,8 @@ async function checkCaveChambers(
   await saveCellViews(session, context, id);
 
   // The chest at the back of the north store room, with the sword.
-  const [northChest, cornerBarrel, , southChest] = CAVE_CONTAINERS.map(
-    (_: CaveContainer, number: number) => number,
-  );
+  const [northChest, cornerBarrel, , southChest, potionBarrel] =
+    CAVE_CONTAINERS.map((_: CaveContainer, number: number) => number);
   const north: CaveContainer | undefined = CAVE_CONTAINERS[northChest ?? 0];
   await walkInCave(
     session,
@@ -4553,6 +4619,39 @@ async function checkCaveChambers(
   await saveView(session, context, 'item-notice.png');
   await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
 
+  // The barrel with the healing potion in the corner beside the chest.
+  const potion: CaveContainer | undefined =
+    CAVE_CONTAINERS[potionBarrel ?? 0];
+  await walkInCave(
+    session,
+    context,
+    id,
+    's',
+    (seen: CaveLook) =>
+      (seen.own?.x ?? -Infinity) >= (potion?.x ?? 0) - 0.65,
+    'across the south store room',
+  );
+  await walkInCave(
+    session,
+    context,
+    id,
+    'a',
+    (seen: CaveLook) => seen.spaceKey === OPEN_BARREL_KEY,
+    'up to the barrel in the corner of the south store room',
+  );
+  const byPotion: CaveLook = await lootContainer(
+    session,
+    context,
+    id,
+    potionBarrel ?? 0,
+  );
+  if (!byPotion.notices.includes(POTION_NOTICE)) {
+    throw new Error(
+      `With the barrel of the healing potion looted, the first page ` +
+        `tells ${describeCaveLook(byPotion)}.`,
+    );
+  }
+
   // The bag, with what was taken.
   await sendKey(session, context, 'keyDown', 'i');
   await sendKey(session, context, 'keyUp', 'i');
@@ -4581,12 +4680,72 @@ async function checkCaveChambers(
   );
   await sleep(VIEW_SETTLE_DURATION);
   await saveView(session, context, 'bag-name.png');
+
+  // The healing potion, used from the bag after the fights if they left
+  // the player hurt, and refused otherwise.
+  const hurt: CaveLook = await look();
+  const health: number = hurt.own?.health ?? FULL_HEALTH;
+  const isHurt: boolean = health < FULL_HEALTH;
+  const lastHeal: number = Math.max(
+    0,
+    ...hurt.heals.map((heal: HealView) => heal.id),
+  );
+  await evaluateInPage(session, context, POTION_SLOT_CLICK_EXPRESSION);
+  await waitFor(
+    look,
+    (seen: CaveLook) =>
+      seen.bagItemName === ZH_TW_POTION &&
+      JSON.stringify(seen.menu) ===
+        JSON.stringify(listZhTwPotionActions(isHurt)),
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With the slot of the healing potion clicked in its open bag, the ` +
+      `first page tells ${describeCaveLook(seen)}.`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'potion-menu.png');
+  await sendKey(session, context, 'keyDown', BAG_KEYS.enter);
+  await sendKey(session, context, 'keyUp', BAG_KEYS.enter);
+  if (isHurt) {
+    const healed: number = Math.min(health + POTION_HEALING, FULL_HEALTH);
+    await waitFor(
+      look,
+      (seen: CaveLook) =>
+        seen.own?.health === healed &&
+        !seen.slots.includes('healing-potion') &&
+        seen.heals.some(
+          (heal: HealView) =>
+            heal.id > lastHeal &&
+            heal.target.kind === 'player' &&
+            heal.target.id === id &&
+            heal.amount === healed - health,
+        ),
+      ACTION_TIMEOUT,
+      (seen: CaveLook) =>
+        `With the healing potion used at health ${String(health)}, the ` +
+        `first page tells ${describeCaveLook(seen)}.`,
+    );
+  } else {
+    await sleep(VIEW_SETTLE_DURATION);
+    const refused: CaveLook = await look();
+    if (
+      refused.own?.health !== FULL_HEALTH ||
+      !refused.slots.includes('healing-potion') ||
+      JSON.stringify(refused.menu) !==
+        JSON.stringify(listZhTwPotionActions(false))
+    ) {
+      throw new Error(
+        `With Enter pressed on the disabled use of the healing potion at ` +
+          `full health, the first page tells ${describeCaveLook(refused)}.`,
+      );
+    }
+  }
   await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
   await sendKey(session, context, 'keyDown', 'i');
   await sendKey(session, context, 'keyUp', 'i');
   await waitFor(
     look,
-    (seen: CaveLook) => !seen.isBagOpen && seen.spaceKey === EMPTY_CHEST_KEY,
+    (seen: CaveLook) => !seen.isBagOpen && seen.spaceKey === EMPTY_BARREL_KEY,
     ACTION_TIMEOUT,
     (seen: CaveLook) =>
       `With its bag closed again, the first page tells ` +
@@ -5439,8 +5598,8 @@ try {
       'alike, hear what Nancy says, speak the language chosen, pick, ' +
       'carry and put down a clover, go down into a cave of their own, kill ' +
       'its two wild dogs, talk ' +
-      'to the prisoner through his bars, loot the store rooms, and climb ' +
-      'back up, have the ' +
+      'to the prisoner through his bars, loot the store rooms, use a ' +
+      'healing potion, and climb back up, have the ' +
       'camera follow another player, darken at night, preview a time of ' +
       'day on their own, and agree on the time of day.',
   );

@@ -60,6 +60,7 @@ export const LYING_ITEM_FILES: Readonly<
 > = {
   sword: 'prop-item-sword.glb',
   'leather-armour': 'prop-item-leather-armour.glb',
+  'healing-potion': 'prop-item-healing-potion.glb',
 };
 
 /** The file name of the healing fountain. */

@@ -146,10 +146,12 @@ export const EN_MESSAGES = {
   'inventory.icon': 'Inventory (I)',
   'inventory.hint': 'Arrow keys to choose, Enter to use, Esc or I to close',
   'itemNotice.gained': 'You got the {item}',
+  'itemAction.use': 'Use',
   'itemAction.drop': 'Drop',
   'item.clover': 'four-leaved clover',
   'item.sword': 'short sword',
   'item.leatherArmour': 'leather armour',
+  'item.healingPotion': 'healing potion',
   'container.chest': 'chest',
   'container.barrel': 'barrel',
 

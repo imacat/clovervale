@@ -1573,6 +1573,132 @@ describe('a player who puts an item down', () => {
   });
 });
 
+/**
+ * Brings a player into a world, at the spawn point of the village or at the
+ * landing of the cave, with some health, carrying some items.
+ *
+ * @param {World} world - The world.
+ * @param {number} health - The health of the player.
+ * @param {readonly ItemKindId[]} carried - What the player carries.
+ * @param {boolean} [isInCave] - Whether the world is a cave, which it is
+ *   not by default.
+ * @returns {number} The identifier of the player.
+ */
+function admitCarrier(
+  world: World,
+  health: number,
+  carried: readonly ItemKindId[],
+  isInCave = false,
+): number {
+  const player: Player = {
+    id: 1,
+    appearance: 1,
+    mover: new AuthoritativePlayer(createMotion(CAVE_LANDING, 0)),
+    health,
+    deathSteps: 0,
+    lastSlash: null,
+    inventory: [...carried],
+  };
+  world.admitPlayer(player, isInCave ? CAVE_LANDING : null);
+  return player.id;
+}
+
+/**
+ * Tells a world, as the next input of a player, that the player uses the
+ * item of a slot of its inventory at the next step.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {number} slot - The number of the slot, from 0.
+ */
+function useItem(world: World, id: number, slot: number): void {
+  world.receiveInput(id, {
+    type: 'use',
+    sequence: ++lastSequence,
+    after: 0,
+    slot,
+  });
+}
+
+describe('a player who uses a healing potion', () => {
+  it('gets 50 health back at once, as an event, and the potion is gone', () => {
+    const world = new World(createRandom());
+    const id: number = admitCarrier(world, 30, [
+      'clover',
+      'healing-potion',
+      'sword',
+    ]);
+    useItem(world, id, 1);
+    world.step();
+    expect(findPlayer(world, id).health).toBe(80);
+    expect(world.findInventory(id)).toEqual(['clover', 'sword']);
+    expect(world.takeEvents()).toEqual([
+      expect.objectContaining({
+        type: 'heal',
+        target: { kind: 'player', id },
+        amount: 50,
+      }),
+    ]);
+  });
+
+  it('gets no more health back than it lacks', () => {
+    const world = new World(createRandom());
+    const id: number = admitCarrier(world, PLAYER_HEALTH - 20, [
+      'healing-potion',
+    ]);
+    useItem(world, id, 0);
+    world.step();
+    expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
+    expect(world.findInventory(id)).toEqual([]);
+    expect(world.takeEvents()).toEqual([
+      expect.objectContaining({ type: 'heal', amount: 20 }),
+    ]);
+  });
+
+  it('keeps the potion at full health', () => {
+    const world = new World(createRandom());
+    const id: number = admitCarrier(world, PLAYER_HEALTH, ['healing-potion']);
+    useItem(world, id, 0);
+    world.step();
+    expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
+    expect(world.findInventory(id)).toEqual(['healing-potion']);
+    expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('keeps the potion while it lies dead', () => {
+    const world = new World(createRandom());
+    const id: number = admitCarrier(world, 20, ['healing-potion']);
+    killPlayer(world, id);
+    useItem(world, id, 0);
+    world.step();
+    expect(findPlayer(world, id).health).toBe(0);
+    expect(world.findInventory(id)).toEqual(['healing-potion']);
+    expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('uses nothing from an empty slot, one out of range, or one that cannot be used', () => {
+    const world = new World(createRandom());
+    const carried: ItemKindId[] = ['clover', 'sword', 'leather-armour'];
+    const id: number = admitCarrier(world, 30, carried);
+    for (const slot of [0, 1, 2, 3, INVENTORY_SIZE, 1000]) {
+      useItem(world, id, slot);
+      world.step();
+    }
+    expect(findPlayer(world, id).health).toBe(30);
+    expect(world.findInventory(id)).toEqual(carried);
+    expect(world.takeEvents()).toEqual([]);
+  });
+
+  it('gets health back in the cave too', () => {
+    const world = new World(createRandom(), { map: 'cave', monsters: [] });
+    const id: number = admitCarrier(world, 40, ['healing-potion'], true);
+    useItem(world, id, 0);
+    world.step();
+    expect(findPlayer(world, id).health).toBe(90);
+    expect(world.findInventory(id)).toEqual([]);
+  });
+});
+
 describe('the inventory of a player', () => {
   it('is empty when the player comes into the world', () => {
     const world = new World(createRandom());
@@ -1757,6 +1883,7 @@ describe('a world of the cave', () => {
     expect([...taken].sort()).toEqual([
       'clover',
       'clover',
+      'healing-potion',
       'leather-armour',
       'sword',
     ]);
@@ -1787,8 +1914,22 @@ describe('a world of the cave', () => {
     expect(world.describeItems().looted).toEqual([]);
   });
 
+  it('holds a healing potion in the barrel in the corner of the south store room', () => {
+    const barrel: CaveContainer | undefined = CAVE_CONTAINERS.find(
+      (container: CaveContainer) =>
+        container.kind === 'barrel' && container.x === 7 && container.z === 4.5,
+    );
+    if (barrel === undefined) {
+      throw new Error('There is no barrel at (7.0, 4.5).');
+    }
+    const [world, id] = enterCave();
+    walkToContainer(world, id, barrel);
+    pickOnce(world, id);
+    expect(world.findInventory(id)).toEqual(['healing-potion']);
+  });
+
   it('lets the new items be put down and picked up again', () => {
-    for (const item of ['sword', 'leather-armour'] as const) {
+    for (const item of ['sword', 'leather-armour', 'healing-potion'] as const) {
       const [world, id] = enterCave();
       walkToContainer(world, id, findContainer(item));
       pickOnce(world, id);

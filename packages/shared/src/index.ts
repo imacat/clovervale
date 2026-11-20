@@ -126,9 +126,11 @@ export {
   INVENTORY_SIZE,
   ITEM_KINDS,
   NO_WORLD_ITEMS,
+  canUseItem,
   findItemKind,
   hasRoom,
   isItemKindId,
+  isUsableItem,
 } from './items.ts';
 export type {
   GroundItem,
@@ -172,6 +174,7 @@ export type {
   PlayerInput,
   PlayerMotion,
   TravelInput,
+  UseInput,
 } from './player-motion.ts';
 export {
   APPEARANCE_COUNT,
@@ -210,6 +213,7 @@ export type {
   SlashJudgement,
   SnapshotMessage,
   TravelMessage,
+  UseMessage,
   WelcomeMessage,
 } from './protocol.ts';
 export {
