@@ -509,14 +509,8 @@ export function buildYardWallEnd(): BuiltModel {
 /** The number of sprigs in a patch of clover. */
 const CLOVER_SPRIG_COUNT = 10;
 
-/**
- * The number of four-leaved sprigs in a patch of clover.  The rest are
- * three-leaved.
- */
-const FOUR_LEAVED_SPRIG_COUNT = 4;
-
-/** The seed of the shuffle that hands out the kinds of clover sprigs. */
-const CLOVER_SHUFFLE_SEED = 9;
+/** The number of leaflets of each sprig in a patch of clover. */
+const CLOVER_LEAFLET_COUNT = 3;
 
 /**
  * The outline of a clover leaflet, from where it joins the stem to its
@@ -535,32 +529,7 @@ const LEAFLET_OUTLINE: readonly Pair[] = [
 const CLOVER_LEAVES: readonly string[] = ['leafA', 'leafB', 'leafC'];
 
 /**
- * Counts the leaflets of each sprig in a patch of clover, handing out the
- * four-leaved and the three-leaved kinds in a shuffled order of the sprigs.
- * The counts are the same every time.
- *
- * @returns {number[]} The number of leaflets of each sprig, by its number.
- */
-function countCloverLeaflets(): number[] {
-  const random: () => number = createRandom(CLOVER_SHUFFLE_SEED);
-  const order: number[] = Array.from(
-    { length: CLOVER_SPRIG_COUNT },
-    (_, i: number) => i,
-  );
-  for (let i = order.length - 1; i > 0; i--) {
-    const j: number = Math.floor(random() * (i + 1));
-    [order[i], order[j]] = [getItem(order, j), getItem(order, i)];
-  }
-  const counts: number[] = [];
-  order.forEach((sprig: number, rank: number) => {
-    counts[sprig] = rank < FOUR_LEAVED_SPRIG_COUNT ? 4 : 3;
-  });
-  return counts;
-}
-
-/**
- * Builds a low patch of clover, mostly three-leaved with some four-leaved
- * sprigs among them.
+ * Builds a low patch of three-leaved clover.
  *
  * @returns {BuiltModel} The model.
  */
@@ -572,11 +541,9 @@ export function buildClover(): BuiltModel {
   model.setMaterial('leafC', '#5aa746');
   const random: () => number = createRandom(7);
   const leaflet: Shape = createExtrusion(LEAFLET_OUTLINE, 0.006);
-  const leafletCounts: number[] = countCloverLeaflets();
   for (let i = 0; i < CLOVER_SPRIG_COUNT; i++) {
     const angle: number = i * 2.4;
     const reach: number = 0.06 + 0.56 * Math.sqrt(i / CLOVER_SPRIG_COUNT);
-    const leafletCount: number = getItem(leafletCounts, i);
     const x: number = reach * Math.cos(angle);
     const z: number = reach * Math.sin(angle);
     const height: number = 0.05 + random() * 0.07;
@@ -595,12 +562,12 @@ export function buildClover(): BuiltModel {
         { pos: [x, 0, z] },
       ),
     );
-    for (let j = 0; j < leafletCount; j++) {
+    for (let j = 0; j < CLOVER_LEAFLET_COUNT; j++) {
       model.add(
         getItem(CLOVER_LEAVES, i % CLOVER_LEAVES.length),
         place(place(leaflet, { rot: [-75 - random() * 10, 0, 0] }), {
           pos: [x, height, z],
-          rot: [0, turn + (j * 360) / leafletCount, 0],
+          rot: [0, turn + (j * 360) / CLOVER_LEAFLET_COUNT, 0],
         }),
       );
     }
