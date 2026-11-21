@@ -978,7 +978,7 @@ const HELP_WORDS = {
 const ZH_TW_HELP_WORDS = {
   title: '操作說明',
   ok: '確認',
-  gamepad: '遊戲手把',
+  gamepad: '搖桿',
 } as const;
 /** How many controls the help sheet lists. */
 const HELP_CONTROL_COUNT = 8;
