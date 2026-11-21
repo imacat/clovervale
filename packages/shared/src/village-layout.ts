@@ -152,6 +152,57 @@ const YARD_WALL_ENDS_ON_HOUSE: readonly Spot[] = [
 ];
 
 /**
+ * The spot of the apothecary's, the cottage at the back of the village on
+ * the north-west, facing the plaza.
+ */
+const APOTHECARY_SPOT: Spot = [-10.5, -16.5, 55];
+
+/**
+ * Where Basil the apothecary stands outside his shop, and which way he
+ * faces, as the model of the shop has it: just off the step in front of the
+ * closed door, on the side of the herb rack, half turned towards it.
+ */
+const APOTHECARY_AT_DOOR: Spot = [0.55, 2.95, -35];
+
+/**
+ * Where the herb rack of the apothecary's stands, as the model of the shop
+ * has it: in front of the front window, from near the front corner of the
+ * house up to the step of the door, its back clear of the sill of the
+ * window, so that the window shows over its top and between its shelves.
+ */
+const HERB_RACK_ON_SHOP: Spot = [-0.96, 2.36, 0];
+
+/**
+ * Where the crate of potion bottles of the apothecary's stands, as the
+ * model of the shop has it: on the ground at the end of the herb rack away
+ * from the door, in front of the corner of the house.
+ */
+const POTION_CRATE_ON_SHOP: Spot = [-2.85, 2.35, 0];
+
+/**
+ * Where the crate planted with herbs stands, as the model of the shop has
+ * it: on the ground in front of the left half of the herb rack, turned a
+ * little askew.
+ */
+const HERB_CRATE_ON_SHOP: Spot = [-1.5, 2.95, -12];
+
+/**
+ * Where the potted plant stands, as the model of the shop has it: in front
+ * of the herb rack, at its end by the door.
+ */
+const POTTED_PLANT_ON_SHOP: Spot = [-0.15, 2.85, 0];
+
+/**
+ * Where the barrels stand, as the model of the shop has it: one against the
+ * front wall between the door and the corner of the house, and one against
+ * the side wall beyond the window, by the front corner.
+ */
+const BARRELS_ON_SHOP: readonly Spot[] = [
+  [2.05, 2.5, 20],
+  [-2.95, 1.3, 70],
+];
+
+/**
  * Finds the spot in the world of something placed on a model.
  *
  * @param {Spot} model - The spot of the model.
@@ -178,10 +229,16 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
   'prop-great-tree.glb': [[0, -14.5, 20]],
   'prop-healing-stele.glb': [[-2.1, -6.8, 20]],
   'prop-village-sign.glb': [[-3.1, 4.9, 0]],
-  'prop-cottage.glb': [
-    [-11, -4.5, 90],
-    [-10.5, -16.5, 55],
-  ],
+  'prop-cottage.glb': [[-11, -4.5, 90]],
+  'prop-apothecary.glb': [APOTHECARY_SPOT],
+  'npc-basil.glb': [placeSpot(APOTHECARY_SPOT, APOTHECARY_AT_DOOR)],
+  'prop-herb-rack.glb': [placeSpot(APOTHECARY_SPOT, HERB_RACK_ON_SHOP)],
+  'prop-potion-crate.glb': [placeSpot(APOTHECARY_SPOT, POTION_CRATE_ON_SHOP)],
+  'prop-herb-crate.glb': [placeSpot(APOTHECARY_SPOT, HERB_CRATE_ON_SHOP)],
+  'prop-potted-plant.glb': [placeSpot(APOTHECARY_SPOT, POTTED_PLANT_ON_SHOP)],
+  'prop-barrel.glb': BARRELS_ON_SHOP.map((spot: Spot) =>
+    placeSpot(APOTHECARY_SPOT, spot),
+  ),
   'prop-chief-house.glb': [CHIEF_HOUSE_SPOT],
   'npc-martha.glb': [placeSpot(CHIEF_HOUSE_SPOT, CHIEF_ON_PORCH)],
   'prop-pitchfork.glb': [placeSpot(CHIEF_HOUSE_SPOT, PITCHFORK_AGAINST_WALL)],
@@ -383,6 +440,17 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
   // The post, and not the board nailed to it above the ground.
   'prop-village-sign.glb': [makeCircle(0.005, -0.02, 0.07)],
   'prop-cottage.glb': [makeBox(-2.55, 2.55, -2.35, 2.35)],
+  // A cottage, with another roof and a sign in its gable.
+  'prop-apothecary.glb': [makeBox(-2.55, 2.55, -2.35, 2.35)],
+  // Basil, and the writing board he holds out in front of him.
+  'npc-basil.glb': [makeCircle(0, 0, 0.45)],
+  // The frame of the rack, with what stands on it and hangs from it.
+  'prop-herb-rack.glb': [makeBox(-1.05, 1.05, -0.21, 0.21)],
+  'prop-potion-crate.glb': [makeBox(-0.25, 0.25, -0.18, 0.18)],
+  'prop-herb-crate.glb': [makeBox(-0.3, 0.3, -0.2, 0.2)],
+  // The pot, and the leaves that spread over its rim.
+  'prop-potted-plant.glb': [makeCircle(0, 0, 0.22)],
+  'prop-barrel.glb': [makeCircle(0, 0, 0.37)],
   // The house on its stone base, and the two posts of the porch in front
   // of it, and not the floor of the porch.
   'prop-chief-house.glb': [

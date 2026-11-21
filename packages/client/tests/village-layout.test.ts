@@ -41,6 +41,7 @@ import type { Placement } from '../src/village-layout.ts';
 /** The required models, and the props the plaza is built from. */
 const PLAZA_FILES: readonly string[] = [
   ...REQUIRED_MODEL_FILES,
+  'prop-apothecary.glb',
   'prop-chief-house.glb',
   'prop-cottage.glb',
   'prop-great-tree.glb',
@@ -112,6 +113,7 @@ describe('layoutVillage', () => {
     const buildings: Placement[] = placements.filter(
       (placement: Placement) =>
         [
+          'prop-apothecary.glb',
           'prop-chief-house.glb',
           'prop-cottage.glb',
           'weapon-shop.glb',

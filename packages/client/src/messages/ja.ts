@@ -240,6 +240,7 @@ export const JA_MESSAGES: MessageTable = {
     '四つ葉のをさがしてるんだ！見つけたら、いいことがあるんだよ。',
   'villager.toby.found': 'あった！',
   'villager.toby.gift': 'これ、あげる！いいことがあるよ。',
+  'villager.basil.name': 'バジル',
   'villager.edwin.name': '囚人',
   'villager.edwin.knownName': '使者エドウィン',
   'villager.edwin.call': '助けてくれ！誰かいないのか？',
@@ -282,4 +283,15 @@ export const JA_MESSAGES: MessageTable = {
   'dialogue.toby.dress':
     'じっとしてて。薬、塗ってあげるね。はい、できた。これからは気をつけて遊ぶんだよ！',
   'dialogue.toby.thanks': 'うん。ありがとう！これ、あげる！',
+  'dialogue.basil.offer':
+    'こんにちは、こんにちは！回復薬、いかがですか？一本たったの銀貨{price}枚ですよ！',
+  'dialogue.basil.buy': '一本ください。',
+  'dialogue.basil.decline': 'いえ、けっこうです。',
+  'dialogue.basil.sold':
+    'はい、どうぞ！これは……うん、たぶん回復薬で合ってます。落として割らないように気をつけてくださいね！',
+  'dialogue.basil.short':
+    'あっ、銀貨が足りないみたいです。すみません、ぼくも食べていかなきゃいけないので……',
+  'dialogue.basil.full':
+    'かばん、もういっぱいみたいですね。ちょっと整理してから、また来てください！',
+  'dialogue.basil.farewell': 'はい、また必要になったら、いつでも来てくださいね！',
 };

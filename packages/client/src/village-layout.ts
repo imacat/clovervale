@@ -93,10 +93,12 @@ const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
  * Arranges the models into a village.
  *
  * The fountain stands in the middle of a plaza, in front of the great tree,
- * and the cottages, the weapon shop and the house of the village chief, in
- * its open yard with the old well, stand around the plaza, each facing
- * it.  Nancy the villager is by the fountain, as is the healing stele,
- * and Emma the smith works at the anvil by the forge of the weapon shop.
+ * and the cottage, the apothecary's, the weapon shop and the house of the
+ * village chief, in its open yard with the old well, stand around the
+ * plaza, each facing it.  Nancy the villager is by the fountain, as is the
+ * healing stele, Emma the smith works at the anvil by the forge of the
+ * weapon shop, and Basil the apothecary stands by the door of his shop,
+ * among his herb rack, his crates, his potted plant and his barrels.
  * The village sign stands by the gate, and the spawn stones of the monster
  * are a little way outside.  The characters and the monster have no place
  * of their own, as they stand wherever the server has them, and neither

@@ -248,6 +248,7 @@ export const EN_MESSAGES = {
     "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
   'villager.toby.found': 'Found one!',
   'villager.toby.gift': "Here, this one's for you! It brings good luck.",
+  'villager.basil.name': 'Basil',
   'villager.edwin.name': 'Prisoner',
   'villager.edwin.knownName': 'Envoy Edwin',
   'villager.edwin.call': 'Help! Is anyone there?',
@@ -290,6 +291,17 @@ export const EN_MESSAGES = {
   'dialogue.toby.dress':
     "Hold still, I'll put some ointment on it. There, all done. Be careful when you're playing from now on, OK?",
   'dialogue.toby.thanks': "Okay. Thank you! This one's for you!",
+  'dialogue.basil.offer':
+    'Hi, hi! Want a healing potion? Just {price} silver coins a bottle!',
+  'dialogue.basil.buy': "I'll take one.",
+  'dialogue.basil.decline': 'No, thanks.',
+  'dialogue.basil.sold':
+    "Here you go! This one's… a healing potion, I'm pretty sure. Careful not to drop it!",
+  'dialogue.basil.short':
+    "Oh, you're a bit short on silver. Sorry, but I've got to eat too…",
+  'dialogue.basil.full':
+    'Looks like your bag is full. Sort it out a bit and come back!',
+  'dialogue.basil.farewell': 'Okay! Come and find me whenever you need one!',
 } as const;
 
 /** A message of the page. */

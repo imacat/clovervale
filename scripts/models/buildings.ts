@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/buildings The weapon shop, the fountain, a cottage
- *   and the house of the village chief.
+ * @module scripts/models/buildings The weapon shop, the fountain, a cottage,
+ *   the apothecary's and the house of the village chief.
  */
 
 import {
@@ -30,6 +30,7 @@ import {
   createEllipsoid,
   createExtrusion,
   createLathe,
+  createTube,
   place,
 } from './geometry.ts';
 import type { Pair, Placement, Shape, Triple } from './geometry.ts';
@@ -982,6 +983,169 @@ export function buildCottage(): BuiltModel {
       ),
     );
   }
+  model.centreFootprint();
+  return { model };
+}
+
+/**
+ * Adds the sign of an apothecary, a mortar and pestle on a round wooden
+ * plaque framed in gold, with a sprig of herbs rising from the mortar.
+ *
+ * @param {Model} model - The model, with the house materials and the
+ *   materials `mortar`, `pestle` and `green` defined.
+ * @param {PutOnWall} putOnWall - Moves a shape built facing +Z onto a wall
+ *   of the house.
+ * @param {number} y - The height of the middle of the sign.
+ */
+function addMortarSign(model: Model, putOnWall: PutOnWall, y: number): void {
+  const faceFront: Placement = { rot: [90, 0, 0] };
+  const radius = 0.52;
+  model.add(
+    'door',
+    putOnWall(
+      place(
+        createLathe(
+          [
+            [0, 0],
+            [radius, 0],
+            [radius, 0.05],
+            [0, 0.05],
+          ],
+          8,
+        ),
+        faceFront,
+      ),
+      'front',
+      0,
+      y,
+      0.04,
+    ),
+  );
+  model.add(
+    'gold',
+    putOnWall(
+      place(
+        createLathe(
+          [
+            [radius - 0.08, 0],
+            [radius - 0.01, 0],
+            [radius - 0.01, 0.07],
+            [radius - 0.08, 0.07],
+          ],
+          8,
+        ),
+        faceFront,
+      ),
+      'front',
+      0,
+      y,
+      0.06,
+    ),
+  );
+  // The mortar, a squat stone bowl, flattened against the plaque, with
+  // the hollow of its bowl showing over its rim.
+  const flat: Placement = { scale: [1, 1, 0.55] };
+  model.add(
+    'mortar',
+    putOnWall(
+      place(
+        createLathe(
+          [
+            [0, 0],
+            [0.13, 0],
+            [0.14, 0.03],
+            [0.22, 0.09],
+            [0.26, 0.19],
+            [0.27, 0.25],
+            [0.21, 0.25],
+            [0.19, 0.17],
+            [0, 0.13],
+          ],
+          10,
+        ),
+        flat,
+      ),
+      'front',
+      0,
+      y - 0.33,
+      0.2,
+    ),
+  );
+  // The pestle, its round head down in the bowl and its handle leaning out
+  // over the rim to the right.
+  model.add(
+    'pestle',
+    putOnWall(
+      createTube(
+        [
+          [-0.04, 0.12, 0],
+          [0.02, 0.2, 0],
+          [0.12, 0.36, 0],
+          [0.2, 0.5, 0],
+          [0.23, 0.55, 0],
+        ],
+        [0.05, 0.062, 0.035, 0.03, 0],
+        6,
+      ),
+      'front',
+      0,
+      y - 0.33,
+      0.22,
+    ),
+  );
+  // A sprig of herbs rising from the bowl on the left.
+  const leaves: readonly Triple[] = [
+    [-0.1, 0.33, 30],
+    [-0.17, 0.4, 55],
+    [-0.06, 0.44, 10],
+  ];
+  for (const [u, dy, tilt] of leaves) {
+    model.add(
+      'green',
+      putOnWall(
+        place(createEllipsoid([0.035, 0.08, 0.02], 0), { rot: [0, 0, tilt] }),
+        'front',
+        u,
+        y - 0.33 + dy,
+        0.2,
+      ),
+    );
+  }
+}
+
+/**
+ * Builds the apothecary's: a cottage like the others, with its windows
+ * where a cottage has them, under a roof of green-glazed tiles, its gable
+ * window made into the sign of the shop, a mortar and pestle.  The front
+ * window has no box of flowers under it, as the herb rack stands in front
+ * of it.  The door is shut, and the windows hold glass.
+ *
+ * @returns {BuiltModel} The model.
+ */
+export function buildApothecary(): BuiltModel {
+  const model = new Model('Apothecary');
+  setHouseMaterials(model, '#3d8f80', '#327769');
+  model.setMaterial('green', '#5fa646');
+  model.setMaterial('mortar', '#e6e0d2');
+  model.setMaterial('pestle', '#b98045');
+  const plan: HousePlan = {
+    x: 0,
+    width: 4.6,
+    depth: 4,
+    base: 0.35,
+    wall: 2.3,
+    rise: 2.1,
+    door: 0.9,
+    chimney: [1.3, -0.9],
+    windows: [
+      { wall: 'front', u: -1.1, y: 1.7, w: 0.95, h: 0.85 },
+      { wall: 'left', u: 0, y: 1.7, w: 0.95, h: 0.85 },
+      { wall: 'right', u: 0, y: 1.7, w: 0.95, h: 0.85 },
+      { wall: 'back', u: 0, y: 1.7, w: 1.1, h: 0.85 },
+    ],
+  };
+  const putOnWall: PutOnWall = addHouse(model, plan);
+  addMortarSign(model, putOnWall, 3.6);
   model.centreFootprint();
   return { model };
 }

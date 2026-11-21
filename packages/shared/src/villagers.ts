@@ -35,7 +35,13 @@ import type { MapId } from './world-map.ts';
  * The identifier of a villager, which never changes, for the client to
  * find what the villager is called and what it says.
  */
-export type VillagerId = 'nancy' | 'emma' | 'martha' | 'toby' | 'edwin';
+export type VillagerId =
+  | 'nancy'
+  | 'emma'
+  | 'martha'
+  | 'toby'
+  | 'basil'
+  | 'edwin';
 
 /** A villager a player can talk to. */
 export interface Villager {
@@ -83,6 +89,7 @@ export const VILLAGERS: readonly Villager[] = [
     fighter: 'martha',
   },
   { id: 'toby', file: TOBY_FILE, map: 'village', hasServerLines: true },
+  { id: 'basil', file: 'npc-basil.glb', map: 'village' },
   { id: 'edwin', file: CAVE_EDWIN_FILE, map: 'cave' },
 ];
 

@@ -234,6 +234,7 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'villager.toby.line.3': '我在找四葉的！找到就會有好運喔。',
   'villager.toby.found': '找到了！',
   'villager.toby.gift': '這個給你！會有好運喔。',
+  'villager.basil.name': '巴索',
   'villager.edwin.name': '囚犯',
   'villager.edwin.knownName': '使者艾德溫',
   'villager.edwin.call': '救命！有人在嗎？',
@@ -268,4 +269,12 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'dialogue.toby.moan': '好痛喔……',
   'dialogue.toby.dress': '別動，我幫你擦藥。好了。以後玩要小心喔！',
   'dialogue.toby.thanks': '好。謝謝！這個給你！',
+  'dialogue.basil.offer': '你好你好！要買治療藥水嗎？一瓶{price}枚銀幣！',
+  'dialogue.basil.buy': '買一瓶。',
+  'dialogue.basil.decline': '不用了。',
+  'dialogue.basil.sold':
+    '來，拿好！這瓶⋯⋯應該是治療藥水沒錯。小心別摔破了！',
+  'dialogue.basil.short': '啊，銀幣不夠耶。不好意思，我也要吃飯⋯⋯',
+  'dialogue.basil.full': '你的背包好像裝不下了。先整理一下再來吧！',
+  'dialogue.basil.farewell': '好，需要的時候再來找我喔！',
 };

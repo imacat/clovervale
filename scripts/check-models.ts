@@ -61,14 +61,23 @@ import {
   CAVE_TORCH_FILE,
   PLAYER_RADIUS,
   SIMULATION_RATE,
+  SPAWN_POINT_COUNT,
   TOBY_ACTIVITY_STEPS,
+  TOBY_ENDS,
   TOBY_FILE,
+  TOBY_RADIUS,
   TOBY_RUN_SPEED,
   Terrain,
   VILLAGE_PLACEMENTS,
+  VILLAGE_TERRAIN,
   findPlacement,
+  findSpawnPoint,
+  findTurn,
+  findVillagePath,
+  findVillager,
   placePoint,
   placeShape,
+  turnVector,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
@@ -312,6 +321,7 @@ const REQUIRED_FILES: readonly string[] = [
   'npc-emma.glb',
   'npc-martha.glb',
   TOBY_FILE,
+  'npc-basil.glb',
   CAVE_EDWIN_FILE,
   'wild-dog.glb',
   'weapon-shop.glb',
@@ -583,6 +593,40 @@ const EDWIN_SAMPLES = 48;
  * prisoner but his fists, along the ground, in metres: the radius of a bar.
  */
 const BAR_CLEARANCE = 0.036;
+/** The file name of the apothecary's. */
+const APOTHECARY_FILE = 'prop-apothecary.glb';
+/** The file name of Basil the apothecary. */
+const BASIL_FILE = 'npc-basil.glb';
+/**
+ * The file names of the models that stand about the front of the
+ * apothecary's: the herb rack, the crates, the potted plant and the
+ * barrels.
+ */
+const APOTHECARY_PROP_FILES: readonly string[] = [
+  'prop-herb-rack.glb',
+  'prop-potion-crate.glb',
+  'prop-herb-crate.glb',
+  'prop-potted-plant.glb',
+  'prop-barrel.glb',
+];
+/**
+ * Where a player stands in front of the door of the apothecary's, a step
+ * out from its doorstep, as the model of the shop has it.
+ */
+const BEFORE_SHOP_DOOR: GroundVector = { x: 0.9, z: 4.1 };
+/**
+ * The heights between which whatever a model has must lie within the
+ * ground it takes up, in metres: above a doorstep, which a player steps
+ * over, and below the eaves of a roof, which a player walks under.
+ */
+const SOLID_HEIGHTS: readonly [number, number] = [0.2, 2];
+/** How many times in his idle clip Basil is looked at. */
+const BASIL_SAMPLES = 40;
+/**
+ * The least room between the ground the props of the apothecary's take up
+ * and a patch of clover, a spawn point or the course of Toby, in metres.
+ */
+const PATH_CLEARANCE = 1;
 /** The magic number of a binary glTF file. */
 const GLB_MAGIC = 0x46546c67;
 /** The type of the JSON chunk of a binary glTF file. */
@@ -1981,6 +2025,194 @@ async function checkCaveFixtures(): Promise<StrikeResult> {
 }
 
 /**
+ * Measures how far a point on the ground lies outside a shape on it.
+ *
+ * @param {GroundVector} point - The point.
+ * @param {Shape} shape - The shape, in the world.
+ * @returns {number} How far, in metres, or zero if it lies within.
+ */
+function measureOutside(point: GroundVector, shape: Shape): number {
+  if (shape.shape === 'circle') {
+    return Math.max(
+      Math.hypot(point.x - shape.x, point.z - shape.z) - shape.radius,
+      0,
+    );
+  }
+  const local: GroundVector = turnVector(
+    { x: point.x - shape.x, z: point.z - shape.z },
+    findTurn(-shape.yaw),
+  );
+  return Math.hypot(
+    Math.max(Math.abs(local.x) - shape.halfWidth, 0),
+    Math.max(Math.abs(local.z) - shape.halfDepth, 0),
+  );
+}
+
+/**
+ * Measures how far the solid part of a model, standing in its place, reaches
+ * out of the ground it takes up in the village: the farthest any of its
+ * vertices between the heights of {@link SOLID_HEIGHTS} lies outside every
+ * footprint of its own.
+ *
+ * @param {Object3D} root - The model, standing in its place.
+ * @param {Placement} placement - Its place.
+ * @returns {number} How far, in metres.
+ */
+function measureOverhang(root: Object3D, placement: Placement): number {
+  const own: Shape[] = VILLAGE_TERRAIN.shapes.filter(
+    (shape: Shape) =>
+      Math.hypot(shape.x - placement.x, shape.z - placement.z) < 1e-9,
+  );
+  const [low, high] = SOLID_HEIGHTS;
+  let farthest = 0;
+  for (const point of listWorldVertices(root).positions) {
+    if (point.y < low || point.y > high) {
+      continue;
+    }
+    const outside: number = Math.min(
+      ...own.map((shape: Shape) => measureOutside(point, shape)),
+    );
+    farthest = Math.max(farthest, outside);
+  }
+  return farthest;
+}
+
+/**
+ * Checks the apothecary's, its props and Basil, as the village stands them.
+ *
+ * The house, the herb rack, the crates, the potted plant and the barrels,
+ * and Basil through his idle clip, each reach no farther than
+ * {@link FOOTPRINT_TOLERANCE} out of the ground they take up, from the top
+ * of the doorstep up to the eaves, so that nobody walks into what stands
+ * there.  The props stand at least {@link PATH_CLEARANCE} from every
+ * patch of clover and every spawn point, and from the course Toby runs.
+ * A player in front of the door, facing Basil, talks to him, and walks
+ * there from the plaza.
+ *
+ * @param {readonly string[]} files - The file names of the models there
+ *   are.
+ * @returns {Promise<StrikeResult>} The outcome.
+ */
+async function checkApothecary(
+  files: readonly string[],
+): Promise<StrikeResult> {
+  const failures: string[] = [];
+  let widest = 0;
+  for (const placement of VILLAGE_PLACEMENTS.filter(
+    ({ file }: Placement) =>
+      (file === APOTHECARY_FILE || APOTHECARY_PROP_FILES.includes(file)) &&
+      files.includes(file),
+  )) {
+    const model: GLTF = await loadAt(placement);
+    const overhang: number = measureOverhang(model.scene, placement);
+    widest = Math.max(widest, overhang);
+    if (overhang > FOOTPRINT_TOLERANCE) {
+      failures.push(
+        `${placement.file} at (${placement.x.toFixed(2)}, ` +
+          `${placement.z.toFixed(2)}) reaches ${overhang.toFixed(3)} m out ` +
+          'of the ground it takes up',
+      );
+    }
+  }
+  const basilPlacement: Placement = findPlacement(BASIL_FILE);
+  const basil: GLTF = await loadPlaced(BASIL_FILE);
+  const clip: AnimationClip | undefined = basil.animations.find(
+    (candidate: AnimationClip) => candidate.name === 'Idle',
+  );
+  let basilOverhang = 0;
+  if (clip === undefined) {
+    failures.push(`${BASIL_FILE} does not idle`);
+  } else {
+    for (let k = 0; k < BASIL_SAMPLES; k++) {
+      const mixer: AnimationMixer = poseModel(
+        basil,
+        clip,
+        (clip.duration * k) / BASIL_SAMPLES,
+      );
+      basilOverhang = Math.max(
+        basilOverhang,
+        measureOverhang(basil.scene, basilPlacement),
+      );
+      resetModel(basil, mixer);
+    }
+    if (basilOverhang > FOOTPRINT_TOLERANCE) {
+      failures.push(
+        `${BASIL_FILE} reaches ${basilOverhang.toFixed(3)} m out of the ` +
+          'ground he takes up as he idles',
+      );
+    }
+  }
+  const props: Shape[] = VILLAGE_TERRAIN.shapes.filter((shape: Shape) =>
+    VILLAGE_PLACEMENTS.some(
+      (placement: Placement) =>
+        APOTHECARY_PROP_FILES.includes(placement.file) &&
+        Math.hypot(shape.x - placement.x, shape.z - placement.z) < 1e-9,
+    ),
+  );
+  const [first, second] = TOBY_ENDS;
+  const course: GroundVector[] = Array.from(
+    { length: 101 },
+    (_: unknown, index: number): GroundVector => ({
+      x: first.x + ((second.x - first.x) * index) / 100,
+      z: first.z + ((second.z - first.z) * index) / 100,
+    }),
+  );
+  const paths: readonly (readonly [string, GroundVector, number])[] = [
+    ...VILLAGE_PLACEMENTS.filter(
+      ({ file }: Placement) => file === 'prop-clover.glb',
+    ).map((patch: Placement) => ['a patch of clover', patch, 0] as const),
+    ...Array.from(
+      { length: SPAWN_POINT_COUNT },
+      (_: unknown, index: number) =>
+        ['a spawn point', findSpawnPoint(index), PLAYER_RADIUS] as const,
+    ),
+    ...course.map(
+      (point: GroundVector) =>
+        ['the course of Toby', point, TOBY_RADIUS] as const,
+    ),
+  ];
+  for (const [what, point, radius] of paths) {
+    for (const prop of props) {
+      if (measureOutside(point, prop) < PATH_CLEARANCE + radius) {
+        failures.push(
+          `a prop of the apothecary's stands within ${String(PATH_CLEARANCE)}` +
+            ` m of ${what} at (${point.x.toFixed(2)}, ${point.z.toFixed(2)})`,
+        );
+      }
+    }
+  }
+  const spot: GroundVector = placePoint(
+    findPlacement(APOTHECARY_FILE),
+    BEFORE_SHOP_DOOR,
+  );
+  const yaw: number =
+    (Math.atan2(basilPlacement.x - spot.x, basilPlacement.z - spot.z) * 180) /
+    Math.PI;
+  const isTalked: boolean = findVillager({ ...spot, yaw }, 0)?.id === 'basil';
+  const isReached: boolean =
+    VILLAGE_TERRAIN.isClear(spot) &&
+    findVillagePath(findSpawnPoint(0), spot) !== null;
+  if (!isTalked) {
+    failures.push(
+      `a player in front of the door of ${APOTHECARY_FILE} does not talk ` +
+        `to ${BASIL_FILE}`,
+    );
+  }
+  if (!isReached) {
+    failures.push(
+      `a player cannot walk from the plaza to the door of ${APOTHECARY_FILE}`,
+    );
+  }
+  const summary =
+    `${APOTHECARY_FILE} and its props reach ${(widest * 1000).toFixed(0)} ` +
+    `mm out of their ground at the most, ${BASIL_FILE} ` +
+    `${(basilOverhang * 1000).toFixed(0)} mm, the props stand clear of the ` +
+    `clover, the spawn points and the course of Toby, and a player walks ` +
+    `from the plaza to the door and talks to Basil there`;
+  return { summary, failures };
+}
+
+/**
  * Checks the models of the client.
  *
  * @returns {Promise<boolean>} Whether every model meets every requirement.
@@ -2052,6 +2284,15 @@ async function checkModels(): Promise<boolean> {
     ? await checkCaveFixtures()
     : { summary: '', failures: [] };
   problems.push(...fixtures.failures);
+  // Basil is required, so a missing one is already reported; the shop is
+  // reported as not checked as well.
+  const apothecary: StrikeResult = files.includes(BASIL_FILE)
+    ? await checkApothecary(files)
+    : {
+        summary: '',
+        failures: [`the apothecary's cannot be checked`],
+      };
+  problems.push(...apothecary.failures);
   const characters: ModelResult[] = results.filter(
     (result: ModelResult) => result.kind === 'character',
   );
@@ -2069,7 +2310,7 @@ async function checkModels(): Promise<boolean> {
       console.log(`     - ${failure}`);
     }
   }
-  for (const meeting of [strike, sight, cave, fixtures]) {
+  for (const meeting of [strike, sight, cave, fixtures, apothecary]) {
     if (meeting.summary !== '') {
       const mark: string = meeting.failures.length > 0 ? 'FAIL' : 'ok  ';
       console.log(`${mark} ${meeting.summary}`);

@@ -22,6 +22,14 @@
  */
 
 import {
+  buildBarrel,
+  buildHerbCrate,
+  buildHerbRack,
+  buildPotionCrate,
+  buildPottedPlant,
+} from './apothecary-props.ts';
+import {
+  buildApothecary,
   buildChiefHouse,
   buildCottage,
   buildFountain,
@@ -39,6 +47,7 @@ import { buildCave, buildCaveTorch } from './cave.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
 import { buildItemLeatherArmour, buildItemSword } from './gear.ts';
 import { buildItemClovervaleMessage } from './message.ts';
+import { buildNpcBasil } from './npc-basil.ts';
 import { buildNpcEmma } from './npc-emma.ts';
 import { buildNpcEdwin } from './npc-edwin.ts';
 import { buildNpcMartha } from './npc-martha.ts';
@@ -90,11 +99,18 @@ export function listModels(): ModelEntry[] {
     { name: 'npc-emma', build: buildNpcEmma },
     { name: 'npc-martha', build: buildNpcMartha },
     { name: 'npc-toby', build: buildNpcToby },
+    { name: 'npc-basil', build: buildNpcBasil },
     { name: 'npc-edwin', build: buildNpcEdwin },
     { name: 'wild-dog', build: buildWildDog },
     { name: 'weapon-shop', build: buildWeaponShop },
     { name: 'fountain', build: buildFountain },
     { name: 'prop-cottage', build: buildCottage },
+    { name: 'prop-apothecary', build: buildApothecary },
+    { name: 'prop-herb-rack', build: buildHerbRack },
+    { name: 'prop-potion-crate', build: buildPotionCrate },
+    { name: 'prop-herb-crate', build: buildHerbCrate },
+    { name: 'prop-potted-plant', build: buildPottedPlant },
+    { name: 'prop-barrel', build: buildBarrel },
     { name: 'prop-great-tree', build: buildGreatTree },
     { name: 'prop-pine-tree', build: buildPineTree },
     { name: 'prop-bush', build: buildBush },

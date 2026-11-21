@@ -26,7 +26,7 @@ import { DIALOGUE_REPLY_LIMIT, VILLAGERS } from '@clovervale/shared';
 import type { DialogueView, Villager, VillagerId } from '@clovervale/shared';
 
 import type { DialogueBox, DialogueRequest } from './dialogue-box.ts';
-import { isMessageId } from './translator.ts';
+import { wordDialogueText } from './dialogue-words.ts';
 import type { Translator } from './translator.ts';
 import { describeVillager } from './villager-words.ts';
 
@@ -73,18 +73,6 @@ export interface DialogueShown {
   readonly replies: readonly string[];
   /** The place of the reply the cursor is on, from 0. */
   readonly cursor: number;
-}
-
-/**
- * Words a message of a dialogue, as the server names it.
- *
- * @param {Translator} translator - The translator of the text of the page.
- * @param {string} id - The name of the message.
- * @returns {string} The message, in the language of the page, or nothing
- *   if the page has no such message.
- */
-function wordText(translator: Translator, id: string): string {
-  return isMessageId(id) ? translator.translate(id) : '';
 }
 
 /**
@@ -184,9 +172,9 @@ export function createDialogueView(
         villager === undefined
           ? ''
           : describeVillager(translator, villager, acquaintances).name,
-      line: wordText(translator, dialogue.line),
+      line: wordDialogueText(translator, dialogue.line),
       replies: dialogue.replies.map((reply: string) =>
-        wordText(translator, reply),
+        wordDialogueText(translator, reply),
       ),
       cursor: box.cursor,
     };

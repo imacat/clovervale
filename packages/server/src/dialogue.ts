@@ -23,7 +23,11 @@
  *   it.
  */
 
-import { CLOVER_KIND } from '@clovervale/shared';
+import {
+  CLOVER_KIND,
+  HEALING_POTION_PRICE,
+  hasRoom,
+} from '@clovervale/shared';
 import type {
   ItemKindId,
   QuestId,
@@ -69,6 +73,15 @@ export interface DialogueCondition {
   readonly knows?: VillagerId;
   /** How far the player must have got with a quest. */
   readonly quest?: QuestCondition;
+  /** The fewest silver coins the player must have. */
+  readonly hasSilver?: number;
+  /** The number of silver coins the player must have fewer than. */
+  readonly lacksSilver?: number;
+  /**
+   * Whether the inventory of the player must have room for another item,
+   * or must be full.
+   */
+  readonly hasRoom?: boolean;
 }
 
 /** What comes of a line once it is said to a player. */
@@ -80,6 +93,11 @@ export interface DialogueOutcome {
    * gives any.
    */
   readonly takes?: ItemKindId;
+  /**
+   * The number of silver coins the villager takes from the player with the
+   * line, before it gives anything.
+   */
+  readonly charges?: number;
   /** An item the villager gives the player with the line. */
   readonly gives?: ItemKindId;
   /** The stage the player gets to in a quest with the line. */
@@ -91,10 +109,11 @@ export interface DialogueReply {
   /** The message of the reply. */
   readonly text: string;
   /**
-   * The name of the node the reply leads to, or `null` for a reply that
-   * ends the dialogue.
+   * The name of the node the reply leads to, or the names of the nodes it
+   * may lead to, in order, of which it leads to the first whose condition
+   * holds of the player, or `null` for a reply that ends the dialogue.
    */
-  readonly next: string | null;
+  readonly next: string | readonly string[] | null;
 }
 
 /** A line a villager says, and what a player can reply. */
@@ -142,6 +161,8 @@ export interface Listener {
   readonly acquaintances: readonly VillagerId[];
   /** How far the player has got with each quest it has taken on. */
   readonly quests: QuestLog;
+  /** The number of silver coins the player has. */
+  readonly silver: number;
 }
 
 /**
@@ -354,6 +375,61 @@ const MARTHA_SCRIPT: DialogueScript = {
   approaches: ['askEnvoy', 'ask'],
 };
 
+/** The item Basil the apothecary sells. */
+const HEALING_POTION: ItemKindId = 'healing-potion';
+
+/** The reply with which a player buys a healing potion from Basil. */
+const BUY_POTION: DialogueReply = {
+  text: 'dialogue.basil.buy',
+  next: ['sold', 'short', 'full'],
+};
+
+/** The reply with which a player buys nothing from Basil. */
+const DECLINE_POTION: DialogueReply = {
+  text: 'dialogue.basil.decline',
+  next: 'farewell',
+};
+
+/**
+ * What Basil the apothecary says, who has nothing to say but to sell his
+ * healing potions, at {@link HEALING_POTION_PRICE} silver coins a bottle.
+ * To any player who talks to him, he offers a potion at that price, which
+ * the player may buy or not.  A player with as many coins and with room in
+ * its inventory pays them and gets a potion, and is offered another; one
+ * with too few coins is told so, before being told its inventory is full
+ * if it is, and one with no room is told so, and either gets nothing and
+ * pays nothing.  A player who buys nothing is bidden farewell.
+ */
+const BASIL_SCRIPT: DialogueScript = {
+  nodes: {
+    offer: {
+      line: 'dialogue.basil.offer',
+      replies: [BUY_POTION, DECLINE_POTION],
+    },
+    sold: {
+      condition: { hasSilver: HEALING_POTION_PRICE, hasRoom: true },
+      line: 'dialogue.basil.sold',
+      replies: [BUY_POTION, DECLINE_POTION],
+      outcome: { charges: HEALING_POTION_PRICE, gives: HEALING_POTION },
+    },
+    short: {
+      condition: { lacksSilver: HEALING_POTION_PRICE },
+      line: 'dialogue.basil.short',
+      replies: [],
+    },
+    full: {
+      condition: { hasRoom: false },
+      line: 'dialogue.basil.full',
+      replies: [],
+    },
+    farewell: {
+      line: 'dialogue.basil.farewell',
+      replies: [],
+    },
+  },
+  openings: ['offer'],
+};
+
 /**
  * What the villagers with something to tell say, by villager.  A villager
  * without a script, or without an opening for a player, only chatters,
@@ -366,6 +442,7 @@ export const DIALOGUE_SCRIPTS: Readonly<
   toby: TOBY_SCRIPT,
   edwin: EDWIN_SCRIPT,
   martha: MARTHA_SCRIPT,
+  basil: BASIL_SCRIPT,
 };
 
 /**
@@ -447,10 +524,22 @@ export function meetsCondition(
   villager: VillagerId,
   listener: Listener,
 ): boolean {
-  const { isAcquainted, carries, lacks, knows, quest } = node.condition ?? {};
+  const {
+    isAcquainted,
+    carries,
+    lacks,
+    knows,
+    quest,
+    hasSilver,
+    lacksSilver,
+    hasRoom: needsRoom,
+  } = node.condition ?? {};
   return (
     (quest === undefined ||
       quest.stages.includes(listener.quests[quest.id] ?? null)) &&
+    (hasSilver === undefined || listener.silver >= hasSilver) &&
+    (lacksSilver === undefined || listener.silver < lacksSilver) &&
+    (needsRoom === undefined || hasRoom(listener.inventory) === needsRoom) &&
     (isAcquainted === undefined ||
       listener.acquaintances.includes(villager) === isAcquainted) &&
     (carries === undefined || listener.inventory.includes(carries)) &&

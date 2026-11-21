@@ -111,6 +111,12 @@ export const CLOVER_KIND: ItemKindId = 'clover';
 export const INVENTORY_SIZE = 16;
 
 /**
+ * The price of a healing potion at the apothecary's, in silver coins, which
+ * Basil the apothecary asks and takes for each bottle.
+ */
+export const HEALING_POTION_PRICE = 3;
+
+/**
  * How long a patch of clover takes to grow a new four-leaved clover once
  * its clover has been picked, in seconds.
  */

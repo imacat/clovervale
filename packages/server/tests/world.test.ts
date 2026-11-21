@@ -36,6 +36,7 @@ import {
   DRINK_STEPS,
   FOUNTAIN_HEALING,
   GROUND_ITEM_DURATION,
+  HEALING_POTION_PRICE,
   INVENTORY_SIZE,
   MONSTER_KINDS,
   PLAYER_HEALTH,
@@ -69,6 +70,7 @@ import {
   findVillagePath,
   isWithinStrike,
   locateVillager,
+  placePoint,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
@@ -1842,6 +1844,203 @@ describe('a player on the quest of Toby, hurt, who talks to him', () => {
     expect(world.findDialogue(id)).toBeNull();
     expect(world.findInventory(id)).toEqual(['spy-token']);
     expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'started' });
+  });
+});
+
+/**
+ * Lets a player into a world in front of the door of the apothecary's,
+ * facing Basil, with some silver coins and some items.
+ *
+ * @param {World} world - The world.
+ * @param {number} silver - The number of its silver coins.
+ * @param {readonly ItemKindId[]} [carried] - What it carries, nothing by
+ *   default.
+ * @returns {number} The identifier of the player.
+ */
+function admitShopper(
+  world: World,
+  silver: number,
+  carried: readonly ItemKindId[] = [],
+): number {
+  const place: GroundVector = placePoint(findPlacement('prop-apothecary.glb'), {
+    x: 0.9,
+    z: 4.1,
+  });
+  const basil: Placement = findPlacement('npc-basil.glb');
+  const yaw: number =
+    (Math.atan2(basil.x - place.x, basil.z - place.z) * 180) / Math.PI;
+  const player: Player = {
+    id: 1,
+    appearance: 1,
+    mover: new AuthoritativePlayer(createMotion(place, yaw)),
+    health: PLAYER_HEALTH,
+    deathSteps: 0,
+    lastSlash: null,
+    inventory: [...carried],
+    silver,
+    acquaintances: [],
+    quests: {},
+    dialogue: null,
+    turnCount: 0,
+    isHunted: false,
+    speeches: [],
+  };
+  world.admitPlayer(player, { ...place, yaw });
+  return player.id;
+}
+
+describe('a player who talks to Basil the apothecary', () => {
+  /**
+   * Has a player talk to Basil, and waits for the talk to end.
+   *
+   * @param {World} world - The world.
+   * @param {number} id - The identifier of the player.
+   * @returns {string[]} What is said to the player in passing meanwhile.
+   */
+  function talkToBasil(world: World, id: number): string[] {
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Talk');
+    stepTimes(world, TALK_STEPS);
+    return world
+      .takeSpeeches(id)
+      .map(({ villager, line }) => `${villager}:${line}`);
+  }
+
+  /**
+   * Has a player choose a reply in its dialogue, and takes a step.
+   *
+   * @param {World} world - The world.
+   * @param {number} id - The identifier of the player.
+   * @param {number} choice - The number of the reply, from 0.
+   */
+  function reply(world: World, id: number, choice: number): void {
+    world.receiveInput(id, {
+      type: 'reply',
+      choice,
+      sequence: ++lastSequence,
+      after: 0,
+    });
+    world.step();
+  }
+
+  /** The replies Basil offers to his offer of a potion. */
+  const OFFER_REPLIES: readonly string[] = [
+    'dialogue.basil.buy',
+    'dialogue.basil.decline',
+  ];
+
+  it('is offered a healing potion, and nothing else is said', () => {
+    const world = new World(createRandom());
+    const id: number = admitShopper(world, 3);
+    expect(talkToBasil(world, id)).toEqual([]);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'basil',
+      line: 'dialogue.basil.offer',
+      replies: OFFER_REPLIES,
+      turn: 1,
+    });
+    expect(world.findSilver(id)).toBe(3);
+    expect(world.findInventory(id)).toEqual([]);
+  });
+
+  it('buys a potion for its price, and may buy another', () => {
+    const world = new World(createRandom());
+    const id: number = admitShopper(world, 2 * HEALING_POTION_PRICE + 1, [
+      'sword',
+    ]);
+    talkToBasil(world, id);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'basil',
+      line: 'dialogue.basil.sold',
+      replies: OFFER_REPLIES,
+      turn: 2,
+    });
+    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE + 1);
+    expect(world.findInventory(id)).toEqual(['sword', 'healing-potion']);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toMatchObject({
+      line: 'dialogue.basil.sold',
+      turn: 3,
+    });
+    expect(world.findSilver(id)).toBe(1);
+    expect(world.findInventory(id)).toEqual([
+      'sword',
+      'healing-potion',
+      'healing-potion',
+    ]);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'basil',
+      line: 'dialogue.basil.short',
+      replies: [],
+      turn: 4,
+    });
+    expect(world.findSilver(id)).toBe(1);
+    expect(world.findInventory(id)).toHaveLength(3);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toBeNull();
+  });
+
+  it('buys nothing without enough silver coins', () => {
+    const world = new World(createRandom());
+    const id: number = admitShopper(world, HEALING_POTION_PRICE - 1);
+    talkToBasil(world, id);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toMatchObject({
+      line: 'dialogue.basil.short',
+      replies: [],
+    });
+    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE - 1);
+    expect(world.findInventory(id)).toEqual([]);
+  });
+
+  it('buys nothing with a full bag, and nothing is laid on the ground', () => {
+    const world = new World(createRandom());
+    const full: ItemKindId[] = Array.from(
+      { length: INVENTORY_SIZE },
+      (): ItemKindId => 'sword',
+    );
+    const id: number = admitShopper(world, HEALING_POTION_PRICE, full);
+    talkToBasil(world, id);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toMatchObject({
+      line: 'dialogue.basil.full',
+      replies: [],
+    });
+    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE);
+    expect(world.findInventory(id)).toEqual(full);
+    expect(world.describeItems().items).toEqual([]);
+  });
+
+  it('is told it has too few coins first, if its bag is full as well', () => {
+    const world = new World(createRandom());
+    const full: ItemKindId[] = Array.from(
+      { length: INVENTORY_SIZE },
+      (): ItemKindId => 'sword',
+    );
+    const id: number = admitShopper(world, 0, full);
+    talkToBasil(world, id);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)?.line).toBe('dialogue.basil.short');
+  });
+
+  it('is bidden farewell when it buys nothing', () => {
+    const world = new World(createRandom());
+    const id: number = admitShopper(world, HEALING_POTION_PRICE);
+    talkToBasil(world, id);
+    reply(world, id, 1);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'basil',
+      line: 'dialogue.basil.farewell',
+      replies: [],
+      turn: 2,
+    });
+    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE);
+    expect(world.findInventory(id)).toEqual([]);
+    reply(world, id, 0);
+    expect(world.findDialogue(id)).toBeNull();
   });
 });
 

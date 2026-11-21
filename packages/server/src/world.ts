@@ -504,19 +504,21 @@ export class World {
    * player, what the line brings about comes about at once: the villager
    * may tell the player who it is; may take an item of the kind it names
    * out of the inventory of the player, the items after it closing up; may
-   * then give it an item, which is laid at its feet as if put down if its
-   * inventory has no room for it; and may have the player get to a stage
-   * of a quest.  A
-   * reply that comes into effect at the step, while the player is in a
-   * dialogue, names one of the replies offered: one that leads to a line
-   * whose condition holds of the player then takes the dialogue on to that
-   * line, and any other ends the dialogue.  Any reply to a line that offers
-   * none ends the dialogue, and a reply that names none of those offered
-   * does nothing otherwise.  A player that dies leaves its dialogue.  A
-   * player in a dialogue at the start of a step is held in place at the
-   * step, as {@link AuthoritativePlayer.step} tells, and neither picks nor
-   * travels.  The monsters of a cave whose player is in a dialogue do
-   * nothing at all at the step.
+   * take as many of its silver coins as it names, or all it has if it has
+   * fewer; may then give it an item, which is laid at its feet as if put
+   * down if its inventory has no room for it; and may have the player get
+   * to a stage of a quest.  A reply that comes into effect at the step,
+   * while the player is in a dialogue, names one of the replies offered:
+   * one that leads to a line whose condition holds of the player then, or
+   * to several lines among which one's does, takes the dialogue on to that
+   * line, or to the first such of them, and any other ends the dialogue.
+   * Any reply to a line that offers none ends the dialogue, and a reply
+   * that names none of those offered does nothing otherwise.  A player
+   * that dies leaves its dialogue.  A player in a dialogue at the start of
+   * a step is held in place at the step, as
+   * {@link AuthoritativePlayer.step} tells, and neither picks nor travels.
+   * The monsters of a cave whose player is in a dialogue do nothing at all
+   * at the step.
    *
    * In the village, Martha then goes about her business, as {@link Martha}
    * tells, with every player of the village as it stands after the step:
@@ -1283,7 +1285,9 @@ export class World {
   /**
    * Has a player answer the line said to it in its dialogue with a reply
    * among those offered, if it is in a dialogue and there is such a reply,
-   * or end the dialogue, if the line offers no reply.
+   * which takes the dialogue on to the first line the reply leads to whose
+   * condition holds of the player, or ends it if there is none, or end the
+   * dialogue, if the line offers no reply.
    *
    * @param {Player} player - The player.
    * @param {number} choice - The number of the reply among those offered,
@@ -1310,7 +1314,20 @@ export class World {
       player.dialogue = null;
       return;
     }
-    this.#reachNode(player, dialogue.villager, reply.next);
+    const choices: readonly string[] =
+      typeof reply.next === 'string' ? [reply.next] : reply.next;
+    const next: string | undefined = choices.find((name: string) => {
+      const node: DialogueNode | null = findDialogueNode(
+        dialogue.villager,
+        name,
+      );
+      return node !== null && meetsCondition(node, dialogue.villager, player);
+    });
+    if (next === undefined) {
+      player.dialogue = null;
+      return;
+    }
+    this.#reachNode(player, dialogue.villager, next);
   }
 
   /**
@@ -1340,7 +1357,13 @@ export class World {
    * @param {DialogueNode} node - The line.
    */
   #bringAbout(player: Player, villager: VillagerId, node: DialogueNode): void {
-    const { introduces = false, takes, gives, sets } = node.outcome ?? {};
+    const {
+      introduces = false,
+      takes,
+      charges = 0,
+      gives,
+      sets,
+    } = node.outcome ?? {};
     if (introduces && !player.acquaintances.includes(villager)) {
       player.acquaintances.push(villager);
     }
@@ -1349,6 +1372,7 @@ export class World {
     if (slot !== -1) {
       player.inventory.splice(slot, 1);
     }
+    player.silver -= Math.min(charges, player.silver);
     if (gives !== undefined) {
       this.#giveItem(player, gives);
     }

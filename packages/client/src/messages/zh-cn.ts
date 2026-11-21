@@ -234,6 +234,7 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'villager.toby.line.3': '我在找四叶的！找到就会有好运哦。',
   'villager.toby.found': '找到啦！',
   'villager.toby.gift': '这个给你！会有好运哦。',
+  'villager.basil.name': '巴索',
   'villager.edwin.name': '囚犯',
   'villager.edwin.knownName': '使者艾德温',
   'villager.edwin.call': '救命啊！有人吗？',
@@ -270,4 +271,12 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'dialogue.toby.dress':
     '别动，我给你抹点药。好了。以后玩的时候要小心点儿哦！',
   'dialogue.toby.thanks': '嗯，知道啦。谢谢！这个送给你！',
+  'dialogue.basil.offer': '你好你好！要不要来瓶治疗药水？一瓶才{price}枚银币！',
+  'dialogue.basil.buy': '来一瓶。',
+  'dialogue.basil.decline': '不用了。',
+  'dialogue.basil.sold':
+    '来，拿好！这瓶……应该就是治疗药水，没错。小心别摔碎了！',
+  'dialogue.basil.short': '啊，银币不够啊。不好意思，我也得吃饭嘛……',
+  'dialogue.basil.full': '你背包好像装不下了。先收拾一下再来吧！',
+  'dialogue.basil.farewell': '好嘞，要用的时候再来找我啊！',
 };

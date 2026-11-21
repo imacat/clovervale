@@ -38,6 +38,8 @@ import {
   findPlacement,
   findSpawnPoint,
   findTurn,
+  findVillagePath,
+  findVillager,
   placePoint,
   turnVector,
 } from '../src/index.ts';
@@ -653,10 +655,7 @@ describe('the house of the village chief', () => {
     const cottages: number[][] = VILLAGE_PLACEMENTS.filter(
       (placement: Placement) => placement.file === 'prop-cottage.glb',
     ).map(({ x, z, yaw }: Placement) => [x, z, yaw]);
-    expect(cottages).toEqual([
-      [-11, -4.5, 90],
-      [-10.5, -16.5, 55],
-    ]);
+    expect(cottages).toEqual([[-11, -4.5, 90]]);
     const toPlaza: GroundVector = findWay(house, PLAZA_CENTRE);
     expect(measureAlignment(findChiefHouseFront(), toPlaza)).toBeGreaterThan(
       Math.cos((15 * Math.PI) / 180),
@@ -868,6 +867,195 @@ describe('the old well', () => {
         z: place.z - toPlace.z * near,
       }),
     ).toBe(true);
+  });
+});
+
+/** The file name of the apothecary's. */
+const APOTHECARY_FILE = 'prop-apothecary.glb';
+
+/** The file name of Basil the apothecary. */
+const BASIL_FILE = 'npc-basil.glb';
+
+/**
+ * The file names of what stands about the front of the apothecary's: the
+ * herb rack, the crates, the potted plant and the barrels.
+ */
+const APOTHECARY_PROP_FILES: readonly string[] = [
+  'prop-herb-rack.glb',
+  'prop-potion-crate.glb',
+  'prop-herb-crate.glb',
+  'prop-potted-plant.glb',
+  'prop-barrel.glb',
+];
+
+/**
+ * Where a player stands in front of the door of the apothecary's, a step
+ * out from its doorstep, as the model of the shop has it.
+ */
+const BEFORE_SHOP_DOOR: GroundVector = { x: 0.9, z: 4.1 };
+
+/**
+ * Finds where a point of the apothecary's stands in the world.
+ *
+ * @param {GroundVector} local - The point, as the model of the shop has it
+ *   before it is placed.
+ * @returns {GroundVector} The point in the world.
+ */
+function placeOnApothecary(local: GroundVector): GroundVector {
+  return placePoint(findPlacement(APOTHECARY_FILE), local);
+}
+
+/**
+ * Finds the footprints of the models that stand in some places.
+ *
+ * @param {(placement: Placement) => boolean} isWanted - Tells whether a
+ *   place is one of them.
+ * @returns {Shape[]} The footprints there, in the world.
+ */
+function findFootprintsAt(
+  isWanted: (placement: Placement) => boolean,
+): Shape[] {
+  const places: Placement[] = VILLAGE_PLACEMENTS.filter(isWanted);
+  return VILLAGE_TERRAIN.shapes.filter((shape: Shape) =>
+    places.some(
+      (place: Placement) => place.x === shape.x && place.z === shape.z,
+    ),
+  );
+}
+
+describe("the apothecary's", () => {
+  it('stands in place of the cottage at the back on the north-west', () => {
+    const shop: Placement = findPlacement(APOTHECARY_FILE);
+    expect([shop.x, shop.z, shop.yaw]).toEqual([-10.5, -16.5, 55]);
+    const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(shop.yaw));
+    const toPlaza: GroundVector = findWay(shop, PLAZA_CENTRE);
+    expect(measureAlignment(front, toPlaza)).toBeGreaterThan(
+      Math.cos((15 * Math.PI) / 180),
+    );
+  });
+
+  it('stands its rack and its props about it, in the way', () => {
+    const shop: Placement = findPlacement(APOTHECARY_FILE);
+    for (const file of APOTHECARY_PROP_FILES) {
+      const props: Placement[] = VILLAGE_PLACEMENTS.filter(
+        (placement: Placement) => placement.file === file,
+      );
+      expect(props.length, file).toBeGreaterThan(0);
+      for (const prop of props) {
+        expect(VILLAGE_TERRAIN.isClear(prop), file).toBe(false);
+        expect(Math.hypot(prop.x - shop.x, prop.z - shop.z), file).toBeLessThan(
+          4,
+        );
+      }
+    }
+  });
+
+  it('stands its herb rack across its front window, clear of the sill', () => {
+    // As the model of the shop has it, the front window is 0.95 m wide
+    // round x = -1.1, and its sill reaches 2.12 m out from the middle.
+    const rack: Shape[] = findFootprintsAt(
+      (placement: Placement) => placement.file === 'prop-herb-rack.glb',
+    );
+    for (let u = -1.6; u <= -0.6; u += 0.1) {
+      const point: GroundVector = placeOnApothecary({ x: u, z: 2.35 });
+      expect(new Terrain(rack, VILLAGE_BOUNDARY).isClear(point, -0.3)).toBe(
+        false,
+      );
+    }
+    for (let u = -1.8; u <= -0.4; u += 0.1) {
+      const point: GroundVector = placeOnApothecary({ x: u, z: 2.12 });
+      expect(new Terrain(rack, VILLAGE_BOUNDARY).isClear(point, -0.3)).toBe(
+        true,
+      );
+    }
+  });
+
+  it('keeps its props clear of the clover and the spawn points', () => {
+    const props: Shape[] = findFootprintsAt((placement: Placement) =>
+      APOTHECARY_PROP_FILES.includes(placement.file),
+    );
+    const points: GroundVector[] = [
+      ...VILLAGE_PLACEMENTS.filter(
+        (placement: Placement) => placement.file === 'prop-clover.glb',
+      ),
+      ...Array.from({ length: SPAWN_POINT_COUNT }, (_, index: number) =>
+        findSpawnPoint(index),
+      ),
+    ];
+    for (const point of points) {
+      for (const prop of props) {
+        expect(
+          measureGap({ shape: 'circle', ...point, radius: 1 }, prop),
+        ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('leaves the way open from the plaza to the front of its door', () => {
+    const spot: GroundVector = placeOnApothecary(BEFORE_SHOP_DOOR);
+    expect(VILLAGE_TERRAIN.isClear(spot)).toBe(true);
+    expect(findVillagePath(findSpawnPoint(0), spot)).not.toBeNull();
+  });
+
+  it('leaves no ground in or around it that cannot be reached', () => {
+    const points: GridPoint[] = walkGrid(
+      findPlacement(APOTHECARY_FILE),
+      6,
+      0.1,
+      (point: GroundVector) => VILLAGE_TERRAIN.isClear(point),
+      (point: GridPoint) => point.isEdge,
+    );
+    expect(
+      points.filter((point: GridPoint) => point.isOpen && !point.isReached),
+    ).toEqual([]);
+  });
+});
+
+describe('Basil the apothecary', () => {
+  it('stands outside the door of his shop, facing out', () => {
+    const basil: Placement = findPlacement(BASIL_FILE);
+    const shop: Placement = findPlacement(APOTHECARY_FILE);
+    const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(basil.yaw));
+    const shopFront: GroundVector = turnVector(
+      { x: 0, z: 1 },
+      findTurn(shop.yaw),
+    );
+    expect(measureAlignment(front, shopFront)).toBeGreaterThan(
+      Math.cos((45 * Math.PI) / 180),
+    );
+    const door: GroundVector = placeOnApothecary({ x: 0.9, z: 2.6 });
+    expect(Math.hypot(basil.x - door.x, basil.z - door.z)).toBeLessThan(0.6);
+  });
+
+  it('turns his front or side, not his back, to the camera along -Z', () => {
+    const basil: Placement = findPlacement(BASIL_FILE);
+    expect(
+      turnVector({ x: 0, z: 1 }, findTurn(basil.yaw)).z,
+    ).toBeGreaterThanOrEqual(0);
+  });
+
+  it('takes up the ground he stands on, overlapping no other footprint', () => {
+    const basil: Placement = findPlacement(BASIL_FILE);
+    expect(VILLAGE_TERRAIN.isClear(basil)).toBe(false);
+    const own: CircleShape[] = VILLAGE_TERRAIN.shapes.filter(
+      (shape: Shape): shape is CircleShape =>
+        shape.shape === 'circle' && shape.x === basil.x && shape.z === basil.z,
+    );
+    expect(own).toHaveLength(1);
+    const [footprint] = own;
+    for (const shape of VILLAGE_TERRAIN.shapes) {
+      if (footprint !== undefined && shape !== footprint) {
+        expect(measureGap(footprint, shape)).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('is talked to by a player in front of the door, facing him', () => {
+    const basil: Placement = findPlacement(BASIL_FILE);
+    const spot: GroundVector = placeOnApothecary(BEFORE_SHOP_DOOR);
+    const yaw: number =
+      (Math.atan2(basil.x - spot.x, basil.z - spot.z) * 180) / Math.PI;
+    expect(findVillager({ ...spot, yaw }, 0)?.id).toBe('basil');
   });
 });
 
