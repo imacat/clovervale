@@ -24,6 +24,9 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { ITEM_KINDS } from '@clovervale/shared';
+import type { ItemKindId } from '@clovervale/shared';
+
 import { findGainedItems, wordItemNotice } from '../src/item-notices.ts';
 import { Translator } from '../src/translator.ts';
 
@@ -73,10 +76,27 @@ describe('wordItemNotice', () => {
       words.push(wordItemNotice(translator, 'sword'));
     }
     expect(words).toEqual([
-      'You got the short sword',
+      'You got a short sword',
       '取得短劍',
       '取得短剑',
       '短剣を手に入れた',
+    ]);
+  });
+
+  it('words each item got in English as it is received', () => {
+    const translator: Translator = new Translator();
+    expect(
+      ITEM_KINDS.map(({ id }: { readonly id: ItemKindId }) =>
+        wordItemNotice(translator, id),
+      ),
+    ).toEqual([
+      'You got a four-leaved clover',
+      'You got a short sword',
+      'You got some leather armour',
+      'You got a healing potion',
+      'You got the message from Clovervale',
+      'You got the token of the Clovervale spy',
+      "You got a jar of Martha's ointment",
     ]);
   });
 });

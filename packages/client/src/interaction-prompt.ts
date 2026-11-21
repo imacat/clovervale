@@ -62,14 +62,34 @@ export interface Prompt {
 }
 
 /**
+ * How a message names an item: plainly, as the inventory shows it; as the
+ * one in question, as a prompt to pick it up does; or as one the player
+ * has just got.
+ */
+export type ItemWording = 'plain' | 'specific' | 'received';
+
+/**
  * Names a kind of item.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {ItemKindId} kind - The kind of item.
- * @returns {string} Its name, in the language of the page.
+ * @param {ItemWording} wording - How the item is named.
+ * @returns {string} Its name, in the language of the page, worded so.
  */
-export function nameItem(translator: Translator, kind: ItemKindId): string {
-  return translator.translate(findItemKind(kind).nameKey);
+export function nameItem(
+  translator: Translator,
+  kind: ItemKindId,
+  wording: ItemWording,
+): string {
+  const found: ReturnType<typeof findItemKind> = findItemKind(kind);
+  switch (wording) {
+    case 'plain':
+      return translator.translate(found.nameKey);
+    case 'specific':
+      return translator.translate(found.specificNameKey);
+    case 'received':
+      return translator.translate(found.receivedNameKey);
+  }
 }
 
 /**
@@ -170,7 +190,7 @@ export function describeSpaceKey(
         container: nameContainer(translator, target),
       })
     : translator.translate('spaceKey.pick', {
-        item: nameItem(translator, target.kind),
+        item: nameItem(translator, target.kind, 'specific'),
       });
 }
 
@@ -265,7 +285,7 @@ export function describePrompt(
         })
       : translator.translate('prompt.fullContainer', { container });
   }
-  const item: string = nameItem(translator, target.kind);
+  const item: string = nameItem(translator, target.kind, 'specific');
   return hasRoom(inventory)
     ? translator.translate(isTouch ? 'touchPrompt.pick' : 'prompt.pick', {
         item,

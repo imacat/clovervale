@@ -127,7 +127,7 @@ export function describeSlots(
     const kind: ItemKindId | undefined = inventory[index];
     return kind === undefined
       ? { kind: null, name: null }
-      : { kind, name: nameItem(translator, kind) };
+      : { kind, name: nameItem(translator, kind, 'plain') };
   });
 }
 

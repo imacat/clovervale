@@ -1053,7 +1053,7 @@ const HELP_EXPRESSION = `(() => {
   });
 })()`;
 /** The notice of the sword got from a chest. */
-const SWORD_NOTICE = 'You got the short sword';
+const SWORD_NOTICE = 'You got a short sword';
 /** The notice of the leather armour got, in Traditional Chinese. */
 const ZH_TW_ARMOUR_NOTICE = '取得皮甲';
 /** The name of the sword in Traditional Chinese. */
@@ -1069,7 +1069,7 @@ const SWORD_SLOT_CLICK_EXPRESSION = `(() => {
   return String(index);
 })()`;
 /** The notice of the healing potion got from a barrel. */
-const POTION_NOTICE = 'You got the healing potion';
+const POTION_NOTICE = 'You got a healing potion';
 /** The name of the healing potion in Traditional Chinese. */
 const ZH_TW_POTION = '治療藥水';
 /**
@@ -6828,7 +6828,7 @@ const TOBY_ORDINARY_LINES: readonly string[] = [
 /** The name of the ointment. */
 const OINTMENT_NAME = "jar of Martha's ointment";
 /** The notice of the ointment got from Martha. */
-const OINTMENT_NOTICE = `You got the ${OINTMENT_NAME}`;
+const OINTMENT_NOTICE = `You got a ${OINTMENT_NAME}`;
 /** The prompt by the ointment on the ground. */
 const OINTMENT_PROMPT = `Press Space to pick up the ${OINTMENT_NAME}`;
 /** The actions the menu of the ointment in the bag lists. */
@@ -6836,7 +6836,7 @@ const OINTMENT_ACTIONS: readonly MenuActionView[] = [
   { label: 'Drop', isEnabled: true },
 ];
 /** The notice of the four-leaved clover Toby gives. */
-const QUEST_CLOVER_NOTICE = 'You got the four-leaved clover';
+const QUEST_CLOVER_NOTICE = 'You got a four-leaved clover';
 /**
  * How far the wheel is turned to zoom the camera in on the ointment on the
  * ground, in pixels, below zero.

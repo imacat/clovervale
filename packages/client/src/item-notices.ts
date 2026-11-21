@@ -79,7 +79,7 @@ export function wordItemNotice(
   kind: ItemKindId,
 ): string {
   return translator.translate('itemNotice.gained', {
-    item: nameItem(translator, kind),
+    item: nameItem(translator, kind, 'received'),
   });
 }
 

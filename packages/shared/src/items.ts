@@ -31,8 +31,21 @@ import type { Placement } from './village-layout.ts';
 export interface ItemKind {
   /** The identifier of the kind, as the messages name it. */
   readonly id: string;
-  /** The message that names the kind for the person at a page. */
+  /**
+   * The message that names the kind for the person at a page, plainly, as
+   * the inventory shows it.
+   */
   readonly nameKey: string;
+  /**
+   * The message that names an item of the kind for the person at a page as
+   * the one in question, as a prompt to pick it up does.
+   */
+  readonly specificNameKey: string;
+  /**
+   * The message that names an item of the kind for the person at a page,
+   * as one the player has just got.
+   */
+  readonly receivedNameKey: string;
   /**
    * The health an item of the kind gives back to the player who uses it,
    * once and at once, which uses the item up.  An item of a kind without it
@@ -43,13 +56,49 @@ export interface ItemKind {
 
 /** Every kind of item there is. */
 export const ITEM_KINDS = [
-  { id: 'clover', nameKey: 'item.clover' },
-  { id: 'sword', nameKey: 'item.sword' },
-  { id: 'leather-armour', nameKey: 'item.leatherArmour' },
-  { id: 'healing-potion', nameKey: 'item.healingPotion', healing: 50 },
-  { id: 'clovervale-message', nameKey: 'item.clovervaleMessage' },
-  { id: 'spy-token', nameKey: 'item.spyToken' },
-  { id: 'martha-ointment', nameKey: 'item.marthaOintment' },
+  {
+    id: 'clover',
+    nameKey: 'item.clover',
+    specificNameKey: 'item.clover.specific',
+    receivedNameKey: 'item.clover.received',
+  },
+  {
+    id: 'sword',
+    nameKey: 'item.sword',
+    specificNameKey: 'item.sword.specific',
+    receivedNameKey: 'item.sword.received',
+  },
+  {
+    id: 'leather-armour',
+    nameKey: 'item.leatherArmour',
+    specificNameKey: 'item.leatherArmour.specific',
+    receivedNameKey: 'item.leatherArmour.received',
+  },
+  {
+    id: 'healing-potion',
+    nameKey: 'item.healingPotion',
+    specificNameKey: 'item.healingPotion.specific',
+    receivedNameKey: 'item.healingPotion.received',
+    healing: 50,
+  },
+  {
+    id: 'clovervale-message',
+    nameKey: 'item.clovervaleMessage',
+    specificNameKey: 'item.clovervaleMessage.specific',
+    receivedNameKey: 'item.clovervaleMessage.received',
+  },
+  {
+    id: 'spy-token',
+    nameKey: 'item.spyToken',
+    specificNameKey: 'item.spyToken.specific',
+    receivedNameKey: 'item.spyToken.received',
+  },
+  {
+    id: 'martha-ointment',
+    nameKey: 'item.marthaOintment',
+    specificNameKey: 'item.marthaOintment.specific',
+    receivedNameKey: 'item.marthaOintment.received',
+  },
 ] as const satisfies readonly ItemKind[];
 
 /** The identifier of a kind of item. */

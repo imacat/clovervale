@@ -501,7 +501,8 @@ export function createBagView(
       isTouch() ? 'inventory.touchHint' : 'inventory.hint',
     );
     const kind: ItemKindId | null = bag.cursorItem;
-    itemName.textContent = kind === null ? '' : nameItem(translator, kind);
+    itemName.textContent =
+      kind === null ? '' : nameItem(translator, kind, 'plain');
     describeSlots(translator, shown ?? []).forEach(
       (view: SlotView, index: number) => {
         const slot: HTMLDivElement | undefined = slots[index];
