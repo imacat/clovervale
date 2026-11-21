@@ -209,6 +209,8 @@ export const EN_MESSAGES = {
   // The lines of the villagers are written whole, each in one string, so
   // that the values they take are known.
   'villager.nancy.line.1':
+    'Welcome to Clovervale! If you need anything, go and see the village chief. She lives in the biggest house, right at the back.',
+  'villager.nancy.line.2':
     'There are wild dogs at the village gate, and no one can go out. What are we going to do?',
   'villager.emma.name': 'Blacksmith Emma',
   'villager.emma.line.1': 'Just a moment, let me finish this blade first.',

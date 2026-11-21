@@ -61,6 +61,11 @@ export interface Villager {
    * villager with lines.
    */
   readonly hasServerLines?: boolean;
+  /**
+   * Whether the villager, the first time the player of a page talks to it,
+   * always says the first of its lines, rather than one picked at random.
+   */
+  readonly greetsFirst?: boolean;
 }
 
 /**
@@ -69,7 +74,7 @@ export interface Villager {
  * the enemy spy, and fights as a monster.
  */
 export const VILLAGERS: readonly Villager[] = [
-  { id: 'nancy', file: 'npc-nancy.glb', map: 'village' },
+  { id: 'nancy', file: 'npc-nancy.glb', map: 'village', greetsFirst: true },
   { id: 'emma', file: 'npc-emma.glb', map: 'village' },
   {
     id: 'martha',

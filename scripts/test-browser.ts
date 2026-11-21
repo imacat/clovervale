@@ -732,10 +732,16 @@ const TALK_MOST_Z = -6.25;
 const TALK_KEY = 'talk to Nancy';
 /** The prompt a page shows by Nancy, facing her. */
 const TALK_PROMPT = 'Press Space to talk to Nancy';
-/** What Nancy says. */
-const NANCY_LINE =
+/** What Nancy says the first time a page talks to her, to welcome it. */
+const NANCY_WELCOME =
+  'Welcome to Clovervale! If you need anything, go and see the village ' +
+  'chief. She lives in the biggest house, right at the back.';
+/** What Nancy says, either line of hers. */
+const NANCY_LINES: readonly string[] = [
+  NANCY_WELCOME,
   'There are wild dogs at the village gate, and no one can go out. What ' +
-  'are we going to do?';
+    'are we going to do?',
+];
 /**
  * The least position along the X axis of the way down the east side of the
  * plaza to the patch of clover east of the fountain, clear of the fountain
@@ -1109,8 +1115,11 @@ const ZH_TW_SERVER = '伺服器';
 const ZH_TW_CONNECTED = '已連線';
 /** The name of Nancy in Traditional Chinese. */
 const ZH_TW_NANCY = '南茜';
-/** What Nancy says in Traditional Chinese. */
-const ZH_TW_NANCY_LINE = '村口有野狗，大家都沒辦法出門，怎麼辦？';
+/** What Nancy says in Traditional Chinese, either line of hers. */
+const ZH_TW_NANCY_LINES: readonly string[] = [
+  '歡迎來到四葉谷！有事可以找村長，她住在後面最大的那間房子。',
+  '村口有野狗，大家都沒辦法出門，怎麼辦？',
+];
 /**
  * The furthest the foot of the bubble of what Nancy says may be from where
  * she stands along the ground, in metres.
@@ -3716,7 +3725,8 @@ async function checkSpeechSize(
 
 /**
  * Checks that a player that talks to Nancy behind a slow connection shows
- * what she says in a bubble above her head in its own page, for a while
+ * what she says, her welcome the first time its page talks to her, in a
+ * bubble above her head in its own page, for a while
  * and then no more, and nowhere in the page of another player, which shows
  * it talking, its words legible on a phone, as {@link checkSpeechSize}
  * checks.  Its own page prompts it to talk by her.  The player does not
@@ -3812,7 +3822,7 @@ async function checkTalk(
   const isSaid = ([own, other]: [TalkLook, TalkLook]): boolean =>
     own.speech !== null &&
     own.speech.name === 'Nancy' &&
-    own.speech.line === NANCY_LINE &&
+    own.speech.line === NANCY_WELCOME &&
     Math.abs(own.speech.x - NANCY_X) <= SPEECH_NEARNESS &&
     Math.abs(own.speech.z - NANCY_Z) <= SPEECH_NEARNESS &&
     own.speech.y >= SPEECH_LEAST_HEIGHT &&
@@ -4502,7 +4512,8 @@ async function checkLanguage(
     seen.panel['Space key'] === TALK_KEY &&
     seen.prompt === TALK_PROMPT &&
     (seen.speech === null ||
-      (seen.speech.name === 'Nancy' && seen.speech.line === NANCY_LINE));
+      (seen.speech.name === 'Nancy' &&
+        NANCY_LINES.includes(seen.speech.line)));
   const before: LanguageLook = await look();
   if (
     !isEnglish(before) ||
@@ -4537,7 +4548,7 @@ async function checkLanguage(
     look,
     (seen: LanguageLook) =>
       seen.speech?.name === ZH_TW_NANCY &&
-      seen.speech.line === ZH_TW_NANCY_LINE,
+      ZH_TW_NANCY_LINES.includes(seen.speech.line),
     ACTION_TIMEOUT,
     (seen: LanguageLook) =>
       `Standing by Nancy, with the space bar pressed in "${ZH_TW_NAME}", ` +

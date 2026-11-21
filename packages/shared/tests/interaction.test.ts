@@ -238,6 +238,7 @@ describe('findVillager', () => {
       id: 'nancy',
       file: 'npc-nancy.glb',
       map: 'village',
+      greetsFirst: true,
     });
   });
 

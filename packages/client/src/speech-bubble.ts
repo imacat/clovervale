@@ -603,7 +603,8 @@ export class SpeechBubble {
    * tells, in place of any bubble shown before.
    *
    * A villager says the line it is given, or else, with several lines, one
-   * of them, picked at random, but never the line it said the time before.
+   * of them, picked at random, but never the line it said the time before,
+   * save that one who greets first says its first line the first time.
    * It is called by the name it goes by once it has told the player of the
    * page who it is, if it has, as {@link noticeAcquaintances} was last told.
    *
@@ -964,8 +965,9 @@ export class SpeechBubble {
   }
 
   /**
-   * Picks the line a villager says this time: at random among its lines,
-   * other than the one it said last, if it has more than one.
+   * Picks the line a villager says this time: its first line, the first
+   * time a villager who greets first says one, or else at random among its
+   * lines, other than the one it said last, if it has more than one.
    *
    * @param {Villager} villager - The villager.
    * @returns {number} The position of the line among its lines.
@@ -977,6 +979,10 @@ export class SpeechBubble {
       return 0;
     }
     const last: number | undefined = this.#lastLines.get(villager.id);
+    if (last === undefined && villager.greetsFirst === true) {
+      this.#lastLines.set(villager.id, 0);
+      return 0;
+    }
     const choices: number = last === undefined ? count : count - 1;
     let index: number = Math.min(
       Math.floor(this.#random() * choices),

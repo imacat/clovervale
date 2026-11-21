@@ -119,13 +119,22 @@ const TOBY_LINES_ZH_TW: readonly string[] = [
   '我在找四葉的！找到就會有好運喔。',
 ];
 
-/** What Nancy says, in English. */
-const NANCY_LINE =
+/** What Nancy says first, to welcome a player, in English. */
+const NANCY_WELCOME =
+  'Welcome to Clovervale! If you need anything, go and see the village ' +
+  'chief. She lives in the biggest house, right at the back.';
+
+/** What Nancy says first, to welcome a player, in Traditional Chinese. */
+const NANCY_WELCOME_ZH_TW =
+  '歡迎來到四葉谷！有事可以找村長，她住在後面最大的那間房子。';
+
+/** What Nancy says of the wild dogs, in English. */
+const NANCY_DOGS_LINE =
   'There are wild dogs at the village gate, and no one can go out. What ' +
   'are we going to do?';
 
-/** What Nancy says, in Traditional Chinese. */
-const NANCY_LINE_ZH_TW = '村口有野狗，大家都沒辦法出門，怎麼辦？';
+/** What Nancy says of the wild dogs, in Traditional Chinese. */
+const NANCY_DOGS_LINE_ZH_TW = '村口有野狗，大家都沒辦法出門，怎麼辦？';
 
 /** Where Nancy stands. */
 const SPOT: Placement = findPlacement(NANCY.file);
@@ -235,7 +244,7 @@ describe('wrapText', () => {
   });
 
   it('breaks Chinese between characters, not before punctuation', () => {
-    expect(wrapText(NANCY_LINE_ZH_TW, 6, measure)).toEqual([
+    expect(wrapText(NANCY_DOGS_LINE_ZH_TW, 6, measure)).toEqual([
       '村口有野狗，',
       '大家都沒辦法',
       '出門，怎麼',
@@ -268,8 +277,8 @@ describe('wrapText', () => {
 
 describe('measureSpeechDuration', () => {
   it('leaves time to read a line at three words a second', () => {
-    const words: number = NANCY_LINE.split(' ').length;
-    expect(measureSpeechDuration(NANCY_LINE)).toBeGreaterThanOrEqual(
+    const words: number = NANCY_DOGS_LINE.split(' ').length;
+    expect(measureSpeechDuration(NANCY_DOGS_LINE)).toBeGreaterThanOrEqual(
       words / 3,
     );
   });
@@ -281,10 +290,10 @@ describe('measureSpeechDuration', () => {
   });
 
   it('leaves time to read Chinese and Japanese by their characters', () => {
-    expect(measureSpeechDuration(NANCY_LINE_ZH_TW)).toBeGreaterThanOrEqual(
+    expect(measureSpeechDuration(NANCY_DOGS_LINE_ZH_TW)).toBeGreaterThanOrEqual(
       20 / CHARACTER_READING_SPEED,
     );
-    expect(measureSpeechDuration(NANCY_LINE_ZH_TW)).toBeGreaterThan(
+    expect(measureSpeechDuration(NANCY_DOGS_LINE_ZH_TW)).toBeGreaterThan(
       measureSpeechDuration('怎麼辦？'),
     );
     expect(measureSpeechDuration('どうしようかな。')).toBeGreaterThan(
@@ -342,7 +351,7 @@ describe('SpeechBubble', () => {
     expect(y).toBeGreaterThan(HEAD.y);
     expect(bubble.describe()).toEqual({
       name: 'Nancy',
-      line: NANCY_LINE,
+      line: NANCY_WELCOME,
       x: HEAD.x,
       y,
       z: HEAD.z,
@@ -363,7 +372,7 @@ describe('SpeechBubble', () => {
   it('shows the bubble shown in another language once told to', async () => {
     const translator = new Translator();
     const { parent, bubble, painted } = createBubble(translator);
-    const duration: number = measureSpeechDuration(NANCY_LINE);
+    const duration: number = measureSpeechDuration(NANCY_WELCOME);
     bubble.say(NANCY, HEAD);
     bubble.update(1);
     await translator.choose('zh-TW');
@@ -371,7 +380,7 @@ describe('SpeechBubble', () => {
     expect(parent.children).toHaveLength(1);
     expect(bubble.describe()).toMatchObject({
       name: '南茜',
-      line: NANCY_LINE_ZH_TW,
+      line: NANCY_WELCOME_ZH_TW,
       x: HEAD.x,
       z: HEAD.z,
     });
@@ -395,7 +404,7 @@ describe('SpeechBubble', () => {
 
   it('shows it for as long as it takes to read, and then no more', () => {
     const { parent, bubble } = createBubble();
-    const duration: number = measureSpeechDuration(NANCY_LINE);
+    const duration: number = measureSpeechDuration(NANCY_WELCOME);
     bubble.say(NANCY, HEAD);
     bubble.update(duration - 0.1);
     expect(bubble.describe()?.name).toBe('Nancy');
@@ -406,12 +415,11 @@ describe('SpeechBubble', () => {
 
   it('starts again when the villager is talked to again', () => {
     const { parent, bubble } = createBubble();
-    const duration: number = measureSpeechDuration(NANCY_LINE);
     bubble.say(NANCY, HEAD);
-    bubble.update(duration - 1);
+    bubble.update(measureSpeechDuration(NANCY_WELCOME) - 1);
     bubble.say(NANCY, HEAD);
     expect(parent.children).toHaveLength(1);
-    bubble.update(duration - 0.1);
+    bubble.update(measureSpeechDuration(NANCY_DOGS_LINE) - 0.1);
     expect(bubble.describe()?.name).toBe('Nancy');
     bubble.update(0.2);
     expect(bubble.describe()).toBeNull();
@@ -442,12 +450,29 @@ describe('SpeechBubble with a villager who has several lines', () => {
     }
   });
 
-  it('always says the one line of a villager who has one', () => {
+  it('has Nancy welcome a player the first time, whatever the chance', () => {
+    for (const numbers of [SPREAD, [0], [0.5], [0.99]]) {
+      const { bubble } = createBubble(undefined, createSequence(numbers));
+      expect(talkRepeatedly(bubble, NANCY, 1)).toEqual([NANCY_WELCOME]);
+    }
+  });
+
+  it('has Nancy welcome a player first in the language of the page', async () => {
+    const zhTw: Translator = await createTranslator('zh-TW');
+    const { bubble } = createBubble(zhTw, createSequence([0.99]));
+    expect(talkRepeatedly(bubble, NANCY, 1)).toEqual([NANCY_WELCOME_ZH_TW]);
+  });
+
+  it('has Nancy say each of her lines in time after her welcome', () => {
     for (const numbers of [SPREAD, [0], [0.99]]) {
       const { bubble } = createBubble(undefined, createSequence(numbers));
-      expect(new Set(talkRepeatedly(bubble, NANCY, 10))).toEqual(
-        new Set([NANCY_LINE]),
+      const lines: string[] = talkRepeatedly(bubble, NANCY, 11);
+      expect(new Set(lines.slice(1))).toEqual(
+        new Set([NANCY_WELCOME, NANCY_DOGS_LINE]),
       );
+      lines.slice(1).forEach((line: string, index: number) => {
+        expect(line).not.toBe(lines[index]);
+      });
     }
   });
 
@@ -824,7 +849,7 @@ describe('SpeechBubble on the screen', () => {
     bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
     expect(widths).toHaveLength(2);
     expect(widths[1]).toBeLessThan(widths[0] ?? NaN);
-    expect(bubble.describe()?.line).toBe(NANCY_LINE);
+    expect(bubble.describe()?.line).toBe(NANCY_WELCOME);
     bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
     expect(widths).toHaveLength(2);
   });

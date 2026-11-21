@@ -200,7 +200,9 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'container.barrel': '木桶',
 
   'villager.nancy.name': '南茜',
-  'villager.nancy.line.1': '村口有野狗，大家都沒辦法出門，怎麼辦？',
+  'villager.nancy.line.1':
+    '歡迎來到四葉谷！有事可以找村長，她住在後面最大的那間房子。',
+  'villager.nancy.line.2': '村口有野狗，大家都沒辦法出門，怎麼辦？',
   'villager.emma.name': '鐵匠艾瑪',
   'villager.emma.line.1': '等一下，我先打完這把刀。',
   'villager.emma.line.2': '別站太近，火星會噴到你。',
