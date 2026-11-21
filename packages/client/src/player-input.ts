@@ -38,16 +38,15 @@ import type {
 /** What a key tells the player of the page to do. */
 export type KeyCommand = 'forward' | 'backward' | 'left' | 'right' | 'interact';
 
-/** What each key tells the player to do, by the code of the key. */
+/**
+ * What each key tells the player to do, by the code of the key.  The arrow
+ * keys turn the camera instead, and tell the player nothing.
+ */
 const KEY_COMMANDS: Readonly<Record<string, KeyCommand>> = {
   KeyW: 'forward',
-  ArrowUp: 'forward',
   KeyS: 'backward',
-  ArrowDown: 'backward',
   KeyA: 'left',
-  ArrowLeft: 'left',
   KeyD: 'right',
-  ArrowRight: 'right',
   Space: 'interact',
 };
 

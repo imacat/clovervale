@@ -72,6 +72,7 @@ import { BackgroundMusic, MUSIC_FILE } from './background-music.ts';
 import { createBagView } from './bag-view.ts';
 import type { BagView } from './bag-view.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
+import { CameraKeys } from './camera-keys.ts';
 import { createCaveScene } from './cave-scene.ts';
 import type { CaveScene } from './cave-scene.ts';
 import { fetchClientConfig } from './client-config.ts';
@@ -366,10 +367,13 @@ const edwinCall = new EdwinCall();
 /** What tells when Toby exclaims that he has found a four-leaved clover. */
 const exclamation = new TobyExclamation();
 const fade = createMapFade(document.body);
+/** The arrow keys held down to turn the camera. */
+const cameraKeys = new CameraKeys();
 const viewport: Viewport = showScene(
   scene,
   findSpawnPoint(0),
   panel.trailingCamera,
+  cameraKeys,
   (seconds: number) => {
     sendMove();
     showPlayers();
@@ -1029,8 +1033,8 @@ function receiveMessage(data: string): void {
  * Shows the dialogue the player of the page is in, as the server tells,
  * with the villagers called by the names they go by once they have told the
  * player who they are.  As a dialogue opens, the bag closes, the bubble of
- * any villager is taken away, and the keys held down walk the player no
- * more.
+ * any villager is taken away, and the keys held down walk the player and
+ * turn the camera no more.
  *
  * @param {DialogueView | null} dialogue - The dialogue, or `null` while
  *   the player is in none.
@@ -1054,6 +1058,7 @@ function showDialogue(
     bagView.render();
   }
   moveKeys.releaseAllKeys();
+  cameraKeys.releaseAllKeys();
   sendMove();
 }
 
@@ -1251,13 +1256,14 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
       carryOutItemAction(response.request);
     }
     if (bag.isOpen && !wasOpen) {
-      // An arrow key held down as the bag opens walks the player no more.
-      for (const code of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
-        moveKeys.releaseKey(code);
-      }
-      sendMove();
+      // An arrow key held down as the bag opens turns the camera no more.
+      cameraKeys.releaseAllKeys();
     }
     bagView.render();
+    return;
+  }
+  if (cameraKeys.pressKey(event.code)) {
+    event.preventDefault();
     return;
   }
   const command: KeyCommand | null = findKeyCommand(event.code);
@@ -1294,10 +1300,12 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
 });
 window.addEventListener('keyup', (event: KeyboardEvent) => {
   moveKeys.releaseKey(event.code);
+  cameraKeys.releaseKey(event.code);
   sendMove();
 });
 window.addEventListener('blur', () => {
   moveKeys.releaseAllKeys();
+  cameraKeys.releaseAllKeys();
   sendMove();
 });
 // The browser lets the page make sound only once the user has pressed

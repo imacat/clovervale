@@ -73,13 +73,9 @@ function resolveKeys(
 describe('findKeyCommand', () => {
   it('knows the keys that move the player', () => {
     expect(findKeyCommand('KeyW')).toBe('forward');
-    expect(findKeyCommand('ArrowUp')).toBe('forward');
     expect(findKeyCommand('KeyS')).toBe('backward');
-    expect(findKeyCommand('ArrowDown')).toBe('backward');
     expect(findKeyCommand('KeyA')).toBe('left');
-    expect(findKeyCommand('ArrowLeft')).toBe('left');
     expect(findKeyCommand('KeyD')).toBe('right');
-    expect(findKeyCommand('ArrowRight')).toBe('right');
   });
 
   it('knows the key the player interacts with', () => {
@@ -91,6 +87,12 @@ describe('findKeyCommand', () => {
     expect(findKeyCommand('KeyI')).toBeNull();
     expect(findKeyCommand('Enter')).toBeNull();
     expect(findKeyCommand('toString')).toBeNull();
+  });
+
+  it('leaves the arrow keys to the camera', () => {
+    for (const code of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+      expect(findKeyCommand(code)).toBeNull();
+    }
   });
 });
 
@@ -229,19 +231,15 @@ describe('MoveKeys', () => {
 
   it('moves away from the camera with the forward keys', () => {
     expect(resolveKeys(['KeyW'], NORTHWARD)).toEqual({ x: 0, z: -1 });
-    expect(resolveKeys(['ArrowUp'], NORTHWARD)).toEqual({ x: 0, z: -1 });
   });
 
   it('moves towards the camera with the backward keys', () => {
     expect(resolveKeys(['KeyS'], NORTHWARD)).toEqual({ x: 0, z: 1 });
-    expect(resolveKeys(['ArrowDown'], NORTHWARD)).toEqual({ x: 0, z: 1 });
   });
 
   it('moves to the sides of the view with the side keys', () => {
     expect(resolveKeys(['KeyA'], NORTHWARD)).toEqual({ x: -1, z: 0 });
-    expect(resolveKeys(['ArrowLeft'], NORTHWARD)).toEqual({ x: -1, z: 0 });
     expect(resolveKeys(['KeyD'], NORTHWARD)).toEqual({ x: 1, z: 0 });
-    expect(resolveKeys(['ArrowRight'], NORTHWARD)).toEqual({ x: 1, z: 0 });
   });
 
   it('follows the heading of the camera', () => {
@@ -258,7 +256,7 @@ describe('MoveKeys', () => {
   });
 
   it('cancels opposite keys out', () => {
-    expect(resolveKeys(['KeyW', 'ArrowDown'], NORTHWARD)).toEqual({
+    expect(resolveKeys(['KeyW', 'KeyS'], NORTHWARD)).toEqual({
       x: 0,
       z: 0,
     });
@@ -266,23 +264,6 @@ describe('MoveKeys', () => {
       x: 0,
       z: 1,
     });
-  });
-
-  it('moves no faster with two keys for the same way', () => {
-    expect(resolveKeys(['KeyW', 'ArrowUp'], NORTHWARD)).toEqual({
-      x: 0,
-      z: -1,
-    });
-  });
-
-  it('keeps moving until the last key for that way is released', () => {
-    const keys = new MoveKeys();
-    keys.pressKey('KeyW');
-    keys.pressKey('ArrowUp');
-    keys.releaseKey('KeyW');
-    expect(keys.resolveDirection(NORTHWARD)).toEqual({ x: 0, z: -1 });
-    keys.releaseKey('ArrowUp');
-    expect(keys.resolveDirection(NORTHWARD)).toEqual({ x: 0, z: 0 });
   });
 
   it('stands still once all keys are released at once', () => {
@@ -295,6 +276,9 @@ describe('MoveKeys', () => {
 
   it('is not moved by the other keys', () => {
     expect(resolveKeys(['Space', 'KeyQ'], NORTHWARD)).toEqual({ x: 0, z: 0 });
+    expect(
+      resolveKeys(['ArrowUp', 'ArrowLeft', 'ArrowDown'], NORTHWARD),
+    ).toEqual({ x: 0, z: 0 });
   });
 
   it('gives the same direction for headings that barely differ', () => {

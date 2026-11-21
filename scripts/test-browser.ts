@@ -573,6 +573,15 @@ const WATCHED_FRAMES = 20;
 const SMOOTH_FRACTION = 0.8;
 /** The most two positions differ by when they are the same, in metres. */
 const SAME_POSITION = 1e-9;
+/**
+ * How far the camera is to go round its player while the left arrow is
+ * held down in the check, in degrees.
+ */
+const KEY_ORBIT = 30;
+/** The key value WebDriver gives the left arrow. */
+const LEFT_ARROW = '\uE012';
+/** The farthest a player standing still may seem to move, in metres. */
+const STANDING_DRIFT = 0.01;
 
 /** How long a page holds its messages back each way, in milliseconds. */
 const NETWORK_DELAY = 300;
@@ -4187,6 +4196,69 @@ async function checkCamera(
 }
 
 /**
+ * Checks that the left arrow held down in a page orbits its camera to the
+ * right round its own player, which turns the way the camera looks to the
+ * left, without walking the player.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player of the page.
+ * @returns {Promise<void>} A promise settled once the camera has passed.
+ * @throws {Error} If the page does not turn its camera so, or walks the
+ *   player.
+ */
+async function checkCameraKeys(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const readHeading = async (): Promise<number> =>
+    Number(
+      await evaluateInPage(
+        session,
+        context,
+        'String(window.clovervale.describeHeading())',
+      ),
+    );
+  const findOwn = (view: CameraView): FigureView | undefined =>
+    view.figures.find((figure: FigureView) => figure.id === id);
+  const before: CameraView = await readCameraView(session, context);
+  const start: number = await readHeading();
+  // The heading turned from the start, above -180 and up to 180 degrees.
+  const findTurn = (heading: number): number => {
+    const turn: number = (((heading - start) % 360) + 360) % 360;
+    return turn > 180 ? turn - 360 : turn;
+  };
+  await sendKey(session, context, 'keyDown', LEFT_ARROW);
+  try {
+    await waitFor(
+      readHeading,
+      (heading: number) => findTurn(heading) >= KEY_ORBIT,
+      ACTION_TIMEOUT,
+      (heading: number) =>
+        `With the left arrow held down, the first page has its camera ` +
+        `look at ${heading.toFixed(1)} degrees, from ${start.toFixed(1)}.`,
+    );
+  } finally {
+    await sendKey(session, context, 'keyUp', LEFT_ARROW);
+  }
+  const after: CameraView = await readCameraView(session, context);
+  const was: FigureView | undefined = findOwn(before);
+  const is: FigureView | undefined = findOwn(after);
+  if (
+    was === undefined ||
+    is === undefined ||
+    Math.hypot(is.x - was.x, is.z - was.z) > STANDING_DRIFT
+  ) {
+    throw new Error(
+      'With the left arrow held down, the first page ' +
+        `${describeCameraView(after)}, after it ` +
+        `${describeCameraView(before)}.`,
+    );
+  }
+}
+
+/**
  * Reads how a page shows the map its player is in.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -6244,6 +6316,7 @@ async function checkClient(): Promise<void> {
     await checkCave(session, first, second, id);
     await checkMartha(session, first, second, id);
     await checkCamera(session, first, id, second, otherId);
+    await checkCameraKeys(session, first, id);
 
     const dayPort: number = await startGameServer([
       '--day-length',
@@ -6288,7 +6361,8 @@ try {
       'to the prisoner through his bars, loot the store rooms, use a ' +
       'healing potion, and climb back up, have Martha come over, talk ' +
       'with her and beat her, have the ' +
-      'camera follow another player, darken at night, preview a time of ' +
+      'camera follow another player, turn the camera with the arrow keys, ' +
+      'darken at night, preview a time of ' +
       'day on their own, and agree on the time of day.',
   );
 } catch (error: unknown) {

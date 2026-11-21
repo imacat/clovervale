@@ -32,6 +32,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import type { GroundVector } from '@clovervale/shared';
 
+import type { CameraKeys, CameraTurn } from './camera-keys.ts';
 import { TrailingCamera } from './trailing-camera.ts';
 import type { TrailingCameraSettings } from './trailing-camera.ts';
 
@@ -114,15 +115,18 @@ const FOCUS_HEIGHT = 1.2;
  * Shows a scene in the browser window, for the owner to look around in.
  *
  * Dragging with the left mouse button orbits around what the camera looks
- * at, and the wheel zooms.  While the trailing camera is switched on, the
- * camera also turns softly round behind the way what it looks at goes
- * forwards, while the owner leaves it alone.
+ * at, as do the arrow keys held, within the same limits, and the wheel
+ * zooms.  While the trailing camera is switched on, the camera also turns
+ * softly round behind the way what it looks at goes forwards, while the
+ * owner leaves it alone, neither dragging it nor holding an arrow key.
  *
  * @param {Scene} scene - The scene to show at first.
  * @param {GroundVector} focus - Where what the camera looks at stands at
  *   first.
  * @param {Readonly<TrailingCameraSettings>} trailing - How the owner has
  *   the camera turn after what it looks at, as set at every frame.
+ * @param {CameraKeys} keys - The arrow keys held down to turn the camera,
+ *   as they are at every frame.
  * @param {(seconds: number) => void} update - Called before every frame is
  *   drawn, with the time since the last one, in seconds.
  * @returns {Viewport} The view.
@@ -131,6 +135,7 @@ export function showScene(
   scene: Scene,
   focus: GroundVector,
   trailing: Readonly<TrailingCameraSettings>,
+  keys: CameraKeys,
   update: (seconds: number) => void,
 ): Viewport {
   const renderer = new WebGLRenderer({ antialias: true });
@@ -178,13 +183,21 @@ export function showScene(
     isHeld = false;
   });
   const steerCamera = (seconds: number): void => {
+    // The arrow keys held turn the camera as a drag does.
+    const keyTurn: CameraTurn = keys.resolveTurn(seconds);
+    if (keyTurn.orbit !== 0) {
+      controls.rotateLeft(MathUtils.degToRad(keyTurn.orbit));
+    }
+    if (keyTurn.tilt !== 0) {
+      controls.rotateUp(MathUtils.degToRad(keyTurn.tilt));
+    }
     const heading: number = readHeading();
     const steered: number = trailingCamera.steer(
       heading,
       { x: controls.target.x, z: controls.target.z },
       seconds,
       trailing,
-      isHeld || isTouched,
+      isHeld || isTouched || keys.isHeld,
     );
     isTouched = false;
     if (steered === heading) {
