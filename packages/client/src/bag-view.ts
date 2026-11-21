@@ -318,11 +318,11 @@ const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
 };
 
 /**
- * Draws a small bag, tied at its neck.
+ * Draws a small bag, tied at its neck, as on the icon of the bag.
  *
  * @returns {SVGElement} The bag.
  */
-function drawBag(): SVGElement {
+export function drawBag(): SVGElement {
   return drawPicture([
     createSvgElement('path', { d: BAG_BODY_PATH, class: 'bag-icon-body' }),
     createSvgElement('path', { d: BAG_NECK_PATH, class: 'bag-icon-neck' }),
@@ -360,12 +360,13 @@ function createClickable(
 
 /**
  * Creates the bag of the player of the page: its icon in the bottom left
- * corner, with the key that opens it, I, on it, and above it, while the bag
- * is open, its title, its slots in a square grid, each item drawn small as
- * what it is, with its cursor, the menu of the item the cursor is on while
- * it is open, with the actions that cannot be chosen now greyed out, a line
- * under the slots that names the item the cursor is on, blank for an empty
- * slot, and a line that tells the keys.  A click on a slot or an action of
+ * corner, or the top left on a touch device, with the key that opens it, I,
+ * on it, and next to it, while the bag is open, its title, its slots in a
+ * square grid, each item drawn small as what it is, with its cursor, the
+ * menu of the item the cursor is on while it is open, with the actions that
+ * cannot be chosen now greyed out, a line under the slots that names the
+ * item the cursor is on, blank for an empty slot, and a line that tells the
+ * keys, or what to tap on a touch device.  A click on a slot or an action of
  * the menu does to the bag what {@link InventoryBag} tells, and a click on
  * the icon is left to the caller; no click on any part of the bag reaches
  * the game underneath.  What the bag shows is worded again in each language
@@ -377,6 +378,9 @@ function createClickable(
  * @param {(request: ItemRequest) => void} carryOut - Carries out an action
  *   chosen in the menu of an item.
  * @param {() => void} clickIcon - Called when the icon is clicked.
+ * @param {() => boolean} [isTouch] - Tells whether the page is used by
+ *   touch, so that the line under the slots tells what to tap rather than
+ *   the keys; it never is by default.
  * @returns {BagView} The bag as shown.
  */
 export function createBagView(
@@ -385,6 +389,7 @@ export function createBagView(
   bag: InventoryBag,
   carryOut: (request: ItemRequest) => void,
   clickIcon: () => void,
+  isTouch: () => boolean = () => false,
 ): BagView {
   let shown: readonly ItemKindId[] | null = null;
   let shownHealth: number | null = null;
@@ -459,7 +464,9 @@ export function createBagView(
     icon.setAttribute('aria-expanded', String(bag.isOpen));
     frame.hidden = !bag.isOpen;
     title.textContent = name;
-    hint.textContent = translator.translate('inventory.hint');
+    hint.textContent = translator.translate(
+      isTouch() ? 'inventory.touchHint' : 'inventory.hint',
+    );
     const kind: ItemKindId | null = bag.cursorItem;
     itemName.textContent = kind === null ? '' : nameItem(translator, kind);
     describeSlots(translator, shown ?? []).forEach(

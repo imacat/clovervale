@@ -29,11 +29,13 @@ import { isGameKey } from './player-input.ts';
 const STORAGE_KEY = 'clovervale.helpSeen';
 
 /** The number of pages of the help sheet. */
-export const HELP_PAGE_COUNT = 2;
+export const HELP_PAGE_COUNT = 3;
 /** The page of the help sheet that tells the keyboard and the mouse. */
 export const KEYBOARD_PAGE = 0;
 /** The page of the help sheet that tells the gamepad. */
 export const GAMEPAD_PAGE = 1;
+/** The page of the help sheet that tells the touch controls. */
+export const TOUCH_PAGE = 2;
 
 /** The keys that close the help sheet. */
 const CLOSE_KEYS: ReadonlySet<string> = new Set([
@@ -136,10 +138,13 @@ export class HelpSheet {
  * @param {HelpSheet} sheet - The help sheet.
  * @param {LanguageStorage | null} storage - Where the visit is remembered,
  *   or `null` if nowhere.
+ * @param {number} [page] - The page to open it at, the page of the
+ *   keyboard by default.
  */
 export function openHelpOnFirstVisit(
   sheet: HelpSheet,
   storage: LanguageStorage | null,
+  page: number = KEYBOARD_PAGE,
 ): void {
   let isSeen = false;
   try {
@@ -150,7 +155,7 @@ export function openHelpOnFirstVisit(
   if (isSeen) {
     return;
   }
-  sheet.open();
+  sheet.open(page);
   try {
     storage?.setItem(STORAGE_KEY, '1');
   } catch {

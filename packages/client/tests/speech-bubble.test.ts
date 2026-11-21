@@ -335,6 +335,7 @@ describe('SpeechBubble', () => {
       x: HEAD.x,
       y,
       z: HEAD.z,
+      textSize: null,
     });
   });
 
@@ -556,5 +557,74 @@ describe('SpeechBubble with Toby', () => {
     bubble.hush(TOBY);
     expect(bubble.describe()).toBeNull();
     expect(parent.children).toHaveLength(0);
+  });
+});
+
+describe('SpeechBubble in views of different heights', () => {
+  /** The field of view of the camera, from top to bottom, in degrees. */
+  const FIELD_OF_VIEW = 40;
+  /** The height of the view of a desktop window, in CSS pixels. */
+  const DESKTOP_HEIGHT = 800;
+  /** The height of the view of a phone held on its side, in CSS pixels. */
+  const LANDSCAPE_HEIGHT = 384;
+
+  /**
+   * Finds the bubble drawn in a parent.
+   *
+   * @param {Object3D} parent - The parent.
+   * @returns {Object3D} The bubble.
+   * @throws {Error} If the parent has no bubble.
+   */
+  const findSprite = (parent: Object3D): Object3D => {
+    const sprite: Object3D | undefined = parent.children[0];
+    if (sprite === undefined) {
+      throw new Error('No bubble is drawn.');
+    }
+    return sprite;
+  };
+
+  it('tells no size of the words before it is told the view', () => {
+    const { bubble } = createBubble();
+    bubble.say(NANCY, HEAD);
+    expect(bubble.describe()?.textSize).toBeNull();
+  });
+
+  it('draws a bubble as painted in a view as tall as a desktop window', () => {
+    const { parent, bubble } = createBubble();
+    bubble.fitView(DESKTOP_HEIGHT, FIELD_OF_VIEW);
+    bubble.say(NANCY, HEAD);
+    expect(findSprite(parent).scale.x).toBeCloseTo(1);
+    expect(findSprite(parent).scale.y).toBeCloseTo(1);
+    const size: number = bubble.describe()?.textSize ?? 0;
+    bubble.fitView(DESKTOP_HEIGHT * 1.25, FIELD_OF_VIEW);
+    expect(bubble.describe()?.textSize).toBeCloseTo(size * 1.25);
+  });
+
+  it('keeps its words legible on a phone held on its side', () => {
+    const { parent, bubble } = createBubble();
+    bubble.fitView(LANDSCAPE_HEIGHT, FIELD_OF_VIEW);
+    bubble.say(NANCY, HEAD);
+    expect(findSprite(parent).scale.y).toBeGreaterThan(1);
+    expect(findSprite(parent).scale.x).toBeCloseTo(
+      findSprite(parent).scale.y,
+    );
+    expect(bubble.describe()?.textSize).toBeGreaterThanOrEqual(15);
+    expect(bubble.describe()?.textSize).toBeLessThanOrEqual(20);
+  });
+
+  it('resizes the bubble shown once the view changes', async () => {
+    const translator = new Translator();
+    const { parent, bubble } = createBubble(translator);
+    bubble.fitView(DESKTOP_HEIGHT, FIELD_OF_VIEW);
+    bubble.say(NANCY, HEAD);
+    bubble.fitView(LANDSCAPE_HEIGHT, FIELD_OF_VIEW);
+    const scale: number = findSprite(parent).scale.y;
+    expect(scale).toBeGreaterThan(1);
+    expect(bubble.describe()?.textSize).toBeGreaterThanOrEqual(15);
+    await translator.choose('zh-TW');
+    bubble.relabel();
+    expect(findSprite(parent).scale.y).toBeCloseTo(scale);
+    bubble.fitView(DESKTOP_HEIGHT, FIELD_OF_VIEW);
+    expect(findSprite(parent).scale.y).toBeCloseTo(1);
   });
 });

@@ -92,16 +92,21 @@ function wordText(translator: Translator, id: string): string {
  * page in the middle, which is shown while the player is in a dialogue:
  * the name of the villager on top, by the name it goes by once it has told
  * the player who it is, then what it has just said, then the replies with
- * the cursor on one, and a line that tells the keys.  A click on a reply
- * answers with it, as {@link DialogueBox} tells; no click on the box
- * reaches the game underneath.  What the box shows is worded again in each
- * language the page comes to speak.
+ * the cursor on one, and a line that tells the keys, or what to tap on a
+ * touch device.  A click on a reply answers with it, as {@link DialogueBox}
+ * tells, and on a touch device a tap on the box ends a dialogue that offers
+ * no reply; no click on the box reaches the game underneath.  What the box
+ * shows is worded again in each language the page comes to speak.
  *
  * @param {HTMLElement} parent - What the box is added to.
  * @param {Translator} translator - The translator of the text of the page.
  * @param {DialogueBox} box - The dialogue box.
  * @param {(request: DialogueRequest) => void} answer - Sends what the
  *   player answers.
+ * @param {() => boolean} [isTouch] - Tells whether the page is used by
+ *   touch, so that the line at the foot of the box tells what to tap
+ *   rather than the keys, and a tap on the box ends a dialogue that offers
+ *   no reply; it never is by default.
  * @returns {DialogueBoxView} The box as shown.
  */
 export function createDialogueView(
@@ -109,6 +114,7 @@ export function createDialogueView(
   translator: Translator,
   box: DialogueBox,
   answer: (request: DialogueRequest) => void,
+  isTouch: () => boolean = () => false,
 ): DialogueBoxView {
   let acquaintances: readonly VillagerId[] = [];
   let render: () => void = () => undefined;
@@ -121,6 +127,15 @@ export function createDialogueView(
   });
   root.addEventListener('click', (event: MouseEvent) => {
     event.stopPropagation();
+    // On a touch device, a tap anywhere on the box ends a dialogue that
+    // offers no reply to tap.
+    if (isTouch() && box.dialogue?.replies.length === 0) {
+      const request: DialogueRequest | null = box.clickReply(0);
+      if (request !== null) {
+        answer(request);
+      }
+      render();
+    }
   });
   root.addEventListener('wheel', (event: WheelEvent) => {
     event.stopPropagation();
@@ -196,9 +211,16 @@ export function createDialogueView(
       reply.classList.toggle('is-cursor', index === shown.cursor);
     });
     list.hidden = shown.replies.length === 0;
-    hint.textContent = translator.translate(
-      shown.replies.length === 0 ? 'dialogue.hintEnd' : 'dialogue.hint',
-    );
+    const isEnd: boolean = shown.replies.length === 0;
+    if (isTouch()) {
+      hint.textContent = translator.translate(
+        isEnd ? 'dialogue.touchHintEnd' : 'dialogue.touchHint',
+      );
+    } else {
+      hint.textContent = translator.translate(
+        isEnd ? 'dialogue.hintEnd' : 'dialogue.hint',
+      );
+    }
     const top: number = window.innerHeight - root.getBoundingClientRect().top;
     document.documentElement.style.setProperty(
       TOP_PROPERTY,

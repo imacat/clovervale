@@ -222,6 +222,53 @@ describe('describePrompt', () => {
   });
 });
 
+describe('describePrompt on a touch device', () => {
+  /**
+   * Words the prompt for a player as a touch device shows it.
+   *
+   * @param {Translator} translator - The translator of the text.
+   * @param {PlayerMotion} motion - The player.
+   * @returns {string | null} The prompt.
+   */
+  function describeOnTouch(
+    translator: Translator,
+    motion: PlayerMotion,
+  ): string | null {
+    return describePrompt(
+      translator,
+      motion,
+      0,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      true,
+    );
+  }
+
+  it('tells of the action button rather than the space bar', async () => {
+    expect(describeOnTouch(EN, BY_NANCY)).toBe(
+      'Tap the action button to talk to Nancy',
+    );
+    expect(describeOnTouch(EN, BY_FOUNTAIN)).toBe(
+      'Tap the action button to drink from the fountain',
+    );
+    const zhTw: Translator = await createTranslator('zh-TW');
+    expect(describeOnTouch(zhTw, BY_NANCY)).toBe('點動作按鈕與南茜交談');
+    const zhCn: Translator = await createTranslator('zh-CN');
+    expect(describeOnTouch(zhCn, BY_NANCY)).toBe('点动作按钮与南茜交谈');
+    const ja: Translator = await createTranslator('ja');
+    expect(describeOnTouch(ja, BY_NANCY)).toBe(
+      'アクションボタンでナンシーと話す',
+    );
+  });
+
+  it('tells nothing while the action button makes the player slash', () => {
+    expect(describeOnTouch(EN, FACING_AWAY)).toBeNull();
+  });
+});
+
 describe('describeSpaceKey', () => {
   it('tells what the space bar makes the player do', () => {
     expect(describeSpaceKey(EN, BY_FOUNTAIN, 0)).toBe(

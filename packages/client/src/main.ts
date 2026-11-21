@@ -21,8 +21,8 @@
  * @module client/main The entry point of the browser client.
  */
 
-import { Group } from 'three';
-import type { Object3D, Scene, Vector3 } from 'three';
+import { Group, PerspectiveCamera } from 'three';
+import type { Camera, Object3D, Scene, Vector3 } from 'three';
 
 import {
   CAVE_EDWIN_FILE,
@@ -68,7 +68,11 @@ import type {
 } from '@clovervale/shared';
 
 import type { Actor } from './actor.ts';
-import { BackgroundMusic, MUSIC_FILE } from './background-music.ts';
+import {
+  BackgroundMusic,
+  MUSIC_FILE,
+  listenForSoundGestures,
+} from './background-music.ts';
 import { createBagView } from './bag-view.ts';
 import type { BagView } from './bag-view.ts';
 import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
@@ -96,6 +100,8 @@ import type { PadButton, PadScreen, PadState } from './gamepad.ts';
 import {
   GAMEPAD_PAGE,
   HelpSheet,
+  KEYBOARD_PAGE,
+  TOUCH_PAGE,
   openHelpOnFirstVisit,
 } from './help-sheet.ts';
 import { createHelpView } from './help-view.ts';
@@ -173,6 +179,9 @@ import {
   hasTobyFound,
 } from './toby-finds.ts';
 import type { TobyUtterance, WorldNews } from './toby-finds.ts';
+import { TouchControls } from './touch-controls.ts';
+import { createTouchView } from './touch-view.ts';
+import type { TouchView } from './touch-view.ts';
 import { Translator, isMessageId } from './translator.ts';
 import {
   createMonsterFigure,
@@ -318,6 +327,30 @@ const shownHits: HitEvent[] = [];
 const shownHeals: HealEvent[] = [];
 
 const panel: Panel = createPanel(translator, switchLanguage);
+/** The fingers on the screen of a touch device. */
+const touchControls = new TouchControls();
+const touchView: TouchView = createTouchView(
+  document.body,
+  translator,
+  touchControls,
+  () => {
+    // The action button is the space bar, held with the rest of play.
+    if (findPadScreen() === 'play') {
+      pressGameKey('Space', false);
+    }
+  },
+  (isTouch: boolean) => {
+    if (isTouch) {
+      panel.collapse();
+    }
+    bagView.render();
+    dialogueView.render();
+  },
+);
+// The panel starts folded up on a touch device, clear of the controls.
+if (touchView.isTouch()) {
+  panel.collapse();
+}
 const music = new BackgroundMusic(new Audio(MUSIC_URL));
 const prompt: Prompt = createPrompt(document.body);
 /** The bag of the player of the page, which the person at the page opens. */
@@ -332,6 +365,7 @@ const bagView: BagView = createBagView(
   () => {
     clickBagIcon();
   },
+  touchView.isTouch,
 );
 /** The help sheet that tells the controls of the game. */
 const helpSheet = new HelpSheet();
@@ -347,7 +381,11 @@ const helpView: HelpView = createHelpView(
     helpView.render();
   },
 );
-openHelpOnFirstVisit(helpSheet, languageStorage);
+openHelpOnFirstVisit(
+  helpSheet,
+  languageStorage,
+  touchView.isTouch() ? TOUCH_PAGE : KEYBOARD_PAGE,
+);
 helpView.render();
 /** The dialogue the player of the page is in, and the reply chosen. */
 const dialogueBox = new DialogueBox();
@@ -358,6 +396,7 @@ const dialogueView: DialogueBoxView = createDialogueView(
   (request: DialogueRequest) => {
     sendInput(request);
   },
+  touchView.isTouch,
 );
 /** The notices of the items the player of the page gets. */
 const itemNotices: ItemNotices = createItemNotices(document.body, translator);
@@ -409,9 +448,10 @@ const viewport: Viewport = showScene(
   scene,
   findSpawnPoint(0),
   panel.trailingCamera,
-  [cameraKeys, gamepads],
+  [cameraKeys, gamepads, touchControls],
   (seconds: number) => {
     readGamepads(seconds);
+    readTouch();
     sendMove();
     showPlayers();
     showTimeOfDay();
@@ -435,12 +475,27 @@ const viewport: Viewport = showScene(
   },
 );
 
+/** Draws the bubbles above the villagers at the size for the view. */
+const fitSpeechToView = (): void => {
+  const camera: Camera = viewport.getCamera();
+  if (camera instanceof PerspectiveCamera) {
+    speech.fitView(window.innerHeight, camera.fov);
+  }
+};
+window.addEventListener('resize', fitSpeechToView);
+fitSpeechToView();
+
 // For looking at what the page shows, and at the latest snapshot it shows
 // that from, from the console of the browser.
 Object.defineProperty(window, 'clovervale', {
   value: {
     describeCamera: () => viewport.getFocus(),
     describeHeading: () => viewport.getHeading(),
+    describeCameraDistance: () => {
+      const { x, z } = viewport.getFocus();
+      const { position } = viewport.getCamera();
+      return Math.hypot(position.x - x, position.y, position.z - z);
+    },
     describeMap: () => shownMap,
     describeFigures: () => figures.describeFigures(),
     describeMonsters: () => monsterFigures.describeMonsters(),
@@ -619,12 +674,14 @@ function carryOutItemAction(request: ItemRequest): void {
 /**
  * Holds the controls of play while the bag, the help sheet or a dialogue
  * opens: the keys held down walk the player and turn the camera no more,
- * and the gamepads walk, turn and zoom no more while it stays open; a left
- * stick pushed then chooses nothing until it has come back to the centre.
+ * the fingers on the screen are let go of, and the gamepads walk, turn and
+ * zoom no more while it stays open; a left stick pushed then chooses
+ * nothing until it has come back to the centre.
  */
 function holdPlay(): void {
   moveKeys.releaseAllKeys();
   cameraKeys.releaseAllKeys();
+  touchControls.releaseAll();
   gamepads.isPaused = true;
   gamepads.holdStickChoice();
   sendMove();
@@ -674,6 +731,17 @@ function readGamepads(seconds: number): void {
 }
 
 /**
+ * Reads the fingers on the screen of a touch device, which walk, turn and
+ * zoom only while nothing is open on the page, as the gamepads do, and
+ * shows the touch controls so.
+ */
+function readTouch(): void {
+  touchControls.isPaused = findPadScreen() !== 'play';
+  viewport.zoom(touchControls.takeZoom());
+  touchView.render();
+}
+
+/**
  * Carries out a button pressed on a gamepad, as the key it acts as.
  *
  * @param {PadButton} button - The button.
@@ -708,13 +776,14 @@ function clickBagIcon(): void {
 
 /**
  * Opens the help sheet, as a click on its button does, unless the player
- * is in a dialogue.  The bag closes as the sheet opens.
+ * is in a dialogue, at the page of touch on a touch device.  The bag closes
+ * as the sheet opens.
  */
 function clickHelpButton(): void {
   if (dialogueBox.isOpen) {
     return;
   }
-  openHelp();
+  openHelp(touchView.isTouch() ? TOUCH_PAGE : KEYBOARD_PAGE);
 }
 
 /**
@@ -735,8 +804,9 @@ function openHelp(page?: number): void {
 
 /**
  * Tells the server which way the keys held down move the player, or the
- * left sticks of the gamepads while no walking key is held, if that has
- * changed since the server was last told.
+ * left sticks of the gamepads while no walking key is held, or the stick
+ * of the touch controls while neither walks it, if that has changed since
+ * the server was last told.
  */
 function sendMove(): void {
   const heading: number = viewport.getHeading();
@@ -744,6 +814,10 @@ function sendMove(): void {
   let direction: GroundVector = keyDirection;
   if (keyDirection.x === 0 && keyDirection.z === 0) {
     const { ahead, aside } = gamepads.resolveWalk();
+    direction = orientWalk(ahead, aside, heading);
+  }
+  if (direction.x === 0 && direction.z === 0) {
+    const { ahead, aside } = touchControls.resolveWalk();
     direction = orientWalk(ahead, aside, heading);
   }
   const isSame: boolean =
@@ -894,6 +968,7 @@ function showPlayers(): void {
           shownMap,
           monsters,
           acquaintances,
+          touchView.isTouch(),
         ),
   );
   panel.showInteraction(
@@ -1505,14 +1580,13 @@ window.addEventListener('gamepadconnected', () => {
 window.addEventListener('blur', () => {
   moveKeys.releaseAllKeys();
   cameraKeys.releaseAllKeys();
+  touchControls.releaseAll();
   sendMove();
 });
 // The browser lets the page make sound only once the user has pressed
 // something on it.
-for (const type of ['keydown', 'pointerdown']) {
-  window.addEventListener(type, () => {
-    music.allow(panel.music);
-  });
-}
+listenForSoundGestures(window, () => {
+  music.allow(panel.music);
+});
 followPageVisibility();
 document.addEventListener('visibilitychange', followPageVisibility);

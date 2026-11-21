@@ -392,6 +392,11 @@ interface SpeechView {
   readonly y: number;
   /** The position of the foot of the bubble along the Z axis, in metres. */
   readonly z: number;
+  /**
+   * The size of the words on the screen, in CSS pixels, or `null` before
+   * the bubble is told the view.
+   */
+  readonly textSize: number | null;
 }
 
 /** The name of a villager and what it says, as a bubble shows them. */
@@ -3604,11 +3609,89 @@ function describeTalkLook(look: TalkLook): string {
   );
 }
 
+/** The least size of the words of a bubble on a phone, in CSS pixels. */
+const LEAST_PHONE_TEXT_SIZE = 15;
+
+/**
+ * Checks that a page shows the words of the bubble it shows as large on a
+ * phone, held upright or on its side, as at least
+ * {@link LEAST_PHONE_TEXT_SIZE} pixels, and that it shows them at the same
+ * size as before once back at its own size.  The bubble is saved at each
+ * size, if the environment names a directory to.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page does not do so.
+ */
+async function checkSpeechSize(
+  session: BidiSession,
+  context: string,
+): Promise<void> {
+  const readSpeech = async (): Promise<SpeechView | null> =>
+    JSON.parse(
+      await evaluateInPage(
+        session,
+        context,
+        'JSON.stringify(window.clovervale.describeSpeech())',
+      ),
+    ) as SpeechView | null;
+  const before: SpeechView | null = await readSpeech();
+  await saveView(session, context, 'speech-desktop.png');
+  const sizes: [string, number | null][] = [];
+  try {
+    for (const [name, viewport] of [
+      ['landscape', LANDSCAPE_VIEWPORT],
+      ['portrait', PORTRAIT_VIEWPORT],
+    ] as const) {
+      await session.send('browsingContext.setViewport', {
+        context,
+        viewport,
+        devicePixelRatio: PHONE_PIXEL_RATIO,
+      });
+      await sleep(VIEW_SETTLE_DURATION);
+      await saveView(session, context, `speech-${name}.png`);
+      sizes.push([name, (await readSpeech())?.textSize ?? null]);
+    }
+  } finally {
+    await session.send('browsingContext.setViewport', {
+      context,
+      viewport: null,
+      devicePixelRatio: null,
+    });
+    await sleep(VIEW_SETTLE_DURATION);
+  }
+  const after: SpeechView | null = await readSpeech();
+  const problems: string[] = sizes
+    .filter(
+      ([, size]: [string, number | null]) =>
+        size === null || size < LEAST_PHONE_TEXT_SIZE,
+    )
+    .map(
+      ([name, size]: [string, number | null]) =>
+        `${size === null ? 'no' : size.toFixed(1)} pixels tall on a phone ` +
+        `held ${name}`,
+    );
+  if (before?.textSize == null || after?.textSize !== before.textSize) {
+    problems.push(
+      `${String(before?.textSize)} pixels tall at its own size, and ` +
+        `${String(after?.textSize)} once back at it`,
+    );
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      'With Nancy talked to, the page shows the words of her bubble ' +
+        `${problems.join(', and ')}.`,
+    );
+  }
+}
+
 /**
  * Checks that a player that talks to Nancy behind a slow connection shows
  * what she says in a bubble above her head in its own page, for a while
  * and then no more, and nowhere in the page of another player, which shows
- * it talking.  Its own page prompts it to talk by her.  The player does not
+ * it talking, its words legible on a phone, as {@link checkSpeechSize}
+ * checks.  Its own page prompts it to talk by her.  The player does not
  * slash, in either page, and its own page makes no correction.
  *
  * The player is stepped along the Z axis to where Nancy stands straight
@@ -3714,6 +3797,7 @@ async function checkTalk(
       'With the space bar pressed by Nancy in the first page, ' +
       `${describeBoth(looks)}.`,
   );
+  await checkSpeechSize(session, actor);
   const after: [TalkLook, TalkLook] = await waitFor(
     readBoth,
     ([own, other]: [TalkLook, TalkLook]) =>
@@ -6841,6 +6925,593 @@ async function checkTobyFind(
   }
 }
 
+/** The size of the screen of a phone held upright, in CSS pixels. */
+const PORTRAIT_VIEWPORT = { width: 384, height: 832 } as const;
+/** The size of the screen of a phone held on its side, in CSS pixels. */
+const LANDSCAPE_VIEWPORT = { width: 832, height: 384 } as const;
+/** The pixels of the screen of the phone to each CSS pixel. */
+const PHONE_PIXEL_RATIO = 2;
+/** The least size of a target to tap, in CSS pixels. */
+const LEAST_TAP_TARGET = 44;
+/** How far a finger pushes the stick or drags on the scene, in pixels. */
+const TOUCH_PUSH = 60;
+/** How long a finger is held on the stick to walk, in milliseconds. */
+const TOUCH_HOLD_DURATION = 1500;
+/** How far the player is to walk with the stick held, in metres. */
+const TOUCH_WALK_DISTANCE = 0.5;
+/** How far the view is to turn with a finger held on the scene, degrees. */
+const TOUCH_ORBIT = 15;
+/** How much nearer a pinch is to bring the camera, as a share. */
+const TOUCH_ZOOM_SHARE = 0.9;
+/** The number of the touch controls the page of touch lists. */
+const TOUCH_CONTROL_COUNT = 6;
+/** The ways the stick is pushed in turn till the player walks. */
+const TOUCH_WALK_PUSHES: readonly (readonly [number, number])[] = [
+  [0, -1],
+  [0, 1],
+  [1, 0],
+  [-1, 0],
+];
+
+/** A box on the page, in CSS pixels. */
+interface BoxView {
+  /** The left edge. */
+  readonly left: number;
+  /** The top edge. */
+  readonly top: number;
+  /** The right edge. */
+  readonly right: number;
+  /** The bottom edge. */
+  readonly bottom: number;
+}
+
+/** How a page used by touch shows itself. */
+interface TouchLook {
+  /** Whether the page counts as used by touch. */
+  readonly isTouch: boolean;
+  /** The width of the view, in CSS pixels. */
+  readonly width: number;
+  /** The height of the view, in CSS pixels. */
+  readonly height: number;
+  /** Whether the touch controls are held, hidden. */
+  readonly isHeld: boolean;
+  /** Whether the panel is folded up. */
+  readonly isPanelClosed: boolean;
+  /** Whether a key cap is shown on the bag or the help button. */
+  readonly isKeyShown: boolean;
+  /** The boxes of what is shown, by their names; the hidden are left out. */
+  readonly boxes: Readonly<Record<string, BoxView>>;
+  /** The least width and height of the targets to tap shown. */
+  readonly leastTarget: number;
+  /** The name of the target to tap that is least, if any is shown. */
+  readonly leastTargetName: string;
+  /** The help sheet, as the page shows it. */
+  readonly help: HelpLook;
+  /** How far the camera is from what it looks at, in metres. */
+  readonly distance: number;
+}
+
+/** Reads how a page used by touch shows itself, as JSON. */
+const TOUCH_EXPRESSION = `(() => {
+  const isShown = (element) => {
+    if (element === null) {
+      return false;
+    }
+    const style = getComputedStyle(element);
+    const box = element.getBoundingClientRect();
+    return style.display !== 'none' && style.visibility !== 'hidden' &&
+      box.width > 0 && box.height > 0 && element.closest('[hidden]') === null;
+  };
+  const named = {
+    stick: '.touch-stick',
+    action: '.touch-action',
+    bagIcon: '.bag-icon',
+    helpButton: '.help-button',
+    panel: '.lil-gui.lil-root',
+    prompt: '.interaction-prompt',
+    bag: '.bag-window',
+    sheet: '.help-sheet',
+    dialogue: '.dialogue',
+  };
+  const boxes = {};
+  for (const [name, selector] of Object.entries(named)) {
+    const element = document.querySelector(selector);
+    if (isShown(element)) {
+      const { left, top, right, bottom } = element.getBoundingClientRect();
+      boxes[name] = { left, top, right, bottom };
+    }
+  }
+  let leastTarget = Infinity;
+  let leastTargetName = '';
+  const targets = '.touch-action, .bag-icon, .help-button, .bag-slot, ' +
+    '.bag-action, .dialogue-reply, .help-previous, .help-next, ' +
+    '.help-close, .help-ok';
+  for (const element of document.querySelectorAll(targets)) {
+    if (isShown(element)) {
+      const box = element.getBoundingClientRect();
+      const least = Math.min(box.width, box.height);
+      if (least < leastTarget) {
+        leastTarget = least;
+        leastTargetName = element.className;
+      }
+    }
+  }
+  const { x, z } = window.clovervale.describeCamera();
+  return JSON.stringify({
+    isTouch: document.documentElement.classList.contains('is-touch'),
+    width: window.innerWidth,
+    height: window.innerHeight,
+    isHeld: document.querySelector('.touch-controls')
+      ?.classList.contains('is-held') ?? false,
+    isPanelClosed: document.querySelector('.lil-gui.lil-root')
+      ?.classList.contains('lil-closed') ?? false,
+    isKeyShown: [...document.querySelectorAll('.bag-key, .help-key')]
+      .some(isShown),
+    boxes,
+    leastTarget: Number.isFinite(leastTarget) ? leastTarget : 0,
+    leastTargetName,
+    help: ${HELP_EXPRESSION.replace('JSON.stringify', '')},
+    distance: window.clovervale.describeCameraDistance(),
+  });
+})()`;
+
+/**
+ * Reads how a page used by touch shows itself.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<TouchLook>} How the page shows itself.
+ */
+async function readTouchLook(
+  session: BidiSession,
+  context: string,
+): Promise<TouchLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, TOUCH_EXPRESSION),
+  ) as TouchLook;
+}
+
+/**
+ * Finds the middle of something a page used by touch shows.
+ *
+ * @param {TouchLook} look - How the page shows itself.
+ * @param {string} name - The name of what is shown.
+ * @returns {[number, number]} Its middle, rounded to whole CSS pixels.
+ * @throws {Error} If the page does not show it.
+ */
+function findMiddle(look: TouchLook, name: string): [number, number] {
+  const box: BoxView | undefined = look.boxes[name];
+  if (box === undefined) {
+    throw new Error(
+      `The page used by touch does not show its ${name}: it shows ` +
+        `${Object.keys(look.boxes).join(', ')}.`,
+    );
+  }
+  return [
+    Math.round((box.left + box.right) / 2),
+    Math.round((box.top + box.bottom) / 2),
+  ];
+}
+
+/**
+ * Finds what a page used by touch lays out badly: what reaches beyond the
+ * view, what overlaps what, and a target to tap that is too small.
+ *
+ * @param {TouchLook} look - How the page shows itself.
+ * @param {readonly (readonly [string, string])[]} apart - The pairs of
+ *   what is shown that are not to overlap.
+ * @returns {string[]} What is laid out badly, in words.
+ */
+function findLayoutProblems(
+  look: TouchLook,
+  apart: readonly (readonly [string, string])[],
+): string[] {
+  const problems: string[] = [];
+  for (const [name, box] of Object.entries(look.boxes)) {
+    if (
+      box.left < 0 ||
+      box.top < 0 ||
+      box.right > look.width + 0.5 ||
+      box.bottom > look.height + 0.5
+    ) {
+      problems.push(`its ${name} reaches beyond the view`);
+    }
+  }
+  for (const [one, other] of apart) {
+    const a: BoxView | undefined = look.boxes[one];
+    const b: BoxView | undefined = look.boxes[other];
+    if (
+      a !== undefined &&
+      b !== undefined &&
+      a.left < b.right &&
+      b.left < a.right &&
+      a.top < b.bottom &&
+      b.top < a.bottom
+    ) {
+      problems.push(`its ${one} overlaps its ${other}`);
+    }
+  }
+  if (look.leastTarget > 0 && look.leastTarget < LEAST_TAP_TARGET) {
+    problems.push(
+      `its "${look.leastTargetName}" is only ` +
+        `${look.leastTarget.toFixed(0)} pixels across to tap`,
+    );
+  }
+  return problems;
+}
+
+/**
+ * Checks the touch controls in a page of its own on a phone-sized screen,
+ * held upright and on its side, with synthetic touches: that the first
+ * touch has the page count as used by touch, show the stick and the
+ * action button and fold up its panel, all laid out within the view
+ * without overlapping and large enough to tap, without the keys on the
+ * buttons of the bag and the help sheet; that the stick walks the player
+ * and stops once lifted; that a finger on the scene turns the view while
+ * another walks; that two fingers spreading zoom in; that the action
+ * button slashes; that the button of the help sheet opens it at the page
+ * of touch, whose arrows and cross work by tapping, and the bag opens and
+ * closes by tapping, each laid out well, holding the controls while open;
+ * and that turning the phone round lays the page out again at once and
+ * lets go of a finger held on the stick.  Each layout is saved, if the
+ * environment names a directory to.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} url - The address of the client.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page does not do so.
+ */
+async function checkTouch(session: BidiSession, url: string): Promise<void> {
+  const created = (await session.send('browsingContext.create', {
+    type: 'window',
+  })) as { context: string };
+  const context: string = created.context;
+  const turnPhone = async (
+    viewport: Readonly<{ width: number; height: number }>,
+  ): Promise<void> => {
+    await session.send('browsingContext.setViewport', {
+      context,
+      viewport,
+      devicePixelRatio: PHONE_PIXEL_RATIO,
+    });
+    await sleep(VIEW_SETTLE_DURATION);
+  };
+  // The page is loaded at the size of the other pages, whose foot shows
+  // the grass it is checked by, before the phone is held upright.
+  await loadClient(session, context, url, 'The page used by touch');
+  await setControl(session, context, 'Trailing camera', false);
+  await turnPhone(PORTRAIT_VIEWPORT);
+  const state: PageState = await readPageState(session, context);
+  const id = Number(/^#(\d+)/.exec(state.panel.Player ?? '')?.[1]);
+  const look = (): Promise<TouchLook> => readTouchLook(session, context);
+  const touch = async (
+    fingers: readonly (readonly Readonly<Record<string, unknown>>[])[],
+  ): Promise<void> => {
+    await session.send('input.performActions', {
+      context,
+      actions: fingers.map((actions, index: number) => ({
+        type: 'pointer',
+        id: `finger${String(index)}`,
+        parameters: { pointerType: 'touch' },
+        actions,
+      })),
+    });
+  };
+  const tap = async (x: number, y: number): Promise<void> => {
+    await touch([
+      [
+        { type: 'pointerMove', x, y },
+        { type: 'pointerDown', button: 0 },
+        { type: 'pause', duration: TAP_DURATION },
+        { type: 'pointerUp', button: 0 },
+      ],
+    ]);
+  };
+  const tapOn = async (name: string): Promise<void> => {
+    const [x, y] = findMiddle(await look(), name);
+    await tap(x, y);
+  };
+  const tapElement = async (selector: string): Promise<void> => {
+    const [x, y] = JSON.parse(
+      await evaluateInPage(
+        session,
+        context,
+        `(() => {
+          const box = document.querySelector(${JSON.stringify(selector)})
+            .getBoundingClientRect();
+          return JSON.stringify([
+            Math.round(box.left + box.width / 2),
+            Math.round(box.top + box.height / 2),
+          ]);
+        })()`,
+      ),
+    ) as [number, number];
+    await tap(x, y);
+  };
+  const expectLook = (
+    isAwaited: (seen: TouchLook) => boolean,
+    what: string,
+  ): Promise<TouchLook> =>
+    waitFor(look, isAwaited, ACTION_TIMEOUT, (seen: TouchLook) => {
+      const { help, ...rest } = seen;
+      return (
+        `With ${what}, the page used by touch tells ` +
+        `${JSON.stringify(rest)} and ${describeHelpLook(help)}.`
+      );
+    });
+  const expectLaidOut = (
+    seen: TouchLook,
+    what: string,
+    apart: readonly (readonly [string, string])[],
+  ): void => {
+    const problems: string[] = findLayoutProblems(seen, apart);
+    if (problems.length > 0) {
+      throw new Error(
+        `With ${what}, the page used by touch lays itself out badly: ` +
+          `${problems.join('; ')}.`,
+      );
+    }
+  };
+  const findOwn = (seen: TouchLook): FigureView | undefined =>
+    seen.help.figures.find((figure: FigureView) => figure.id === id);
+  const PLAY_APART: readonly (readonly [string, string])[] = [
+    ['stick', 'action'],
+    ['stick', 'prompt'],
+    ['action', 'prompt'],
+    ['stick', 'panel'],
+    ['action', 'panel'],
+    ['bagIcon', 'helpButton'],
+    ['bagIcon', 'panel'],
+    ['helpButton', 'panel'],
+    ['prompt', 'panel'],
+  ];
+  const OPEN_APART: readonly (readonly [string, string])[] = [
+    ['bag', 'bagIcon'],
+    ['bag', 'helpButton'],
+    ['bag', 'panel'],
+  ];
+
+  const centre: [number, number] = [
+    Math.round(PORTRAIT_VIEWPORT.width / 2),
+    Math.round(PORTRAIT_VIEWPORT.height / 3),
+  ];
+  await tap(...centre);
+  for (const [name, viewport] of [
+    ['portrait', PORTRAIT_VIEWPORT],
+    ['landscape', LANDSCAPE_VIEWPORT],
+  ] as const) {
+    await turnPhone(viewport);
+    const playing: TouchLook = await expectLook(
+      (seen: TouchLook) =>
+        seen.isTouch &&
+        !seen.isHeld &&
+        seen.isPanelClosed &&
+        seen.boxes.stick !== undefined &&
+        seen.boxes.action !== undefined,
+      `the screen touched, held ${name}`,
+    );
+    if (playing.isKeyShown) {
+      throw new Error(
+        `Held ${name}, the page used by touch shows the keys of its buttons.`,
+      );
+    }
+    await saveView(session, context, `touch-${name}.png`);
+    expectLaidOut(playing, `the screen held ${name}`, PLAY_APART);
+
+    await tapOn('helpButton');
+    const help: TouchLook = await expectLook(
+      (seen: TouchLook) =>
+        seen.help.isOpen &&
+        seen.help.page === 2 &&
+        seen.help.subtitle === 'Touch' &&
+        seen.help.labels.length === TOUCH_CONTROL_COUNT &&
+        seen.isHeld,
+      `its help button tapped, held ${name}`,
+    );
+    await saveView(session, context, `touch-help-${name}.png`);
+    expectLaidOut(help, `the help sheet open, held ${name}`, []);
+    await tapElement('.help-previous');
+    await expectLook(
+      (seen: TouchLook) => seen.help.isOpen && seen.help.page === 1,
+      `the arrow to the page before tapped, held ${name}`,
+    );
+    expectLaidOut(await look(), `the page of the gamepad, held ${name}`, []);
+    await tapElement('.help-previous');
+    await expectLook(
+      (seen: TouchLook) => seen.help.isOpen && seen.help.page === 0,
+      `the arrow to the page before tapped again, held ${name}`,
+    );
+    expectLaidOut(await look(), `the page of the keyboard, held ${name}`, []);
+    await tapElement('.help-next');
+    await expectLook(
+      (seen: TouchLook) => seen.help.isOpen && seen.help.page === 1,
+      `the arrow to the next page tapped, held ${name}`,
+    );
+    await tapElement(name === 'portrait' ? '.help-close' : '.help-ok');
+    await expectLook(
+      (seen: TouchLook) => !seen.help.isOpen && !seen.isHeld,
+      `the help sheet closed by tapping, held ${name}`,
+    );
+
+    await tapOn('bagIcon');
+    const bag: TouchLook = await expectLook(
+      (seen: TouchLook) => seen.help.isBagOpen && seen.isHeld,
+      `its bag icon tapped, held ${name}`,
+    );
+    await saveView(session, context, `touch-bag-${name}.png`);
+    expectLaidOut(bag, `the bag open, held ${name}`, OPEN_APART);
+    await tapOn('bagIcon');
+    await expectLook(
+      (seen: TouchLook) => !seen.help.isBagOpen && !seen.isHeld,
+      `its bag icon tapped again, held ${name}`,
+    );
+  }
+
+  // The stick walks the player, whichever way is open, and the view turns
+  // with another finger at once.
+  const before: TouchLook = await look();
+  const start: FigureView | undefined = findOwn(before);
+  const [stickX, stickY] = findMiddle(before, 'stick');
+  const sceneX: number = Math.round(before.width / 2);
+  const sceneY: number = Math.round(before.height / 3);
+  const findTurn = (heading: number): number => {
+    const turn: number = (((heading - before.help.heading) % 360) + 360) % 360;
+    return turn > 180 ? turn - 360 : turn;
+  };
+  let walked: TouchLook = before;
+  const hasWalked = (seen: TouchLook): boolean => {
+    const is: FigureView | undefined = findOwn(seen);
+    return (
+      start !== undefined &&
+      is !== undefined &&
+      Math.hypot(is.x - start.x, is.z - start.z) >= TOUCH_WALK_DISTANCE
+    );
+  };
+  for (const [x, y] of TOUCH_WALK_PUSHES) {
+    await touch([
+      [
+        { type: 'pointerMove', x: stickX, y: stickY },
+        { type: 'pointerDown', button: 0 },
+        {
+          type: 'pointerMove',
+          x: stickX + x * TOUCH_PUSH,
+          y: stickY + y * TOUCH_PUSH,
+          duration: 100,
+        },
+        { type: 'pause', duration: TOUCH_HOLD_DURATION },
+        { type: 'pointerUp', button: 0 },
+      ],
+      [
+        { type: 'pointerMove', x: sceneX, y: sceneY },
+        { type: 'pointerDown', button: 0 },
+        {
+          type: 'pointerMove',
+          x: sceneX - TOUCH_PUSH,
+          y: sceneY,
+          duration: 100,
+        },
+        { type: 'pause', duration: TOUCH_HOLD_DURATION },
+        { type: 'pointerUp', button: 0 },
+      ],
+    ]);
+    walked = await look();
+    if (hasWalked(walked)) {
+      break;
+    }
+  }
+  if (!hasWalked(walked)) {
+    throw new Error(
+      'With the stick pushed each way, the page used by touch moves its ' +
+        `player from ${JSON.stringify(start)} to ` +
+        `${JSON.stringify(findOwn(walked))}.`,
+    );
+  }
+  if (Math.abs(findTurn(walked.help.heading)) < TOUCH_ORBIT) {
+    throw new Error(
+      'With a finger dragged on the scene while the stick walks, the page ' +
+        `used by touch turns its camera from ` +
+        `${before.help.heading.toFixed(1)} to ` +
+        `${walked.help.heading.toFixed(1)} degrees.`,
+    );
+  }
+  await sleep(VIEW_SETTLE_DURATION);
+  const stopped: FigureView | undefined = findOwn(await look());
+  await sleep(VIEW_SETTLE_DURATION);
+  const still: FigureView | undefined = findOwn(await look());
+  if (
+    stopped === undefined ||
+    still === undefined ||
+    Math.hypot(still.x - stopped.x, still.z - stopped.z) > STANDING_DRIFT
+  ) {
+    throw new Error(
+      'With the finger lifted from the stick, the page used by touch moves ' +
+        `its player from ${JSON.stringify(stopped)} to ` +
+        `${JSON.stringify(still)}.`,
+    );
+  }
+
+  // Two fingers spreading on the scene zoom in.
+  const far: TouchLook = await look();
+  await touch(
+    [-1, 1].map((side: number) => [
+      { type: 'pointerMove', x: sceneX + side * 20, y: sceneY },
+      { type: 'pointerDown', button: 0 },
+      {
+        type: 'pointerMove',
+        x: sceneX + side * 20 * 4,
+        y: sceneY,
+        duration: 300,
+      },
+      { type: 'pointerUp', button: 0 },
+    ]),
+  );
+  const near: TouchLook = await look();
+  if (near.distance > far.distance * TOUCH_ZOOM_SHARE) {
+    throw new Error(
+      'With two fingers spread on the scene, the page used by touch moves ' +
+        `its camera from ${far.distance.toFixed(2)} to ` +
+        `${near.distance.toFixed(2)} metres away.`,
+    );
+  }
+
+  // The action button slashes, as the space bar does.
+  const slash: Promise<string> = watchAction(
+    session,
+    context,
+    PANEL_ACTION_EXPRESSION,
+  );
+  slash.catch(() => undefined);
+  await tapOn('action');
+  const outcome: string = await slash;
+  if (outcome !== 'over') {
+    throw new Error(
+      'With the action button tapped, the panel of the page used by touch ' +
+        `tells its player ${outcome === 'never' ? 'never slashing' : outcome}.`,
+    );
+  }
+
+  // Turning the phone round lets go of the finger held on the stick.
+  await touch([
+    [
+      { type: 'pointerMove', x: stickX, y: stickY },
+      { type: 'pointerDown', button: 0 },
+      {
+        type: 'pointerMove',
+        x: stickX,
+        y: stickY - TOUCH_PUSH,
+        duration: 100,
+      },
+    ],
+  ]);
+  try {
+    await sleep(VIEW_SETTLE_DURATION);
+    await turnPhone(PORTRAIT_VIEWPORT);
+    const turned: TouchLook = await expectLook(
+      (seen: TouchLook) => seen.width === PORTRAIT_VIEWPORT.width,
+      'the phone turned upright with a finger on the stick',
+    );
+    expectLaidOut(turned, 'the phone turned upright', PLAY_APART);
+    await sleep(VIEW_SETTLE_DURATION);
+    const was: FigureView | undefined = findOwn(await look());
+    await sleep(VIEW_SETTLE_DURATION);
+    const is: FigureView | undefined = findOwn(await look());
+    if (
+      was === undefined ||
+      is === undefined ||
+      Math.hypot(is.x - was.x, is.z - was.z) > STANDING_DRIFT
+    ) {
+      throw new Error(
+        'With the phone turned upright while a finger walks with the ' +
+          'stick, the page used by touch goes on moving its player from ' +
+          `${JSON.stringify(was)} to ${JSON.stringify(is)}.`,
+      );
+    }
+  } finally {
+    await session.send('input.releaseActions', { context });
+  }
+  await session.send('browsingContext.close', { context });
+}
+
 /**
  * Checks the built client in two pages connected to one server: that each
  * draws its scene, shows the models it has and connects, that what the
@@ -6956,6 +7627,7 @@ async function checkClient(): Promise<void> {
     await checkCamera(session, first, id, second, otherId);
     await checkCameraKeys(session, first, id);
     await checkGamepad(session, first, id);
+    await checkTouch(session, url);
 
     const dayPort: number = await startGameServer([
       '--day-length',
@@ -7001,7 +7673,7 @@ try {
       'healing potion, and climb back up, have Martha come over, talk ' +
       'with her and beat her, have the ' +
       'camera follow another player, turn the camera with the arrow keys, ' +
-      'play with a gamepad, ' +
+      'play with a gamepad, play by touch on a phone held either way, ' +
       'darken at night, preview a time of ' +
       'day on their own, and agree on the time of day.',
   );

@@ -225,6 +225,8 @@ export interface Panel {
    *   shown.
    */
   readonly listProblems: (problems: readonly ModelProblem[]) => void;
+  /** Folds the panel up to its title, which opens it again when clicked. */
+  readonly collapse: () => void;
 }
 
 /** The names of the values of the readout, in the order they are shown. */
@@ -643,5 +645,8 @@ export function createPanel(
     showInteraction,
     showSlash,
     listProblems,
+    collapse: (): void => {
+      gui.close();
+    },
   };
 }

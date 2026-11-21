@@ -195,6 +195,9 @@ export function describeSpaceKey(
  * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
  *   told the player who they are, as the server last told, none by default,
  *   which tells what a villager is called.
+ * @param {boolean} [isTouch] - Whether the page is used by touch, so that
+ *   the prompt tells of the action button rather than the space bar, which
+ *   it does not by default.
  * @returns {string | null} The prompt, in the language of the page, or
  *   `null` while the space bar makes the player slash, while the player
  *   cannot start to interact with the world, or while there is no player.
@@ -208,6 +211,7 @@ export function describePrompt(
   map: MapId = 'village',
   monsters: readonly MonsterState[] = [],
   acquaintances: readonly VillagerId[] = [],
+  isTouch = false,
 ): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;
@@ -220,16 +224,22 @@ export function describePrompt(
   );
   if (villager !== null) {
     const { name } = describeVillager(translator, villager, acquaintances);
-    return translator.translate('prompt.talk', { name });
+    return translator.translate(
+      isTouch ? 'touchPrompt.talk' : 'prompt.talk',
+      { name },
+    );
   }
   if (findInteraction(motion, step, map) === 'Drink') {
-    return translator.translate('prompt.drink');
+    return translator.translate(isTouch ? 'touchPrompt.drink' : 'prompt.drink');
   }
   const passage: Passage | null = findPassage(motion, step, map, monsters);
   if (passage !== null) {
-    return translator.translate(
-      passage.destination === 'cave' ? 'prompt.enter' : 'prompt.climb',
-    );
+    if (passage.destination === 'cave') {
+      return translator.translate(
+        isTouch ? 'touchPrompt.enter' : 'prompt.enter',
+      );
+    }
+    return translator.translate(isTouch ? 'touchPrompt.climb' : 'prompt.climb');
   }
   const target: PickTarget | null = findPickTarget(
     motion,
@@ -250,12 +260,16 @@ export function describePrompt(
   if (target.source === 'container') {
     const container: string = nameContainer(translator, target);
     return hasRoom(inventory)
-      ? translator.translate('prompt.open', { container })
+      ? translator.translate(isTouch ? 'touchPrompt.open' : 'prompt.open', {
+          container,
+        })
       : translator.translate('prompt.fullContainer', { container });
   }
   const item: string = nameItem(translator, target.kind);
   return hasRoom(inventory)
-    ? translator.translate('prompt.pick', { item })
+    ? translator.translate(isTouch ? 'touchPrompt.pick' : 'prompt.pick', {
+        item,
+      })
     : translator.translate('prompt.full', { item });
 }
 

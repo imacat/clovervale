@@ -29,6 +29,7 @@ import {
   HELP_PAGE_COUNT,
   HelpSheet,
   KEYBOARD_PAGE,
+  TOUCH_PAGE,
   openHelpOnFirstVisit,
 } from '../src/help-sheet.ts';
 import type { LanguageStorage } from '../src/language.ts';
@@ -122,10 +123,11 @@ describe('a help sheet', () => {
     expect(sheet.isOpen).toBe(false);
   });
 
-  it('has a page of the keyboard and a page of the gamepad', () => {
-    expect(HELP_PAGE_COUNT).toBe(2);
+  it('has a page of the keyboard, of the gamepad and of touch', () => {
+    expect(HELP_PAGE_COUNT).toBe(3);
     expect(KEYBOARD_PAGE).toBe(0);
     expect(GAMEPAD_PAGE).toBe(1);
+    expect(TOUCH_PAGE).toBe(2);
   });
 
   it('opens on the page of the keyboard unless told another', () => {
@@ -147,6 +149,10 @@ describe('a help sheet', () => {
     expect(sheet.pressKey('ArrowRight')).toBe(true);
     expect(sheet.page).toBe(GAMEPAD_PAGE);
     expect(sheet.pressKey('ArrowRight')).toBe(true);
+    expect(sheet.page).toBe(TOUCH_PAGE);
+    expect(sheet.pressKey('ArrowRight')).toBe(true);
+    expect(sheet.page).toBe(TOUCH_PAGE);
+    expect(sheet.pressKey('ArrowLeft')).toBe(true);
     expect(sheet.page).toBe(GAMEPAD_PAGE);
     expect(sheet.pressKey('ArrowLeft')).toBe(true);
     expect(sheet.page).toBe(KEYBOARD_PAGE);
@@ -167,7 +173,7 @@ describe('a help sheet', () => {
     sheet.turnToPage(GAMEPAD_PAGE);
     expect(sheet.page).toBe(GAMEPAD_PAGE);
     sheet.turnToPage(HELP_PAGE_COUNT);
-    expect(sheet.page).toBe(GAMEPAD_PAGE);
+    expect(sheet.page).toBe(TOUCH_PAGE);
     sheet.turnToPage(-1);
     expect(sheet.page).toBe(KEYBOARD_PAGE);
   });
@@ -189,6 +195,13 @@ describe('opening the help sheet on the first visit', () => {
     const later = new HelpSheet();
     openHelpOnFirstVisit(later, storage);
     expect(later.isOpen).toBe(false);
+  });
+
+  it('opens it at the page it is told', () => {
+    const sheet = new HelpSheet();
+    openHelpOnFirstVisit(sheet, createStorage(), TOUCH_PAGE);
+    expect(sheet.isOpen).toBe(true);
+    expect(sheet.page).toBe(TOUCH_PAGE);
   });
 
   it('opens it on every visit without a storage', () => {

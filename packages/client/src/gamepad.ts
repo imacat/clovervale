@@ -449,7 +449,7 @@ function clampUnit(value: number): number {
  * @param {number} deadZone - The dead zone, as a share of the full push.
  * @returns {[number, number]} The stick scaled, the push at most 1.
  */
-function scaleStick(
+export function scaleStick(
   x: number,
   y: number,
   deadZone: number,
@@ -471,7 +471,7 @@ function scaleStick(
  * @param {number} y - The stick, downwards positive.
  * @returns {PadWalk} The walk.
  */
-function resolveStickWalk(x: number, y: number): PadWalk {
+export function resolveStickWalk(x: number, y: number): PadWalk {
   if (Math.hypot(x, y) <= WALK_DEAD_ZONE) {
     return STANDING;
   }

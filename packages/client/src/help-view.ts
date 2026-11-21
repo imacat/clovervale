@@ -21,12 +21,14 @@
  * @module client/help-view The help sheet as the page shows it: its button
  *   beside the bag, and, while it is open, a sheet of parchment in the
  *   middle of the page that lists the controls of the game, on a page of
- *   the keyboard and the mouse and a page of the gamepad.
+ *   the keyboard and the mouse, a page of the gamepad and a page of touch.
  */
 
+import { drawBag } from './bag-view.ts';
 import { HELP_PAGE_COUNT } from './help-sheet.ts';
 import type { HelpSheet } from './help-sheet.ts';
 import type { PlainMessageId } from './messages/en.ts';
+import { drawHand } from './touch-view.ts';
 import type { Translator } from './translator.ts';
 
 /** The help sheet as the page shows it. */
@@ -61,6 +63,21 @@ type PadBadge =
 interface PadRow {
   /** The buttons and sticks of the control, side by side. */
   readonly badges: readonly PadBadge[];
+  /** The message that tells what the control does. */
+  readonly labelKey: PlainMessageId;
+}
+
+/**
+ * A touch control, as the sheet draws it: the stick, a finger dragged, two
+ * fingers pinching, the action button, a finger tapping, or the buttons of
+ * the bag and the help sheet.
+ */
+type TouchBadge = 'stick' | 'drag' | 'pinch' | 'action' | 'tap' | 'buttons';
+
+/** A touch control, as the sheet lists it. */
+interface TouchRow {
+  /** What the control is drawn as. */
+  readonly badge: TouchBadge;
   /** The message that tells what the control does. */
   readonly labelKey: PlainMessageId;
 }
@@ -111,8 +128,30 @@ const PAD_ROWS: readonly PadRow[] = [
   { badges: [{ kind: 'start' }], labelKey: 'help.padHelp' },
 ];
 
+/** The touch controls the sheet lists, in the order it lists them. */
+const TOUCH_ROWS: readonly TouchRow[] = [
+  { badge: 'stick', labelKey: 'help.touchWalk' },
+  { badge: 'drag', labelKey: 'help.touchTurn' },
+  { badge: 'pinch', labelKey: 'help.touchZoom' },
+  { badge: 'action', labelKey: 'help.touchAction' },
+  { badge: 'tap', labelKey: 'help.touchChoose' },
+  { badge: 'buttons', labelKey: 'help.touchButtons' },
+];
+
 /** The messages that name the pages, in the order of the pages. */
-const PAGE_NAMES: readonly PlainMessageId[] = ['help.keyboard', 'help.gamepad'];
+const PAGE_NAMES: readonly PlainMessageId[] = [
+  'help.keyboard',
+  'help.gamepad',
+  'help.touch',
+];
+
+/**
+ * The arrows of the four ways a stick is pushed or a finger dragged, round
+ * the edge of a picture.
+ */
+const ARROWS_PATH =
+  'M32 2 L37 8 L27 8Z M32 62 L37 56 L27 56Z ' +
+  'M2 32 L8 27 L8 37Z M62 32 L56 27 L56 37Z';
 
 /** The labels of the key caps drawn wide. */
 const WIDE_CAPS: ReadonlySet<string> = new Set(['Space', 'Enter', 'Esc']);
@@ -298,12 +337,7 @@ function drawStick(label: 'L' | 'R'): SVGElement {
   });
   text.textContent = label;
   return drawPicture([
-    createSvgElement('path', {
-      d:
-        'M32 2 L37 8 L27 8Z M32 62 L37 56 L27 56Z ' +
-        'M2 32 L8 27 L8 37Z M62 32 L56 27 L56 37Z',
-      class: 'help-pad-arrow',
-    }),
+    createSvgElement('path', { d: ARROWS_PATH, class: 'help-pad-arrow' }),
     createSvgElement('circle', {
       cx: '32',
       cy: '32',
@@ -361,6 +395,116 @@ function drawBadges(row: PadRow): HTMLDivElement {
 }
 
 /**
+ * Draws a fingertip, as a round mark.
+ *
+ * @param {number} x - Its middle, across the picture.
+ * @param {number} y - Its middle, down the picture.
+ * @param {number} radius - Its radius.
+ * @returns {SVGElement} The fingertip.
+ */
+function drawFingertip(x: number, y: number, radius: number): SVGElement {
+  return createSvgElement('circle', {
+    cx: String(x),
+    cy: String(y),
+    r: String(radius),
+    class: 'help-touch-finger',
+  });
+}
+
+/**
+ * Draws a touch control in a picture.
+ *
+ * @param {TouchBadge} badge - The control.
+ * @returns {HTMLDivElement} The picture.
+ */
+function drawTouchPicture(badge: TouchBadge): HTMLDivElement {
+  const picture: HTMLDivElement = document.createElement('div');
+  picture.className = 'help-touch-picture';
+  if (badge === 'stick') {
+    picture.append(
+      drawPicture([
+        createSvgElement('path', { d: ARROWS_PATH, class: 'help-pad-arrow' }),
+        createSvgElement('circle', {
+          cx: '32',
+          cy: '32',
+          r: '22',
+          class: 'help-touch-base',
+        }),
+        createSvgElement('circle', {
+          cx: '39',
+          cy: '25',
+          r: '11',
+          class: 'help-touch-knob',
+        }),
+      ]),
+    );
+  } else if (badge === 'drag') {
+    picture.append(
+      drawPicture([
+        createSvgElement('path', { d: ARROWS_PATH, class: 'help-pad-arrow' }),
+        drawFingertip(32, 32, 10),
+      ]),
+    );
+  } else if (badge === 'pinch') {
+    picture.append(
+      drawPicture([
+        createSvgElement('path', {
+          d: 'M8 56 L56 8 M8 56 L8 45 M8 56 L19 56 M56 8 L45 8 M56 8 L56 19',
+          class: 'help-touch-line',
+        }),
+        drawFingertip(22, 42, 8),
+        drawFingertip(42, 22, 8),
+      ]),
+    );
+  } else if (badge === 'action') {
+    const button: HTMLDivElement = document.createElement('div');
+    button.className = 'help-touch-action';
+    button.append(drawHand());
+    picture.append(button);
+  } else if (badge === 'tap') {
+    picture.append(
+      drawPicture([
+        createSvgElement('circle', {
+          cx: '32',
+          cy: '32',
+          r: '26',
+          class: 'help-touch-ripple',
+        }),
+        createSvgElement('circle', {
+          cx: '32',
+          cy: '32',
+          r: '18',
+          class: 'help-touch-ripple',
+        }),
+        drawFingertip(32, 32, 9),
+      ]),
+    );
+  } else {
+    picture.classList.add('is-wide');
+    for (const draw of [drawBag, drawParchment]) {
+      const button: HTMLDivElement = document.createElement('div');
+      button.className = 'help-touch-button';
+      button.append(draw());
+      picture.append(button);
+    }
+  }
+  return picture;
+}
+
+/**
+ * Draws a touch control in its place on the sheet.
+ *
+ * @param {TouchRow} row - The control.
+ * @returns {HTMLDivElement} The control drawn.
+ */
+function drawTouchBadge(row: TouchRow): HTMLDivElement {
+  const caps: HTMLDivElement = document.createElement('div');
+  caps.className = 'help-caps is-pad';
+  caps.append(drawTouchPicture(row.badge));
+  return caps;
+}
+
+/**
  * Draws a page of the sheet: a list of controls, each with its keys and
  * what it does, which is to be told.
  *
@@ -396,8 +540,9 @@ function drawPage(
  * turn to the page before and after, the controls of the page, each with
  * its keys and what it does, a cross that closes it at its top right, and a
  * button that closes it at its foot.  The first page tells the keyboard
- * and the mouse, and the second the gamepad, its buttons drawn as on a
- * Logitech F310.  While the sheet is open, no
+ * and the mouse, the second the gamepad, its buttons drawn as on a
+ * Logitech F310, and the third the touch controls, drawn as small
+ * pictures.  While the sheet is open, no
  * click on the page outside the panel reaches the game underneath.  What
  * the sheet shows is worded again in each language the page comes to
  * speak.
@@ -448,7 +593,9 @@ export function createHelpView(
   const cross: HTMLDivElement = createClickable('help-close', close);
   const [keyboardPage, keyboardLabels] = drawPage(CONTROL_ROWS.map(drawCaps));
   const [padPage, padLabels] = drawPage(PAD_ROWS.map(drawBadges));
-  const pages: readonly HTMLDivElement[] = [keyboardPage, padPage];
+  const [touchPage, touchLabels] = drawPage(TOUCH_ROWS.map(drawTouchBadge));
+  touchPage.classList.add('is-touch-page');
+  const pages: readonly HTMLDivElement[] = [keyboardPage, padPage, touchPage];
   const turnBy = (step: number): void => {
     sheet.turnToPage(sheet.page + step);
     render();
@@ -487,10 +634,10 @@ export function createHelpView(
     cross.title = closeLabel;
     cross.setAttribute('aria-label', closeLabel);
     const tellLabels = (
-      rows: readonly (ControlRow | PadRow)[],
+      rows: readonly (ControlRow | PadRow | TouchRow)[],
       labels: readonly HTMLDivElement[],
     ): void => {
-      rows.forEach((row: ControlRow | PadRow, index: number) => {
+      rows.forEach((row: ControlRow | PadRow | TouchRow, index: number) => {
         const text: HTMLDivElement | undefined = labels[index];
         if (text !== undefined) {
           text.textContent = translator.translate(row.labelKey);
@@ -499,6 +646,7 @@ export function createHelpView(
     };
     tellLabels(CONTROL_ROWS, keyboardLabels);
     tellLabels(PAD_ROWS, padLabels);
+    tellLabels(TOUCH_ROWS, touchLabels);
     const { page } = sheet;
     pages.forEach((shown: HTMLDivElement, index: number) => {
       shown.hidden = index !== page;

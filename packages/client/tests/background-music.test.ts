@@ -24,7 +24,10 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { BackgroundMusic } from '../src/background-music.ts';
+import {
+  BackgroundMusic,
+  listenForSoundGestures,
+} from '../src/background-music.ts';
 import type { MusicPlayer, MusicSettings } from '../src/background-music.ts';
 
 /** A player that remembers whether it plays, and can refuse to. */
@@ -147,5 +150,55 @@ describe('the background music', () => {
     music.hide();
     music.show(on);
     expect(player.plays).toBe(0);
+  });
+});
+
+/**
+ * Makes an event of a pointer.
+ *
+ * @param {string} type - The type of the event.
+ * @param {string} pointerType - The kind of pointer, as "mouse" or "touch".
+ * @returns {Event} The event.
+ */
+function makePointerEvent(type: string, pointerType: string): Event {
+  return Object.assign(new Event(type), { pointerType });
+}
+
+describe('the gestures that let the page make sound', () => {
+  let target: EventTarget;
+  let gestures: number;
+
+  beforeEach(() => {
+    target = new EventTarget();
+    gestures = 0;
+    listenForSoundGestures(target, () => {
+      gestures += 1;
+    });
+  });
+
+  it('include a key press', () => {
+    target.dispatchEvent(new Event('keydown'));
+    expect(gestures).toBe(1);
+  });
+
+  it('include a mouse press, but not its release', () => {
+    target.dispatchEvent(makePointerEvent('pointerdown', 'mouse'));
+    expect(gestures).toBe(1);
+    target.dispatchEvent(makePointerEvent('pointerup', 'mouse'));
+    expect(gestures).toBe(1);
+  });
+
+  it('include the release of a touch, but not its press', () => {
+    target.dispatchEvent(makePointerEvent('pointerdown', 'touch'));
+    expect(gestures).toBe(0);
+    target.dispatchEvent(makePointerEvent('pointerup', 'touch'));
+    expect(gestures).toBe(1);
+    target.dispatchEvent(new Event('touchend'));
+    expect(gestures).toBe(2);
+  });
+
+  it('include a click', () => {
+    target.dispatchEvent(new Event('click'));
+    expect(gestures).toBe(1);
   });
 });

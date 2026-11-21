@@ -32,6 +32,45 @@ export const MUSIC_FILE = 'embers-on-the-flagstone.mp3';
 /** The volume of the music unless the owner sets another, from 0 to 1. */
 export const DEFAULT_MUSIC_VOLUME = 0.3;
 
+/**
+ * Calls back on each gesture after which a browser lets the page make
+ * sound: a key press, a mouse press, the release of a touch or a pen, and a
+ * click.  The press of a touch is not such a gesture.  The gestures are
+ * heard before anything on the page beneath the target, so that what stops
+ * them there does not keep them from it.
+ *
+ * @param {EventTarget} target - What the gestures are heard on, as the
+ *   window.
+ * @param {() => void} onGesture - Called on each gesture.
+ */
+export function listenForSoundGestures(
+  target: EventTarget,
+  onGesture: () => void,
+): void {
+  const options: AddEventListenerOptions = { capture: true };
+  for (const type of ['keydown', 'touchend', 'click']) {
+    target.addEventListener(type, onGesture, options);
+  }
+  target.addEventListener(
+    'pointerdown',
+    (event: Event) => {
+      if ((event as PointerEvent).pointerType === 'mouse') {
+        onGesture();
+      }
+    },
+    options,
+  );
+  target.addEventListener(
+    'pointerup',
+    (event: Event) => {
+      if ((event as PointerEvent).pointerType !== 'mouse') {
+        onGesture();
+      }
+    },
+    options,
+  );
+}
+
 /** How the owner has the music played. */
 export interface MusicSettings {
   /** Whether the music is played. */

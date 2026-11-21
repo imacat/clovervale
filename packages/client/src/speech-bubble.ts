@@ -25,6 +25,7 @@
 import {
   Box3,
   CanvasTexture,
+  MathUtils,
   SRGBColorSpace,
   Sprite,
   SpriteMaterial,
@@ -73,6 +74,12 @@ const PIXEL_RATIO = 2;
  * metre from the camera, whatever the distance of the bubble.
  */
 const LAYOUT_PIXEL_SIZE = 0.001;
+/**
+ * The least height of the view a bubble is drawn for, in CSS pixels: in a
+ * shorter view, as on a phone held on its side, a bubble is drawn as large
+ * as in a view this tall, for its words to stay legible.
+ */
+const LEAST_VIEW_HEIGHT = 600;
 /** The widest the words of a bubble can be, in pixels. */
 const TEXT_WIDTH = 320;
 /** The size of the words, in pixels. */
@@ -156,6 +163,19 @@ export interface SpeechView {
   readonly y: number;
   /** The position of the foot of the bubble along the Z axis, in metres. */
   readonly z: number;
+  /**
+   * The size of the words on the screen, in CSS pixels, or `null` before
+   * the bubble is told the view.
+   */
+  readonly textSize: number | null;
+}
+
+/** The view the bubbles are seen in. */
+interface ViewSize {
+  /** The height of the view, in CSS pixels. */
+  readonly height: number;
+  /** The field of view of the camera, from top to bottom, in degrees. */
+  readonly fieldOfView: number;
 }
 
 /** A bubble being shown. */
@@ -173,6 +193,8 @@ interface ShownSpeech {
   words: SpeechWords;
   /** The bubble, drawn on a sprite. */
   sprite: Sprite;
+  /** The width and height of the bubble as it was drawn. */
+  painted: readonly [number, number];
   /** How long it is shown for, in seconds. */
   readonly duration: number;
   /** How long it has been shown, in seconds. */
@@ -406,6 +428,8 @@ export class SpeechBubble {
   readonly #lastLines = new Map<VillagerId, number>();
   /** The villagers who have told the player of the page who they are. */
   #acquaintances: readonly VillagerId[] = [];
+  /** The view the bubbles are seen in, or `null` until it is told. */
+  #view: ViewSize | null = null;
 
   /**
    * Starts without a bubble.
@@ -455,6 +479,8 @@ export class SpeechBubble {
     const lineIndex: number = lineId === null ? this.#pickLine(villager) : 0;
     const words: SpeechWords = this.#describe(villager, lineIndex, lineId);
     const sprite: Sprite = this.#paint(words);
+    const painted: [number, number] = [sprite.scale.x, sprite.scale.y];
+    this.#enlarge(sprite, painted);
     sprite.position.set(head.x, head.y + BUBBLE_MARGIN, head.z);
     this.#parent.add(sprite);
     this.#shown = {
@@ -463,9 +489,27 @@ export class SpeechBubble {
       lineId,
       words,
       sprite,
+      painted,
       duration: measureSpeechDuration(words.line),
       age: 0,
     };
+  }
+
+  /**
+   * Takes in the view the bubbles are seen in, and draws the bubble shown,
+   * if any, and those to come, at the size for it: as painted in a view at
+   * least 600 pixels tall, and as large as in a view that tall in a shorter
+   * one, as on a phone held on its side.
+   *
+   * @param {number} height - The height of the view, in CSS pixels.
+   * @param {number} fieldOfView - The field of view of the camera, from top
+   *   to bottom, in degrees.
+   */
+  fitView(height: number, fieldOfView: number): void {
+    this.#view = { height, fieldOfView };
+    if (this.#shown !== null) {
+      this.#enlarge(this.#shown.sprite, this.#shown.painted);
+    }
   }
 
   /**
@@ -508,12 +552,15 @@ export class SpeechBubble {
       shown.lineId,
     );
     const sprite: Sprite = this.#paint(words);
+    const painted: [number, number] = [sprite.scale.x, sprite.scale.y];
+    this.#enlarge(sprite, painted);
     sprite.position.copy(shown.sprite.position);
     sprite.material.opacity = shown.sprite.material.opacity;
     this.#dispose(shown.sprite);
     this.#parent.add(sprite);
     shown.words = words;
     shown.sprite = sprite;
+    shown.painted = painted;
   }
 
   /**
@@ -565,7 +612,38 @@ export class SpeechBubble {
     }
     const { words, sprite } = this.#shown;
     const { x, y, z } = sprite.position;
-    return { name: words.name, line: words.line, x, y, z };
+    const view: ViewSize | null = this.#view;
+    const textSize: number | null =
+      view === null
+        ? null
+        : (FONT_SIZE * LAYOUT_PIXEL_SIZE * this.#findEnlargement() *
+            view.height) /
+          (2 * Math.tan(MathUtils.degToRad(view.fieldOfView) / 2));
+    return { name: words.name, line: words.line, x, y, z, textSize };
+  }
+
+  /**
+   * Tells how many times as large as painted the bubbles are drawn in the
+   * view they are seen in.
+   *
+   * @returns {number} How many times as large, at least 1.
+   */
+  #findEnlargement(): number {
+    return this.#view === null
+      ? 1
+      : Math.max(1, LEAST_VIEW_HEIGHT / this.#view.height);
+  }
+
+  /**
+   * Draws a bubble at the size for the view it is seen in.
+   *
+   * @param {Sprite} sprite - The bubble.
+   * @param {readonly [number, number]} painted - The width and height of
+   *   the bubble as it was drawn.
+   */
+  #enlarge(sprite: Sprite, painted: readonly [number, number]): void {
+    const enlargement: number = this.#findEnlargement();
+    sprite.scale.set(painted[0] * enlargement, painted[1] * enlargement, 1);
   }
 
   /** Takes the bubble away, if there is one. */
