@@ -22,6 +22,8 @@
  *   four-leaved clover west of the village gate.
  */
 
+import type { Quaternion } from 'three';
+
 import {
   SIMULATION_RATE,
   TOBY_ACTIVITY_STEPS,
@@ -94,7 +96,7 @@ const PICK_DURATION = 2;
 const IDLE_DURATION = 2.4;
 
 /** Where his head sits, and how big it is next to that of a grown-up. */
-const HEAD: HeadFit = { centre: [0, 0.85, 0], scale: 0.8 };
+const HEAD: HeadFit = { centre: [0, 0.83, 0], scale: 0.88 };
 
 /**
  * The height of the ankles above the ground with the soles flat on it,
@@ -105,13 +107,25 @@ const HEAD: HeadFit = { centre: [0, 0.85, 0], scale: 0.8 };
 const ANKLE_HEIGHT = 0.062;
 
 /** How far apart his feet stand, from the middle, and how they turn out. */
-const STANCE = { x: 0.075, yaw: 8 };
+const STANCE = { x: 0.085, yaw: 8 };
+
+/**
+ * How far apart his feet are as he squats, from the middle, and how far
+ * they and his knees turn out, his round belly between his knees.
+ */
+const SQUAT_STANCE = { x: 0.14, yaw: 45 };
+
+/**
+ * How far out from the middle his shoulders are, which keeps his arms
+ * clear of his round belly as they hang.
+ */
+const SHOULDER_X = 0.17;
 
 /** How he runs: short, quick strides with his feet off the ground between. */
 const RUN_GAIT: Gait = {
   duty: 0.3,
   stride: TOBY_RUN_SPEED * RUN_CYCLE,
-  lift: 0.09,
+  lift: 0.05,
   ankle: ANKLE_HEIGHT,
   heel: 0.05,
   toe: 0.105,
@@ -144,14 +158,14 @@ const STANDING: PoseSpec = {
 
 /**
  * How he squats at the edge of the clover: flat-footed, sitting low on his
- * heels, his back bent well over his knees and his head up enough to see
- * the leaves in front of him.
+ * heels with his knees wide apart, his back bent over between them and his
+ * head bowed to the leaves in front of him.
  */
 const SQUATTING: PoseSpec = {
-  offset: [0, -0.235, -0.085],
+  offset: [0, -0.2, -0.085],
   Hips: [34, 0, 0],
-  Chest: [26, 0, 0],
-  Head: [-38, 0, 0],
+  Chest: [24, 0, 0],
+  Head: [-22, 0, 0],
 };
 
 /** Where a foot is to be, and how it meets the ground. */
@@ -180,10 +194,36 @@ function createShoe(): Shape {
         [0.012, 0.072],
         [-0.05, 0.072],
       ],
-      0.085,
+      0.095,
     ),
     { rot: [0, -90, 0] },
   );
+}
+
+/**
+ * Creates a stretch of a strap of his braces, lying along the line
+ * between two points down one side of his front or his back.
+ *
+ * @param {number} x - How far to the side the strap runs, in metres.
+ * @param {readonly [number, number]} from - The height and the depth of
+ *   one end, in metres.
+ * @param {readonly [number, number]} to - The height and the depth of the
+ *   other end, in metres.
+ * @returns {Shape} The stretch of the strap.
+ */
+function createStrap(
+  x: number,
+  from: readonly [number, number],
+  to: readonly [number, number],
+): Shape {
+  const [y0, z0] = from;
+  const [y1, z1] = to;
+  const length: number = Math.hypot(y1 - y0, z1 - z0);
+  const tilt: number = (Math.atan2(z1 - z0, y1 - y0) * 180) / Math.PI;
+  return place(createBox(0.026, length + 0.008, 0.012), {
+    pos: [x, (y0 + y1) / 2, (z0 + z1) / 2],
+    rot: [tilt, 0, 0],
+  });
 }
 
 /**
@@ -210,15 +250,19 @@ function buildBody(): Model {
   model.setMaterial('sock', '#eee9dd');
   model.setMaterial('shoe', '#5b3923');
 
-  model.addBone('Hips', null, [0, 0.4, 0]);
-  model.addBone('Chest', 'Hips', [0, 0.46, 0]);
-  model.addBone('Head', 'Chest', [0, 0.665, 0]);
+  model.addBone('Hips', null, [0, 0.34, 0]);
+  model.addBone('Chest', 'Hips', [0, 0.43, 0]);
+  model.addBone('Head', 'Chest', [0, 0.615, 0]);
   for (const [side, x] of SIDES) {
-    model.addBone(`UpperArm${side}`, 'Chest', [0.15 * x, 0.625, 0]);
-    model.addBone(`ForeArm${side}`, `UpperArm${side}`, [0.15 * x, 0.495, 0]);
-    model.addBone(`Hand${side}`, `ForeArm${side}`, [0.15 * x, 0.365, 0]);
-    model.addBone(`Thigh${side}`, 'Hips', [STANCE.x * x, 0.39, 0]);
-    model.addBone(`Shin${side}`, `Thigh${side}`, [STANCE.x * x, 0.225, 0]);
+    model.addBone(`UpperArm${side}`, 'Chest', [SHOULDER_X * x, 0.58, 0]);
+    model.addBone(`ForeArm${side}`, `UpperArm${side}`, [
+      SHOULDER_X * x,
+      0.475,
+      0,
+    ]);
+    model.addBone(`Hand${side}`, `ForeArm${side}`, [SHOULDER_X * x, 0.37, 0]);
+    model.addBone(`Thigh${side}`, 'Hips', [STANCE.x * x, 0.33, 0]);
+    model.addBone(`Shin${side}`, `Thigh${side}`, [STANCE.x * x, 0.195, 0]);
     model.addBone(`Foot${side}`, `Shin${side}`, [STANCE.x * x, 0.06, 0]);
   }
 
@@ -249,15 +293,15 @@ function buildBody(): Model {
   model.add('hair', fitToHead(hair.hair, HEAD), 'Head');
   model.add('hair', fitToHead(hair.accent, HEAD), 'Head');
 
-  // The shirt, with its round collar and two buttons down the front, and
-  // the braces over it, front and back.
-  const flat: Placement = { scale: [1, 1, 0.85] };
+  // The shirt over his round belly, with its round collar and two buttons
+  // down the front, and the braces over it, front and back.
+  const flat: Placement = { scale: [1, 1, 0.9] };
   model.add(
     'skin',
     createLathe(
       [
-        [0.04, 0.615],
-        [0.04, 0.68],
+        [0.04, 0.575],
+        [0.04, 0.64],
       ],
       6,
     ),
@@ -268,12 +312,13 @@ function buildBody(): Model {
     place(
       createLathe(
         [
-          [0, 0.44],
-          [0.126, 0.445],
-          [0.138, 0.52],
-          [0.131, 0.585],
-          [0.098, 0.638],
-          [0, 0.648],
+          [0, 0.4],
+          [0.132, 0.405],
+          [0.148, 0.47],
+          [0.14, 0.53],
+          [0.115, 0.578],
+          [0.07, 0.596],
+          [0, 0.6],
         ],
         8,
       ),
@@ -286,10 +331,10 @@ function buildBody(): Model {
     place(
       createLathe(
         [
-          [0.07, 0.622],
-          [0.092, 0.626],
-          [0.07, 0.664],
-          [0.048, 0.664],
+          [0.07, 0.582],
+          [0.092, 0.586],
+          [0.07, 0.618],
+          [0.048, 0.618],
         ],
         8,
       ),
@@ -297,34 +342,42 @@ function buildBody(): Model {
     ),
     'Chest',
   );
-  for (const y of [0.6, 0.555]) {
+  for (const [y, z] of [
+    [0.555, 0.108],
+    [0.51, 0.121],
+  ] as const) {
     model.add(
       'button',
-      place(createEllipsoid([0.011, 0.011, 0.008], 0), {
-        pos: [0, y, 0.118],
-      }),
+      place(createEllipsoid([0.011, 0.011, 0.008], 0), { pos: [0, y, z] }),
       'Chest',
     );
   }
   for (const x of [1, -1]) {
-    for (const [z, tilt] of [
-      [0.12, -6],
-      [-0.12, 6],
-    ] as const) {
-      model.add(
-        'braces',
-        place(createBox(0.026, 0.205, 0.012), {
-          pos: [0.062 * x, 0.548, z],
-          rot: [tilt, 0, -4 * x],
-        }),
-        'Chest',
-      );
+    for (const z of [1, -1]) {
+      for (const [from, to] of [
+        [
+          [0.42, 0.113],
+          [0.475, 0.1245],
+        ],
+        [
+          [0.475, 0.1245],
+          [0.56, 0.0975],
+        ],
+        [
+          [0.56, 0.0975],
+          [0.595, 0.036],
+        ],
+      ] as const) {
+        model.add(
+          'braces',
+          createStrap(0.062 * x, [from[0], from[1] * z], [to[0], to[1] * z]),
+          'Chest',
+        );
+      }
     }
     model.add(
       'braces',
-      place(createBox(0.026, 0.014, 0.21), {
-        pos: [0.066 * x, 0.642, 0],
-      }),
+      place(createBox(0.026, 0.014, 0.08), { pos: [0.062 * x, 0.598, 0] }),
       'Chest',
     );
   }
@@ -335,11 +388,11 @@ function buildBody(): Model {
     place(
       createLathe(
         [
-          [0, 0.33],
-          [0.13, 0.335],
-          [0.141, 0.42],
-          [0.13, 0.472],
-          [0, 0.478],
+          [0, 0.285],
+          [0.138, 0.29],
+          [0.148, 0.36],
+          [0.137, 0.425],
+          [0, 0.432],
         ],
         8,
       ),
@@ -351,27 +404,28 @@ function buildBody(): Model {
     model.add(
       'button',
       place(createEllipsoid([0.012, 0.012, 0.008], 0), {
-        pos: [0.062 * x, 0.452, 0.118],
+        pos: [0.062 * x, 0.418, 0.111],
       }),
       'Hips',
     );
   }
 
-  // The arms, in short sleeves, and the legs, in the legs of the short
-  // trousers, bare at the knee, with white socks and small shoes.
+  // The short, chubby arms, in short sleeves, and the short, chubby legs,
+  // in the legs of the short trousers, bare at the knee, with white socks
+  // and small shoes.
   for (const [side, x] of SIDES) {
-    const moveAside = (shape: Shape, px = 0.15): Shape =>
+    const moveAside = (shape: Shape, px = SHOULDER_X): Shape =>
       place(shape, { pos: [px * x, 0, 0] });
     model.add(
       'shirt',
       moveAside(
         createLathe(
           [
-            [0, 0.648],
-            [0.05, 0.632],
-            [0.054, 0.565],
-            [0.052, 0.548],
-            [0, 0.543],
+            [0, 0.602],
+            [0.058, 0.586],
+            [0.062, 0.525],
+            [0.06, 0.51],
+            [0, 0.505],
           ],
           6,
         ),
@@ -383,10 +437,11 @@ function buildBody(): Model {
       moveAside(
         createLathe(
           [
-            [0, 0.56],
-            [0.037, 0.552],
-            [0.034, 0.5],
-            [0, 0.492],
+            [0, 0.522],
+            [0.045, 0.514],
+            [0.047, 0.488],
+            [0.041, 0.465],
+            [0, 0.458],
           ],
           6,
         ),
@@ -398,10 +453,11 @@ function buildBody(): Model {
       moveAside(
         createLathe(
           [
-            [0, 0.508],
-            [0.035, 0.498],
-            [0.03, 0.39],
-            [0, 0.383],
+            [0, 0.488],
+            [0.042, 0.478],
+            [0.043, 0.43],
+            [0.036, 0.388],
+            [0, 0.382],
           ],
           6,
         ),
@@ -410,8 +466,8 @@ function buildBody(): Model {
     );
     model.add(
       'skin',
-      place(createEllipsoid([0.04, 0.045, 0.045], 1), {
-        pos: [0.15 * x, 0.35, 0],
+      place(createEllipsoid([0.044, 0.048, 0.048], 1), {
+        pos: [SHOULDER_X * x, 0.355, 0],
       }),
       `Hand${side}`,
     );
@@ -420,11 +476,11 @@ function buildBody(): Model {
       moveAside(
         createLathe(
           [
-            [0, 0.405],
-            [0.074, 0.392],
-            [0.07, 0.3],
-            [0.072, 0.285],
-            [0, 0.28],
+            [0, 0.345],
+            [0.078, 0.333],
+            [0.075, 0.255],
+            [0.077, 0.242],
+            [0, 0.237],
           ],
           6,
         ),
@@ -437,10 +493,11 @@ function buildBody(): Model {
       moveAside(
         createLathe(
           [
-            [0, 0.3],
-            [0.05, 0.29],
-            [0.047, 0.228],
-            [0, 0.222],
+            [0, 0.258],
+            [0.056, 0.25],
+            [0.058, 0.225],
+            [0.051, 0.192],
+            [0, 0.184],
           ],
           6,
         ),
@@ -453,10 +510,11 @@ function buildBody(): Model {
       moveAside(
         createLathe(
           [
-            [0, 0.24],
-            [0.047, 0.23],
-            [0.04, 0.135],
-            [0, 0.13],
+            [0, 0.205],
+            [0.051, 0.196],
+            [0.054, 0.165],
+            [0.046, 0.128],
+            [0, 0.122],
           ],
           6,
         ),
@@ -469,9 +527,9 @@ function buildBody(): Model {
       moveAside(
         createLathe(
           [
-            [0, 0.145],
-            [0.043, 0.14],
-            [0.04, 0.07],
+            [0, 0.138],
+            [0.048, 0.132],
+            [0.045, 0.07],
             [0, 0.066],
           ],
           6,
@@ -536,6 +594,11 @@ function animateBody(model: Model): Rig {
     pitch: 0,
     yaw: STANCE.yaw * x,
   });
+  const squatFoot = (x: number): FootPlace => ({
+    ankle: [SQUAT_STANCE.x * x, ANKLE_HEIGHT, 0.02],
+    pitch: 0,
+    yaw: SQUAT_STANCE.yaw * x,
+  });
   const runFoot = (x: number, phase: number): FootPlace => {
     const step: Step = computeStep(phase, RUN_GAIT);
     return {
@@ -574,7 +637,7 @@ function animateBody(model: Model): Rig {
     const phase: number = t / RUN_CYCLE;
     const c: number = Math.cos(2 * Math.PI * phase);
     const pose: Pose = rig.createPose({
-      offset: [0, -0.064 - 0.014 * Math.cos(4 * Math.PI * (phase - 0.15)), 0],
+      offset: [0, -0.064 - 0.012 * Math.cos(4 * Math.PI * (phase - 0.15)), 0],
       Hips: [9, -9 * c, 0],
       Chest: [7, 13 * c, 0],
       Head: [-12, -7 * c, 0],
@@ -608,18 +671,18 @@ function animateBody(model: Model): Rig {
     const pose: Pose = rig.createPose({
       ...SQUATTING,
       Hips: [34 + 2 * Math.sin(angle), 3 * Math.sin(angle), 0],
-      Head: [-38 + 10 * lift, 8 * Math.sin(angle), 4 * Math.sin(2 * angle)],
+      Head: [-22 + 10 * lift, 8 * Math.sin(angle), 4 * Math.sin(2 * angle)],
     });
-    placeFeet(pose, standFoot(1, 0.02), standFoot(-1, 0.02));
+    placeFeet(pose, squatFoot(1), squatFoot(-1));
     // The left hand plucks at the leaves twice as often as the right one
     // dips in, and the right one lifts a leaf up to his face.
     const pluck: number = (1 - Math.cos(2 * angle)) / 2;
     const dip: number = (1 - Math.cos(angle)) / 2;
-    const left: Triple = [0.07, 0.07 + 0.05 * pluck, 0.19 + 0.03 * pluck];
+    const left: Triple = [0.09, 0.13 + 0.04 * pluck, 0.175 + 0.02 * pluck];
     const right: Triple = [
-      -0.06 + 0.02 * lift,
-      0.08 + 0.04 * dip * (1 - lift) + 0.25 * lift,
-      0.18 + 0.03 * dip - 0.03 * lift,
+      -0.09,
+      0.13 + 0.04 * dip * (1 - lift) + 0.08 * lift,
+      0.175 + 0.02 * dip + 0.04 * lift,
     ];
     return reachHands(pose, left, right);
   };
@@ -642,11 +705,24 @@ function animateBody(model: Model): Rig {
     }
     const share: number = t / SQUAT_DURATION;
     const body: Pose = runStart.blend(pickStart, easeProgress(share));
+    // His hands come forward and down in front of him into the clover,
+    // clear of his knees as they spread.
+    const down: number = easeProgress(share);
+    const reaching: Pose = reachHands(
+      body.clone(),
+      [0.09 + 0.1 * (1 - down), 0.42 - 0.27 * down, 0.2 - 0.04 * down],
+      [-0.09 - 0.1 * (1 - down), 0.42 - 0.27 * down, 0.2 - 0.04 * down],
+    );
+    const hold: number = easeProgress(Math.min(share / 0.4, 1));
+    for (const bone of [...ARMS.L, ...ARMS.R]) {
+      const index: number = model.findBone(bone);
+      const target: Quaternion | undefined = reaching.rotations[index];
+      if (target !== undefined) {
+        body.rotations[index]?.slerp(target, hold);
+      }
+    }
     const from: [FootPlace, FootPlace] = [runFoot(1, 0), runFoot(-1, 0.5)];
-    const to: [FootPlace, FootPlace] = [
-      standFoot(1, 0.02),
-      standFoot(-1, 0.02),
-    ];
+    const to: [FootPlace, FootPlace] = [squatFoot(1), squatFoot(-1)];
     const feet: FootPlace[] = from.map((start: FootPlace, index: number) => {
       const end: FootPlace = to[index] ?? start;
       const weight: number = easeProgress(Math.min(share / 0.7, 1));
@@ -668,13 +744,13 @@ function animateBody(model: Model): Rig {
 
   // Standing up: he pushes himself up off his knees and straightens up.
   const pushing: Pose = rig.createPose({
-    offset: [0, -0.13, -0.05],
+    offset: [0, -0.107, -0.041],
     Hips: [28, 0, 0],
     Chest: [12, 0, 0],
     Head: [-20, 0, 0],
-    UpperArmL: [-30, 0, 10],
+    UpperArmL: [-30, 0, 22],
     ForeArmL: [-20, 0, 0],
-    UpperArmR: [-30, 0, -10],
+    UpperArmR: [-30, 0, -22],
     ForeArmR: [-20, 0, 0],
   });
   bake('Rise', RISE_DURATION, (t: number): PoseSample => {
@@ -689,8 +765,23 @@ function animateBody(model: Model): Rig {
       share < 0.45
         ? pickStart.blend(pushing, easeProgress(share / 0.45))
         : pushing.blend(idleStart, easeProgress((share - 0.45) / 0.55));
-    const z: number = 0.02 * (1 - easeProgress(share));
-    return { pose: placeFeet(body, standFoot(1, z), standFoot(-1, z)) };
+    // He steps each foot in under him in turn as he comes up.
+    const stepIn = (x: number, from: number): FootPlace => {
+      const start: FootPlace = squatFoot(x);
+      const end: FootPlace = standFoot(x);
+      const weight: number = easeProgress((share - from) / 0.35);
+      const raise: number = 0.025 * Math.sin(Math.PI * weight);
+      return {
+        ankle: [
+          start.ankle[0] + (end.ankle[0] - start.ankle[0]) * weight,
+          start.ankle[1] + raise,
+          start.ankle[2] + (end.ankle[2] - start.ankle[2]) * weight,
+        ],
+        pitch: 0,
+        yaw: start.yaw + (end.yaw - start.yaw) * weight,
+      };
+    };
+    return { pose: placeFeet(body, stepIn(1, 0.25), stepIn(-1, 0.55)) };
   });
 
   // Turning round on the spot: two quick little steps, as he turns, lean
