@@ -42,6 +42,7 @@ import {
   findPlacement,
   findTobyPose,
   findTurn,
+  isEmptyContainer,
   killMotion,
   locateVillager,
   stepMotion,
@@ -570,7 +571,7 @@ describe('describePrompt in the cave', () => {
   ): CaveContainer {
     const found: CaveContainer | undefined = CAVE_CONTAINERS.find(
       (container: CaveContainer) =>
-        container.kind === kind && (container.item !== null) === isFull,
+        container.kind === kind && !isEmptyContainer(container) === isFull,
     );
     if (found === undefined) {
       throw new Error(`There is no such ${kind}.`);
@@ -720,10 +721,32 @@ describe('describePrompt in the cave', () => {
     ).toEqual(['物品欄已滿，無法從木桶拿取物品', '無（物品欄已滿）']);
   });
 
+  it('tells a player before the barrel of silver coins it can open it, however full its inventory', async () => {
+    const barrel: CaveContainer | undefined = CAVE_CONTAINERS.find(
+      (container: CaveContainer) => (container.silver ?? 0) > 0,
+    );
+    if (barrel === undefined) {
+      throw new Error('There is no barrel of silver coins.');
+    }
+    const before: PlayerMotion = standBefore(barrel);
+    expect(describeBoth(EN, before, [], FULL)).toEqual([
+      'Press Space to open the barrel',
+      'open the barrel',
+    ]);
+    expect(describeBoth(await createTranslator('zh-TW'), before)).toEqual([
+      '按空白鍵打開木桶',
+      '打開木桶',
+    ]);
+    expect(describeBoth(EN, before, ALL_LOOTED)).toEqual([
+      'The barrel is empty',
+      'nothing, as the barrel is empty',
+    ]);
+  });
+
   it('tells a player an empty or looted container is empty, in every language', async () => {
-    const empty: PlayerMotion = standBefore(findContainer('barrel', false));
+    const empty: PlayerMotion = standBefore(findContainer('barrel', true));
     const looted: PlayerMotion = standBefore(findContainer('chest', true));
-    expect(describeBoth(EN, empty)).toEqual([
+    expect(describeBoth(EN, empty, ALL_LOOTED)).toEqual([
       'The barrel is empty',
       'nothing, as the barrel is empty',
     ]);
@@ -731,15 +754,21 @@ describe('describePrompt in the cave', () => {
       'The chest is empty',
       'nothing, as the chest is empty',
     ]);
-    expect(describeBoth(await createTranslator('zh-TW'), empty)).toEqual([
+    expect(
+      describeBoth(await createTranslator('zh-TW'), empty, ALL_LOOTED),
+    ).toEqual([
       '木桶是空的',
       '無（木桶是空的）',
     ]);
-    expect(describeBoth(await createTranslator('zh-CN'), empty)).toEqual([
+    expect(
+      describeBoth(await createTranslator('zh-CN'), empty, ALL_LOOTED),
+    ).toEqual([
       '木桶是空的',
       '无（木桶是空的）',
     ]);
-    expect(describeBoth(await createTranslator('ja'), empty)).toEqual([
+    expect(
+      describeBoth(await createTranslator('ja'), empty, ALL_LOOTED),
+    ).toEqual([
       '樽は空っぽだ',
       'なし（樽は空っぽ）',
     ]);

@@ -116,9 +116,14 @@ export interface PickTarget {
   readonly id: number;
   /**
    * The kind of item the player gets, or `null` for a container that holds
-   * nothing, or nothing any more.
+   * no item, or nothing any more.
    */
   readonly kind: ItemKindId | null;
+  /**
+   * The silver coins the player gets from a container that still holds
+   * some, none if left out.
+   */
+  readonly silver?: number;
 }
 
 /** Something in the village a player can interact with. */
@@ -401,11 +406,11 @@ function isWithinReach(
  * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
  *   none by default.
  * @returns {PickTarget | null} The nearest of the clovers, the items and
- *   the containers that hold something within reach, a clover before an
- *   item as near and an item before a container; or else the nearest of
- *   the containers within reach that hold nothing or have been looted,
- *   which give nothing; or `null` if there is none, or if the player drinks
- *   or talks instead.
+ *   the containers that hold something within reach, an item or silver
+ *   coins, a clover before an item as near and an item before a container;
+ *   or else the nearest of the containers within reach that hold nothing
+ *   or have been looted, which give nothing; or `null` if there is none, or
+ *   if the player drinks or talks instead.
  */
 export function findPickTarget(
   pose: Pose,
@@ -424,15 +429,20 @@ export function findPickTarget(
           (
             container: CaveContainer,
             id: number,
-          ): [PickTarget, GroundVector, number] => [
-            {
-              source: 'container',
-              id,
-              kind: looted.has(id) ? null : container.item,
-            },
-            container,
-            LOOT_REACH,
-          ],
+          ): [PickTarget, GroundVector, number] => {
+            const isLooted: boolean = looted.has(id);
+            const silver: number = isLooted ? 0 : (container.silver ?? 0);
+            return [
+              {
+                source: 'container',
+                id,
+                kind: isLooted ? null : container.item,
+                ...(silver > 0 ? { silver } : {}),
+              },
+              container,
+              LOOT_REACH,
+            ];
+          },
         )
       : [];
   const candidates: [PickTarget, GroundVector, number][] = [
@@ -468,8 +478,10 @@ export function findPickTarget(
         centre.z - pose.z,
       );
       const nearReach: number = target.source === 'container' ? 0 : FEET_REACH;
+      const isHeld: boolean =
+        target.kind !== null || (target.silver ?? 0) > 0;
       if (
-        (target.kind !== null) === isFull &&
+        isHeld === isFull &&
         distance < nearest &&
         isWithinReach(pose, centre, reach, nearReach)
       ) {

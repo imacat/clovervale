@@ -1627,6 +1627,7 @@ function admitTalker(
     deathSteps: 0,
     lastSlash: null,
     inventory: ['spy-token', ...carried],
+    silver: 0,
     acquaintances: [],
     quests: { ...quests },
     dialogue: null,
@@ -1971,6 +1972,8 @@ describe('a player who puts an item down', () => {
  * @param {readonly ItemKindId[]} carried - What the player carries.
  * @param {boolean} [isInCave] - Whether the world is a cave, which it is
  *   not by default.
+ * @param {number} [silver] - The number of silver coins the player has,
+ *   none by default.
  * @returns {number} The identifier of the player.
  */
 function admitCarrier(
@@ -1978,6 +1981,7 @@ function admitCarrier(
   health: number,
   carried: readonly ItemKindId[],
   isInCave = false,
+  silver = 0,
 ): number {
   const player: Player = {
     id: 1,
@@ -1987,6 +1991,7 @@ function admitCarrier(
     deathSteps: 0,
     lastSlash: null,
     inventory: [...carried],
+    silver,
     acquaintances: [],
     quests: {},
     dialogue: null,
@@ -2138,6 +2143,132 @@ describe('the inventory of a player', () => {
   });
 });
 
+/**
+ * Makes a source of random numbers that gives the same numbers every time,
+ * as {@link createRandom} does, but one number alone while it is rigged.
+ *
+ * @returns {[() => number, (value: number | null) => void]} The source,
+ *   and what rigs it to give a number, or, given `null`, unrigs it.
+ */
+function createRiggedRandom(): [
+  () => number,
+  (value: number | null) => void,
+] {
+  const draw: () => number = createRandom();
+  let rigged: number | null = null;
+  return [
+    (): number => rigged ?? draw(),
+    (value: number | null): void => {
+      rigged = value;
+    },
+  ];
+}
+
+/**
+ * Has a player of the village slash at the wild dog until it is dead, with
+ * the source of random numbers of the world rigged from the slash that is
+ * to kill it, and stops at the step at which that slash is over.
+ *
+ * @param {World} world - The village.
+ * @param {number} id - The identifier of the player.
+ * @param {() => void} rig - Rigs the source of random numbers.
+ * @throws {Error} If the dog does not die.
+ */
+function killVillageDog(world: World, id: number, rig: () => void): void {
+  meetMonster(world, id);
+  for (let tries = 0; tries < 20; tries++) {
+    const dog: MonsterState = findMonster(world);
+    if (dog.mode === 'dead') {
+      return;
+    }
+    if (dog.health <= SLASH_DAMAGE) {
+      rig();
+    }
+    turnPlayer(world, id, dog);
+    interactPlayer(world, id);
+    stepTimes(world, SLASH_STEPS + 1);
+  }
+  throw new Error('The wild dog does not die.');
+}
+
+describe('the silver coins of a player', () => {
+  it('are none when the player comes into the world', () => {
+    const world = new World(createRandom());
+    const { id }: PlayerState = world.addPlayer();
+    expect(world.findSilver(id)).toBe(0);
+  });
+
+  it.each([
+    [0, 0],
+    [0.3, 0],
+    [0.34, 1],
+    [0.66, 1],
+    [0.67, 2],
+    [0.99, 2],
+  ])(
+    'come from the wild dog of the village, drawn as %f, %i of them',
+    (value: number, silver: number) => {
+      const [draw, rig] = createRiggedRandom();
+      const world = new World(draw);
+      const { id }: PlayerState = world.addPlayer();
+      killVillageDog(world, id, () => {
+        rig(value);
+      });
+      expect(world.findSilver(id)).toBe(silver);
+      expect(world.describeItems().items).toEqual([]);
+    },
+  );
+
+  it('go to the player who kills the dog alone', () => {
+    const [draw, rig] = createRiggedRandom();
+    const world = new World(draw);
+    const { id }: PlayerState = world.addPlayer();
+    const { id: other }: PlayerState = world.addPlayer();
+    killVillageDog(world, id, () => {
+      rig(0.99);
+    });
+    expect(world.findSilver(id)).toBe(2);
+    expect(world.findSilver(other)).toBe(0);
+  });
+
+  it('come once for each death of the dog', () => {
+    const [draw, rig] = createRiggedRandom();
+    const world = new World(draw);
+    const { id }: PlayerState = world.addPlayer();
+    killVillageDog(world, id, () => {
+      rig(0.99);
+    });
+    rig(null);
+    stepTimes(world, 3 * SIMULATION_RATE);
+    expect(world.findSilver(id)).toBe(2);
+  });
+
+  it('are kept through death', () => {
+    const world = new World(createRandom());
+    const id: number = admitCarrier(world, PLAYER_HEALTH, [], false, 7);
+    killPlayer(world, id);
+    stepTimes(world, DEATH_STEPS);
+    expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
+    expect(world.findSilver(id)).toBe(7);
+  });
+
+  it('are told of their player alone', () => {
+    const world = new World(createRandom());
+    const id: number = admitCarrier(world, PLAYER_HEALTH, [], false, 7);
+    for (const player of world.listPlayers()) {
+      expect(player).not.toHaveProperty('silver');
+    }
+    expect(world.findSilver(id)).toBe(7);
+  });
+
+  it('are lost when the player leaves', () => {
+    const world = new World(createRandom());
+    const id: number = admitCarrier(world, PLAYER_HEALTH, [], false, 7);
+    world.removePlayer(id);
+    expect(world.findSilver(id)).toBeNull();
+  });
+});
+
 describe('a world of the cave', () => {
   /** The ways around the cave. */
   const graph = new NavigationGraph(CAVE_TERRAIN);
@@ -2177,6 +2308,7 @@ describe('a world of the cave', () => {
       deathSteps: 0,
       lastSlash: null,
       inventory: [...carried],
+      silver: 0,
       acquaintances: [],
       quests: {},
       dialogue: null,
@@ -2272,18 +2404,20 @@ describe('a world of the cave', () => {
   it('gives what each container holds once, and leaves it looted', () => {
     const [world, id] = enterCave();
     const taken: ItemKindId[] = [];
+    let silver = 0;
     CAVE_CONTAINERS.forEach((container: CaveContainer, number: number) => {
       walkToContainer(world, id, container);
       pickOnce(world, id);
       if (container.item !== null) {
         taken.push(container.item);
       }
+      silver += container.silver ?? 0;
       expect(world.findInventory(id)).toEqual(taken);
+      expect(world.findSilver(id)).toBe(silver);
       pickOnce(world, id);
       expect(world.findInventory(id)).toEqual(taken);
-      if (container.item !== null) {
-        expect(world.describeItems().looted).toContain(number);
-      }
+      expect(world.findSilver(id)).toBe(silver);
+      expect(world.describeItems().looted).toContain(number);
     });
     expect([...taken].sort()).toEqual([
       'clover',
@@ -2292,11 +2426,29 @@ describe('a world of the cave', () => {
       'leather-armour',
       'sword',
     ]);
+    expect(silver).toBe(5);
     expect(world.describeItems().looted).toEqual(
-      CAVE_CONTAINERS.flatMap((container: CaveContainer, number: number) =>
-        container.item === null ? [] : [number],
-      ),
+      CAVE_CONTAINERS.map((_, number: number) => number),
     );
+  });
+
+  it('gives the silver coins of its barrel into a full inventory', () => {
+    const full: ItemKindId[] = new Array<ItemKindId>(INVENTORY_SIZE).fill(
+      'clover',
+    );
+    const [world, id] = enterCave(full);
+    const number: number = CAVE_CONTAINERS.findIndex(
+      (container: CaveContainer) => (container.silver ?? 0) > 0,
+    );
+    const barrel: CaveContainer | undefined = CAVE_CONTAINERS[number];
+    if (barrel === undefined) {
+      throw new Error('No container holds silver coins.');
+    }
+    walkToContainer(world, id, barrel);
+    pickOnce(world, id);
+    expect(world.findSilver(id)).toBe(5);
+    expect(world.findInventory(id)).toEqual(full);
+    expect(world.describeItems().looted).toEqual([number]);
   });
 
   it('starts with every container full', () => {
@@ -2520,6 +2672,7 @@ describe('a world of the cave', () => {
     );
     expect(findDog(world, 1)?.mode).toBe('dead');
     expect(findDog(world, 2)).toMatchObject({ health: CAVE_DOG.health });
+    expect(world.findSilver(id)).toBe(0);
   });
 
   it('brings a dead dog back at its home after its respawn time, not before', () => {
@@ -2847,6 +3000,7 @@ describe('Martha in the village', () => {
       deathSteps: 0,
       lastSlash: null,
       inventory: [...carried],
+      silver: 0,
       acquaintances: [...known],
       quests: { ...quests },
       dialogue: null,
@@ -3052,6 +3206,7 @@ describe('Martha in the village', () => {
       isArmed: false,
     });
     expect(world.findInventory(id)).toEqual(['spy-token']);
+    expect(world.findSilver(id)).toBe(0);
     stepTimes(world, SIT_STEPS);
     expect(findMartha(world)).toMatchObject({
       mode: 'return',
@@ -3236,6 +3391,7 @@ describe('Martha in the village', () => {
       deathSteps: 0,
       lastSlash: null,
       inventory: [...carried],
+      silver: 0,
       acquaintances: [],
       quests: { ...quests },
       dialogue: null,

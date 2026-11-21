@@ -127,10 +127,10 @@ function nameContainer(translator: Translator, target: PickTarget): string {
  *   told the player who they are, as the server last told, none by default,
  *   which tells what a villager is called.
  * @returns {string} What the player does, that it does nothing while it
- *   cannot interact, as while it is dead, while what is within its reach to
- *   pick does not fit in its inventory, or while the container within its
- *   reach is empty, or `–` while there is no player, in the language of the
- *   page.
+ *   cannot interact, as while it is dead, while the item within its reach
+ *   to pick does not fit in its inventory, or while the container within
+ *   its reach is empty, silver coins fitting in any inventory, or `–`
+ *   while there is no player, in the language of the page.
  */
 export function describeSpaceKey(
   translator: Translator,
@@ -178,9 +178,10 @@ export function describeSpaceKey(
     return translator.translate('spaceKey.slash');
   }
   if (target.kind === null) {
-    return translator.translate('spaceKey.empty', {
-      container: nameContainer(translator, target),
-    });
+    const container: string = nameContainer(translator, target);
+    return (target.silver ?? 0) > 0
+      ? translator.translate('spaceKey.open', { container })
+      : translator.translate('spaceKey.empty', { container });
   }
   if (!hasRoom(inventory)) {
     return translator.translate('spaceKey.full');
@@ -271,11 +272,16 @@ export function describePrompt(
   if (target === null) {
     return null;
   }
-  // Only a container gives nothing.
+  // Only a container gives no item, and its silver coins need no room.
   if (target.kind === null) {
-    return translator.translate('prompt.empty', {
-      container: nameContainer(translator, target),
-    });
+    const container: string = nameContainer(translator, target);
+    if ((target.silver ?? 0) > 0) {
+      return translator.translate(
+        isTouch ? 'touchPrompt.open' : 'prompt.open',
+        { container },
+      );
+    }
+    return translator.translate('prompt.empty', { container });
   }
   if (target.source === 'container') {
     const container: string = nameContainer(translator, target);

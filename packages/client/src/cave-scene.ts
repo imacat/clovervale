@@ -58,6 +58,7 @@ import {
   CAVE_PLACEMENTS,
   CAVE_TORCH_FILE,
   NOON,
+  isEmptyContainer,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
@@ -369,8 +370,10 @@ export function createCaveScene(): CaveScene {
   let looted = new Set<number>();
   const showContainers = (): void => {
     figures.forEach((figure: ContainerFigure, id: number) => {
+      const container: CaveContainer | undefined = CAVE_CONTAINERS[id];
       const isOpen: boolean =
-        looted.has(id) || CAVE_CONTAINERS[id]?.item === null;
+        looted.has(id) ||
+        (container !== undefined && isEmptyContainer(container));
       if (figure.closed !== null) {
         figure.closed.visible = !isOpen;
       }
@@ -434,7 +437,7 @@ export function createCaveScene(): CaveScene {
     describeContainers: (): boolean[] =>
       CAVE_CONTAINERS.map(
         (container: CaveContainer, id: number) =>
-          looted.has(id) || container.item === null,
+          looted.has(id) || isEmptyContainer(container),
       ),
     update: (seconds: number): void => {
       elapsed += seconds;

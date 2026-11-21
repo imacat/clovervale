@@ -246,6 +246,16 @@ export class Monster {
   }
 
   /**
+   * The most silver coins the monster gives the player whose strike kills
+   * it.
+   *
+   * @returns {number} The number of coins.
+   */
+  get maxSilver(): number {
+    return this.#kind.maxSilver;
+  }
+
+  /**
    * Whether the monster is alive, and can be hit.
    *
    * @returns {boolean} Whether it is.

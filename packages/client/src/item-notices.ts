@@ -19,7 +19,7 @@
 
 /**
  * @module client/item-notices Telling the person at the page of each item
- *   its player gets, for a few seconds.
+ *   and of the silver coins its player gets, for a few seconds.
  */
 
 import type { ItemKindId } from '@clovervale/shared';
@@ -27,7 +27,7 @@ import type { ItemKindId } from '@clovervale/shared';
 import { nameItem } from './interaction-prompt.ts';
 import type { Translator } from './translator.ts';
 
-/** The notices of the items the player of the page gets. */
+/** The notices of the items and the silver coins the player gets. */
 export interface ItemNotices {
   /**
    * Shows a notice of an item got, below those still shown, which fades
@@ -36,6 +36,13 @@ export interface ItemNotices {
    * @param {ItemKindId} kind - The kind of the item.
    */
   readonly show: (kind: ItemKindId) => void;
+  /**
+   * Shows a notice of silver coins got, below those still shown, which
+   * fades out after a few seconds.
+   *
+   * @param {number} count - The number of coins, at least one.
+   */
+  readonly showSilver: (count: number) => void;
 }
 
 /**
@@ -68,6 +75,27 @@ export function findGainedItems(
 }
 
 /**
+ * Finds how many silver coins the player has gained, as the server tells
+ * its count anew.
+ *
+ * @param {number | null} before - The count as the server last told, or
+ *   `null` if it has not told it since the page joined.
+ * @param {number | null} after - The count as the server tells now, or
+ *   `null` while there is no player.
+ * @returns {number} How many more coins there are than before, which is
+ *   none while there are no more, or while either count is not known.
+ */
+export function findGainedSilver(
+  before: number | null,
+  after: number | null,
+): number {
+  if (before === null || after === null) {
+    return 0;
+  }
+  return Math.max(after - before, 0);
+}
+
+/**
  * Words the notice of an item got.
  *
  * @param {Translator} translator - The translator of the text of the page.
@@ -84,7 +112,24 @@ export function wordItemNotice(
 }
 
 /**
- * Creates the notices of the items the player of the page gets, above the
+ * Words the notice of silver coins got.
+ *
+ * @param {Translator} translator - The translator of the text of the page.
+ * @param {number} count - The number of coins.
+ * @returns {string} The notice, in the language of the page.
+ */
+export function wordSilverNotice(
+  translator: Translator,
+  count: number,
+): string {
+  return count === 1
+    ? translator.translate('silverNotice.gainedOne')
+    : translator.translate('silverNotice.gained', { count: String(count) });
+}
+
+/**
+ * Creates the notices of the items and the silver coins the player of the
+ * page gets, above the
  * prompt at the foot of the page, one under another, each worded again in
  * each language the page comes to speak and gone once it has faded out.
  *
@@ -100,23 +145,29 @@ export function createItemNotices(
   root.className = 'item-notices';
   root.setAttribute('role', 'status');
   parent.append(root);
-  const kinds = new Map<HTMLDivElement, ItemKindId>();
+  const wordings = new Map<HTMLDivElement, () => string>();
   translator.addListener(() => {
-    for (const [notice, kind] of kinds) {
-      notice.textContent = wordItemNotice(translator, kind);
+    for (const [notice, word] of wordings) {
+      notice.textContent = word();
     }
   });
+  const show = (word: () => string): void => {
+    const notice: HTMLDivElement = document.createElement('div');
+    notice.className = 'item-notice';
+    notice.textContent = word();
+    notice.addEventListener('animationend', () => {
+      wordings.delete(notice);
+      notice.remove();
+    });
+    wordings.set(notice, word);
+    root.append(notice);
+  };
   return {
     show: (kind: ItemKindId): void => {
-      const notice: HTMLDivElement = document.createElement('div');
-      notice.className = 'item-notice';
-      notice.textContent = wordItemNotice(translator, kind);
-      notice.addEventListener('animationend', () => {
-        kinds.delete(notice);
-        notice.remove();
-      });
-      kinds.set(notice, kind);
-      root.append(notice);
+      show(() => wordItemNotice(translator, kind));
+    },
+    showSilver: (count: number): void => {
+      show(() => wordSilverNotice(translator, count));
     },
   };
 }

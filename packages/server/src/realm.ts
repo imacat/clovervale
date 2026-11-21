@@ -196,9 +196,9 @@ export class Realm {
    * snapshot of the world it is in, with every player and monster to be
    * seen there, what there is to pick there and, in its cave, which of the
    * chests and barrels it has looted, and with what that player alone is
-   * told of itself: what it carries, the dialogue it is in, the villagers
-   * who have told it who they are, and how far it has got with the
-   * quests; then what the villagers have
+   * told of itself: what it carries, its silver coins, the dialogue it is
+   * in, the villagers who have told it who they are, and how far it has
+   * got with the quests; then what the villagers have
    * said to it in passing since the last snapshots, each once; and then the
    * events that have happened in that world since the last snapshots, if
    * any have, so that each player hears of each event of the world it is
@@ -239,6 +239,7 @@ export class Realm {
             world.findDialogue(id),
             world.findAcquaintances(id),
             world.findQuests(id),
+            world.findSilver(id) ?? 0,
           ),
           ...world
             .takeSpeeches(id)

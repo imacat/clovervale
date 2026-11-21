@@ -56,7 +56,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 27;
+export const PROTOCOL_VERSION = 28;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -291,6 +291,11 @@ export interface SnapshotMessage {
    */
   readonly inventory: readonly ItemKindId[];
   /**
+   * The number of silver coins the player of the peer has, which take no
+   * slot of its inventory.
+   */
+  readonly silver: number;
+  /**
    * The dialogue the player of the peer is in, or `null` while it is in
    * none.
    */
@@ -446,6 +451,8 @@ export function createWelcomeMessage(
  *   are none by default.
  * @param {QuestLog} [quests] - How far the player of the peer has got with
  *   each quest it has taken on, which are none by default.
+ * @param {number} [silver] - The number of silver coins the player of the
+ *   peer has, which is none by default.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
@@ -459,6 +466,7 @@ export function createSnapshotMessage(
   dialogue: DialogueView | null = null,
   acquaintances: readonly VillagerId[] = [],
   quests: QuestLog = {},
+  silver = 0,
 ): SnapshotMessage {
   const { clovers, items, looted = [], tobyFind = null } = world;
   return {
@@ -473,6 +481,7 @@ export function createSnapshotMessage(
     looted,
     tobyFind,
     inventory,
+    silver,
     dialogue,
     acquaintances,
     quests,
@@ -608,6 +617,7 @@ export function decodeServerMessage(data: string): ServerMessage {
     isNumberList(value.looted, CAVE_CONTAINERS.length) &&
     (value.tobyFind === null || Number.isInteger(value.tobyFind)) &&
     isInventory(value.inventory) &&
+    isCount(value.silver) &&
     (value.dialogue === null || isDialogueView(value.dialogue)) &&
     isAcquaintanceList(value.acquaintances) &&
     isQuestLog(value.quests)
@@ -679,6 +689,7 @@ export function decodeServerMessage(data: string): ServerMessage {
         looted: [...value.looted],
         tobyFind: value.tobyFind as number | null,
         inventory: [...value.inventory],
+        silver: value.silver,
         dialogue:
           dialogue === null
             ? null

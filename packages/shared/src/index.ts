@@ -94,6 +94,7 @@ export {
   CAVE_TERRAIN,
   CAVE_TORCH_DEPTH,
   CAVE_TORCH_FILE,
+  isEmptyContainer,
 } from './cave.ts';
 export type {
   CaveContainer,

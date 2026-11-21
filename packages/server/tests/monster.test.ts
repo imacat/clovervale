@@ -153,6 +153,7 @@ describe('the wild dog of the village', () => {
       noticeRange: 5,
       leashRange: 8,
       respawnDelay: 10,
+      maxSilver: 2,
     });
   });
 

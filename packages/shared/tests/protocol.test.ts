@@ -120,6 +120,7 @@ const NOTHING_TO_PICK = {
   looted: [],
   tobyFind: null,
   inventory: [],
+  silver: 0,
   dialogue: null,
   acquaintances: [],
   quests: {},
@@ -591,10 +592,51 @@ describe('the server message codec', () => {
       looted: [],
       tobyFind: null,
       inventory: ['clover', 'clover'],
+      silver: 0,
       dialogue: null,
       acquaintances: [],
       quests: {},
     });
+  });
+
+  it('decodes a snapshot message that tells how many silver coins the player has', () => {
+    const message = createSnapshotMessage(
+      42,
+      [PLAYER],
+      [],
+      OWN,
+      null,
+      { clovers: [], items: [] },
+      ['clover'],
+      null,
+      [],
+      {},
+      12,
+    );
+    expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
+      type: 'snapshot',
+      inventory: ['clover'],
+      silver: 12,
+    });
+  });
+
+  it.each([
+    ['is missing', { silver: undefined }],
+    ['is below none', { silver: -1 }],
+    ['is no whole number', { silver: 1.5 }],
+    ['is not a number', { silver: '12' }],
+  ])('rejects a snapshot whose number of silver coins %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: null,
+      ...NOTHING_TO_PICK,
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
   });
 
   it('decodes a snapshot message that tells which containers are looted', () => {

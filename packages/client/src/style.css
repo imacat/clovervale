@@ -262,9 +262,57 @@ canvas {
   display: none;
 }
 
-.bag-title {
+/* The title of the bag, with the silver coins of the player beside it. */
+.bag-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 6px;
+}
+
+.bag-title {
   font-weight: bold;
+}
+
+/* The silver coins, as a small coin followed by their number. */
+.bag-silver {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.bag-silver svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.bag-coin-rim {
+  fill: #c9d0d6;
+  stroke: #6e7882;
+  stroke-width: 3;
+}
+
+.bag-coin-face {
+  fill: #eef2f5;
+  stroke: #9aa4ad;
+  stroke-width: 2;
+}
+
+.bag-coin-clover {
+  fill: #b4bdc5;
+}
+
+.bag-coin-gleam {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 4;
+  stroke-linecap: round;
 }
 
 .bag-body {

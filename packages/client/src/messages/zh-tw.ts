@@ -151,6 +151,8 @@ export const ZH_TW_MESSAGES: MessageTable = {
 
   'inventory.title': '物品欄',
   'inventory.icon': '物品欄 (I)',
+  'inventory.silverOne': '銀幣 1 枚',
+  'inventory.silver': '銀幣 {count} 枚',
   'inventory.hint': '方向鍵選擇，Enter 使用，Esc 或 I 關閉',
   'dialogue.hint': '方向鍵選擇，Enter 回答',
   'dialogue.hintEnd': 'Enter 結束',
@@ -188,6 +190,8 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'help.touchChoose': '在物品欄和對話中直接點選',
   'help.touchButtons': '左上角的按鈕打開物品欄和操作說明',
   'itemNotice.gained': '取得{item}',
+  'silverNotice.gainedOne': '取得 1 枚銀幣',
+  'silverNotice.gained': '取得 {count} 枚銀幣',
   'itemAction.use': '使用',
   'itemAction.drop': '丟棄',
   'item.clover': '四葉幸運草',

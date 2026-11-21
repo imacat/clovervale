@@ -27,7 +27,12 @@ import { describe, expect, it } from 'vitest';
 import { ITEM_KINDS } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
-import { findGainedItems, wordItemNotice } from '../src/item-notices.ts';
+import {
+  findGainedItems,
+  findGainedSilver,
+  wordItemNotice,
+  wordSilverNotice,
+} from '../src/item-notices.ts';
 import { Translator } from '../src/translator.ts';
 
 describe('findGainedItems', () => {
@@ -97,6 +102,52 @@ describe('wordItemNotice', () => {
       'You got the message from Clovervale',
       'You got the token of the Clovervale spy',
       "You got a jar of Martha's ointment",
+    ]);
+  });
+});
+
+describe('findGainedSilver', () => {
+  it('finds the silver coins got', () => {
+    expect(findGainedSilver(0, 2)).toBe(2);
+    expect(findGainedSilver(3, 8)).toBe(5);
+  });
+
+  it('finds none as the count is first told on joining', () => {
+    expect(findGainedSilver(null, 12)).toBe(0);
+  });
+
+  it('finds none as the count stays or goes down', () => {
+    expect(findGainedSilver(4, 4)).toBe(0);
+    expect(findGainedSilver(4, 1)).toBe(0);
+  });
+
+  it('finds none once there is no player', () => {
+    expect(findGainedSilver(4, null)).toBe(0);
+  });
+});
+
+describe('wordSilverNotice', () => {
+  it('tells how many silver coins were got in the language of the page', async () => {
+    const english: Translator = new Translator();
+    const words: string[] = [
+      wordSilverNotice(english, 1),
+      wordSilverNotice(english, 2),
+    ];
+    for (const code of ['zh-TW', 'zh-CN', 'ja'] as const) {
+      const translator = new Translator();
+      await translator.choose(code);
+      words.push(wordSilverNotice(translator, 1));
+      words.push(wordSilverNotice(translator, 2));
+    }
+    expect(words).toEqual([
+      'You got 1 silver coin',
+      'You got 2 silver coins',
+      '取得 1 枚銀幣',
+      '取得 2 枚銀幣',
+      '取得 1 枚银币',
+      '取得 2 枚银币',
+      '銀貨を1枚手に入れた',
+      '銀貨を2枚手に入れた',
     ]);
   });
 });

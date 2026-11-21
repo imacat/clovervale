@@ -751,7 +751,24 @@ describe('findPickTarget by the containers of the cave', () => {
         source: 'container',
         id,
         kind: container.item,
+        ...(container.silver === undefined ? {} : { silver: container.silver }),
       });
+    });
+  });
+
+  it('has five silver coins in the last barrel that holds no item, and only there', () => {
+    const empty: number[] = barrels.filter(
+      (id: number) => CAVE_CONTAINERS[id]?.item === null,
+    );
+    const last: number = empty.at(-1) ?? -1;
+    CAVE_CONTAINERS.forEach((container, id: number) => {
+      expect(container.silver ?? 0).toBe(id === last ? 5 : 0);
+    });
+    expect(findPickTarget(standBefore(last), 0, NOTHING, 'cave')).toEqual({
+      source: 'container',
+      id: last,
+      kind: null,
+      silver: 5,
     });
   });
 
@@ -765,13 +782,16 @@ describe('findPickTarget by the containers of the cave', () => {
   });
 
   it('picks an item on the ground before an empty container', () => {
-    const [empty] = barrels.filter(
-      (id: number) => CAVE_CONTAINERS[id]?.item === null,
-    );
-    const pose: Pose = standBefore(empty ?? -1);
+    const [empty = -1] = barrels;
+    const pose: Pose = standBefore(empty);
     const item: GroundItem = layItem(7, { x: pose.x, z: pose.z });
     expect(
-      findPickTarget(pose, 0, { ...NOTHING, items: [item] }, 'cave'),
+      findPickTarget(
+        pose,
+        0,
+        { ...NOTHING, items: [item], looted: [empty] },
+        'cave',
+      ),
     ).toEqual({ source: 'ground', id: 7, kind: 'clover' });
   });
 

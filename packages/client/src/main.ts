@@ -120,7 +120,11 @@ import type { PlayersView } from './interpolation.ts';
 import { InventoryBag } from './inventory-bag.ts';
 import type { BagResponse, ItemRequest } from './inventory-bag.ts';
 import { ItemFigures, createHeldClover } from './item-figures.ts';
-import { createItemNotices, findGainedItems } from './item-notices.ts';
+import {
+  createItemNotices,
+  findGainedItems,
+  findGainedSilver,
+} from './item-notices.ts';
 import type { ItemNotices } from './item-notices.ts';
 import {
   chooseLanguage,
@@ -281,6 +285,11 @@ let worldNews: WorldNews | null = null;
 /** What the player of the page carries, as the server last told. */
 let inventory: readonly ItemKindId[] | null = null;
 /**
+ * The number of silver coins the player of the page has, as the server
+ * last told, or `null` if it has not told it since the page joined.
+ */
+let silver: number | null = null;
+/**
  * The villagers who have told the player of the page who they are, as the
  * server last told.
  */
@@ -405,7 +414,7 @@ const dialogueView: DialogueBoxView = createDialogueView(
   },
   touchView.isTouch,
 );
-/** The notices of the items the player of the page gets. */
+/** The notices of the items and the silver coins the player gets. */
 const itemNotices: ItemNotices = createItemNotices(document.body, translator);
 const { scene, daylight } = createVillageScene();
 const cave: CaveScene = createCaveScene();
@@ -1235,11 +1244,16 @@ function receiveMessage(data: string): void {
         itemNotices.show(kind);
       }
       inventory = message.inventory;
+      const gained: number = findGainedSilver(silver, message.silver);
+      if (gained > 0) {
+        itemNotices.showSilver(gained);
+      }
+      silver = message.silver;
       cave.showLooted(message.looted);
       const health: number =
         message.players.find((player: PlayerState) => player.id === ownId)
           ?.health ?? PLAYER_HEALTH;
-      bagView.show(inventory, health);
+      bagView.show(inventory, health, silver);
       quests = message.quests;
       showDialogue(message.dialogue, message.acquaintances);
     }
@@ -1463,6 +1477,7 @@ async function connectToServer(): Promise<void> {
     lastSlash = null;
     worldNews = null;
     inventory = null;
+    silver = null;
     itemFigures.show(null);
     bagView.show(null, PLAYER_HEALTH);
     quests = {};

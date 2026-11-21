@@ -150,6 +150,8 @@ export const JA_MESSAGES: MessageTable = {
 
   'inventory.title': '持ち物',
   'inventory.icon': '持ち物 (I)',
+  'inventory.silverOne': '銀貨 1枚',
+  'inventory.silver': '銀貨 {count}枚',
   'inventory.hint': '矢印キーで選択、Enter で使う、Esc か I で閉じる',
   'dialogue.hint': '矢印キーで選択、Enter で答える',
   'dialogue.hintEnd': 'Enter で閉じる',
@@ -187,6 +189,8 @@ export const JA_MESSAGES: MessageTable = {
   'help.touchChoose': '持ち物や会話ではタップして選ぶ',
   'help.touchButtons': '左上のボタンで持ち物とこの説明を開く',
   'itemNotice.gained': '{item}を手に入れた',
+  'silverNotice.gainedOne': '銀貨を1枚手に入れた',
+  'silverNotice.gained': '銀貨を{count}枚手に入れた',
   'itemAction.use': '使う',
   'itemAction.drop': '捨てる',
   'item.clover': '四つ葉のクローバー',

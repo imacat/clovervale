@@ -238,8 +238,10 @@ export type CaveContainerKind = 'chest' | 'barrel';
 export interface CaveContainer extends Pose {
   /** Whether it is a chest or a barrel. */
   readonly kind: CaveContainerKind;
-  /** The kind of item it holds, or `null` if it is empty. */
+  /** The kind of item it holds, or `null` if it holds no item. */
   readonly item: ItemKindId | null;
+  /** The silver coins it holds, none if left out. */
+  readonly silver?: number;
 }
 
 /** The file names of the models of a kind of container. */
@@ -289,8 +291,9 @@ function faceMiddle(at: GroundVector, room: CaveRoom): number {
  * The containers in the store rooms, numbered by their place in the list,
  * from 0, each along a wall with room to walk up to it: in the north store
  * room, a chest with a sword against its back wall, a barrel with a
- * four-leaved clover in its corner to the west of the chest, and an empty
- * barrel against its east wall near the passage; in the south store room,
+ * four-leaved clover in its corner to the west of the chest, and a barrel
+ * with no item but five silver coins against its east wall near the
+ * passage; in the south store room,
  * a chest with a leather armour against its back wall, a barrel with a
  * healing potion in its corner to the east of the chest, and a barrel with
  * a four-leaved clover against its west wall near the passage.
@@ -313,7 +316,14 @@ export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
       yaw: faceMiddle({ x: westX, z: -corner }, north),
       item: 'clover',
     },
-    { kind: 'barrel', x: eastX, z: -nearZ, yaw: -90, item: null },
+    {
+      kind: 'barrel',
+      x: eastX,
+      z: -nearZ,
+      yaw: -90,
+      item: null,
+      silver: 5,
+    },
     {
       kind: 'chest',
       x: middle,
@@ -331,6 +341,17 @@ export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
     { kind: 'barrel', x: westX, z: nearZ, yaw: 90, item: 'clover' },
   ];
 })();
+
+/**
+ * Tells whether a container in a store room holds nothing, before anybody
+ * has looted it: neither an item nor any silver coins.
+ *
+ * @param {CaveContainer} container - The container.
+ * @returns {boolean} Whether it does.
+ */
+export function isEmptyContainer(container: CaveContainer): boolean {
+  return container.item === null && (container.silver ?? 0) === 0;
+}
 
 /**
  * The middle of the ground the model of the cave covers, which it stands

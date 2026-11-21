@@ -154,6 +154,8 @@ export const EN_MESSAGES = {
 
   'inventory.title': 'Inventory',
   'inventory.icon': 'Inventory (I)',
+  'inventory.silverOne': '1 silver coin',
+  'inventory.silver': '{count} silver coins',
   'inventory.hint': 'Arrow keys to choose, Enter to use, Esc or I to close',
   'dialogue.hint': 'Arrow keys to choose, Enter to reply',
   'dialogue.hintEnd': 'Enter to close',
@@ -194,6 +196,8 @@ export const EN_MESSAGES = {
   'help.touchButtons':
     'The buttons at the top left open the inventory and this help',
   'itemNotice.gained': 'You got {item}',
+  'silverNotice.gainedOne': 'You got 1 silver coin',
+  'silverNotice.gained': 'You got {count} silver coins',
   'itemAction.use': 'Use',
   'itemAction.drop': 'Drop',
   'item.clover': 'four-leaved clover',

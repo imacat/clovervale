@@ -39,17 +39,20 @@ import type { Translator } from './translator.ts';
 /** The bag as the page shows it. */
 export interface BagView {
   /**
-   * Takes in what the player carries now and its health, or that there is
-   * no player, and shows the bag so.
+   * Takes in what the player carries now, its health and its silver coins,
+   * or that there is no player, and shows the bag so.
    *
    * @param {(readonly ItemKindId[]) | null} inventory - The items, in the
    *   order of the slots they fill, or `null` while there is no player.
    * @param {number} health - The health of the player, which tells
    *   whether an item can be used.
+   * @param {number} [silver] - The number of silver coins the player has,
+   *   none by default.
    */
   readonly show: (
     inventory: readonly ItemKindId[] | null,
     health: number,
+    silver?: number,
   ) => void;
   /** Shows the bag as it is now, after a key has changed it. */
   readonly render: () => void;
@@ -351,6 +354,42 @@ const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
 };
 
 /**
+ * Draws a small silver coin, seen from the front: its milled rim, its
+ * raised face, a four-leaved clover struck on it, and a gleam.
+ *
+ * @returns {SVGElement} The coin.
+ */
+function drawSilverCoin(): SVGElement {
+  return drawPicture([
+    createSvgElement('circle', {
+      cx: '32',
+      cy: '32',
+      r: '28',
+      class: 'bag-coin-rim',
+    }),
+    createSvgElement('circle', {
+      cx: '32',
+      cy: '32',
+      r: '20',
+      class: 'bag-coin-face',
+    }),
+    ...[0, 1, 2, 3].map((quarter: number) =>
+      createSvgElement('path', {
+        d: LEAFLET_PATH,
+        transform:
+          `rotate(${String(quarter * 90)} 32 32) ` +
+          'translate(32 32) scale(0.5) translate(-32 -32)',
+        class: 'bag-coin-clover',
+      }),
+    ),
+    createSvgElement('path', {
+      d: 'M15 24 C18 17 24 12 31 10',
+      class: 'bag-coin-gleam',
+    }),
+  ]);
+}
+
+/**
  * Draws a small bag, tied at its neck, as on the icon of the bag.
  *
  * @returns {SVGElement} The bag.
@@ -394,7 +433,9 @@ function createClickable(
 /**
  * Creates the bag of the player of the page: its icon in the bottom left
  * corner, or the top left on a touch device, with the key that opens it, I,
- * on it, and next to it, while the bag is open, its title, its slots in a
+ * on it, and next to it, while the bag is open, its title, with the silver
+ * coins of the player in the corner beside it, drawn as a small silver
+ * coin followed by their number, none as well, its slots in a
  * square grid, each item drawn small as what it is, with its cursor, the
  * menu of the item the cursor is on while it is open, with the actions that
  * cannot be chosen now greyed out, a line under the slots that names the
@@ -426,6 +467,7 @@ export function createBagView(
 ): BagView {
   let shown: readonly ItemKindId[] | null = null;
   let shownHealth: number | null = null;
+  let shownSilver = 0;
   let render: () => void = () => undefined;
   const root: HTMLDivElement = document.createElement('div');
   root.className = 'bag';
@@ -441,8 +483,18 @@ export function createBagView(
   frame.addEventListener('click', (event: MouseEvent) => {
     event.stopPropagation();
   });
+  const header: HTMLDivElement = document.createElement('div');
+  header.className = 'bag-header';
   const title: HTMLDivElement = document.createElement('div');
   title.className = 'bag-title';
+  const silver: HTMLDivElement = document.createElement('div');
+  silver.className = 'bag-silver';
+  silver.setAttribute('role', 'img');
+  const silverCount: HTMLSpanElement = document.createElement('span');
+  silverCount.className = 'bag-silver-count';
+  silverCount.setAttribute('aria-hidden', 'true');
+  silver.append(drawSilverCoin(), silverCount);
+  header.append(title, silver);
   const body: HTMLDivElement = document.createElement('div');
   body.className = 'bag-body';
   const grid: HTMLDivElement = document.createElement('div');
@@ -480,7 +532,7 @@ export function createBagView(
   itemName.className = 'bag-item-name';
   const hint: HTMLDivElement = document.createElement('div');
   hint.className = 'bag-hint';
-  frame.append(title, body, itemName, hint);
+  frame.append(header, body, itemName, hint);
   const icon: HTMLDivElement = createClickable('bag-icon', clickIcon);
   const key: HTMLSpanElement = document.createElement('span');
   key.className = 'bag-key';
@@ -497,6 +549,15 @@ export function createBagView(
     icon.setAttribute('aria-expanded', String(bag.isOpen));
     frame.hidden = !bag.isOpen;
     title.textContent = name;
+    const coins: string =
+      shownSilver === 1
+        ? translator.translate('inventory.silverOne')
+        : translator.translate('inventory.silver', {
+            count: String(shownSilver),
+          });
+    silver.title = coins;
+    silver.setAttribute('aria-label', coins);
+    silverCount.textContent = String(shownSilver);
     hint.textContent = translator.translate(
       isTouch() ? 'inventory.touchHint' : 'inventory.hint',
     );
@@ -546,15 +607,21 @@ export function createBagView(
   render();
   translator.addListener(render);
   return {
-    show: (inventory: readonly ItemKindId[] | null, health: number): void => {
+    show: (
+      inventory: readonly ItemKindId[] | null,
+      health: number,
+      coins = 0,
+    ): void => {
       if (
         JSON.stringify(inventory) === JSON.stringify(shown) &&
-        health === shownHealth
+        health === shownHealth &&
+        coins === shownSilver
       ) {
         return;
       }
       shown = inventory === null ? null : [...inventory];
       shownHealth = health;
+      shownSilver = coins;
       bag.noticeHealth(health);
       bag.noticeInventory(shown ?? []);
       render();

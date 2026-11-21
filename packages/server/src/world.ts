@@ -157,6 +157,11 @@ export interface Player {
   /** The items the player carries, in the order of the slots they fill. */
   readonly inventory: ItemKindId[];
   /**
+   * The number of silver coins the player has, which take no slot of its
+   * inventory.
+   */
+  silver: number;
+  /**
    * The villagers who have told the player who they are, in the order they
    * did.
    */
@@ -354,7 +359,8 @@ export class World {
    * the appearance the fewest players have, here and elsewhere (the
    * lowest-numbered one if several tie), and a place on the plaza clear of
    * the obstacles and, while there is room, of everyone else, where it
-   * idles facing the fountain, at full health, carrying nothing, in no
+   * idles facing the fountain, at full health, carrying nothing and with
+   * no silver coins, in no
    * dialogue, told by no villager who it is, on no quest, and not hunted
    * by Martha.
    *
@@ -373,6 +379,7 @@ export class World {
       deathSteps: 0,
       lastSlash: null,
       inventory: [],
+      silver: 0,
       acquaintances: [],
       quests: {},
       dialogue: null,
@@ -395,9 +402,9 @@ export class World {
 
   /**
    * Brings a player from another world into this one, with its health,
-   * what it carries, the villagers who have told it who they are, how far
-   * it has got with the quests, whether Martha hunts it, and the inputs of
-   * its peer still to come.  It stops
+   * what it carries, its silver coins, the villagers who have told it who
+   * they are, how far it has got with the quests, whether Martha hunts it,
+   * and the inputs of its peer still to come.  It stops
    * whatever it was doing and idles where it arrives, but still wants to
    * move the way it did.  A player that arrives in the village somewhere
    * in particular, as one that climbs out of the well does, and that does
@@ -536,7 +543,11 @@ export class World {
    * while she chases it, and is hit by nobody else; a slash that leaves
    * her no health beats her, which gives the player {@link SPY_TOKEN}, laid
    * at its feet as if put down if its inventory has no room for it, and
-   * has her hunt it no more.  How each slash was judged is kept for its
+   * has her hunt it no more.  A slash that kills a monster of a kind that
+   * gives silver coins, as the wild dog of the village does, gives its
+   * player from none up to the most coins of the kind, each number as
+   * likely as any other, which nobody else gets and nothing lays on the
+   * ground.  How each slash was judged is kept for its
    * player: as a hit if it hit any monster.  A strike of a living monster
    * hits every player alive in front of it and within its reach after the
    * step, for the bite damage of its kind, but a thrust of Martha's pitchfork
@@ -551,7 +562,8 @@ export class World {
    * picking nor putting down, neither hurt nor chased by the monsters,
    * though its inputs still change the way it wants to move.  Then it comes
    * back at a spawn point, at full health, idling but wanting to move the
-   * way it does by then, and carrying what it carried: in the village, at
+   * way it does by then, and carrying what it carried, with its silver
+   * coins: in the village, at
    * once, and from a cave, by leaving it for the village.
    *
    * A travel that comes into effect at the step, while the player could
@@ -565,7 +577,9 @@ export class World {
    * A pick that comes into effect at the step, while the player could start
    * to interact, gets the player what {@link findPickTarget} finds within
    * its reach, from where it stands after the step, with the monsters as
-   * they were before the step, if its inventory has room for it.  A
+   * they were before the step, if its inventory has room for it; the silver
+   * coins a container holds need no room, and come with what else it
+   * holds.  A
    * four-leaved clover so picked from a patch is gone from the patch until
    * it regrows {@link CLOVER_REGROW_DURATION} seconds later, an item picked
    * up from the ground is gone from there, and a chest or a barrel in the
@@ -789,6 +803,18 @@ export class World {
   }
 
   /**
+   * Tells how many silver coins a player has, which only the player itself
+   * is to be told.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {number | null} The number of coins, or `null` if the player is
+   *   not in the world.
+   */
+  findSilver(id: number): number | null {
+    return this.#players.get(id)?.silver ?? null;
+  }
+
+  /**
    * Tells what dialogue a player is in, which only the player itself is to
    * be told.
    *
@@ -972,6 +998,11 @@ export class World {
         referToMonster(monster),
         damage,
       );
+      if (!monster.isAlive && monster.maxSilver > 0) {
+        player.silver += Math.floor(
+          this.#drawRandom() * (monster.maxSilver + 1),
+        );
+      }
     }
     if (martha !== null && isMarthaHit) {
       const damage: number = martha.takeHit(SLASH_DAMAGE, player.id);
@@ -1108,16 +1139,13 @@ export class World {
 
   /**
    * Has a player pick what is within its reach as it stands now, if it has
-   * room for it.
+   * room for the item it is to get, if any; silver coins need no room.
    *
    * @param {Player} player - The player.
    * @param {readonly MonsterState[]} monsters - The monsters as they were
    *   before the step.
    */
   #pickItem(player: Player, monsters: readonly MonsterState[]): void {
-    if (!hasRoom(player.inventory)) {
-      return;
-    }
     const target: PickTarget | null = findPickTarget(
       player.mover.motion,
       this.#stepCount,
@@ -1126,7 +1154,12 @@ export class World {
       monsters,
     );
     const kind: ItemKindId | null = target?.kind ?? null;
-    if (target === null || kind === null) {
+    const silver: number = target?.silver ?? 0;
+    if (
+      target === null ||
+      (kind === null && silver === 0) ||
+      (kind !== null && !hasRoom(player.inventory))
+    ) {
       return;
     }
     if (target.source === 'patch') {
@@ -1138,7 +1171,10 @@ export class World {
         (lying: LyingItem) => lying.item.id !== target.id,
       );
     }
-    player.inventory.push(kind);
+    if (kind !== null) {
+      player.inventory.push(kind);
+    }
+    player.silver += silver;
   }
 
   /**

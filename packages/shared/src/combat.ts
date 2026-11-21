@@ -73,6 +73,12 @@ export interface MonsterKind {
    * ground once beaten before she gets up.
    */
   readonly respawnDelay: number;
+  /**
+   * The most silver coins a monster of the kind gives the player whose
+   * strike kills it, each number of coins from none up to it as likely as
+   * any other.
+   */
+  readonly maxSilver: number;
 }
 
 /**
@@ -83,7 +89,8 @@ export interface MonsterKind {
  * the enemy spy, and fights with a pitchfork at the pace of the dogs, never
  * wandering from her porch, and giving up well short of the fountain, so
  * that her yard and its well are hers, and the plaza is not.  Her bite is
- * the thrust of her pitchfork.
+ * the thrust of her pitchfork.  The wild dog of the village alone gives
+ * silver coins when killed.
  */
 export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
   'village-dog': {
@@ -96,6 +103,7 @@ export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
     noticeRange: 5,
     leashRange: 8,
     respawnDelay: 10,
+    maxSilver: 2,
   },
   'cave-dog': {
     health: 80,
@@ -107,6 +115,7 @@ export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
     noticeRange: 5,
     leashRange: 12,
     respawnDelay: 300,
+    maxSilver: 0,
   },
   martha: {
     health: 100,
@@ -118,6 +127,7 @@ export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
     noticeRange: 5,
     leashRange: 7,
     respawnDelay: 10,
+    maxSilver: 0,
   },
 };
 

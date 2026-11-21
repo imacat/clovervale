@@ -235,6 +235,8 @@ interface CaveLook {
   readonly containers: readonly boolean[];
   /** Whether the bag is open. */
   readonly isBagOpen: boolean;
+  /** How the bag shows the silver coins, or `null` if it shows none. */
+  readonly silver: SilverView | null;
   /** The kind of the item in each slot of the bag, or `''` if it is empty. */
   readonly slots: readonly string[];
   /** The name the bag shows of the item under its cursor, or `''`. */
@@ -522,10 +524,24 @@ interface ItemView {
   readonly z: number;
 }
 
+/** How the bag of a page shows the silver coins of its player. */
+interface SilverView {
+  /** The number the bag shows beside its coin. */
+  readonly count: string;
+  /** What the coins are called for the screen readers. */
+  readonly label: string;
+  /** Whether the coin is drawn. */
+  readonly isCoinDrawn: boolean;
+  /** Whether the coins are within the bag window and on the screen. */
+  readonly isInWindow: boolean;
+}
+
 /** How a page shows the bag of its player. */
 interface BagLook {
   /** Whether the bag is open. */
   readonly isOpen: boolean;
+  /** How the bag shows the silver coins, or `null` if it shows none. */
+  readonly silver: SilverView | null;
   /** The key shown on the icon of the bag, or `null` if it shows none. */
   readonly key: string | null;
   /** The slot the cursor of the bag is on, or -1 if on none. */
@@ -1100,6 +1116,42 @@ const POTION_SLOT_CLICK_EXPRESSION = `(() => {
   slots[index]?.click();
   return String(index);
 })()`;
+/**
+ * The expression that tells how the bag of a page shows the silver coins
+ * of its player, as a {@link SilverView} or `null`, without making JSON of
+ * it, for the expressions that tell more to take it in.
+ */
+const SILVER_EXPRESSION = `(() => {
+  const silver = document.querySelector('.bag-silver');
+  const frame = document.querySelector('.bag-window');
+  if (silver === null || frame === null) {
+    return null;
+  }
+  const box = silver.getBoundingClientRect();
+  const around = frame.getBoundingClientRect();
+  return {
+    count: silver.querySelector('.bag-silver-count')?.textContent ?? '',
+    label: silver.getAttribute('aria-label') ?? '',
+    isCoinDrawn: silver.querySelector('svg .bag-coin-face') !== null,
+    isInWindow:
+      !frame.hidden &&
+      box.width > 0 &&
+      box.left >= around.left &&
+      box.right <= around.right &&
+      box.top >= around.top &&
+      box.bottom <= around.bottom &&
+      box.left >= 0 &&
+      box.top >= 0 &&
+      box.right <= globalThis.innerWidth &&
+      box.bottom <= globalThis.innerHeight,
+  };
+})()`;
+/** How the bag of a player without silver coins tells them, in English. */
+const NO_SILVER_LABEL = '0 silver coins';
+/** The silver coins in the barrel of the north store room of the cave. */
+const BARREL_SILVER = 5;
+/** The notice of those coins got, in English. */
+const BARREL_SILVER_NOTICE = `You got ${String(BARREL_SILVER)} silver coins`;
 /** The name of the language control of the panel in Traditional Chinese. */
 const ZH_TW_LANGUAGE_CONTROL = '語言';
 /** The title of the page and of the panel in Traditional Chinese. */
@@ -1531,6 +1583,7 @@ function createCaveExpression(id: number): string {
         const bag = document.querySelector('.bag-window');
         return bag !== null && !bag.hidden;
       })(),
+      silver: ${SILVER_EXPRESSION},
       slots: [...document.querySelectorAll('.bag-slot')]
         .map((slot) => slot.dataset.kind ?? ''),
       bagItemName:
@@ -1648,6 +1701,7 @@ function createInventoryExpression(id: number): string {
         const isMenuOpen = menu !== null && !menu.hidden;
         return {
           isOpen: window !== null && !window.hidden,
+          silver: ${SILVER_EXPRESSION},
           key: shown(key),
           cursor: indexOf([...document.querySelectorAll('.bag-slot')]),
           menu: isMenuOpen ? actions.map((action) => action.textContent) : null,
@@ -4170,7 +4224,8 @@ function describeInventoryLook(look: InventoryLook): string {
   const { bag } = look;
   const shownBag: string =
     `the bag ${bag.isOpen ? 'open' : 'closed'}, keyed ` +
-    `"${String(bag.key)}", with its cursor on slot ${String(bag.cursor)}` +
+    `"${String(bag.key)}", with the silver coins ` +
+    `${JSON.stringify(bag.silver)}, its cursor on slot ${String(bag.cursor)}` +
     (bag.menu === null
       ? ''
       : ` and a menu of ${JSON.stringify(bag.menu)} with its cursor on ` +
@@ -4342,6 +4397,10 @@ async function checkInventory(
     look,
     (seen: InventoryLook) =>
       seen.bag.isOpen &&
+      seen.bag.silver?.count === '0' &&
+      seen.bag.silver.label === NO_SILVER_LABEL &&
+      seen.bag.silver.isCoinDrawn &&
+      seen.bag.silver.isInWindow &&
       seen.bag.cursor === 0 &&
       JSON.stringify(seen.bag.menu) === JSON.stringify(CLOVER_ACTIONS) &&
       seen.bag.menuCursor === 0,
@@ -5313,6 +5372,7 @@ function describeCaveLook(look: CaveLook): string {
     `the space bar to "${look.spaceKey}", ${prompt}, ${speech}, ${dialogue}, the ` +
     `containers open ${JSON.stringify(look.containers)}, the bag ` +
     `${look.isBagOpen ? 'open' : 'closed'} with ${JSON.stringify(look.slots)} ` +
+    `and the silver coins ${JSON.stringify(look.silver)} ` +
     `naming "${look.bagItemName}" and the menu ${JSON.stringify(look.menu)}, ` +
     `the notices ${JSON.stringify(look.notices)}, the heals ` +
     JSON.stringify(look.heals)
@@ -5574,6 +5634,95 @@ async function lootContainer(
 }
 
 /**
+ * Has the player of a page, by the barrel in the corner of the north store
+ * room, walk over to the barrel by the passage, which holds no item but
+ * silver coins, and loot it, and waits until the page shows the barrel
+ * open, the coins counted in the bag and their notice, with nothing more in
+ * the slots.  The view of the bag opened then is saved for the owner to
+ * look at, if the environment names a directory for the views, and the bag
+ * is closed again.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page, whose camera
+ *   looks west down the passage.
+ * @param {number} id - The identifier of the player.
+ * @param {number} number - The number of the barrel.
+ * @returns {Promise<void>} A promise settled once the barrel is looted.
+ * @throws {Error} If the page does not show it so in time.
+ */
+async function lootSilverBarrel(
+  session: BidiSession,
+  context: string,
+  id: number,
+  number: number,
+): Promise<void> {
+  const barrel: CaveContainer | undefined = CAVE_CONTAINERS[number];
+  const look = (): Promise<CaveLook> => readCaveLook(session, context, id);
+  await walkInCave(
+    session,
+    context,
+    id,
+    'a',
+    (seen: CaveLook) => (seen.own?.z ?? -Infinity) >= (barrel?.z ?? 0) - 0.05,
+    'along the west wall of the north store room',
+  );
+  await walkInCave(
+    session,
+    context,
+    id,
+    's',
+    (seen: CaveLook) => seen.spaceKey === OPEN_BARREL_KEY,
+    'up to the barrel by the passage in the north store room',
+  );
+  const before: CaveLook = await look();
+  const count = Number(before.silver?.count ?? NaN);
+  const filled = (seen: CaveLook): number =>
+    seen.slots.filter((kind: string) => kind !== '').length;
+  await sendKey(session, context, 'keyDown', ' ');
+  await sendKey(session, context, 'keyUp', ' ');
+  await waitFor(
+    look,
+    (seen: CaveLook) =>
+      seen.containers[number] === true &&
+      seen.silver?.count === String(count + BARREL_SILVER) &&
+      seen.silver.label === `${String(count + BARREL_SILVER)} silver coins` &&
+      seen.notices.includes(BARREL_SILVER_NOTICE) &&
+      filled(seen) === filled(before) &&
+      seen.spaceKey === EMPTY_BARREL_KEY,
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With the space bar pressed before the barrel of silver coins, ` +
+      `after ${String(count)} coins before, the first page tells ` +
+      `${describeCaveLook(seen)}.`,
+  );
+  await sendKey(session, context, 'keyDown', 'i');
+  await sendKey(session, context, 'keyUp', 'i');
+  await waitFor(
+    look,
+    (seen: CaveLook) =>
+      seen.isBagOpen &&
+      seen.silver?.isCoinDrawn === true &&
+      seen.silver.isInWindow,
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With its bag opened after looting the silver coins, the first page ` +
+      `tells ${describeCaveLook(seen)}.`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'bag-silver.png');
+  await sendKey(session, context, 'keyDown', 'i');
+  await sendKey(session, context, 'keyUp', 'i');
+  await waitFor(
+    look,
+    (seen: CaveLook) => !seen.isBagOpen,
+    ACTION_TIMEOUT,
+    (seen: CaveLook) =>
+      `With its bag closed again, the first page tells ` +
+      `${describeCaveLook(seen)}.`,
+  );
+}
+
+/**
  * Saves views of the cells for the owner to look at, if the environment
  * names a directory for the views: looking steeply down on both cells from
  * the middle of the passage between them, and close on the bones in the
@@ -5789,7 +5938,9 @@ async function talkToEdwin(
  * north store room, up to the chest at its back, where its page tells the
  * space bar opens it; once it is pressed, the chest shows open, the sword
  * shows in the bag, and the space bar does nothing more there.  It loots
- * the barrel with a clover in the corner, and the chest of the south store
+ * the barrel with a clover in the corner, then the barrel by the passage,
+ * whose five silver coins the bag counts beside its coin, told in a notice
+ * and filling no slot, and the chest of the south store
  * room and the barrel with the healing potion in its corner, and opens its
  * bag, which shows the sword, the leather armour and a clover, worded in
  * Traditional Chinese for a moment, with the name of the sword under the
@@ -5852,7 +6003,7 @@ async function checkCaveChambers(
   await saveCellViews(session, context, id);
 
   // The chest at the back of the north store room, with the sword.
-  const [northChest, cornerBarrel, , southChest, potionBarrel] =
+  const [northChest, cornerBarrel, silverBarrel, southChest, potionBarrel] =
     CAVE_CONTAINERS.map((_: CaveContainer, number: number) => number);
   const north: CaveContainer | undefined = CAVE_CONTAINERS[northChest ?? 0];
   await walkInCave(
@@ -5923,6 +6074,17 @@ async function checkCaveChambers(
   );
   await lootContainer(session, context, id, cornerBarrel ?? 0);
   await saveStoreView(session, context);
+
+  // The barrel by the passage, which holds no item but silver coins.
+  await lootSilverBarrel(session, context, id, silverBarrel ?? 0);
+  await walkInCave(
+    session,
+    context,
+    id,
+    'w',
+    (seen: CaveLook) => (seen.own?.x ?? Infinity) <= (north?.x ?? 0) + 0.05,
+    'back across the north store room',
+  );
 
   // The chest at the back of the south store room, with the armour.
   const south: CaveContainer | undefined = CAVE_CONTAINERS[southChest ?? 0];
@@ -8099,6 +8261,8 @@ interface TouchLook {
   readonly leastTargetName: string;
   /** The help sheet, as the page shows it. */
   readonly help: HelpLook;
+  /** How the bag shows the silver coins, or `null` if it shows none. */
+  readonly silver: SilverView | null;
   /** How far the camera is from what it looks at, in metres. */
   readonly distance: number;
 }
@@ -8122,6 +8286,7 @@ const TOUCH_EXPRESSION = `(() => {
     panel: '.lil-gui.lil-root',
     prompt: '.interaction-prompt',
     bag: '.bag-window',
+    silver: '.bag-silver',
     sheet: '.help-sheet',
     dialogue: '.dialogue',
   };
@@ -8163,6 +8328,7 @@ const TOUCH_EXPRESSION = `(() => {
     leastTarget: Number.isFinite(leastTarget) ? leastTarget : 0,
     leastTargetName,
     help: ${HELP_EXPRESSION.replace('JSON.stringify', '')},
+    silver: ${SILVER_EXPRESSION},
     distance: window.clovervale.describeCameraDistance(),
   });
 })()`;
@@ -8381,6 +8547,7 @@ async function checkTouch(session: BidiSession, url: string): Promise<void> {
     ['bag', 'bagIcon'],
     ['bag', 'helpButton'],
     ['bag', 'panel'],
+    ['silver', 'panel'],
   ];
 
   const centre: [number, number] = [
@@ -8447,8 +8614,14 @@ async function checkTouch(session: BidiSession, url: string): Promise<void> {
 
     await tapOn('bagIcon');
     const bag: TouchLook = await expectLook(
-      (seen: TouchLook) => seen.help.isBagOpen && seen.isHeld,
-      `its bag icon tapped, held ${name}`,
+      (seen: TouchLook) =>
+        seen.help.isBagOpen &&
+        seen.isHeld &&
+        seen.silver?.count === '0' &&
+        seen.silver.label === NO_SILVER_LABEL &&
+        seen.silver.isCoinDrawn &&
+        seen.silver.isInWindow,
+      `its bag icon tapped, held ${name}, showing no silver coins`,
     );
     await saveView(session, context, `touch-bag-${name}.png`);
     expectLaidOut(bag, `the bag open, held ${name}`, OPEN_APART);
@@ -8784,7 +8957,8 @@ try {
       'chosen, show the controls, pick, ' +
       'carry and put down a clover, go down into a cave of their own, kill ' +
       'its two wild dogs, talk ' +
-      'to the prisoner through his bars, loot the store rooms, use a ' +
+      'to the prisoner through his bars, loot the store rooms, count ' +
+      'the silver coins of a barrel in the bag, use a ' +
       'healing potion, and climb back up, have Martha come over, talk ' +
       'with her and beat her, take her ointment to a hurt Toby, have the ' +
       'camera follow another player, turn the camera with the arrow keys, ' +

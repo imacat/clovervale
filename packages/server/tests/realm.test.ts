@@ -678,6 +678,33 @@ describe('a player at the rope in the cave', () => {
     expect(realm.findWorld(id)?.findInventory(id)).toEqual(['clover']);
   });
 
+  it('keeps the silver coins of the barrel up in the village, and is told of them', () => {
+    const realm = new Realm(createRandom());
+    const id: number = addDigger(realm);
+    goDown(realm, id);
+    const barrel: CaveContainer | undefined = CAVE_CONTAINERS.find(
+      (container: CaveContainer) => (container.silver ?? 0) > 0,
+    );
+    if (barrel === undefined) {
+      throw new Error('No barrel holds silver coins.');
+    }
+    walkToContainer(realm, id, barrel);
+    giveInput(realm, id, { type: 'pick' });
+    realm.step();
+    expect(realm.findWorld(id)?.findSilver(id)).toBe(5);
+    const back: GroundVector[] | null = new NavigationGraph(
+      CAVE_TERRAIN,
+    ).findPath(findPlayer(realm, id), BY_ROPE);
+    walkAlong(realm, id, back ?? []);
+    walkToRope(realm, id);
+    travel(realm, id);
+    expect(realm.findMap(id)).toBe('village');
+    expect(realm.findWorld(id)?.findSilver(id)).toBe(5);
+    const [snapshot] = listSnapshots(realm.composeMessages().get(id) ?? []);
+    expect(snapshot?.silver).toBe(5);
+    expect(snapshot?.inventory).toEqual([]);
+  });
+
   it('stays below, away from the rope', () => {
     const realm = new Realm(createRandom());
     const id: number = addDigger(realm);
