@@ -2990,6 +2990,79 @@ describe('Martha in the village', () => {
     expect(findMartha(world).mode).toBe('chase');
   });
 
+  /**
+   * Has a player slash at Martha until she has lost some health, or for a
+   * while.
+   *
+   * @param {World} world - The village.
+   * @param {number} id - The identifier of the player.
+   */
+  function woundMartha(world: World, id: number): void {
+    for (let tries = 0; tries < 20; tries++) {
+      if (findMartha(world).health < MARTHA.health) {
+        return;
+      }
+      turnPlayer(world, id, findMartha(world));
+      interactPlayer(world, id);
+      stepTimes(world, SLASH_STEPS + 1);
+    }
+  }
+
+  /**
+   * Moves a world forward until Martha no longer fights, or for a while.
+   *
+   * @param {World} world - The village.
+   * @param {number} [seconds] - The longest to wait, in seconds, 30 by
+   *   default.
+   */
+  function waitForFightEnd(world: World, seconds = 30): void {
+    for (let step = 0; step < seconds * SIMULATION_RATE; step++) {
+      if (findMartha(world).mode !== 'chase') {
+        return;
+      }
+      world.step();
+    }
+  }
+
+  it('is at full health at once when a player gets away in a fight', () => {
+    const world: World = createVillage();
+    const id: number = startFight(world);
+    woundMartha(world, id);
+    expect(findMartha(world).health).toBeLessThan(MARTHA.health);
+    runAway(world, id);
+    waitForFightEnd(world);
+    expect(findMartha(world)).toMatchObject({
+      mode: 'return',
+      health: MARTHA.health,
+    });
+  });
+
+  it('is at full health at once when she kills the player she fights', () => {
+    const world: World = createVillage();
+    const id: number = startFight(world);
+    woundMartha(world, id);
+    expect(findMartha(world).health).toBeLessThan(MARTHA.health);
+    waitForFightEnd(world);
+    expect(findPlayer(world, id).health).toBe(0);
+    expect(findMartha(world)).toMatchObject({
+      mode: 'return',
+      health: MARTHA.health,
+    });
+  });
+
+  it('is at full health at once when the player she fights leaves', () => {
+    const world: World = createVillage();
+    const id: number = startFight(world);
+    woundMartha(world, id);
+    expect(findMartha(world).health).toBeLessThan(MARTHA.health);
+    world.removePlayer(id);
+    world.step();
+    expect(findMartha(world)).toMatchObject({
+      mode: 'return',
+      health: MARTHA.health,
+    });
+  });
+
   it('deals with the players who climb out one at a time, in turn', () => {
     const world: World = createVillage();
     const first: number = startFight(world);

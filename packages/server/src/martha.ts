@@ -172,8 +172,9 @@ function isInArea(player: GroundVector): boolean {
  * near enough, until it gets out of her area or dies, when she hunts it
  * from then on, or until it beats her, when she drops her pitchfork beside
  * her and sits on the ground for a while, then gets up at full health and
- * takes it up again.  A player who leaves her area, or who dies, before
- * she has come up to it she lets go.  With nobody to deal with, she
+ * takes it up again.  Whenever a fight ends with her not beaten, she is
+ * at full health again at once.  A player who leaves her area, or who
+ * dies, before she has come up to it she lets go.  With nobody to deal with, she
  * walks back home and stands there as she does.  Only the player she
  * fights can hurt her.  She is stopped by the obstacles like the players,
  * but does not stand in their way, nor they in hers.
@@ -501,11 +502,13 @@ export class Martha {
 
   /**
    * Turns to the next player waiting for her, if any, to walk up to it, or
-   * to fight it at once if she hunts it, or else sets out for home.
+   * to fight it at once if she hunts it, or else sets out for home, at
+   * full health either way.
    *
    * @param {readonly Suspect[]} players - The players.
    */
   #serveNext(players: readonly Suspect[]): void {
+    this.#health = KIND.health;
     this.#path = null;
     this.#repathSteps = 0;
     for (;;) {
