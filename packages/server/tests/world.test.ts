@@ -1538,7 +1538,6 @@ describe('Toby picking at a patch of clover', () => {
       CLOVER_PATCHES.length - 1,
     );
     expect(world.describeItems().tobyFind).toBe(grab);
-    expect(world.countTobyClovers()).toBe(1);
     stepTimes(world, REGROW_STEPS - 1);
     expect(world.describeItems().clovers).not.toContain(patch);
     world.step();
@@ -1557,8 +1556,6 @@ describe('Toby picking at a patch of clover', () => {
     world.step();
     expect(findTobyGrab(world.stepCount)).toEqual({ step: again, patch });
     expect(world.describeItems().tobyFind).not.toBe(again);
-    // He holds the clovers he took, the one from the other patch as well.
-    expect(world.countTobyClovers()).toBe(2);
   });
 
   it('leaves the clover to a player who picks it a step before him', () => {
@@ -1582,31 +1579,12 @@ describe('Toby picking at a patch of clover', () => {
     expect(world.stepCount).toBe(grab);
     expect(world.findInventory(id)).toEqual([]);
     expect(world.describeItems().tobyFind).toBe(grab);
-    expect(world.countTobyClovers()).toBeGreaterThan(0);
   });
 
   it('picks nothing in a cave', () => {
     const world = new World(createRandom(), { map: 'cave' });
     stepTimes(world, TOBY_LOOP_STEPS);
     expect(world.describeItems().tobyFind).toBeUndefined();
-    expect(world.countTobyClovers()).toBe(0);
-  });
-
-  it('holds every clover he takes, without end', () => {
-    const world = new RecordingWorld(createRandom());
-    let expected = 0;
-    for (let step = 0; step < 20 * TOBY_LOOP_STEPS; step++) {
-      const grab: TobyGrab = findTobyGrab(world.stepCount + 1);
-      if (
-        grab.step === world.stepCount + 1 &&
-        world.describeItems().clovers.includes(grab.patch)
-      ) {
-        expected++;
-      }
-      world.step();
-    }
-    expect(expected).toBeGreaterThan(10);
-    expect(world.countTobyClovers()).toBe(expected);
   });
 });
 
@@ -1685,14 +1663,12 @@ function talkToToby(world: RecordingWorld, id: number): string[] {
 }
 
 describe('a player who talks to Toby', () => {
-  it('gets a clover he holds with his line of giving it', () => {
+  it('gets a clover with his line of giving it', () => {
     const world = new RecordingWorld(() => 0.99);
     const id: number = admitTalker(world, []);
     expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
-    const held: number = world.countTobyClovers();
     expect(world.findInventory(id)).toEqual(['spy-token', 'clover']);
     expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
-    expect(world.countTobyClovers()).toBe(held - 1);
     expect(world.findInventory(id)).toEqual([
       'spy-token',
       'clover',
@@ -1700,19 +1676,16 @@ describe('a player who talks to Toby', () => {
     ]);
   });
 
-  it('hears one of his three other lines once he holds no clover', () => {
+  it('gets a clover each time its bag has room, however few he has picked', () => {
     const world = new RecordingWorld(() => 0.99);
     const id: number = admitTalker(world, []);
-    while (world.countTobyClovers() > 0 || world.stepCount < 300) {
-      talkToToby(world, id);
+    for (let count = 1; count < INVENTORY_SIZE; count++) {
+      expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
     }
-    const carried: ItemKindId[] = world.findInventory(id) ?? [];
-    expect(talkToToby(world, id)).toEqual(['toby:villager.toby.line.3']);
-    expect(world.findInventory(id)).toEqual(carried);
-    expect(world.countTobyClovers()).toBe(0);
+    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
   });
 
-  it('keeps his clovers from a player whose bag is full', () => {
+  it('gives no clover to a player whose bag is full', () => {
     const world = new RecordingWorld(() => 0.99);
     const full: ItemKindId[] = Array.from(
       { length: INVENTORY_SIZE - 1 },
@@ -1720,7 +1693,6 @@ describe('a player who talks to Toby', () => {
     );
     const id: number = admitTalker(world, full);
     expect(talkToToby(world, id)).toEqual(['toby:villager.toby.line.3']);
-    expect(world.countTobyClovers()).toBeGreaterThan(0);
     expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
     expect(world.describeItems().items).toEqual([]);
   });

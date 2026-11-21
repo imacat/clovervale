@@ -293,8 +293,6 @@ export class World {
    * or `null` if he has taken none.
    */
   #tobyFind: number | null = null;
-  /** The number of four-leaved clovers Toby holds. */
-  #tobyClovers = 0;
   /** Gives a random number from 0 up to but not including 1. */
   readonly #drawRandom: () => number;
 
@@ -472,10 +470,9 @@ export class World {
    * monster, as it was before the step, is in front of the player and
    * within the reach of its slash.  A talk that starts at the step to
    * Toby has him say a line to the player in passing, kept for the player
-   * to be told once: one of his lines at random, among which, while he
-   * holds a four-leaved clover and the inventory of the player has room for
-   * it, is the line with which he gives the player one of his clovers, into
-   * its inventory.  A talk to any other villager without a script changes
+   * to be told once: one of his lines at random, among which, while the
+   * inventory of the player has room, is the line with which he gives the
+   * player a four-leaved clover, into its inventory.  A talk to any other villager without a script changes
    * nothing else in the world.  A talk that starts at the step to a
    * villager with a script, as {@link findOpening} finds, opens with the
    * first of its openings whose condition holds of the player then, if any:
@@ -855,17 +852,6 @@ export class World {
   }
 
   /**
-   * Counts the four-leaved clovers Toby holds, which he has taken from the
-   * patches of clover and not given away.
-   *
-   * @returns {number} The number of them, which is none outside the
-   *   village.
-   */
-  countTobyClovers(): number {
-    return this.#tobyClovers;
-  }
-
-  /**
    * Tells how far a player has got with the inputs of its peer.
    *
    * @param {number} id - The identifier of the player.
@@ -1061,7 +1047,6 @@ export class World {
     }
     this.#regrowSteps[grab.patch] = this.#stepCount + REGROW_STEPS;
     this.#tobyFind = this.#stepCount;
-    this.#tobyClovers++;
   }
 
   /**
@@ -1182,17 +1167,14 @@ export class World {
 
   /**
    * Has Toby say one of his lines in passing to a player who talks to him,
-   * at random: one of {@link TOBY_LINES}, or, while he holds a four-leaved
-   * clover and the inventory of the player has room for it,
-   * {@link TOBY_GIFT_LINE} as well, with which he gives the player one of
-   * his clovers.
+   * at random: one of {@link TOBY_LINES}, or, while the inventory of the
+   * player has room for it, {@link TOBY_GIFT_LINE} as well, with which he
+   * gives the player a four-leaved clover.
    *
    * @param {Player} player - The player.
    */
   #chatterToby(player: Player): void {
-    const canGive: boolean =
-      this.#tobyClovers > 0 && hasRoom(player.inventory);
-    const lines: readonly string[] = canGive
+    const lines: readonly string[] = hasRoom(player.inventory)
       ? [...TOBY_LINES, TOBY_GIFT_LINE]
       : TOBY_LINES;
     const index: number = Math.min(
@@ -1202,7 +1184,6 @@ export class World {
     const line: string = lines[index] ?? TOBY_LINES[0] ?? '';
     player.speeches.push({ villager: 'toby', line });
     if (line === TOBY_GIFT_LINE) {
-      this.#tobyClovers--;
       player.inventory.push(CLOVER_KIND);
     }
   }

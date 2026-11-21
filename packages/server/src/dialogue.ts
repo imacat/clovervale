@@ -119,7 +119,7 @@ export const TOBY_LINES: readonly string[] = [
 
 /**
  * The message of the line Toby says in passing as he gives a player a
- * four-leaved clover he holds.
+ * four-leaved clover.
  */
 export const TOBY_GIFT_LINE = 'villager.toby.gift';
 
