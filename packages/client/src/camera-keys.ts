@@ -47,6 +47,23 @@ export interface CameraTurn {
   readonly tilt: number;
 }
 
+/** What the owner holds to turn the camera, as the arrow keys. */
+export interface CameraHold {
+  /**
+   * Whether the owner holds the camera with it now.
+   *
+   * @returns {boolean} Whether it does.
+   */
+  readonly isHeld: boolean;
+  /**
+   * Resolves how far it turns the camera over some time.
+   *
+   * @param {number} seconds - The time, in seconds.
+   * @returns {CameraTurn} The turn.
+   */
+  readonly resolveTurn: (seconds: number) => CameraTurn;
+}
+
 /** Which way each arrow key turns the camera, by the code of the key. */
 const KEY_TURNS: Readonly<Record<string, CameraTurn>> = {
   ArrowLeft: { orbit: -1, tilt: 0 },
@@ -62,7 +79,7 @@ const KEY_TURNS: Readonly<Record<string, CameraTurn>> = {
  * the view tilts up and down, each at a steady rate.  Opposite keys cancel
  * out.
  */
-export class CameraKeys {
+export class CameraKeys implements CameraHold {
   readonly #held = new Set<string>();
 
   /**

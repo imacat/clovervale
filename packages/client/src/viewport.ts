@@ -27,12 +27,12 @@ import {
   PerspectiveCamera,
   WebGLRenderer,
 } from 'three';
-import type { Camera, Scene } from 'three';
+import type { Camera, Scene, Vector3 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 import type { GroundVector } from '@clovervale/shared';
 
-import type { CameraKeys, CameraTurn } from './camera-keys.ts';
+import type { CameraHold, CameraTurn } from './camera-keys.ts';
 import { TrailingCamera } from './trailing-camera.ts';
 import type { TrailingCameraSettings } from './trailing-camera.ts';
 
@@ -64,6 +64,14 @@ export interface Viewport {
    * @param {GroundVector} focus - Where what the camera looks at stands now.
    */
   readonly follow: (focus: GroundVector) => void;
+  /**
+   * Moves the camera farther from what it looks at, or nearer, keeping its
+   * angles, within the distances the wheel zooms within.
+   *
+   * @param {number} factor - How many times farther the camera is to be:
+   *   above 1 to zoom out, and below 1 to zoom in.
+   */
+  readonly zoom: (factor: number) => void;
   /**
    * Shows another scene from now on, with the camera at once on what it
    * looks at there, looking along a heading, at the distance it had, and
@@ -115,18 +123,19 @@ const FOCUS_HEIGHT = 1.2;
  * Shows a scene in the browser window, for the owner to look around in.
  *
  * Dragging with the left mouse button orbits around what the camera looks
- * at, as do the arrow keys held, within the same limits, and the wheel
- * zooms.  While the trailing camera is switched on, the camera also turns
- * softly round behind the way what it looks at goes forwards, while the
- * owner leaves it alone, neither dragging it nor holding an arrow key.
+ * at, as do the arrow keys held and the other holds of the camera, within
+ * the same limits, and the wheel zooms.  While the trailing camera is
+ * switched on, the camera also turns softly round behind the way what it
+ * looks at goes forwards, while the owner leaves it alone, neither
+ * dragging it nor holding it otherwise.
  *
  * @param {Scene} scene - The scene to show at first.
  * @param {GroundVector} focus - Where what the camera looks at stands at
  *   first.
  * @param {Readonly<TrailingCameraSettings>} trailing - How the owner has
  *   the camera turn after what it looks at, as set at every frame.
- * @param {CameraKeys} keys - The arrow keys held down to turn the camera,
- *   as they are at every frame.
+ * @param {readonly CameraHold[]} holds - What the owner holds to turn the
+ *   camera, the arrow keys among them, as they are at every frame.
  * @param {(seconds: number) => void} update - Called before every frame is
  *   drawn, with the time since the last one, in seconds.
  * @returns {Viewport} The view.
@@ -135,7 +144,7 @@ export function showScene(
   scene: Scene,
   focus: GroundVector,
   trailing: Readonly<TrailingCameraSettings>,
-  keys: CameraKeys,
+  holds: readonly CameraHold[],
   update: (seconds: number) => void,
 ): Viewport {
   const renderer = new WebGLRenderer({ antialias: true });
@@ -183,13 +192,16 @@ export function showScene(
     isHeld = false;
   });
   const steerCamera = (seconds: number): void => {
-    // The arrow keys held turn the camera as a drag does.
-    const keyTurn: CameraTurn = keys.resolveTurn(seconds);
-    if (keyTurn.orbit !== 0) {
-      controls.rotateLeft(MathUtils.degToRad(keyTurn.orbit));
-    }
-    if (keyTurn.tilt !== 0) {
-      controls.rotateUp(MathUtils.degToRad(keyTurn.tilt));
+    // The arrow keys held, and the other holds, turn the camera as a drag
+    // does.
+    for (const hold of holds) {
+      const turn: CameraTurn = hold.resolveTurn(seconds);
+      if (turn.orbit !== 0) {
+        controls.rotateLeft(MathUtils.degToRad(turn.orbit));
+      }
+      if (turn.tilt !== 0) {
+        controls.rotateUp(MathUtils.degToRad(turn.tilt));
+      }
     }
     const heading: number = readHeading();
     const steered: number = trailingCamera.steer(
@@ -197,7 +209,7 @@ export function showScene(
       { x: controls.target.x, z: controls.target.z },
       seconds,
       trailing,
-      isHeld || isTouched || keys.isHeld,
+      isHeld || isTouched || holds.some((hold: CameraHold) => hold.isHeld),
     );
     isTouched = false;
     if (steered === heading) {
@@ -238,6 +250,18 @@ export function showScene(
       camera.position.z += next.z - controls.target.z;
       controls.target.x = next.x;
       controls.target.z = next.z;
+    },
+    zoom: (factor: number): void => {
+      if (factor === 1) {
+        return;
+      }
+      const offset: Vector3 = camera.position.clone().sub(controls.target);
+      const distance: number = MathUtils.clamp(
+        offset.length() * factor,
+        controls.minDistance,
+        controls.maxDistance,
+      );
+      camera.position.copy(controls.target).add(offset.setLength(distance));
     },
     switchScene: (
       next: Scene,

@@ -602,6 +602,11 @@ canvas {
   gap: 8px;
 }
 
+/* The buttons and sticks of a control of the gamepad, centred in a line. */
+.help-caps.is-pad {
+  align-items: center;
+}
+
 /* A cluster of key caps, its lines centred as on a keyboard. */
 .help-cap-cluster {
   display: flex;
@@ -665,6 +670,186 @@ canvas {
 
 .help-label {
   line-height: 1.4;
+}
+
+/* The name of the page shown. */
+.help-subtitle {
+  min-width: 10em;
+  color: #6a4a26;
+  font: italic 16px serif;
+  text-align: center;
+}
+
+.help-controls[hidden] {
+  display: none;
+}
+
+/* A stick of a gamepad, drawn from above. */
+.help-pad-picture {
+  width: 40px;
+  height: 40px;
+}
+
+.help-pad-picture svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.help-pad-arrow {
+  fill: #7a5a30;
+}
+
+.help-pad-stick-ring {
+  fill: #3a3a3e;
+  stroke: #1e1e22;
+  stroke-width: 2;
+}
+
+.help-pad-stick-cap {
+  fill: #55555b;
+  stroke: #26262a;
+  stroke-width: 2;
+}
+
+.help-pad-stick-label {
+  fill: #f2f2f2;
+  font: bold 14px sans-serif;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+/* A face button of a gamepad, round and coloured as on a Logitech F310. */
+.help-pad-face {
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #1e1e22;
+  border-radius: 50%;
+  background: #2c2c30;
+  font: bold 15px/24px sans-serif;
+  text-align: center;
+  box-shadow: 0 2px 0 rgb(0 0 0 / 35%);
+}
+
+.help-pad-face.is-a {
+  color: #4fd04a;
+}
+
+.help-pad-face.is-b {
+  color: #f0443a;
+}
+
+.help-pad-face.is-x {
+  color: #3f8cf0;
+}
+
+.help-pad-face.is-y {
+  color: #f5c518;
+}
+
+/* A shoulder button of a gamepad. */
+.help-pad-shoulder {
+  box-sizing: border-box;
+  min-width: 36px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #1e1e22;
+  border-radius: 10px 10px 4px 4px;
+  background: #3a3a3e;
+  color: #f2f2f2;
+  font: bold 12px/22px sans-serif;
+  text-align: center;
+  box-shadow: 0 2px 0 rgb(0 0 0 / 35%);
+}
+
+/* The Start button of a gamepad, small and oval. */
+.help-pad-start {
+  box-sizing: border-box;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid #1e1e22;
+  border-radius: 10px;
+  background: #3a3a3e;
+  color: #f2f2f2;
+  font: bold 10px/18px sans-serif;
+  letter-spacing: 0.05em;
+  text-align: center;
+  box-shadow: 0 2px 0 rgb(0 0 0 / 35%);
+}
+
+/*
+ * Under the title, the arrows that turn to the page before and after, with
+ * the name of the page shown and a dot for each page between them, the dot
+ * of the page shown filled.
+ */
+.help-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 12px;
+}
+
+.help-previous,
+.help-next {
+  position: relative;
+  width: 28px;
+  height: 26px;
+  box-sizing: border-box;
+  border: 1px solid #7a5a30;
+  border-bottom-width: 3px;
+  border-radius: 6px;
+  background: #e6cf98;
+  cursor: pointer;
+}
+
+.help-previous::before,
+.help-next::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+}
+
+.help-previous::before {
+  transform: translate(-60%, -50%);
+  border-right: 10px solid #5a3a1c;
+}
+
+.help-next::before {
+  transform: translate(-40%, -50%);
+  border-left: 10px solid #5a3a1c;
+}
+
+.help-previous:hover,
+.help-next:hover {
+  background: #f0dcab;
+}
+
+.help-previous.is-disabled,
+.help-next.is-disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.help-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.help-dot {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 1.5px solid #7a5a30;
+  border-radius: 50%;
+}
+
+.help-dot.is-current {
+  background: #7a5a30;
 }
 
 /* The button at the foot of the sheet that closes it. */

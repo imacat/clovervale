@@ -91,7 +91,13 @@ import { EdwinCall, areDogsDead, isOnScreen } from './edwin-call.ts';
 import { EventSchedule } from './event-schedule.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
-import { HelpSheet, openHelpOnFirstVisit } from './help-sheet.ts';
+import { Gamepads, findPadKey } from './gamepad.ts';
+import type { PadButton, PadScreen, PadState } from './gamepad.ts';
+import {
+  GAMEPAD_PAGE,
+  HelpSheet,
+  openHelpOnFirstVisit,
+} from './help-sheet.ts';
 import { createHelpView } from './help-view.ts';
 import type { HelpView } from './help-view.ts';
 import { HitMarkers } from './hit-markers.ts';
@@ -143,6 +149,7 @@ import {
   MoveKeys,
   chooseSpaceInput,
   findKeyCommand,
+  orientWalk,
 } from './player-input.ts';
 import type { KeyCommand } from './player-input.ts';
 import {
@@ -391,12 +398,20 @@ const exclamation = new TobyExclamation();
 const fade = createMapFade(document.body);
 /** The arrow keys held down to turn the camera. */
 const cameraKeys = new CameraKeys();
+/** The gamepads connected, as last read. */
+const gamepads = new Gamepads();
+/**
+ * Whether the browser has told of a gamepad connected, before which the
+ * gamepads are not read at all.
+ */
+let isPadConnected = false;
 const viewport: Viewport = showScene(
   scene,
   findSpawnPoint(0),
   panel.trailingCamera,
-  cameraKeys,
+  [cameraKeys, gamepads],
   (seconds: number) => {
+    readGamepads(seconds);
     sendMove();
     showPlayers();
     showTimeOfDay();
@@ -603,12 +618,76 @@ function carryOutItemAction(request: ItemRequest): void {
 
 /**
  * Holds the controls of play while the bag, the help sheet or a dialogue
- * opens: the keys held down walk the player and turn the camera no more.
+ * opens: the keys held down walk the player and turn the camera no more,
+ * and the gamepads walk, turn and zoom no more while it stays open; a left
+ * stick pushed then chooses nothing until it has come back to the centre.
  */
 function holdPlay(): void {
   moveKeys.releaseAllKeys();
   cameraKeys.releaseAllKeys();
+  gamepads.isPaused = true;
+  gamepads.holdStickChoice();
   sendMove();
+}
+
+/**
+ * Tells what is open on the page, as it tells what the buttons of the
+ * gamepads do.
+ *
+ * @returns {PadScreen} What is open.
+ */
+function findPadScreen(): PadScreen {
+  if (dialogueBox.isOpen || bag.isOpen) {
+    return 'choice';
+  }
+  return helpSheet.isOpen ? 'help' : 'play';
+}
+
+/**
+ * Reads the gamepads connected, and carries out the buttons pressed on
+ * them, as the keys they act as; Start opens the help sheet at the page of
+ * the gamepad.  The gamepads walk, turn and zoom only while nothing is open
+ * on the page.  Nothing is read until the browser tells of a gamepad
+ * connected.
+ *
+ * @param {number} seconds - The time since they were last read, in seconds.
+ */
+function readGamepads(seconds: number): void {
+  if (!isPadConnected) {
+    return;
+  }
+  let states: readonly (PadState | null)[] = [];
+  try {
+    // A browser without the Gamepad API, or one that keeps it from the
+    // page, has no pads.
+    if (typeof navigator.getGamepads === 'function') {
+      states = navigator.getGamepads();
+    }
+  } catch {
+    states = [];
+  }
+  for (const button of gamepads.readPads(states, seconds)) {
+    pressPadButton(button);
+  }
+  gamepads.isPaused = findPadScreen() !== 'play';
+  viewport.zoom(gamepads.resolveZoom(seconds));
+}
+
+/**
+ * Carries out a button pressed on a gamepad, as the key it acts as.
+ *
+ * @param {PadButton} button - The button.
+ */
+function pressPadButton(button: PadButton): void {
+  const screen: PadScreen = findPadScreen();
+  if (button === 'start' && screen !== 'help' && !dialogueBox.isOpen) {
+    openHelp(GAMEPAD_PAGE);
+    return;
+  }
+  const code: string | null = findPadKey(button, screen);
+  if (code !== null) {
+    pressGameKey(code, false);
+  }
 }
 
 /**
@@ -638,25 +717,35 @@ function clickHelpButton(): void {
   openHelp();
 }
 
-/** Opens the help sheet, closing the bag, and holds the controls of play. */
-function openHelp(): void {
+/**
+ * Opens the help sheet, closing the bag, and holds the controls of play.
+ *
+ * @param {number} [page] - The page to open it at, the page of the keyboard
+ *   by default.
+ */
+function openHelp(page?: number): void {
   if (bag.isOpen) {
     bag.clickIcon();
     bagView.render();
   }
-  helpSheet.open();
+  helpSheet.open(page);
   holdPlay();
   helpView.render();
 }
 
 /**
- * Tells the server which way the keys held down move the player, if that
- * has changed since the server was last told.
+ * Tells the server which way the keys held down move the player, or the
+ * left sticks of the gamepads while no walking key is held, if that has
+ * changed since the server was last told.
  */
 function sendMove(): void {
-  const direction: GroundVector = moveKeys.resolveDirection(
-    viewport.getHeading(),
-  );
+  const heading: number = viewport.getHeading();
+  const keyDirection: GroundVector = moveKeys.resolveDirection(heading);
+  let direction: GroundVector = keyDirection;
+  if (keyDirection.x === 0 && keyDirection.z === 0) {
+    const { ahead, aside } = gamepads.resolveWalk();
+    direction = orientWalk(ahead, aside, heading);
+  }
   const isSame: boolean =
     direction.x === sentDirection.x && direction.z === sentDirection.z;
   if (!isSame && sendInput({ type: 'move', direction })) {
@@ -1300,51 +1389,55 @@ void connectToServer();
 relabelPage();
 translator.addListener(relabelPage);
 
-window.addEventListener('keydown', (event: KeyboardEvent) => {
-  if (event.altKey || event.ctrlKey || event.metaKey) {
-    return;
-  }
+/**
+ * Carries out a key pressed, from the keyboard or as a button of a gamepad
+ * acts as it.
+ *
+ * @param {string} code - The code of the key, as in a keyboard event.
+ * @param {boolean} isRepeat - Whether the key is held down and repeats.
+ * @returns {boolean} Whether the game took the key, which is then for
+ *   nothing else, the browser included.
+ */
+function pressGameKey(code: string, isRepeat: boolean): boolean {
   // The dialogue box takes every key of the game while it is open, so that
   // the player neither moves nor does anything else, and leaves every other
   // key to the browser.
-  const answer: DialogueResponse = dialogueBox.pressKey(event.code);
+  const answer: DialogueResponse = dialogueBox.pressKey(code);
   if (answer.isHandled) {
-    event.preventDefault();
     if (answer.request !== null) {
       sendInput(answer.request);
     }
     dialogueView.render();
-    return;
+    return true;
   }
   if (dialogueBox.isOpen) {
-    return;
+    return false;
   }
   // The help sheet comes next: the H key opens it over the bag, and while
   // it is open, it takes every key of the game, and leaves every other key
   // to the browser.
-  if (event.code === 'KeyH' || helpSheet.isOpen) {
-    if (event.repeat && event.code === 'KeyH') {
-      event.preventDefault();
-      return;
+  if (code === 'KeyH' || helpSheet.isOpen) {
+    if (isRepeat && code === 'KeyH') {
+      return true;
     }
     if (!helpSheet.isOpen) {
-      event.preventDefault();
       openHelp();
-    } else if (helpSheet.pressKey(event.code)) {
-      event.preventDefault();
-      helpView.render();
+      return true;
     }
-    return;
+    if (!helpSheet.pressKey(code)) {
+      return false;
+    }
+    helpView.render();
+    return true;
   }
   // The bag takes its keys next, so that while it is open the arrow keys,
   // Enter and Esc do nothing else, and the keys of play do nothing at all.
   const wasOpen: boolean = bag.isOpen;
   const response: BagResponse =
-    event.repeat && event.code === 'KeyI'
+    isRepeat && code === 'KeyI'
       ? { isHandled: true, request: null }
-      : bag.pressKey(event.code);
+      : bag.pressKey(code);
   if (response.isHandled) {
-    event.preventDefault();
     if (response.request !== null) {
       carryOutItemAction(response.request);
     }
@@ -1352,36 +1445,31 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
       holdPlay();
     }
     bagView.render();
-    return;
+    return true;
   }
   if (bag.isOpen) {
-    if (findKeyCommand(event.code) !== null) {
-      event.preventDefault();
-    }
-    return;
+    return findKeyCommand(code) !== null;
   }
-  if (cameraKeys.pressKey(event.code)) {
-    event.preventDefault();
-    return;
+  if (cameraKeys.pressKey(code)) {
+    return true;
   }
-  const command: KeyCommand | null = findKeyCommand(event.code);
+  const command: KeyCommand | null = findKeyCommand(code);
   if (command === null) {
-    return;
+    return false;
   }
-  event.preventDefault();
   if (command !== 'interact') {
-    moveKeys.pressKey(event.code);
+    moveKeys.pressKey(code);
     sendMove();
-    return;
+    return true;
   }
   // A dead player cannot interact, and is not to once it is back for a key
   // pressed while it was dead.
   if (
-    event.repeat ||
+    isRepeat ||
     prediction === null ||
     prediction.motion.action === 'Die'
   ) {
-    return;
+    return true;
   }
   // The space bar picks what the prompt tells it picks, as the page knows
   // it now; whether anything comes of it is for the server to decide.
@@ -1395,11 +1483,24 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
       timeline.latestMonsters ?? [],
     ),
   );
+  return true;
+}
+
+window.addEventListener('keydown', (event: KeyboardEvent) => {
+  if (event.altKey || event.ctrlKey || event.metaKey) {
+    return;
+  }
+  if (pressGameKey(event.code, event.repeat)) {
+    event.preventDefault();
+  }
 });
 window.addEventListener('keyup', (event: KeyboardEvent) => {
   moveKeys.releaseKey(event.code);
   cameraKeys.releaseKey(event.code);
   sendMove();
+});
+window.addEventListener('gamepadconnected', () => {
+  isPadConnected = true;
 });
 window.addEventListener('blur', () => {
   moveKeys.releaseAllKeys();

@@ -28,6 +28,13 @@ import { isGameKey } from './player-input.ts';
 /** The key the first visit is remembered by. */
 const STORAGE_KEY = 'clovervale.helpSeen';
 
+/** The number of pages of the help sheet. */
+export const HELP_PAGE_COUNT = 2;
+/** The page of the help sheet that tells the keyboard and the mouse. */
+export const KEYBOARD_PAGE = 0;
+/** The page of the help sheet that tells the gamepad. */
+export const GAMEPAD_PAGE = 1;
+
 /** The keys that close the help sheet. */
 const CLOSE_KEYS: ReadonlySet<string> = new Set([
   'Escape',
@@ -37,15 +44,17 @@ const CLOSE_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The help sheet: whether it is open.
+ * The help sheet: whether it is open, and the page it is open at.
  *
- * The H key opens the sheet.  While it is open, Esc, Enter and the H key
- * close it, and it takes every other key of the game too, so that nothing
- * else on the page does anything with it, and leaves every other key to the
- * browser.
+ * The H key opens the sheet, at the page of the keyboard.  While it is
+ * open, Esc, Enter and the H key close it, the left and right arrows turn
+ * to the page before and after, stopping at the first and the last, and it
+ * takes every other key of the game too, so that nothing else on the page
+ * does anything with it, and leaves every other key to the browser.
  */
 export class HelpSheet {
   #isOpen = false;
+  #page: number = KEYBOARD_PAGE;
 
   /**
    * Whether the sheet is open.
@@ -56,9 +65,36 @@ export class HelpSheet {
     return this.#isOpen;
   }
 
-  /** Opens the sheet, if it is closed. */
-  open(): void {
+  /**
+   * The page the sheet is open at, or was last open at.
+   *
+   * @returns {number} The page, from 0.
+   */
+  get page(): number {
+    return this.#page;
+  }
+
+  /**
+   * Opens the sheet, at a page.
+   *
+   * @param {number} [page] - The page, the page of the keyboard by default.
+   */
+  open(page: number = KEYBOARD_PAGE): void {
     this.#isOpen = true;
+    this.#page = KEYBOARD_PAGE;
+    this.turnToPage(page);
+  }
+
+  /**
+   * Turns the open sheet to a page, or to the first or the last page for a
+   * page before or after them.  A closed sheet stays as it is.
+   *
+   * @param {number} page - The page, from 0.
+   */
+  turnToPage(page: number): void {
+    if (this.#isOpen) {
+      this.#page = Math.min(Math.max(page, 0), HELP_PAGE_COUNT - 1);
+    }
   }
 
   /** Closes the sheet, if it is open. */
@@ -78,11 +114,15 @@ export class HelpSheet {
       if (code !== 'KeyH') {
         return false;
       }
-      this.#isOpen = true;
+      this.open();
       return true;
     }
     if (CLOSE_KEYS.has(code)) {
       this.#isOpen = false;
+    } else if (code === 'ArrowLeft') {
+      this.turnToPage(this.#page - 1);
+    } else if (code === 'ArrowRight') {
+      this.turnToPage(this.#page + 1);
     }
     return isGameKey(code);
   }

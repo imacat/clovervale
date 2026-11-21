@@ -181,17 +181,39 @@ export class MoveKeys {
     );
     const count = (command: KeyCommand): number =>
       commands.has(command) ? 1 : 0;
-    const ahead: number = count('forward') - count('backward');
-    const aside: number = count('right') - count('left');
-    const length: number = Math.hypot(ahead, aside);
-    if (length === 0) {
-      return { x: 0, z: 0 };
-    }
-    const turn: number = (heading * Math.PI) / 180;
-    const x: number = ahead * Math.sin(turn) - aside * Math.cos(turn);
-    const z: number = ahead * Math.cos(turn) + aside * Math.sin(turn);
-    return { x: roundPart(x / length), z: roundPart(z / length) };
+    return orientWalk(
+      count('forward') - count('backward'),
+      count('right') - count('left'),
+      heading,
+    );
   }
+}
+
+/**
+ * Resolves the direction a walk forwards or backwards and aside moves the
+ * player in, as the walking keys do.  Forward is the way the camera looks.
+ *
+ * @param {number} ahead - How far forwards, negative backwards.
+ * @param {number} aside - How far to the right, negative to the left.
+ * @param {number} heading - The way the camera looks along the ground, as
+ *   the turn around the Y axis from +Z towards +X, in degrees.
+ * @returns {GroundVector} The direction, one metre long and rounded to a
+ *   few decimal places, or without length if the player is to stand
+ *   still.
+ */
+export function orientWalk(
+  ahead: number,
+  aside: number,
+  heading: number,
+): GroundVector {
+  const length: number = Math.hypot(ahead, aside);
+  if (length === 0) {
+    return { x: 0, z: 0 };
+  }
+  const turn: number = (heading * Math.PI) / 180;
+  const x: number = ahead * Math.sin(turn) - aside * Math.cos(turn);
+  const z: number = ahead * Math.cos(turn) + aside * Math.sin(turn);
+  return { x: roundPart(x / length), z: roundPart(z / length) };
 }
 
 /**

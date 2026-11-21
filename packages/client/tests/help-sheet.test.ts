@@ -24,7 +24,13 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { HelpSheet, openHelpOnFirstVisit } from '../src/help-sheet.ts';
+import {
+  GAMEPAD_PAGE,
+  HELP_PAGE_COUNT,
+  HelpSheet,
+  KEYBOARD_PAGE,
+  openHelpOnFirstVisit,
+} from '../src/help-sheet.ts';
 import type { LanguageStorage } from '../src/language.ts';
 
 /**
@@ -114,6 +120,63 @@ describe('a help sheet', () => {
     expect(sheet.isOpen).toBe(true);
     sheet.close();
     expect(sheet.isOpen).toBe(false);
+  });
+
+  it('has a page of the keyboard and a page of the gamepad', () => {
+    expect(HELP_PAGE_COUNT).toBe(2);
+    expect(KEYBOARD_PAGE).toBe(0);
+    expect(GAMEPAD_PAGE).toBe(1);
+  });
+
+  it('opens on the page of the keyboard unless told another', () => {
+    const sheet = new HelpSheet();
+    sheet.pressKey('KeyH');
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
+    sheet.close();
+    sheet.open(GAMEPAD_PAGE);
+    expect(sheet.page).toBe(GAMEPAD_PAGE);
+    sheet.close();
+    sheet.open();
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
+  });
+
+  it('turns its pages with the left and right arrows, within its pages', () => {
+    const sheet: HelpSheet = openSheet();
+    expect(sheet.pressKey('ArrowLeft')).toBe(true);
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
+    expect(sheet.pressKey('ArrowRight')).toBe(true);
+    expect(sheet.page).toBe(GAMEPAD_PAGE);
+    expect(sheet.pressKey('ArrowRight')).toBe(true);
+    expect(sheet.page).toBe(GAMEPAD_PAGE);
+    expect(sheet.pressKey('ArrowLeft')).toBe(true);
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
+    expect(sheet.isOpen).toBe(true);
+  });
+
+  it('does not turn its pages with the up and down arrows', () => {
+    const sheet: HelpSheet = openSheet();
+    sheet.pressKey('ArrowDown');
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
+    sheet.turnToPage(GAMEPAD_PAGE);
+    sheet.pressKey('ArrowUp');
+    expect(sheet.page).toBe(GAMEPAD_PAGE);
+  });
+
+  it('turns to a page when told, keeping within its pages', () => {
+    const sheet: HelpSheet = openSheet();
+    sheet.turnToPage(GAMEPAD_PAGE);
+    expect(sheet.page).toBe(GAMEPAD_PAGE);
+    sheet.turnToPage(HELP_PAGE_COUNT);
+    expect(sheet.page).toBe(GAMEPAD_PAGE);
+    sheet.turnToPage(-1);
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
+  });
+
+  it('does not turn its pages while it is closed', () => {
+    const sheet = new HelpSheet();
+    expect(sheet.pressKey('ArrowRight')).toBe(false);
+    sheet.turnToPage(GAMEPAD_PAGE);
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
   });
 });
 

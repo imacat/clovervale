@@ -164,8 +164,12 @@ interface HelpLook {
   readonly title: string;
   /** The words on the button at the foot of the sheet. */
   readonly ok: string;
-  /** What each control the sheet lists does. */
+  /** What each control the page of the sheet shown lists does. */
   readonly labels: readonly string[];
+  /** The page of the sheet shown, from 0, or -1 if no page is marked. */
+  readonly page: number;
+  /** The name of the page shown. */
+  readonly subtitle: string;
   /** The key shown on the button of the sheet, or `null` if none is. */
   readonly buttonKey: string | null;
   /** Whether the bag is open. */
@@ -902,9 +906,18 @@ const ZH_TW_NAME = '正體中文';
 /** The name of English, as the language control offers it. */
 const EN_NAME = 'English';
 /** The title of the help sheet, and its button that closes it. */
-const HELP_WORDS = { title: 'Controls', ok: 'OK' } as const;
+const HELP_WORDS = {
+  title: 'Controls',
+  ok: 'OK',
+  keyboard: 'Keyboard and mouse',
+  gamepad: 'Gamepad',
+} as const;
 /** The title of the help sheet, and its button, in Traditional Chinese. */
-const ZH_TW_HELP_WORDS = { title: '操作說明', ok: '確認' } as const;
+const ZH_TW_HELP_WORDS = {
+  title: '操作說明',
+  ok: '確認',
+  gamepad: '遊戲手把',
+} as const;
 /** How many controls the help sheet lists. */
 const HELP_CONTROL_COUNT = 8;
 /** The key values WebDriver gives the keys the help sheet takes. */
@@ -912,7 +925,65 @@ const HELP_KEYS = {
   help: 'h',
   enter: '\uE007',
   escape: '\uE00C',
+  left: '\uE012',
+  right: '\uE014',
 } as const;
+/** The places of the buttons of a gamepad of the standard mapping. */
+const PAD_BUTTONS = { a: 0, b: 1, y: 3, lb: 4, rb: 5, start: 9 } as const;
+/** How long a button of the fake gamepad is held down, in milliseconds. */
+const PAD_PRESS_DURATION = 200;
+/** How far the left stick of the fake gamepad is to walk the player. */
+const PAD_WALK_DISTANCE = 0.5;
+/**
+ * The ways the left stick of the fake gamepad is pushed in turn to walk the
+ * player, as the place of an axis and its value: forwards, backwards, to
+ * the left and to the right.
+ */
+const PAD_WALK_PUSHES: readonly (readonly [number, number])[] = [
+  [1, -1],
+  [1, 1],
+  [0, -1],
+  [0, 1],
+];
+/** How long the left stick is pushed each way at most, in milliseconds. */
+const PAD_WALK_TIMEOUT = 3000;
+/** How far the right stick of the fake gamepad is to turn the view. */
+const PAD_ORBIT = 15;
+/**
+ * The expression that has a page see a fake gamepad of the standard
+ * mapping, held as `window.fakePad` tells, instead of those of the browser,
+ * and tells the page it is connected.
+ */
+const FAKE_PAD_EXPRESSION = `(() => {
+  window.fakePad = {
+    connected: true,
+    axes: [0, 0, 0, 0],
+    buttons: Array.from({ length: 17 }, () => false),
+  };
+  Object.defineProperty(navigator, 'getGamepads', {
+    configurable: true,
+    value: () =>
+      window.fakePad.connected
+        ? [
+            {
+              index: 0,
+              id: 'Fake pad',
+              connected: true,
+              mapping: 'standard',
+              timestamp: performance.now(),
+              axes: [...window.fakePad.axes],
+              buttons: window.fakePad.buttons.map((pressed) => ({
+                pressed,
+                touched: pressed,
+                value: pressed ? 1 : 0,
+              })),
+            },
+          ]
+        : [],
+  });
+  window.dispatchEvent(new Event('gamepadconnected'));
+  return '';
+})()`;
 /** The codes of keys of the browser the game does not use. */
 const BROWSER_KEYS: readonly string[] = ['F5', 'F11', 'F12', 'Tab'];
 /** The expression that tells how a page shows its help sheet, as JSON. */
@@ -924,9 +995,13 @@ const HELP_EXPRESSION = `(() => {
     isOpen: sheet !== null && !sheet.hidden,
     title: document.querySelector('.help-title')?.textContent ?? '',
     ok: document.querySelector('.help-ok')?.textContent ?? '',
-    labels: [...document.querySelectorAll('.help-label')].map(
-      (label) => label.textContent,
+    labels: [
+      ...document.querySelectorAll('.help-controls:not([hidden]) .help-label'),
+    ].map((label) => label.textContent),
+    page: [...document.querySelectorAll('.help-dot')].findIndex((dot) =>
+      dot.classList.contains('is-current'),
     ),
+    subtitle: document.querySelector('.help-subtitle')?.textContent ?? '',
     buttonKey: button?.querySelector('.help-key')?.textContent ?? null,
     isBagOpen: bag !== null && !bag.hidden,
     heading: window.clovervale.describeHeading(),
@@ -1799,7 +1874,10 @@ async function startFirefox(): Promise<string> {
     path.join(profileDir, 'user.js'),
     'user_pref("media.volume_scale", "0.0");\n' +
       // The pages speak English, whatever language the system has.
-      `user_pref("intl.accept_languages", "${PAGE_LANGUAGE}");\n`,
+      `user_pref("intl.accept_languages", "${PAGE_LANGUAGE}");\n` +
+      // The pages see no gamepad connected to the machine, but only the
+      // fake one the checks give them.
+      'user_pref("dom.gamepad.enabled", false);\n',
   );
   const args: string[] = [
     '--headless',
@@ -4335,7 +4413,8 @@ async function readHelpLook(
 function describeHelpLook(look: HelpLook): string {
   return (
     `the help sheet ${look.isOpen ? 'open' : 'closed'}, titled ` +
-    `"${look.title}" with "${look.ok}" at its foot and ` +
+    `"${look.title}" at page ${String(look.page)} "${look.subtitle}" ` +
+    `with "${look.ok}" at its foot and ` +
     `${String(look.labels.length)} controls, its button keyed ` +
     `"${String(look.buttonKey)}", and the bag ` +
     (look.isBagOpen ? 'open' : 'closed')
@@ -4440,6 +4519,8 @@ async function checkHelp(
     first.title !== HELP_WORDS.title ||
     first.ok !== HELP_WORDS.ok ||
     first.labels.length !== HELP_CONTROL_COUNT ||
+    first.page !== 0 ||
+    first.subtitle !== HELP_WORDS.keyboard ||
     first.buttonKey !== 'H'
   ) {
     throw new Error(
@@ -4564,6 +4645,233 @@ async function checkHelp(
   );
   await press(HELP_KEYS.escape);
   await expectOpen(false, 'Esc pressed on the help sheet over the bag');
+}
+
+/**
+ * Checks the gamepad and the pages of the help sheet, with a fake gamepad
+ * of the standard mapping in place of those of the browser: that the H key
+ * opens the sheet at the page of the keyboard, which the right and left
+ * arrows and the arrows on the sheet turn; that Start opens it at the page
+ * of the gamepad, worded in English and in Traditional Chinese, LB and RB
+ * turn its pages and B closes it, as A does; that Y opens and B closes the bag, in
+ * which the left stick pushed sideways moves the cursor one slot; that the
+ * left stick walks the player and the right stick turns the view; and
+ * that the player, walking whichever way is open, stops once the pad is
+ * gone.  The sheet and the bag are
+ * left closed, and the pad gone.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player of the page.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page does not do so.
+ */
+async function checkGamepad(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const look = (): Promise<HelpLook> => readHelpLook(session, context);
+  const run = async (script: string): Promise<void> => {
+    await evaluateInPage(
+      session,
+      context,
+      `(() => { ${script}; return ''; })()`,
+    );
+  };
+  const press = async (key: string): Promise<void> => {
+    await sendKey(session, context, 'keyDown', key);
+    await sendKey(session, context, 'keyUp', key);
+  };
+  const pressPad = async (button: number): Promise<void> => {
+    await run(`window.fakePad.buttons[${String(button)}] = true`);
+    await sleep(PAD_PRESS_DURATION);
+    await run(`window.fakePad.buttons[${String(button)}] = false`);
+    await sleep(PAD_PRESS_DURATION);
+  };
+  const expectLook = async (
+    isAwaited: (seen: HelpLook) => boolean,
+    what: string,
+  ): Promise<HelpLook> =>
+    waitFor(
+      look,
+      isAwaited,
+      ACTION_TIMEOUT,
+      (seen: HelpLook) =>
+        `With ${what}, the page tells ${describeHelpLook(seen)}.`,
+    );
+  const expectPage = (page: number, what: string): Promise<HelpLook> =>
+    expectLook(
+      (seen: HelpLook) =>
+        seen.isOpen &&
+        seen.page === page &&
+        seen.labels.length === HELP_CONTROL_COUNT,
+      what,
+    );
+
+  await press(HELP_KEYS.help);
+  await expectPage(0, 'H pressed');
+  await press(HELP_KEYS.right);
+  await expectPage(1, 'the right arrow pressed on the help sheet');
+  await press(HELP_KEYS.left);
+  await expectPage(0, 'the left arrow pressed on the help sheet');
+  await run(`document.querySelector('.help-next')?.click()`);
+  await expectPage(1, 'the arrow to the next page clicked');
+  await run(`document.querySelector('.help-previous')?.click()`);
+  await expectPage(0, 'the arrow to the page before clicked');
+  await press(HELP_KEYS.escape);
+  await expectLook((seen: HelpLook) => !seen.isOpen, 'Esc pressed');
+
+  await evaluateInPage(session, context, FAKE_PAD_EXPRESSION);
+  await pressPad(PAD_BUTTONS.start);
+  await expectLook(
+    (seen: HelpLook) =>
+      seen.isOpen &&
+      seen.page === 1 &&
+      seen.subtitle === HELP_WORDS.gamepad &&
+      seen.labels.length === HELP_CONTROL_COUNT,
+    'Start pressed on the gamepad',
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'help-gamepad-en.png');
+  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
+  await expectLook(
+    (seen: HelpLook) =>
+      seen.isOpen &&
+      seen.page === 1 &&
+      seen.title === ZH_TW_HELP_WORDS.title &&
+      seen.subtitle === ZH_TW_HELP_WORDS.gamepad,
+    `"${ZH_TW_NAME}" chosen on the page of the gamepad`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'help-gamepad-zh-tw.png');
+  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
+  await expectLook(
+    (seen: HelpLook) => seen.title === HELP_WORDS.title,
+    `"${EN_NAME}" chosen again`,
+  );
+  await pressPad(PAD_BUTTONS.lb);
+  await expectPage(0, 'LB pressed on the help sheet');
+  await pressPad(PAD_BUTTONS.rb);
+  await expectPage(1, 'RB pressed on the help sheet');
+  await pressPad(PAD_BUTTONS.b);
+  await expectLook((seen: HelpLook) => !seen.isOpen, 'B pressed on the help');
+  await pressPad(PAD_BUTTONS.start);
+  await expectLook((seen: HelpLook) => seen.isOpen, 'Start pressed again');
+  await pressPad(PAD_BUTTONS.a);
+  await expectLook((seen: HelpLook) => !seen.isOpen, 'A pressed on the help');
+  await pressPad(PAD_BUTTONS.y);
+  await expectLook(
+    (seen: HelpLook) => seen.isBagOpen && !seen.isOpen,
+    'Y pressed on the gamepad',
+  );
+  const readCursor = async (): Promise<number> =>
+    Number(
+      await evaluateInPage(
+        session,
+        context,
+        `String([...document.querySelectorAll('.bag-slot')].findIndex(
+          (slot) => slot.classList.contains('is-cursor'),
+        ))`,
+      ),
+    );
+  const columns: number = Math.round(
+    Math.sqrt(
+      Number(
+        await evaluateInPage(
+          session,
+          context,
+          `String(document.querySelectorAll('.bag-slot').length)`,
+        ),
+      ),
+    ),
+  );
+  const cursor: number = await readCursor();
+  // The stick is pushed towards a slot beside the cursor in its row.
+  const step: number = cursor % columns === columns - 1 ? -1 : 1;
+  await run(`window.fakePad.axes[0] = ${String(step)}`);
+  await sleep(PAD_PRESS_DURATION);
+  await run('window.fakePad.axes[0] = 0');
+  await sleep(PAD_PRESS_DURATION);
+  const moved: number = await readCursor();
+  if (moved !== cursor + step) {
+    throw new Error(
+      'With the left stick of the gamepad pushed sideways in the bag, the ' +
+        `page moves its cursor from slot ${String(cursor)} to ` +
+        `${String(moved)}.`,
+    );
+  }
+  await pressPad(PAD_BUTTONS.b);
+  await expectLook((seen: HelpLook) => !seen.isBagOpen, 'B pressed on the bag');
+
+  const findOwn = (seen: HelpLook): FigureView | undefined =>
+    seen.figures.find((figure: FigureView) => figure.id === id);
+  const before: HelpLook = await look();
+  const start: FigureView | undefined = findOwn(before);
+  // The heading turned from the start, above -180 and up to 180 degrees.
+  const findTurn = (heading: number): number => {
+    const turn: number = (((heading - before.heading) % 360) + 360) % 360;
+    return turn > 180 ? turn - 360 : turn;
+  };
+  await run('window.fakePad.axes[2] = -1');
+  try {
+    await expectLook(
+      (seen: HelpLook) => Math.abs(findTurn(seen.heading)) >= PAD_ORBIT,
+      'the right stick of the gamepad pushed left',
+    );
+  } finally {
+    await run('window.fakePad.axes[2] = 0');
+  }
+  // Whatever stands round the player may block a way, so the stick is
+  // pushed each way in turn till the player walks.
+  const hasWalked = (seen: HelpLook): boolean => {
+    const is: FigureView | undefined = findOwn(seen);
+    return (
+      start !== undefined &&
+      is !== undefined &&
+      Math.hypot(is.x - start.x, is.z - start.z) >= PAD_WALK_DISTANCE
+    );
+  };
+  let walked: HelpLook = await look();
+  try {
+    for (const [axis, value] of PAD_WALK_PUSHES) {
+      await run(`window.fakePad.axes[${String(axis)}] = ${String(value)}`);
+      const deadline: number = Date.now() + PAD_WALK_TIMEOUT;
+      walked = await look();
+      while (!hasWalked(walked) && Date.now() < deadline) {
+        await sleep(POLL_INTERVAL);
+        walked = await look();
+      }
+      if (hasWalked(walked)) {
+        break;
+      }
+      await run(`window.fakePad.axes[${String(axis)}] = 0`);
+    }
+  } finally {
+    await run('window.fakePad.connected = false');
+  }
+  if (!hasWalked(walked)) {
+    throw new Error(
+      'With the left stick of the gamepad pushed each way, the page moves ' +
+        `its player from ${JSON.stringify(start)} to ` +
+        `${JSON.stringify(findOwn(walked))}.`,
+    );
+  }
+  await sleep(VIEW_SETTLE_DURATION);
+  const stopped: FigureView | undefined = findOwn(await look());
+  await sleep(VIEW_SETTLE_DURATION);
+  const after: FigureView | undefined = findOwn(await look());
+  if (
+    stopped === undefined ||
+    after === undefined ||
+    Math.hypot(after.x - stopped.x, after.z - stopped.z) > STANDING_DRIFT
+  ) {
+    throw new Error(
+      'With the gamepad gone while its left stick is pushed, the page ' +
+        `moves its player from ${JSON.stringify(stopped)} to ` +
+        `${JSON.stringify(after)}.`,
+    );
+  }
 }
 
 /**
@@ -6647,6 +6955,7 @@ async function checkClient(): Promise<void> {
     await checkMartha(session, first, second, id);
     await checkCamera(session, first, id, second, otherId);
     await checkCameraKeys(session, first, id);
+    await checkGamepad(session, first, id);
 
     const dayPort: number = await startGameServer([
       '--day-length',
@@ -6692,6 +7001,7 @@ try {
       'healing potion, and climb back up, have Martha come over, talk ' +
       'with her and beat her, have the ' +
       'camera follow another player, turn the camera with the arrow keys, ' +
+      'play with a gamepad, ' +
       'darken at night, preview a time of ' +
       'day on their own, and agree on the time of day.',
   );
