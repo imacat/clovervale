@@ -167,15 +167,15 @@ export const EN_MESSAGES = {
   // The lines of the villagers are written whole, each in one string, so
   // that the values they take are known.
   'villager.nancy.line.1':
-    'Wild dogs prowl outside the village, and no one dares to go out any more. What are we to do?',
+    'There are wild dogs at the village gate, and no one can go out. What are we going to do?',
   'villager.emma.name': 'Blacksmith Emma',
-  'villager.emma.line.1': 'Just a moment, let me finish this blade.',
+  'villager.emma.line.1': 'Just a moment, let me finish this blade first.',
   'villager.emma.line.2': "Don't stand too close, the sparks will catch you.",
   'villager.martha.name': 'Chief Martha',
   'villager.martha.line.1':
-    "Welcome to Clovervale. I'm Martha, the village chief. If there's anything I can help you with, just come and find me.",
+    "Welcome to Clovervale. I'm Martha, the village chief. If you need anything, just come and see me.",
   'villager.martha.line.2':
-    'That well ran dry long ago. I boarded it up so that none of the children would fall in.',
+    'That well dried up long ago, so I boarded it up to keep the children from falling in.',
   'villager.toby.name': 'Toby',
   'villager.toby.line.1':
     "Mummy says I mustn't go outside. There are wild dogs out there.",
@@ -186,27 +186,26 @@ export const EN_MESSAGES = {
   'villager.edwin.name': 'Prisoner',
   'villager.edwin.knownName': 'Envoy Edwin',
   'villager.edwin.call': 'Help! Is anyone there?',
-  'dialogue.edwin.plea': 'Help! Somebody, please help me!',
+  'dialogue.edwin.plea': 'Help! Please help me!',
   'dialogue.edwin.askWho': 'Who are you? What are you doing in there?',
   'dialogue.edwin.identity':
-    "I'm Edwin, an envoy of the kingdom. I was sent to spy on the enemy, but I got caught, and they locked me up in here.",
+    "I'm Edwin, a royal envoy. I came to spy on the enemy, but I got caught, and now I'm locked up in here.",
   'dialogue.edwin.offerKey': "Hang on, I'll find the key and get you out.",
   'dialogue.edwin.errand':
-    "No, there's no time for that. I've got news the king needs to hear right away. I've written it on this bit of cloth. Take it to the king, now. It's urgent. Hurry!",
-  'dialogue.edwin.reminder': 'Have you seen the king yet? Go on, hurry!',
+    "No, there's no time. I've got news the king has to hear right away. I've written it on this bit of cloth. Take it to him, quick. It's urgent. Go!",
+  'dialogue.edwin.reminder': "Haven't you gone to the king yet? Go on, hurry!",
   'dialogue.edwin.wonder':
-    'Have you seen the king yet? What are you still doing here?',
+    "I thought you'd gone to the king. What are you still doing here?",
   'dialogue.edwin.tellLost': 'I lost the message.',
   'dialogue.edwin.rewrite':
-    "Don't worry, I'll write it out again. Take it to the king, now. It's urgent. Hurry!",
-  'dialogue.martha.ask':
-    'Who are you? And what were you doing coming out of the well?',
+    "Never mind, I'll write another. Take it to the king, quick. It's urgent. Go!",
+  'dialogue.martha.ask': 'Who are you? What were you doing down the well?',
   'dialogue.martha.tellEnvoy':
-    "Chief! There's an envoy of the kingdom locked up down the well. Quick, go and save him!",
+    "Chief! There's a royal envoy locked up down the well. Quick, go and save him!",
   'dialogue.martha.tellPrisoner':
     "Chief! There's someone locked up down the well. Quick, go and save them!",
   'dialogue.martha.confession':
-    "So you've worked it out! I'm a spy for the enemy. That envoy of the kingdom tried to sneak off with what he'd found out, so I caught him and locked him up. Now you know too, so you can stay down there and keep him company!",
+    "Hmph, so you found out! I'm an enemy spy. That royal envoy tried to sneak off with what he'd learnt, so I caught him and locked him up. Now that you know too, you can stay and keep him company!",
 } as const;
 
 /** A message of the page. */

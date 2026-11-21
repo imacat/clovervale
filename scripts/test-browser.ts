@@ -652,8 +652,8 @@ const TALK_KEY = 'talk to Nancy';
 const TALK_PROMPT = 'Press Space to talk to Nancy';
 /** What Nancy says. */
 const NANCY_LINE =
-  'Wild dogs prowl outside the village, and no one dares to go out any ' +
-  'more. What are we to do?';
+  'There are wild dogs at the village gate, and no one can go out. What ' +
+  'are we going to do?';
 /**
  * The least position along the X axis of the way down the east side of the
  * plaza to the patch of clover east of the fountain, clear of the fountain
@@ -707,23 +707,23 @@ const ENVOY_TALK_PROMPT = 'Press Space to talk to Envoy Edwin';
 /** The dialogue box as the prisoner first pleads, in English. */
 const EDWIN_PLEA: DialogueLookView = {
   name: 'Prisoner',
-  line: 'Help! Somebody, please help me!',
+  line: 'Help! Please help me!',
   replies: ['Who are you? What are you doing in there?'],
   cursor: 0,
 };
 /** The dialogue box as the prisoner first pleads, in Traditional Chinese. */
 const ZH_TW_EDWIN_PLEA: DialogueLookView = {
   name: '囚犯',
-  line: '救命！請幫幫我！',
-  replies: ['你是誰？為什麼在這裏？'],
+  line: '救命！幫幫我！',
+  replies: ['你是誰？怎麼會在這裏？'],
   cursor: 0,
 };
 /** The dialogue box as the prisoner tells who he is, in English. */
 const EDWIN_IDENTITY: DialogueLookView = {
   name: 'Envoy Edwin',
   line:
-    "I'm Edwin, an envoy of the kingdom. I was sent to spy on the enemy, " +
-    'but I got caught, and they locked me up in here.',
+    "I'm Edwin, a royal envoy. I came to spy on the enemy, but I got " +
+    "caught, and now I'm locked up in here.",
   replies: ["Hang on, I'll find the key and get you out."],
   cursor: 0,
 };
@@ -731,16 +731,16 @@ const EDWIN_IDENTITY: DialogueLookView = {
 const EDWIN_ERRAND: DialogueLookView = {
   name: 'Envoy Edwin',
   line:
-    "No, there's no time for that. I've got news the king needs to hear " +
-    "right away. I've written it on this bit of cloth. Take it to the " +
-    "king, now. It's urgent. Hurry!",
+    "No, there's no time. I've got news the king has to hear right away. " +
+    "I've written it on this bit of cloth. Take it to him, quick. It's " +
+    'urgent. Go!',
   replies: [],
   cursor: 0,
 };
 /** What Edwin reminds a player of who carries his message, in English. */
 const EDWIN_REMINDER: SpeechWordsView = {
   name: 'Envoy Edwin',
-  line: 'Have you seen the king yet? Go on, hurry!',
+  line: "Haven't you gone to the king yet? Go on, hurry!",
 };
 /** What Edwin calls out for help once the dogs are dead, in English. */
 const EDWIN_CALL: SpeechWordsView = {
@@ -757,10 +757,10 @@ const TOKEN_NOTICE = 'You got the token of the Clovervale spy';
  */
 const MARTHA_ASK: DialogueLookView = {
   name: 'Chief Martha',
-  line: 'Who are you? And what were you doing coming out of the well?',
+  line: 'Who are you? What were you doing down the well?',
   replies: [
-    "Chief! There's an envoy of the kingdom locked up down the well. " +
-      'Quick, go and save him!',
+    "Chief! There's a royal envoy locked up down the well. Quick, go and " +
+      'save him!',
   ],
   cursor: 0,
 };
@@ -768,10 +768,9 @@ const MARTHA_ASK: DialogueLookView = {
 const MARTHA_CONFESSION: DialogueLookView = {
   name: 'Chief Martha',
   line:
-    "So you've worked it out! I'm a spy for the enemy. That envoy of the " +
-    "kingdom tried to sneak off with what he'd found out, so I caught him " +
-    'and locked him up. Now you know too, so you can stay down there and ' +
-    'keep him company!',
+    "Hmph, so you found out! I'm an enemy spy. That royal envoy tried to " +
+    "sneak off with what he'd learnt, so I caught him and locked him up. " +
+    'Now that you know too, you can stay and keep him company!',
   replies: [],
   cursor: 0,
 };
@@ -926,7 +925,7 @@ const ZH_TW_CONNECTED = '已連線';
 /** The name of Nancy in Traditional Chinese. */
 const ZH_TW_NANCY = '南茜';
 /** What Nancy says in Traditional Chinese. */
-const ZH_TW_NANCY_LINE = '村口有野狗出沒，村裏的人都無法外出了，怎麼辦？';
+const ZH_TW_NANCY_LINE = '村口有野狗，大家都沒辦法出門，怎麼辦？';
 /**
  * The furthest the foot of the bubble of what Nancy says may be from where
  * she stands along the ground, in metres.

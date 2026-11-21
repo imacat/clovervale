@@ -63,16 +63,16 @@ const MARTHA: Villager = findVillagerOf('npc-martha.glb');
 
 /** What Martha says, in English, in order. */
 const MARTHA_LINES: readonly string[] = [
-  "Welcome to Clovervale. I'm Martha, the village chief. If there's " +
-    'anything I can help you with, just come and find me.',
-  'That well ran dry long ago. I boarded it up so that none of the ' +
-    'children would fall in.',
+  "Welcome to Clovervale. I'm Martha, the village chief. If you need " +
+    'anything, just come and see me.',
+  'That well dried up long ago, so I boarded it up to keep the children ' +
+    'from falling in.',
 ];
 
 /** What Martha says, in Traditional Chinese, in order. */
 const MARTHA_LINES_ZH_TW: readonly string[] = [
-  '歡迎來到四葉谷，我是村長瑪莎，有什麼事都可以來找我幫忙。',
-  '那口井早就乾了，我封起來，免得小孩掉下去。',
+  '歡迎來到四葉谷，我是村長瑪莎，有事儘管來找我。',
+  '那口井早就乾了，我就封起來了，免得小孩掉下去。',
 ];
 
 /** Emma the blacksmith, who has two lines. */
@@ -80,13 +80,13 @@ const EMMA: Villager = findVillagerOf('npc-emma.glb');
 
 /** What Emma says, in English. */
 const EMMA_LINES: readonly string[] = [
-  'Just a moment, let me finish this blade.',
+  'Just a moment, let me finish this blade first.',
   "Don't stand too close, the sparks will catch you.",
 ];
 
 /** What Emma says, in Traditional Chinese. */
 const EMMA_LINES_ZH_TW: readonly string[] = [
-  '稍等一下，我打完這把刀。',
+  '等一下，我先打完這把刀。',
   '別站太近，火星會噴到你。',
 ];
 
@@ -110,11 +110,11 @@ const TOBY_LINES_ZH_TW: readonly string[] = [
 
 /** What Nancy says, in English. */
 const NANCY_LINE =
-  'Wild dogs prowl outside the village, and no one dares to go out any ' +
-  'more. What are we to do?';
+  'There are wild dogs at the village gate, and no one can go out. What ' +
+  'are we going to do?';
 
 /** What Nancy says, in Traditional Chinese. */
-const NANCY_LINE_ZH_TW = '村口有野狗出沒，村裏的人都無法外出了，怎麼辦？';
+const NANCY_LINE_ZH_TW = '村口有野狗，大家都沒辦法出門，怎麼辦？';
 
 /** Where Nancy stands. */
 const SPOT: Placement = findPlacement(NANCY.file);
@@ -225,10 +225,10 @@ describe('wrapText', () => {
 
   it('breaks Chinese between characters, not before punctuation', () => {
     expect(wrapText(NANCY_LINE_ZH_TW, 6, measure)).toEqual([
-      '村口有野狗出',
-      '沒，村裏的人',
-      '都無法外出',
-      '了，怎麼辦？',
+      '村口有野狗，',
+      '大家都沒辦法',
+      '出門，怎麼',
+      '辦？',
     ]);
   });
 
