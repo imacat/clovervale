@@ -22,7 +22,14 @@
  *   a villager says.
  */
 
-import { BoxGeometry, Mesh, Object3D, Sprite, Vector3 } from 'three';
+import {
+  BoxGeometry,
+  Mesh,
+  Object3D,
+  PerspectiveCamera,
+  Sprite,
+  Vector3,
+} from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { VILLAGERS, findPlacement, findTobyPose } from '@clovervale/shared';
@@ -35,7 +42,11 @@ import {
   measureSpeechDuration,
   wrapText,
 } from '../src/speech-bubble.ts';
-import type { SpeechWords } from '../src/speech-bubble.ts';
+import type {
+  SpeechScreen,
+  SpeechView,
+  SpeechWords,
+} from '../src/speech-bubble.ts';
 import { Translator } from '../src/translator.ts';
 
 /**
@@ -336,6 +347,7 @@ describe('SpeechBubble', () => {
       y,
       z: HEAD.z,
       textSize: null,
+      screen: null,
     });
   });
 
@@ -563,8 +575,12 @@ describe('SpeechBubble with Toby', () => {
 describe('SpeechBubble in views of different heights', () => {
   /** The field of view of the camera, from top to bottom, in degrees. */
   const FIELD_OF_VIEW = 40;
+  /** The width of the view of a desktop window, in CSS pixels. */
+  const DESKTOP_WIDTH = 1280;
   /** The height of the view of a desktop window, in CSS pixels. */
   const DESKTOP_HEIGHT = 800;
+  /** The width of the view of a phone held on its side, in CSS pixels. */
+  const LANDSCAPE_WIDTH = 832;
   /** The height of the view of a phone held on its side, in CSS pixels. */
   const LANDSCAPE_HEIGHT = 384;
 
@@ -591,18 +607,18 @@ describe('SpeechBubble in views of different heights', () => {
 
   it('draws a bubble as painted in a view as tall as a desktop window', () => {
     const { parent, bubble } = createBubble();
-    bubble.fitView(DESKTOP_HEIGHT, FIELD_OF_VIEW);
+    bubble.fitView(DESKTOP_WIDTH, DESKTOP_HEIGHT, FIELD_OF_VIEW);
     bubble.say(NANCY, HEAD);
     expect(findSprite(parent).scale.x).toBeCloseTo(1);
     expect(findSprite(parent).scale.y).toBeCloseTo(1);
     const size: number = bubble.describe()?.textSize ?? 0;
-    bubble.fitView(DESKTOP_HEIGHT * 1.25, FIELD_OF_VIEW);
+    bubble.fitView(DESKTOP_WIDTH, DESKTOP_HEIGHT * 1.25, FIELD_OF_VIEW);
     expect(bubble.describe()?.textSize).toBeCloseTo(size * 1.25);
   });
 
   it('keeps its words legible on a phone held on its side', () => {
     const { parent, bubble } = createBubble();
-    bubble.fitView(LANDSCAPE_HEIGHT, FIELD_OF_VIEW);
+    bubble.fitView(LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, FIELD_OF_VIEW);
     bubble.say(NANCY, HEAD);
     expect(findSprite(parent).scale.y).toBeGreaterThan(1);
     expect(findSprite(parent).scale.x).toBeCloseTo(
@@ -615,16 +631,261 @@ describe('SpeechBubble in views of different heights', () => {
   it('resizes the bubble shown once the view changes', async () => {
     const translator = new Translator();
     const { parent, bubble } = createBubble(translator);
-    bubble.fitView(DESKTOP_HEIGHT, FIELD_OF_VIEW);
+    bubble.fitView(DESKTOP_WIDTH, DESKTOP_HEIGHT, FIELD_OF_VIEW);
     bubble.say(NANCY, HEAD);
-    bubble.fitView(LANDSCAPE_HEIGHT, FIELD_OF_VIEW);
+    bubble.fitView(LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, FIELD_OF_VIEW);
     const scale: number = findSprite(parent).scale.y;
     expect(scale).toBeGreaterThan(1);
     expect(bubble.describe()?.textSize).toBeGreaterThanOrEqual(15);
     await translator.choose('zh-TW');
     bubble.relabel();
     expect(findSprite(parent).scale.y).toBeCloseTo(scale);
-    bubble.fitView(DESKTOP_HEIGHT, FIELD_OF_VIEW);
+    bubble.fitView(DESKTOP_WIDTH, DESKTOP_HEIGHT, FIELD_OF_VIEW);
     expect(findSprite(parent).scale.y).toBeCloseTo(1);
+  });
+});
+
+/** The size of a view. */
+interface ViewArea {
+  /** The width of the view, in CSS pixels. */
+  readonly width: number;
+  /** The height of the view, in CSS pixels. */
+  readonly height: number;
+}
+
+describe('SpeechBubble on the screen', () => {
+  /** The field of view of the camera, from top to bottom, in degrees. */
+  const FIELD_OF_VIEW = 40;
+  /** The view of a phone held upright, in CSS pixels. */
+  const PORTRAIT: ViewArea = { width: 384, height: 832 };
+  /** The view of a desktop window, in CSS pixels. */
+  const DESKTOP: ViewArea = { width: 1280, height: 800 };
+  /** The height of a bubble as it is drawn, in metres at one metre. */
+  const PAINTED_HEIGHT = 0.15;
+
+  /**
+   * Makes a bubble that draws each bubble as wide as it may be, and
+   * remembers how wide that was.
+   *
+   * @returns {{ bubble: SpeechBubble, widths: number[] }} The bubble, and
+   *   how wide each bubble drawn may be, in order.
+   */
+  const createWideBubble = (): {
+    bubble: SpeechBubble;
+    widths: number[];
+  } => {
+    const widths: number[] = [];
+    const bubble = new SpeechBubble(
+      new Object3D(),
+      new Translator(),
+      (_words: SpeechWords, widest: number) => {
+        widths.push(widest);
+        const sprite = new Sprite();
+        sprite.scale.set(widest * 0.001, PAINTED_HEIGHT, 1);
+        return sprite;
+      },
+    );
+    return { bubble, widths };
+  };
+
+  /**
+   * Makes a camera that looks across the village for a view.
+   *
+   * @param {ViewArea} view - The view.
+   * @returns {PerspectiveCamera} The camera.
+   */
+  const createCamera = (view: ViewArea): PerspectiveCamera => {
+    const camera = new PerspectiveCamera(
+      FIELD_OF_VIEW,
+      view.width / view.height,
+      0.5,
+      600,
+    );
+    camera.position.set(0, 8, 14);
+    camera.lookAt(0, 1, 0);
+    camera.updateMatrixWorld();
+    return camera;
+  };
+
+  /**
+   * Finds the point ten metres from a camera that it shows at a place in
+   * its view.
+   *
+   * @param {PerspectiveCamera} camera - The camera.
+   * @param {ViewArea} view - The view.
+   * @param {number} x - The place across the view, in CSS pixels.
+   * @param {number} y - The place down the view, in CSS pixels.
+   * @returns {Vector3} The point.
+   */
+  const findPointAt = (
+    camera: PerspectiveCamera,
+    view: ViewArea,
+    x: number,
+    y: number,
+  ): Vector3 => {
+    const direction: Vector3 = new Vector3(
+      (x / view.width) * 2 - 1,
+      1 - (y / view.height) * 2,
+      0.5,
+    )
+      .unproject(camera)
+      .sub(camera.position)
+      .normalize();
+    return camera.position.clone().addScaledVector(direction, 10);
+  };
+
+  /**
+   * Finds where the foot of the bubble shown is in a view.
+   *
+   * @param {SpeechView | null} speech - The bubble.
+   * @param {PerspectiveCamera} camera - The camera.
+   * @param {ViewArea} view - The view.
+   * @returns {[number, number]} The place across and down the view, in CSS
+   *   pixels.
+   */
+  const findFoot = (
+    speech: SpeechView | null,
+    camera: PerspectiveCamera,
+    view: ViewArea,
+  ): [number, number] => {
+    const foot: Vector3 = new Vector3(
+      speech?.x ?? NaN,
+      speech?.y ?? NaN,
+      speech?.z ?? NaN,
+    ).project(camera);
+    return [
+      ((foot.x + 1) / 2) * view.width,
+      ((1 - foot.y) / 2) * view.height,
+    ];
+  };
+
+  /**
+   * Shows Nancy saying her line with the foot of her bubble at a place in
+   * a view, and places the bubble on the screen.
+   *
+   * @param {ViewArea} view - The view.
+   * @param {number} x - The place of her head across the view.
+   * @param {number} y - The place of her head down the view.
+   * @returns {{ speech: SpeechView | null, foot: [number, number] }} The
+   *   bubble, and where its foot is in the view.
+   */
+  const showAt = (
+    view: ViewArea,
+    x: number,
+    y: number,
+  ): { speech: SpeechView | null; foot: [number, number] } => {
+    const { bubble } = createWideBubble();
+    const camera: PerspectiveCamera = createCamera(view);
+    bubble.fitView(view.width, view.height, FIELD_OF_VIEW);
+    bubble.say(NANCY, findPointAt(camera, view, x, y));
+    bubble.place(camera);
+    const speech: SpeechView | null = bubble.describe();
+    return { speech, foot: findFoot(speech, camera, view) };
+  };
+
+  /**
+   * Checks that a bubble lies wholly within a view.
+   *
+   * @param {SpeechScreen | null | undefined} screen - Where the bubble is.
+   * @param {ViewArea} view - The view.
+   */
+  const expectWithin = (
+    screen: SpeechScreen | null | undefined,
+    view: ViewArea,
+  ): void => {
+    expect(screen).toBeDefined();
+    expect(screen).not.toBeNull();
+    expect(screen?.left).toBeGreaterThan(0);
+    expect(screen?.top).toBeGreaterThan(0);
+    expect(screen?.right).toBeLessThan(view.width);
+    expect(screen?.tipY).toBeLessThan(view.height);
+    expect(screen?.tipX).toBeGreaterThan(screen?.left ?? NaN);
+    expect(screen?.tipX).toBeLessThan(screen?.right ?? NaN);
+  };
+
+  it('is no wider than most of the view of a phone held upright', () => {
+    const { bubble, widths } = createWideBubble();
+    bubble.say(NANCY, HEAD);
+    const widest: number | undefined = widths[0];
+    bubble.fitView(DESKTOP.width, DESKTOP.height, FIELD_OF_VIEW);
+    bubble.say(NANCY, HEAD);
+    expect(widths[1]).toBe(widest);
+    const { speech } = showAt(PORTRAIT, PORTRAIT.width / 2, 400);
+    const width: number = (speech?.screen?.right ?? NaN) -
+      (speech?.screen?.left ?? NaN);
+    expect(width).toBeLessThanOrEqual(PORTRAIT.width * 0.9);
+    expect(width).toBeGreaterThanOrEqual(PORTRAIT.width * 0.75);
+  });
+
+  it('is drawn again narrower once the view narrows', () => {
+    const { bubble, widths } = createWideBubble();
+    bubble.fitView(DESKTOP.width, DESKTOP.height, FIELD_OF_VIEW);
+    bubble.say(NANCY, HEAD);
+    bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
+    expect(widths).toHaveLength(2);
+    expect(widths[1]).toBeLessThan(widths[0] ?? NaN);
+    expect(bubble.describe()?.line).toBe(NANCY_LINE);
+    bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
+    expect(widths).toHaveLength(2);
+  });
+
+  it('stands centred above the head of a villager in mid view', () => {
+    for (const view of [PORTRAIT, DESKTOP]) {
+      const { speech, foot } = showAt(view, view.width / 2, view.height / 2);
+      const screen: SpeechScreen | null | undefined = speech?.screen;
+      expectWithin(screen, view);
+      expect(screen?.tipX).toBeCloseTo(foot[0]);
+      expect(screen?.tipY).toBeCloseTo(foot[1]);
+      expect(((screen?.left ?? NaN) + (screen?.right ?? NaN)) / 2)
+        .toBeCloseTo(foot[0]);
+    }
+  });
+
+  it('stays on the screen by the edges, pointing at the villager', () => {
+    for (const view of [PORTRAIT, DESKTOP]) {
+      for (const [x, y] of [
+        [40, view.height / 2],
+        [view.width - 40, view.height / 2],
+        [view.width / 2, 30],
+        [40, 30],
+        [view.width - 40, view.height - 5],
+      ] as const) {
+        const { speech, foot } = showAt(view, x, y);
+        expectWithin(speech?.screen, view);
+        expect(speech?.screen?.tipX).toBeCloseTo(foot[0]);
+      }
+    }
+  });
+
+  it('stays at the edge of the screen for a villager beyond it', () => {
+    for (const x of [-200, PORTRAIT.width + 200]) {
+      const { speech, foot } = showAt(PORTRAIT, x, 400);
+      const screen: SpeechScreen | null | undefined = speech?.screen;
+      expectWithin(screen, PORTRAIT);
+      expect(Math.abs((screen?.tipX ?? NaN) - foot[0])).toBeLessThan(250);
+    }
+  });
+
+  it('is not placed for a villager behind the camera', () => {
+    const { bubble } = createWideBubble();
+    const camera: PerspectiveCamera = createCamera(PORTRAIT);
+    bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
+    bubble.say(NANCY, new Vector3(0, 8, 30));
+    bubble.place(camera);
+    expect(bubble.describe()?.screen).toBeNull();
+  });
+
+  it('moves smoothly as the villager walks out of the view', () => {
+    let last: SpeechScreen | null | undefined;
+    for (let x = 100; x >= -100; x--) {
+      const screen: SpeechScreen | null | undefined = showAt(PORTRAIT, x, 400)
+        .speech?.screen;
+      expectWithin(screen, PORTRAIT);
+      if (last != null && screen != null) {
+        expect(Math.abs(screen.left - last.left)).toBeLessThan(1.5);
+        expect(Math.abs(screen.tipX - last.tipX)).toBeLessThan(1.5);
+      }
+      last = screen;
+    }
   });
 });

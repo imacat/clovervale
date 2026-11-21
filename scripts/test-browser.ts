@@ -397,6 +397,34 @@ interface SpeechView {
    * the bubble is told the view.
    */
   readonly textSize: number | null;
+  /**
+   * Where the bubble is on the screen as it was last drawn, or `null`
+   * before it is drawn, or while Nancy is behind the camera.
+   */
+  readonly screen: SpeechScreen | null;
+}
+
+/**
+ * Where a bubble is on the screen, in CSS pixels from the top left corner
+ * of the view.
+ */
+interface SpeechScreen {
+  /** The left edge of the bubble. */
+  readonly left: number;
+  /** The top edge of the bubble. */
+  readonly top: number;
+  /** The right edge of the bubble. */
+  readonly right: number;
+  /** The bottom edge of the bubble, above its tail. */
+  readonly bottom: number;
+  /** Where the tip of its tail is across the view. */
+  readonly tipX: number;
+  /** Where the tip of its tail is down the view. */
+  readonly tipY: number;
+  /** Where the foot of the bubble would be across the view, unshifted. */
+  readonly footX: number;
+  /** Where the foot of the bubble would be down the view, unshifted. */
+  readonly footY: number;
 }
 
 /** The name of a villager and what it says, as a bubble shows them. */
@@ -3833,6 +3861,260 @@ async function checkTalk(
     );
   }
   await setControl(session, actor, 'Net delay (ms)', 0);
+}
+
+/**
+ * How far in from the edge of the view the foot of the bubble of Nancy is
+ * brought, in CSS pixels.
+ */
+const SPEECH_EDGE_INSET = 25;
+/**
+ * How far from {@link SPEECH_EDGE_INSET} in from the edge the foot of the
+ * bubble may be left, in CSS pixels.
+ */
+const SPEECH_EDGE_NEARNESS = 25;
+/**
+ * The least room a bubble leaves between itself and the edge of the view,
+ * in CSS pixels.
+ */
+const LEAST_SPEECH_MARGIN = 4;
+/**
+ * The farthest the tip of the tail of a bubble may be from just above the
+ * head of the one who speaks, along the view, with the head in the view,
+ * in CSS pixels.
+ */
+const FARTHEST_TIP_OFFSET = 40;
+/** The widest share of the width of the view a bubble may take. */
+const MOST_SPEECH_SHARE = 0.9;
+/** The field of view of the camera, from top to bottom, in degrees. */
+const CAMERA_FIELD_OF_VIEW = 40;
+/**
+ * The farthest a player walks to either side of Nancy to bring her to an
+ * edge of the view, the camera brought near enough for that, in metres.
+ */
+const SPEECH_SIDE_REACH = 3.5;
+/**
+ * The position along the Z axis a player steps south to, at least, to walk
+ * along the open stretch there to either side of Nancy, in metres.
+ */
+const SPEECH_SIDE_Z = -5.6;
+/**
+ * The position along the Z axis a player steps back north to, at most,
+ * before stepping level with Nancy, in metres.
+ */
+const SPEECH_RETURN_Z = -6.2;
+/** How far one turn of the mouse wheel zooms, as a factor of distance. */
+const ZOOM_STEP_FACTOR = 0.95;
+
+/**
+ * Checks that a page keeps the bubble of Nancy wholly on the screen, its
+ * tail pointing at her, with her near the left edge of the view and near
+ * the right, on a phone held upright and on its side and at its own size,
+ * and that the bubble takes no more than {@link MOST_SPEECH_SHARE} of the
+ * width of the view.  Its player talks to her, steps south of her, and
+ * walks off to one side until she stands near the edge, with the camera
+ * brought nearer first where the view is too wide for her to get there
+ * otherwise, and then goes back to talk to her again.  The panel is folded
+ * up meanwhile, out of the way, and the camera is put back after.  Each
+ * bubble is saved, if the environment names a directory to.
+ *
+ * The player is to stand by Nancy, level with her and facing her from the
+ * west, where it is left after.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page does not do so.
+ */
+async function checkSpeechEdges(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const look = (): Promise<TalkLook> => readTalkLook(session, context, id);
+  const readScreen = async (): Promise<SpeechScreen> => {
+    const seen: TalkLook = await look();
+    if (seen.speech?.screen == null) {
+      throw new Error(
+        `With the bubble of Nancy to be shown, ${describeTalkLook(seen)}, ` +
+          `on the screen at ${JSON.stringify(seen.speech?.screen)}.`,
+      );
+    }
+    return seen.speech.screen;
+  };
+  const readDistance = async (): Promise<number> =>
+    Number(
+      await evaluateInPage(
+        session,
+        context,
+        'String(window.clovervale.describeCameraDistance())',
+      ),
+    );
+  // Zooms the camera to a distance from what it looks at.
+  const zoomTo = async (distance: number): Promise<void> => {
+    const turns: number =
+      Math.log(distance / (await readDistance())) /
+      Math.log(ZOOM_STEP_FACTOR);
+    if (Math.abs(turns) >= 0.1) {
+      await zoomCamera(session, context, Math.round(-turns * ZOOM_DELTA));
+    }
+  };
+  // Holds a key down until the page shows what is awaited.
+  const walkUntil = async (
+    key: string,
+    isAwaited: (seen: TalkLook) => boolean,
+    timeout: number,
+    where: string,
+  ): Promise<void> => {
+    await sendKey(session, context, 'keyDown', key);
+    try {
+      await waitFor(
+        look,
+        isAwaited,
+        timeout,
+        (seen: TalkLook) =>
+          `With the key ${key} held down ${where}, the page tells ` +
+          `${describeTalkLook(seen)}.`,
+      );
+    } finally {
+      await sendKey(session, context, 'keyUp', key);
+    }
+  };
+  const toggleTitle =
+    'document.querySelector(".lil-gui.lil-root > .lil-title").click(), ""';
+  const problems: string[] = [];
+  const distance: number = await readDistance();
+  await evaluateInPage(session, context, toggleTitle);
+  try {
+    for (const [name, viewport, pixelRatio] of [
+      ['portrait', PORTRAIT_VIEWPORT, PHONE_PIXEL_RATIO],
+      ['landscape', LANDSCAPE_VIEWPORT, PHONE_PIXEL_RATIO],
+      ['desktop', null, null],
+    ] as const) {
+      await session.send('browsingContext.setViewport', {
+        context,
+        viewport,
+        devicePixelRatio: pixelRatio,
+      });
+      await sleep(VIEW_SETTLE_DURATION);
+      const { width, height } = await readPageState(session, context);
+      // How many CSS pixels a metre across, a metre from the camera, takes.
+      const scale: number =
+        height / (2 * Math.tan((CAMERA_FIELD_OF_VIEW * Math.PI) / 360));
+      await zoomTo(
+        Math.min(
+          distance,
+          (SPEECH_SIDE_REACH * scale) / (width / 2 - SPEECH_EDGE_INSET),
+        ),
+      );
+      // Nancy is brought near the left edge from the east of her, and near
+      // the right from the west, where the player is left after.
+      for (const side of ['left', 'right'] as const) {
+        const target: number =
+          side === 'left' ? SPEECH_EDGE_INSET : width - SPEECH_EDGE_INSET;
+        const where = `with Nancy to be near the ${side} edge of a view ${name}`;
+        await sendKey(session, context, 'keyDown', ' ');
+        await sendKey(session, context, 'keyUp', ' ');
+        await waitFor(
+          look,
+          (seen: TalkLook) =>
+            seen.speech?.name === 'Nancy' && seen.speech.screen !== null,
+          ACTION_TIMEOUT,
+          (seen: TalkLook) =>
+            `With the space bar pressed by Nancy ${where}, the page tells ` +
+            `${describeTalkLook(seen)}.`,
+        );
+        await walkUntil(
+          's',
+          (seen: TalkLook) => (seen.own?.z ?? -Infinity) >= SPEECH_SIDE_Z,
+          ACTION_TIMEOUT,
+          `${where} to step south of her`,
+        );
+        // Walking west brings her right across the view, and east, left.
+        const isRight: boolean = (await readScreen()).footX < target;
+        await walkUntil(
+          isRight ? 'a' : 'd',
+          (seen: TalkLook) => {
+            const x: number = seen.speech?.screen?.footX ?? NaN;
+            return isRight ? !(x < target) : !(x > target);
+          },
+          ACTION_TIMEOUT,
+          where,
+        );
+        await sleep(POLL_INTERVAL * 2);
+        const screen: SpeechScreen = await readScreen();
+        await saveView(session, context, `speech-${name}-${side}.png`);
+        const shown =
+          `On a view ${name}, ${String(width)} by ${String(height)}, ` +
+          `with the foot of the bubble of Nancy at ` +
+          `${screen.footX.toFixed(1)} across, the page shows her bubble ` +
+          `at ${JSON.stringify(screen)}`;
+        if (Math.abs(screen.footX - target) > SPEECH_EDGE_NEARNESS) {
+          problems.push(`${shown}, her too far from the edge`);
+        }
+        if (
+          screen.left < LEAST_SPEECH_MARGIN ||
+          screen.top < LEAST_SPEECH_MARGIN ||
+          screen.right > width - LEAST_SPEECH_MARGIN ||
+          screen.tipY > height - LEAST_SPEECH_MARGIN
+        ) {
+          problems.push(`${shown}, beyond the edges of the view`);
+        }
+        if (screen.right - screen.left > width * MOST_SPEECH_SHARE) {
+          problems.push(`${shown}, wider than most of the view`);
+        }
+        if (
+          screen.tipX <= screen.left ||
+          screen.tipX >= screen.right ||
+          Math.abs(screen.tipX - screen.footX) > FARTHEST_TIP_OFFSET
+        ) {
+          problems.push(`${shown}, its tail pointing away from her`);
+        }
+        await walkUntil(
+          'w',
+          (seen: TalkLook) => (seen.own?.z ?? Infinity) <= SPEECH_RETURN_Z,
+          ACTION_TIMEOUT,
+          'to step back north to Nancy',
+        );
+        await stepWithin(
+          session,
+          context,
+          id,
+          TALK_LEAST_Z,
+          TALK_MOST_Z,
+          'level with Nancy',
+        );
+        const own: TalkLook['own'] = (await look()).own;
+        await walkUntil(
+          (own?.x ?? 0) < NANCY_X ? 'd' : 'a',
+          (seen: TalkLook) => seen.spaceKey === TALK_KEY,
+          LEG_TIMEOUT,
+          'to walk back to Nancy',
+        );
+      }
+    }
+  } finally {
+    await session.send('browsingContext.setViewport', {
+      context,
+      viewport: null,
+      devicePixelRatio: null,
+    });
+    await sleep(VIEW_SETTLE_DURATION);
+    await zoomTo(distance);
+    await evaluateInPage(session, context, toggleTitle);
+  }
+  await waitFor(
+    look,
+    (seen: TalkLook) => seen.speech === null,
+    SPEECH_TIMEOUT,
+    (seen: TalkLook) =>
+      `Long after its player last talked to Nancy, the page tells ` +
+      `${describeTalkLook(seen)}.`,
+  );
+  if (problems.length > 0) {
+    throw new Error(`${problems.join('.\n')}.`);
+  }
 }
 
 /**
@@ -7618,6 +7900,7 @@ async function checkClient(): Promise<void> {
     await checkMonster(session, first, second, id);
     await checkFountain(session, first, second, id);
     await checkTalk(session, first, second, id);
+    await checkSpeechEdges(session, first, id);
     await checkLanguage(session, first);
     const other: PageState = await readPageState(session, second);
     const otherId = Number(/^#(\d+)/.exec(other.panel.Player ?? '')?.[1]);

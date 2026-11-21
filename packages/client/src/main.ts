@@ -479,7 +479,7 @@ const viewport: Viewport = showScene(
 const fitSpeechToView = (): void => {
   const camera: Camera = viewport.getCamera();
   if (camera instanceof PerspectiveCamera) {
-    speech.fitView(window.innerHeight, camera.fov);
+    speech.fitView(window.innerWidth, window.innerHeight, camera.fov);
   }
 };
 window.addEventListener('resize', fitSpeechToView);
