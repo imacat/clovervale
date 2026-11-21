@@ -551,6 +551,8 @@ const CAVE_INSIDE = 0.05;
  * covers, around the middle it stands on, in metres.
  */
 const CAVE_HALF_SIZE: readonly [number, number] = [13, 6.5];
+/** The file names of the models of the items as they lie on the ground. */
+const LYING_ITEM_PATTERN = /^prop-item-[a-z]+(-[a-z]+)*\.glb$/;
 /** The distance between two points the floor of the cave is checked at. */
 const CAVE_SAMPLE_SPACING = 0.2;
 /**
@@ -1639,11 +1641,14 @@ async function loadAt(placement: Placement): Promise<GLTF> {
  * a player; and the slope from the burrow, which stands in the way at the
  * east end of the passage, rises steeply from its foot.  The flame of a
  * torch in its first place burns where the cave has the light of that
- * torch.
+ * torch.  Every item lying on the ground rises above the floor, flat
+ * stones and all, so that the floor does not hide it.
  *
+ * @param {readonly string[]} files - The file names of the models there
+ *   are.
  * @returns {Promise<StrikeResult>} The outcome.
  */
-async function checkCave(): Promise<StrikeResult> {
+async function checkCave(files: readonly string[]): Promise<StrikeResult> {
   const cave: GLTF = await loadCavePlaced(CAVE_FILE);
   // The ground the model of the cave takes up, without what stands in it.
   const rock = new Terrain(
@@ -1662,6 +1667,7 @@ async function checkCave(): Promise<StrikeResult> {
   const { boundary } = rock;
   const failures: string[] = [];
   let floorCount = 0;
+  let floorTop = 0;
   let rockCount = 0;
   const report = (what: string, x: number, z: number): void => {
     if (failures.length < 5) {
@@ -1684,6 +1690,8 @@ async function checkCave(): Promise<StrikeResult> {
         floorCount++;
         if (top === null || top > CAVE_FLOOR_HEIGHT) {
           report(`${CAVE_FILE} has no bare floor`, x, z);
+        } else {
+          floorTop = Math.max(floorTop, top);
         }
         continue;
       }
@@ -1740,9 +1748,23 @@ async function checkCave(): Promise<StrikeResult> {
       `the flame of ${CAVE_TORCH_FILE} does not burn where the cave lights it`,
     );
   }
+  for (const file of files.filter((name: string) =>
+    LYING_ITEM_PATTERN.test(name),
+  )) {
+    const glb: Buffer = readFileSync(path.join(modelsDir, file));
+    const item: GLTF = await loader.parseAsync(new Uint8Array(glb).buffer, '');
+    const height: number = new Box3().setFromObject(item.scene).max.y;
+    if (height <= floorTop) {
+      failures.push(
+        `${file} rises ${height.toFixed(3)} m, hidden under the floor of ` +
+          `${CAVE_FILE}, ${floorTop.toFixed(3)} m high`,
+      );
+    }
+  }
   const summary =
     `${CAVE_FILE} stands where the cave stands in the way ` +
     `(${String(floorCount)} points of floor, ${String(rockCount)} of rock), ` +
+    `the items lying on it rise above it, ` +
     `and ${CAVE_TORCH_FILE} burns where it is lit`;
   return { summary, failures };
 }
@@ -2015,7 +2037,7 @@ async function checkModels(): Promise<boolean> {
   // not checked.
   const cave: StrikeResult =
     files.includes(CAVE_FILE) && files.includes(CAVE_TORCH_FILE)
-      ? await checkCave()
+      ? await checkCave(files)
       : { summary: '', failures: [] };
   problems.push(...cave.failures);
   // The models of the side chambers are required with the prisoner, and

@@ -81,8 +81,12 @@ const STROKE_GAP = 0.008;
 /** How far each stroke of the writing is tilted, in degrees. */
 const STROKE_TILT = 9;
 
-/** The thickness of the cloth, in metres. */
-const CLOTH_THICKNESS = 0.005;
+/**
+ * The thickness of the cloth, in metres: enough for it to lie above the
+ * floor of the cave and its flat stones, and the patches of earth in the
+ * village, rather than be hidden under them.
+ */
+const CLOTH_THICKNESS = 0.02;
 
 /**
  * Builds the message from Clovervale, as it lies flat on the ground: a
