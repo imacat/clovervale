@@ -32,6 +32,7 @@
  * floating point, but the server and its peers work them out alike.
  */
 
+import { CLOVER_PATCHES } from './items.ts';
 import { SIMULATION_RATE, WALK_SPEED, findYaw } from './movement.ts';
 import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
@@ -76,6 +77,29 @@ export const TOBY_CLOVERS: readonly [GroundVector, GroundVector] = [
   { x: -8, z: -0.2 },
   { x: -3.6, z: 3.4 },
 ];
+
+/**
+ * The numbers of the patches of clover Toby picks at, among
+ * {@link CLOVER_PATCHES}, at the two ends of his run, in the order of
+ * {@link TOBY_CLOVERS}.
+ */
+export const TOBY_PATCHES: readonly [number, number] = [
+  findPatchNumber(TOBY_CLOVERS[0]),
+  findPatchNumber(TOBY_CLOVERS[1]),
+];
+
+/**
+ * How many steps into his picking at a patch of clover Toby's hand grabs
+ * at the four-leaved clover of the patch, as his hand reaches into the
+ * leaves for the second time.
+ */
+export const TOBY_GRAB_STEPS = 40;
+
+/**
+ * How many steps into his picking at a patch of clover Toby has put away a
+ * four-leaved clover he has grabbed, having lifted it to look at it.
+ */
+export const TOBY_STOW_STEPS = 70;
 
 /**
  * How far ahead of Toby the middle of the patch of clover he picks at lies
@@ -163,6 +187,34 @@ export interface TobyPose extends Pose {
   readonly elapsed: number;
 }
 
+/** A moment Toby's hand grabs at the four-leaved clover of a patch. */
+export interface TobyGrab {
+  /** The number of the step at which his hand grabs. */
+  readonly step: number;
+  /** The number of the patch, among {@link CLOVER_PATCHES}. */
+  readonly patch: number;
+}
+
+/**
+ * Finds the number of the patch of clover whose middle is at a point.
+ *
+ * @param {GroundVector} middle - The middle of the patch.
+ * @returns {number} The number of the patch among {@link CLOVER_PATCHES}.
+ * @throws {Error} If no patch has its middle there.
+ */
+function findPatchNumber(middle: GroundVector): number {
+  const patch: number = CLOVER_PATCHES.findIndex(
+    ({ x, z }: GroundVector) => x === middle.x && z === middle.z,
+  );
+  if (patch < 0) {
+    throw new Error(
+      `There is no patch of clover at ${String(middle.x)}, ` +
+        `${String(middle.z)}.`,
+    );
+  }
+  return patch;
+}
+
 /**
  * Eases a share of a move in and out.
  *
@@ -228,6 +280,31 @@ export function findTobyPose(step: number): TobyPose {
   }
   // Every phase falls within one of the activities.
   throw new Error(`Toby has no place at step ${String(step)}.`);
+}
+
+/**
+ * Finds the latest moment, at a step of the simulation or before it, that
+ * Toby's hand grabs at the four-leaved clover of the patch he picks at.
+ *
+ * His hand grabs {@link TOBY_GRAB_STEPS} steps into each time he picks at
+ * a patch, once at each end of his run, as {@link findTobyPose} has him.
+ *
+ * @param {number} step - The number of the step, which may fall between
+ *   two steps.
+ * @returns {TobyGrab} The step his hand grabs at, no later than the step
+ *   given, and the patch it grabs at, the same for the same step
+ *   everywhere.
+ */
+export function findTobyGrab(step: number): TobyGrab {
+  const offset: number = TOBY_ACTIVITY_STEPS.Squat + TOBY_GRAB_STEPS;
+  const half: number = Math.floor(
+    (Math.floor(step) - offset) / HALF_LOOP_STEPS,
+  );
+  const end: number = half - Math.floor(half / 2) * 2;
+  return {
+    step: half * HALF_LOOP_STEPS + offset,
+    patch: TOBY_PATCHES[end === 0 ? 0 : 1],
+  };
 }
 
 /**

@@ -106,6 +106,12 @@ export interface WorldItems {
    * ascending order, none if left out.
    */
   readonly looted?: readonly number[];
+  /**
+   * The number of the latest step at which Toby took the four-leaved
+   * clover of a patch of clover, or `null` if he has taken none, which he
+   * has not if left out.
+   */
+  readonly tobyFind?: number | null;
 }
 
 /** A world with nothing to pick. */

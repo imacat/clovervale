@@ -58,6 +58,7 @@ import type {
   PlayerState,
   ServerMessage,
   SnapshotMessage,
+  WorldItems,
 } from '@clovervale/shared';
 
 import { Realm } from '../src/realm.ts';
@@ -776,7 +777,12 @@ describe('what the realm has sent to each player', () => {
       expect.objectContaining({ id: 1, kind: 'village-dog' }),
       expect.objectContaining({ id: 2, kind: 'martha' }),
     ]);
-    expect(snapshot?.clovers).toHaveLength(CLOVER_PATCHES.length);
+    const village: WorldItems | undefined = realm
+      .findWorld(other)
+      ?.describeItems();
+    expect(snapshot?.clovers).toEqual(village?.clovers);
+    expect(snapshot?.tobyFind).toBe(village?.tobyFind);
+    expect(village?.tobyFind).not.toBeUndefined();
     expect(snapshot?.step).toBe(realm.stepCount);
   });
 

@@ -54,7 +54,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 25;
+export const PROTOCOL_VERSION = 26;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -276,6 +276,14 @@ export interface SnapshotMessage {
    */
   readonly looted: readonly number[];
   /**
+   * The number of the latest step at which Toby took the four-leaved
+   * clover of a patch of clover, or `null` if he has taken none, as he
+   * never has outside the village.  Every snapshot tells it again, so that
+   * a peer learns of each clover he takes from any snapshot taken after,
+   * until he takes the next.
+   */
+  readonly tobyFind: number | null;
+  /**
    * The items the player of the peer carries, one for each filled slot of
    * its inventory, in the order of the slots.
    */
@@ -419,8 +427,9 @@ export function createWelcomeMessage(
  * @param {SlashJudgement | null} [slash] - The latest slash of the player
  *   of the peer, as the server judged it, or `null` before its first,
  *   which it is by default.
- * @param {WorldItems} [world] - What there is to pick in the world, and
- *   which containers have been looted there, which is nothing by default.
+ * @param {WorldItems} [world] - What there is to pick in the world, which
+ *   containers have been looted there, and when Toby last took a
+ *   four-leaved clover there, which is nothing and never by default.
  * @param {readonly ItemKindId[]} [inventory] - The items the player of the
  *   peer carries, in the order of its slots, which are none by default.
  * @param {DialogueView | null} [dialogue] - The dialogue the player of the
@@ -441,7 +450,7 @@ export function createSnapshotMessage(
   dialogue: DialogueView | null = null,
   acquaintances: readonly VillagerId[] = [],
 ): SnapshotMessage {
-  const { clovers, items, looted = [] } = world;
+  const { clovers, items, looted = [], tobyFind = null } = world;
   return {
     type: 'snapshot',
     step,
@@ -452,6 +461,7 @@ export function createSnapshotMessage(
     clovers,
     items,
     looted,
+    tobyFind,
     inventory,
     dialogue,
     acquaintances,
@@ -585,6 +595,7 @@ export function decodeServerMessage(data: string): ServerMessage {
     isNumberList(value.clovers, CLOVER_PATCHES.length) &&
     Array.isArray(value.items) &&
     isNumberList(value.looted, CAVE_CONTAINERS.length) &&
+    (value.tobyFind === null || Number.isInteger(value.tobyFind)) &&
     isInventory(value.inventory) &&
     (value.dialogue === null || isDialogueView(value.dialogue)) &&
     isAcquaintanceList(value.acquaintances)
@@ -654,6 +665,7 @@ export function decodeServerMessage(data: string): ServerMessage {
           z,
         })),
         looted: [...value.looted],
+        tobyFind: value.tobyFind as number | null,
         inventory: [...value.inventory],
         dialogue:
           dialogue === null

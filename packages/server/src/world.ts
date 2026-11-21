@@ -25,6 +25,7 @@
 import {
   APPEARANCE_COUNT,
   AuthoritativePlayer,
+  CLOVER_KIND,
   CLOVER_PATCHES,
   CLOVER_REGROW_DURATION,
   DEATH_DURATION,
@@ -43,6 +44,7 @@ import {
   findPassage,
   findPickTarget,
   findSpawnPoint,
+  findTobyGrab,
   findVillager,
   hasRoom,
   interpolatePlaced,
@@ -67,12 +69,15 @@ import type {
   Pose,
   SlashJudgement,
   StampedInput,
+  TobyGrab,
   Villager,
   VillagerId,
   WorldItems,
 } from '@clovervale/shared';
 
 import {
+  TOBY_GIFT_LINE,
+  TOBY_LINES,
   findApproach,
   findDialogueNode,
   findOpening,
@@ -283,6 +288,15 @@ export class World {
   #lastItemId = 0;
   /** The numbers of the containers of the cave that have been looted. */
   readonly #looted = new Set<number>();
+  /**
+   * The number of the latest step at which Toby took a four-leaved clover,
+   * or `null` if he has taken none.
+   */
+  #tobyFind: number | null = null;
+  /** The number of four-leaved clovers Toby holds. */
+  #tobyClovers = 0;
+  /** Gives a random number from 0 up to but not including 1. */
+  readonly #drawRandom: () => number;
 
   /**
    * Starts a world without players and with nothing on the ground, with
@@ -292,8 +306,8 @@ export class World {
    * and in a cave, with every chest and barrel holding what it holds.
    *
    * @param {() => number} [drawRandom] - Gives a random number from 0 up to
-   *   but not including 1, for what the monsters do.  `Math.random` by
-   *   default.
+   *   but not including 1, for what the monsters do and what Toby says.
+   *   `Math.random` by default.
    * @param {WorldOptions} [options] - The map of the world, the step it
    *   starts at, and its monsters.
    */
@@ -302,6 +316,7 @@ export class World {
     { map = 'village', step = 0, monsters }: WorldOptions = {},
   ) {
     this.#map = map;
+    this.#drawRandom = drawRandom;
     this.#stepCount = step;
     this.#monsters = (monsters ?? MONSTER_SPAWNS[map]).map(
       (spawn: MonsterSpawn, index: number) =>
@@ -433,13 +448,20 @@ export class World {
    * Moves the world one step of the simulation forward.
    *
    * In the village, Toby runs his course, as the number of the step tells,
-   * and pushes every living player in his way aside.  A player that
-   * slashes, drinks from the fountain or talks to a villager stands still,
-   * without turning, for as long as that lasts.  Any other player that
-   * wants to move walks that way, facing it, and idles otherwise, on the
-   * ground of the map of the world; Toby stands in its way as the obstacles
-   * do.  Each monster goes about its business, as the numbers of its kind
-   * tell, and pays Toby no heed.
+   * and pushes every living player in his way aside.  At a step at which
+   * his hand grabs at a patch of clover, as {@link findTobyGrab} tells, he
+   * takes the four-leaved clover of the patch if it has its clover, before
+   * any player picks at the step, and it is gone from the patch until it
+   * regrows {@link CLOVER_REGROW_DURATION} seconds later, as if a player
+   * had picked it, and he holds it from then on; he takes nothing from a
+   * patch without its clover.
+   *
+   * A player that slashes, drinks from the fountain or talks to a villager
+   * stands still, without turning, for as long as that lasts.  Any other
+   * player that wants to move walks that way, facing it, and idles
+   * otherwise, on the ground of the map of the world; Toby stands in its way
+   * as the obstacles do.  Each monster goes about its business, as the
+   * numbers of its kind tell, and pays Toby no heed.
    *
    * A drink that starts at the step gives the player back
    * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
@@ -448,9 +470,14 @@ export class World {
    * its interaction names, if any, does not matter.  A talk is never judged
    * either.  An interaction slashes rather than talks while a living
    * monster, as it was before the step, is in front of the player and
-   * within the reach of its slash.  A talk to a villager without a script
-   * changes nothing else in the world.  A talk that starts at the step to
-   * a villager with a script, as {@link findOpening} finds, opens with the
+   * within the reach of its slash.  A talk that starts at the step to
+   * Toby has him say a line to the player in passing, kept for the player
+   * to be told once: one of his lines at random, among which, while he
+   * holds a four-leaved clover and the inventory of the player has room for
+   * it, is the line with which he gives the player one of his clovers, into
+   * its inventory.  A talk to any other villager without a script changes
+   * nothing else in the world.  A talk that starts at the step to a
+   * villager with a script, as {@link findOpening} finds, opens with the
    * first of its openings whose condition holds of the player then, if any:
    * a line said in passing is kept for the player to be told once, and any
    * other line starts a dialogue there.  Whenever a line is said to a
@@ -550,6 +577,9 @@ export class World {
     this.#lyingItems = this.#lyingItems.filter(
       (lying: LyingItem) => lying.goneStep > this.#stepCount,
     );
+    if (this.#map === 'village') {
+      this.#letTobyPick();
+    }
     const slashers: Slasher[] = [];
     const monsters: MonsterState[] = this.listMonsters();
     const leaving = new Set<Player>();
@@ -802,8 +832,9 @@ export class World {
    * everyone is to be told.
    *
    * @returns {WorldItems} The patches of clover that have their clover, the
-   *   items on the ground, in the order they were put down, and the
-   *   containers that have been looted, in ascending order.
+   *   items on the ground, in the order they were put down, the
+   *   containers that have been looted, in ascending order, and, in the
+   *   village, the latest step at which Toby took a four-leaved clover.
    */
   describeItems(): WorldItems {
     const clovers: number[] = [];
@@ -818,7 +849,20 @@ export class World {
     const looted: number[] = [...this.#looted].sort(
       (a: number, b: number) => a - b,
     );
-    return { clovers, items, looted };
+    return this.#map === 'village'
+      ? { clovers, items, looted, tobyFind: this.#tobyFind }
+      : { clovers, items, looted };
+  }
+
+  /**
+   * Counts the four-leaved clovers Toby holds, which he has taken from the
+   * patches of clover and not given away.
+   *
+   * @returns {number} The number of them, which is none outside the
+   *   village.
+   */
+  countTobyClovers(): number {
+    return this.#tobyClovers;
   }
 
   /**
@@ -1002,6 +1046,25 @@ export class World {
   }
 
   /**
+   * Has Toby take the four-leaved clover of the patch of clover his hand
+   * grabs at, if it grabs at this step and the patch has its clover.
+   */
+  #letTobyPick(): void {
+    const grab: TobyGrab = findTobyGrab(this.#stepCount);
+    const regrowStep: number | undefined = this.#regrowSteps[grab.patch];
+    if (
+      grab.step !== this.#stepCount ||
+      regrowStep === undefined ||
+      regrowStep > this.#stepCount
+    ) {
+      return;
+    }
+    this.#regrowSteps[grab.patch] = this.#stepCount + REGROW_STEPS;
+    this.#tobyFind = this.#stepCount;
+    this.#tobyClovers++;
+  }
+
+  /**
    * Has a player pick what is within its reach as it stands now, if it has
    * room for it.
    *
@@ -1099,6 +1162,10 @@ export class World {
     if (villager === null) {
       return;
     }
+    if (villager.id === 'toby') {
+      this.#chatterToby(player);
+      return;
+    }
     const opening: string | null = findOpening(villager.id, player);
     const node: DialogueNode | null =
       opening === null ? null : findDialogueNode(villager.id, opening);
@@ -1111,6 +1178,33 @@ export class World {
       return;
     }
     this.#reachNode(player, villager.id, opening);
+  }
+
+  /**
+   * Has Toby say one of his lines in passing to a player who talks to him,
+   * at random: one of {@link TOBY_LINES}, or, while he holds a four-leaved
+   * clover and the inventory of the player has room for it,
+   * {@link TOBY_GIFT_LINE} as well, with which he gives the player one of
+   * his clovers.
+   *
+   * @param {Player} player - The player.
+   */
+  #chatterToby(player: Player): void {
+    const canGive: boolean =
+      this.#tobyClovers > 0 && hasRoom(player.inventory);
+    const lines: readonly string[] = canGive
+      ? [...TOBY_LINES, TOBY_GIFT_LINE]
+      : TOBY_LINES;
+    const index: number = Math.min(
+      Math.floor(this.#drawRandom() * lines.length),
+      lines.length - 1,
+    );
+    const line: string = lines[index] ?? TOBY_LINES[0] ?? '';
+    player.speeches.push({ villager: 'toby', line });
+    if (line === TOBY_GIFT_LINE) {
+      this.#tobyClovers--;
+      player.inventory.push(CLOVER_KIND);
+    }
   }
 
   /**

@@ -172,6 +172,8 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'villager.toby.line.1': '媽媽說不可以出去，外面有野狗。',
   'villager.toby.line.2': '有事要找村長喔，她住在最大的那間房子。',
   'villager.toby.line.3': '我在找四葉的！找到就會有好運喔。',
+  'villager.toby.found': '找到了！',
+  'villager.toby.gift': '這個給你！會有好運喔。',
   'villager.edwin.name': '囚犯',
   'villager.edwin.knownName': '使者艾德溫',
   'villager.edwin.call': '救命！有人在嗎？',

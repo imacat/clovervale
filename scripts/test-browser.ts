@@ -47,8 +47,11 @@ import {
   SIMULATION_RATE,
   SLASH_REACH,
   TOBY_ACTIVITIES,
+  TOBY_GRAB_STEPS,
+  TOBY_STOW_STEPS,
   VILLAGERS,
   WELL_STAND,
+  findTobyGrab,
   findTobyPose,
   locateVillager,
 } from '@clovervale/shared';
@@ -56,6 +59,7 @@ import type {
   CaveContainer,
   GroundVector,
   TobyActivity,
+  TobyGrab,
   TobyPose,
   Villager,
 } from '@clovervale/shared';
@@ -426,12 +430,24 @@ interface TobyLook {
     readonly activity: TobyActivity;
     /** The name of the clip his model plays, or `null` if it has none. */
     readonly clip: string | null;
+    /** Whether he is shown holding a four-leaved clover he has found. */
+    readonly isHolding: boolean;
   } | null;
   /**
    * The moment the page told it, in milliseconds since the Unix epoch, on
    * the clock of the browser, which all its pages share.
    */
   readonly moment: number;
+}
+
+/** How a page shows Toby as he picks, and what is around him. */
+interface TobyFindLook {
+  /** How the page shows Toby, or `null` while it does not show him. */
+  readonly toby: TobyLook['toby'];
+  /** What the bubble shown says, and who says it, or `null` for none. */
+  readonly speech: { readonly name: string; readonly line: string } | null;
+  /** The numbers of the patches shown with their four-leaved clover. */
+  readonly clovers: readonly number[];
 }
 
 /** An item a page shows lying on the ground. */
@@ -1004,6 +1020,15 @@ const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
  */
 const SAME_TOBY_STEPS = 5;
 /**
+ * How long Toby may take to be seen to find a four-leaved clover, in
+ * milliseconds: more than three of his visits to each patch, of which a
+ * patch he has taken the clover of regrows its clover in time for the
+ * third.
+ */
+const TOBY_FIND_TIMEOUT = 60_000;
+/** What Toby exclaims as he finds a four-leaved clover, in English. */
+const TOBY_FOUND_LINE = 'Found one!';
+/**
  * How long Toby may take to be seen to move, in milliseconds: more than
  * he ever stays at one end of his run.
  */
@@ -1073,6 +1098,13 @@ const TIME_OF_DAY_EXPRESSION = `(() => {
     moment: performance.timeOrigin + performance.now(),
   });
 })()`;
+
+/** Reads how a page shows Toby as he picks, and what is around him. */
+const TOBY_FIND_EXPRESSION = `(() => JSON.stringify({
+  toby: window.clovervale.describeToby(),
+  speech: window.clovervale.describeSpeech(),
+  clovers: window.clovervale.describeItems().clovers,
+}))()`;
 
 /** Reads how a page shows Toby, and the moment it tells that, as JSON. */
 const TOBY_EXPRESSION = `(() => JSON.stringify({
@@ -5888,7 +5920,8 @@ async function checkToby(
       toby.z === pose.z &&
       toby.yaw === pose.yaw &&
       toby.activity === pose.activity &&
-      toby.clip === pose.activity
+      (toby.clip === pose.activity ||
+        (toby.clip === 'Find' && pose.activity === 'Pick'))
     );
   };
   for (const [context, name] of pages) {
@@ -5969,6 +6002,137 @@ async function checkToby(
 }
 
 /**
+ * Reads how a page shows Toby as he picks, and what is around him.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<TobyFindLook>} How the page shows him.
+ */
+async function readTobyFindLook(
+  session: BidiSession,
+  context: string,
+): Promise<TobyFindLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, TOBY_FIND_EXPRESSION),
+  ) as TobyFindLook;
+}
+
+/**
+ * Describes how a page shows Toby as he picks, for the error messages.
+ *
+ * @param {TobyFindLook} look - How the page shows him.
+ * @returns {string} The description.
+ */
+function describeTobyFindLook(look: TobyFindLook): string {
+  const holding: string =
+    look.toby?.isHolding === true ? 'holding a clover' : 'empty-handed';
+  const speech: string =
+    look.speech === null
+      ? 'no bubble'
+      : `${look.speech.name} saying "${look.speech.line}"`;
+  return (
+    `${describeTobyLook({ toby: look.toby, moment: 0 })}, ${holding}, ` +
+    `with ${speech}, and the patches ${look.clovers.join()} with their ` +
+    'clovers'
+  );
+}
+
+/**
+ * Checks that a page behind a slow connection, and another page, show
+ * Toby finding a four-leaved clover alike: holding it in his hand as he
+ * picks, from his grab until he puts it away, and never otherwise, with
+ * his bubble saying he found one, while the patch is shown without its
+ * clover, and that the page goes on showing so as the server tells it of
+ * the find, without taking it back.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} first - The browsing context of the page behind the
+ *   slow connection.
+ * @param {string} second - The browsing context of the other page.
+ * @returns {Promise<void>} A promise settled once both pages have passed.
+ * @throws {Error} If the pages do not show him so.
+ */
+async function checkTobyFind(
+  session: BidiSession,
+  first: string,
+  second: string,
+): Promise<void> {
+  const hold: number = TOBY_STOW_STEPS - TOBY_GRAB_STEPS;
+  const mode =
+    `With its messages held back for ${String(NETWORK_DELAY)} ` +
+    'milliseconds each way, the first page';
+  const isHoldingRightly = (look: TobyFindLook): boolean => {
+    const { toby } = look;
+    if (toby === null) {
+      return true;
+    }
+    const since: number = toby.step - findTobyGrab(toby.step).step;
+    return !toby.isHolding || (toby.activity === 'Pick' && since < hold);
+  };
+  await setControl(session, first, 'Net delay (ms)', NETWORK_DELAY);
+  try {
+    const found: TobyFindLook = await waitFor(
+      () => readTobyFindLook(session, first),
+      (look: TobyFindLook) => {
+        if (!isHoldingRightly(look)) {
+          throw new Error(`${mode} ${describeTobyFindLook(look)}.`);
+        }
+        return look.toby?.isHolding === true;
+      },
+      TOBY_FIND_TIMEOUT,
+      (look: TobyFindLook) =>
+        `${mode} never shows Toby holding a clover: it ` +
+        `${describeTobyFindLook(look)}.`,
+    );
+    const grab: TobyGrab = findTobyGrab(found.toby?.step ?? NaN);
+    const isFinding = (look: TobyFindLook): boolean =>
+      look.toby !== null &&
+      findTobyGrab(look.toby.step).step === grab.step &&
+      look.toby.isHolding &&
+      look.toby.clip === 'Find' &&
+      look.speech?.line === TOBY_FOUND_LINE &&
+      !look.clovers.includes(grab.patch);
+    for (const [context, name] of [
+      [first, 'first'],
+      [second, 'second'],
+    ] as const) {
+      await waitFor(
+        () => readTobyFindLook(session, context),
+        isFinding,
+        ACTION_TIMEOUT,
+        (look: TobyFindLook) =>
+          `Toby grabs at patch ${String(grab.patch)} at step ` +
+          `${String(grab.step)}, and the ${name} page ` +
+          `${describeTobyFindLook(look)}.`,
+      );
+    }
+    // By the time he puts it away, the first page has heard of the find.
+    await waitFor(
+      () => readTobyFindLook(session, first),
+      (look: TobyFindLook) => {
+        if (!isHoldingRightly(look)) {
+          throw new Error(`${mode} ${describeTobyFindLook(look)}.`);
+        }
+        const step: number = look.toby?.step ?? NaN;
+        if (step < grab.step + hold && !isFinding(look)) {
+          throw new Error(
+            `${mode} takes back the clover Toby grabs at step ` +
+              `${String(grab.step)}: it ${describeTobyFindLook(look)}.`,
+          );
+        }
+        return step >= grab.step + hold;
+      },
+      ACTION_TIMEOUT,
+      (look: TobyFindLook) =>
+        `${mode} never shows Toby putting the clover away: it ` +
+        `${describeTobyFindLook(look)}.`,
+    );
+  } finally {
+    await setControl(session, first, 'Net delay (ms)', 0);
+  }
+}
+
+/**
  * Checks the built client in two pages connected to one server: that each
  * draws its scene, shows the models it has and connects, that what the
  * player of one page does with the keyboard shows in the other page,
@@ -5980,7 +6144,8 @@ async function checkToby(
  * which shows the hit once, that a hurt player that drinks from the
  * fountain gets health back in both pages, each of which shows the heal
  * once, without a correction behind a slow connection, that both pages
- * show Toby going round his course alike, that a player that talks to
+ * show Toby going round his course alike, and finding a four-leaved clover
+ * alike, behind a slow connection or not, that a player that talks to
  * Nancy sees what she says above her head in its own page alone, for a
  * while, without a slash or a correction, that a page words its text in
  * the language chosen in its panel at once, that a player that picks a
@@ -6059,6 +6224,7 @@ async function checkClient(): Promise<void> {
     }
 
     await checkToby(session, first, second);
+    await checkTobyFind(session, first, second);
     await checkNight(session, first, second);
     await checkWalk(session, first, second, id);
     await checkMotion(session, first, second, id, false, 'd');
@@ -6115,7 +6281,8 @@ try {
       'each other what their players do, predict their own, have their ' +
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, show Toby ' +
-      'alike, hear what Nancy says, speak the language chosen, pick, ' +
+      'alike, finding a clover, hear what Nancy says, speak the language ' +
+      'chosen, pick, ' +
       'carry and put down a clover, go down into a cave of their own, kill ' +
       'its two wild dogs, talk ' +
       'to the prisoner through his bars, loot the store rooms, use a ' +

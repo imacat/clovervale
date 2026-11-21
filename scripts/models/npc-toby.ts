@@ -27,7 +27,9 @@ import type { Quaternion } from 'three';
 import {
   SIMULATION_RATE,
   TOBY_ACTIVITY_STEPS,
+  TOBY_GRAB_STEPS,
   TOBY_RUN_SPEED,
+  TOBY_STOW_STEPS,
 } from '@clovervale/shared';
 
 import {
@@ -91,6 +93,25 @@ const RUN_FPS = 90;
 
 /** How long one round of picking at the clover lasts, in seconds. */
 const PICK_DURATION = 2;
+
+/**
+ * How long his picking lasts when he finds a four-leaved clover, in
+ * seconds, as long as his course gives him for picking.
+ */
+const FIND_DURATION: number = TOBY_ACTIVITY_STEPS.Pick / SIMULATION_RATE;
+
+/**
+ * How far into his picking his right hand grabs at a four-leaved clover,
+ * in seconds, as his course has it: as it reaches into the leaves at the
+ * start of a round of picking.
+ */
+const GRAB_TIME: number = TOBY_GRAB_STEPS / SIMULATION_RATE;
+
+/**
+ * How far into his picking he has put a four-leaved clover he found away
+ * in the pocket of his short trousers, in seconds, as his course has it.
+ */
+const STOW_TIME: number = TOBY_STOW_STEPS / SIMULATION_RATE;
 
 /** How long one round of idling lasts, in seconds. */
 const IDLE_DURATION = 2.4;
@@ -661,30 +682,36 @@ function animateBody(model: Model): Rig {
   // Picking at the clover: squatting, he reaches into the leaves with one
   // hand and then the other, plucks at them, and holds a leaf up to look
   // at it before he lets it drop and reaches in again.
+  const posePickBody = (t: number, raise: number): Pose => {
+    const angle: number = (2 * Math.PI * t) / PICK_DURATION;
+    const pose: Pose = rig.createPose({
+      ...SQUATTING,
+      Hips: [34 + 2 * Math.sin(angle), 3 * Math.sin(angle), 0],
+      Head: [-22 + raise, 8 * Math.sin(angle), 4 * Math.sin(2 * angle)],
+    });
+    return placeFeet(pose, squatFoot(1), squatFoot(-1));
+  };
+  // The left hand plucks at the leaves twice as often as the right one
+  // dips in.
+  const findLeftPick = (t: number): Triple => {
+    const pluck: number = (1 - Math.cos((4 * Math.PI * t) / PICK_DURATION)) / 2;
+    return [0.09, 0.13 + 0.04 * pluck, 0.175 + 0.02 * pluck];
+  };
   const posePick = (t: number): Pose => {
     const u: number = t / PICK_DURATION;
-    const angle: number = 2 * Math.PI * u;
     const lift: number = easeProgress(
       Math.min(Math.max((u - 0.55) / 0.15, 0), 1) *
         Math.min(Math.max((0.95 - u) / 0.15, 0), 1),
     );
-    const pose: Pose = rig.createPose({
-      ...SQUATTING,
-      Hips: [34 + 2 * Math.sin(angle), 3 * Math.sin(angle), 0],
-      Head: [-22 + 10 * lift, 8 * Math.sin(angle), 4 * Math.sin(2 * angle)],
-    });
-    placeFeet(pose, squatFoot(1), squatFoot(-1));
-    // The left hand plucks at the leaves twice as often as the right one
-    // dips in, and the right one lifts a leaf up to his face.
-    const pluck: number = (1 - Math.cos(2 * angle)) / 2;
-    const dip: number = (1 - Math.cos(angle)) / 2;
-    const left: Triple = [0.09, 0.13 + 0.04 * pluck, 0.175 + 0.02 * pluck];
+    const pose: Pose = posePickBody(t, 10 * lift);
+    // The right hand lifts a leaf up to his face.
+    const dip: number = (1 - Math.cos(2 * Math.PI * u)) / 2;
     const right: Triple = [
       -0.09,
       0.13 + 0.04 * dip * (1 - lift) + 0.08 * lift,
       0.175 + 0.02 * dip + 0.04 * lift,
     ];
-    return reachHands(pose, left, right);
+    return reachHands(pose, findLeftPick(t), right);
   };
   const pickStart: Pose = posePick(0);
   bake(
@@ -693,6 +720,46 @@ function animateBody(model: Model): Rig {
     (t: number): PoseSample => ({ pose: posePick(t) }),
     { loop: true },
   );
+
+  // Finding a four-leaved clover: he picks at the leaves as ever until his
+  // right hand grabs at the clover, as it reaches into the leaves; then he
+  // lifts it up close to his face and looks at it, his head raised, puts
+  // it away in the right pocket of his short trousers, and reaches into the
+  // leaves again, as he does when he picks.
+  const leaves: Triple = [-0.09, 0.13, 0.175];
+  const face: Triple = [-0.06, 0.37, 0.25];
+  const pocket: Triple = [-0.16, 0.2, 0.03];
+  const findRightHand = (s: number): [Triple, number] => {
+    const lerp = (a: Triple, b: Triple, w: number): Triple => [
+      a[0] + (b[0] - a[0]) * w,
+      a[1] + (b[1] - a[1]) * w,
+      a[2] + (b[2] - a[2]) * w,
+    ];
+    const span = (from: number, to: number): number =>
+      easeProgress(Math.min(Math.max((s - from) / (to - from), 0), 1));
+    const stow: number = STOW_TIME - GRAB_TIME;
+    const up: number = span(0.1, 0.5);
+    const look: number = up * (1 - span(stow - 0.45, stow - 0.1));
+    if (s < stow - 0.45) {
+      return [lerp(leaves, face, up), look];
+    }
+    if (s < stow) {
+      return [lerp(face, pocket, span(stow - 0.45, stow - 0.05)), look];
+    }
+    const back: number = span(stow + 0.05, FIND_DURATION - GRAB_TIME);
+    return [lerp(pocket, leaves, back), 0];
+  };
+  const poseFind = (t: number): Pose => {
+    if (t <= GRAB_TIME) {
+      return posePick(t);
+    }
+    const [right, look] = findRightHand(t - GRAB_TIME);
+    const pose: Pose = posePickBody(t % PICK_DURATION, -12 * look);
+    return reachHands(pose, findLeftPick(t), right);
+  };
+  bake('Find', FIND_DURATION, (t: number): PoseSample => ({
+    pose: poseFind(t),
+  }));
 
   // Squatting down from his run: he brings his back foot up beside the
   // front one and drops down onto his heels, reaching for the clover.

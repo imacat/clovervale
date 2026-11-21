@@ -34,7 +34,9 @@ import { describe, expect, it } from 'vitest';
 import {
   SIMULATION_RATE,
   TOBY_ACTIVITIES,
+  TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
+  TOBY_STOW_STEPS,
   findTobyPose,
 } from '@clovervale/shared';
 import type { TobyActivity, TobyPose } from '@clovervale/shared';
@@ -46,6 +48,7 @@ const DURATIONS: Readonly<Record<string, number>> = {
   Idle: 2,
   Squat: 0.5,
   Pick: 2,
+  Find: 4,
   Rise: 0.5,
   Turn: 0.6,
   Run: 0.35,
@@ -146,6 +149,62 @@ describe('TobyFigure', () => {
     expect(readClipTime(root, 'Pick')).toBeCloseTo(0.5, 9);
   });
 
+  it('holds a clover he finds in his hand from his grab until he puts it away', () => {
+    const { root, clips } = makeModel(['Idle', 'Find', ...TOBY_ACTIVITIES]);
+    const hand = new Object3D();
+    hand.name = 'HandR';
+    root.add(hand);
+    const clover = new Object3D();
+    const figure = new TobyFigure(root, clips, clover);
+    expect(clover.parent).toBe(hand);
+    const grab: number = findStep('Pick', TOBY_GRAB_STEPS / SIMULATION_RATE);
+    const hold: number = TOBY_STOW_STEPS - TOBY_GRAB_STEPS;
+    figure.show(grab - 0.5, true);
+    expect(figure.describe()).toMatchObject({ clip: 'Pick', isHolding: false });
+    expect(clover.visible).toBe(false);
+    figure.show(grab, true);
+    expect(figure.describe()).toMatchObject({ clip: 'Find', isHolding: true });
+    expect(clover.visible).toBe(true);
+    expect(readClipTime(root, 'Find')).toBeCloseTo(
+      TOBY_GRAB_STEPS / SIMULATION_RATE,
+      9,
+    );
+    figure.show(grab + hold - 0.5, true);
+    expect(figure.describe()).toMatchObject({ clip: 'Find', isHolding: true });
+    figure.show(grab + hold, true);
+    expect(figure.describe()).toMatchObject({ clip: 'Find', isHolding: false });
+    expect(clover.visible).toBe(false);
+    expect(readClipTime(root, 'Find')).toBeCloseTo(
+      TOBY_STOW_STEPS / SIMULATION_RATE,
+      9,
+    );
+    figure.show(findStep('Rise', 0.1), true);
+    expect(figure.describe()).toMatchObject({ clip: 'Rise', isHolding: false });
+  });
+
+  it('holds nothing at a grab that finds nothing', () => {
+    const { root, clips } = makeModel(['Idle', 'Find', ...TOBY_ACTIVITIES]);
+    const clover = new Object3D();
+    const figure = new TobyFigure(root, clips, clover);
+    const grab: number = findStep('Pick', TOBY_GRAB_STEPS / SIMULATION_RATE);
+    figure.show(grab + 5, false);
+    expect(figure.describe()).toMatchObject({ clip: 'Pick', isHolding: false });
+    expect(clover.visible).toBe(false);
+    figure.show(grab + 5);
+    expect(figure.describe()).toMatchObject({ clip: 'Pick', isHolding: false });
+  });
+
+  it('holds a clover he finds as he picks, with a model that cannot show more', () => {
+    const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
+    const clover = new Object3D();
+    const figure = new TobyFigure(root, clips, clover);
+    expect(clover.parent).toBe(root);
+    const grab: number = findStep('Pick', TOBY_GRAB_STEPS / SIMULATION_RATE);
+    figure.show(grab + 5, true);
+    expect(figure.describe()).toMatchObject({ clip: 'Pick', isHolding: true });
+    expect(clover.visible).toBe(true);
+  });
+
   it('runs his clip on in step with the ground he covers', () => {
     const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
     const figure = new TobyFigure(root, clips);
@@ -178,6 +237,7 @@ describe('TobyFigure', () => {
       yaw: pose.yaw,
       activity: 'Run',
       clip: 'Run',
+      isHolding: false,
     });
   });
 

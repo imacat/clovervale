@@ -87,6 +87,12 @@ const LEAF_COLOUR = '#5aa746';
 /** The colour of the stalk, as the patch has it. */
 const STALK_COLOUR = '#6aa84a';
 
+/**
+ * How large a four-leaved clover held in a hand is drawn next to one in a
+ * patch, so that it fits the hand of a child yet is seen from afar.
+ */
+const HELD_SCALE = 0.6;
+
 /** How high above the ground the leaves of a lying clover are, in metres. */
 const LYING_HEIGHT = 0.02;
 
@@ -199,6 +205,21 @@ function createLyingClover(parts: CloverParts): Group {
   stalk.position.y = LYING_HEIGHT / 2;
   clover.add(stalk, leaves);
   return clover;
+}
+
+/**
+ * Makes a four-leaved clover to be held in a hand, by its stalk.
+ *
+ * @returns {Group} The clover, the foot of its stalk at the origin and its
+ *   leaves up the Y axis, about two thirds as large as one that
+ *   stands in a patch.
+ */
+export function createHeldClover(): Group {
+  const clover: Group = createStandingClover(buildCloverParts());
+  clover.scale.setScalar(HELD_SCALE);
+  const held = new Group();
+  held.add(clover);
+  return held;
 }
 
 /**

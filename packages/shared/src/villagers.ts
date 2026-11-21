@@ -54,6 +54,13 @@ export interface Villager {
    * it is free to be talked to.
    */
   readonly fighter?: MonsterKindId;
+  /**
+   * Whether the server chooses which of its lines the villager says in
+   * passing to a player who talks to it, and tells the peer of that
+   * player, rather than the peer choosing one, as it does for any other
+   * villager with lines.
+   */
+  readonly hasServerLines?: boolean;
 }
 
 /**
@@ -70,7 +77,7 @@ export const VILLAGERS: readonly Villager[] = [
     map: 'village',
     fighter: 'martha',
   },
-  { id: 'toby', file: TOBY_FILE, map: 'village' },
+  { id: 'toby', file: TOBY_FILE, map: 'village', hasServerLines: true },
   { id: 'edwin', file: CAVE_EDWIN_FILE, map: 'cave' },
 ];
 

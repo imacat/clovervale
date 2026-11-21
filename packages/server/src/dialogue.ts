@@ -107,6 +107,22 @@ export interface Listener {
   readonly acquaintances: readonly VillagerId[];
 }
 
+/**
+ * The messages of the lines Toby says in passing to a player who talks to
+ * him, one of them each time, at random.
+ */
+export const TOBY_LINES: readonly string[] = [
+  'villager.toby.line.1',
+  'villager.toby.line.2',
+  'villager.toby.line.3',
+];
+
+/**
+ * The message of the line Toby says in passing as he gives a player a
+ * four-leaved clover he holds.
+ */
+export const TOBY_GIFT_LINE = 'villager.toby.gift';
+
 /** The item Edwin gives a player to take to the king. */
 const EDWIN_MESSAGE: ItemKindId = 'clovervale-message';
 

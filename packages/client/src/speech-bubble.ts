@@ -542,6 +542,18 @@ export class SpeechBubble {
   }
 
   /**
+   * Takes the bubble away at once, if it is that of a villager, as the
+   * villager takes back what it said.
+   *
+   * @param {Villager} villager - The villager.
+   */
+  hush(villager: Villager): void {
+    if (this.#shown?.villager.id === villager.id) {
+      this.#hide();
+    }
+  }
+
+  /**
    * Describes the bubble as it is shown now.
    *
    * @returns {SpeechView | null} What the bubble shows and where, or `null`

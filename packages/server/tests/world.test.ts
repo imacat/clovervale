@@ -47,8 +47,11 @@ import {
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   TALK_STEPS,
+  TOBY_ACTIVITY_STEPS,
   TOBY_ENDS,
+  TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
+  TOBY_PATCHES,
   TOBY_RADIUS,
   NavigationGraph,
   VILLAGERS,
@@ -60,6 +63,7 @@ import {
   createMoveMessage,
   findPlacement,
   findSpawnPoint,
+  findTobyGrab,
   findTobyPose,
   findInteraction,
   findVillagePath,
@@ -77,6 +81,7 @@ import type {
   Placement,
   PlayerState,
   Pose,
+  TobyGrab,
   Villager,
 } from '@clovervale/shared';
 
@@ -1398,12 +1403,12 @@ describe('a player who picks by a patch of clover', () => {
     const id: number = addPicker(world);
     expect(world.describeItems().clovers).toContain(PATCH);
     const before: PlayerState = findPlayer(world, id);
+    const full: readonly number[] = world.describeItems().clovers;
     pickItem(world, id);
     world.step();
     expect(world.findInventory(id)).toEqual(['clover']);
-    expect(world.describeItems().clovers).not.toContain(PATCH);
-    expect(world.describeItems().clovers).toHaveLength(
-      CLOVER_PATCHES.length - 1,
+    expect(world.describeItems().clovers).toEqual(
+      full.filter((patch: number) => patch !== PATCH),
     );
     // A pick is no slash, and does not move the player.
     expect(findPlayer(world, id)).toEqual(before);
@@ -1467,6 +1472,276 @@ describe('a player who picks by a patch of clover', () => {
     world.step();
     expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
     expect(world.describeItems().clovers).toContain(PATCH);
+  });
+});
+
+/**
+ * Moves a world on to some steps before the next one at which Toby's hand
+ * grabs at a patch of clover, while the patch has its clover.
+ *
+ * @param {RecordingWorld} world - The world.
+ * @param {number} patch - The number of the patch.
+ * @param {number} [ahead] - How many steps before, one by default.
+ * @returns {number} The number of the step at which his hand is to grab.
+ * @throws {Error} If he does not come to grab there within a few loops.
+ */
+function stepToGrab(world: RecordingWorld, patch: number, ahead = 1): number {
+  for (let loop = 0; loop < 4 * TOBY_LOOP_STEPS; loop++) {
+    const grab: TobyGrab = findTobyGrab(world.stepCount + ahead);
+    if (
+      grab.step === world.stepCount + ahead &&
+      grab.patch === patch &&
+      world.describeItems().clovers.includes(patch)
+    ) {
+      return grab.step;
+    }
+    world.step();
+  }
+  throw new Error(`Toby does not come to grab at patch ${String(patch)}.`);
+}
+
+/**
+ * Lets a new player into a world, and walks it to the patch of clover by
+ * the gate that Toby picks at, on the other side of it from him, facing
+ * the patch, within reach of its clover but too far from him to talk to
+ * him.
+ *
+ * @param {World} world - The world.
+ * @returns {number} The identifier of the player.
+ */
+function addRival(world: World): number {
+  const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTRE;
+  const [first, second] = TOBY_ENDS;
+  const away: number = measureDistance(first, second);
+  const along: GroundVector = {
+    x: (second.x - first.x) / away,
+    z: (second.z - first.z) / away,
+  };
+  const { id }: PlayerState = world.addPlayer();
+  walkPlayer(world, id, {
+    x: patch.x + along.x * 1.12,
+    z: patch.z + along.z * 1.12,
+  });
+  turnPlayer(world, id, patch);
+  return id;
+}
+
+describe('Toby picking at a patch of clover', () => {
+  it('takes its four-leaved clover as his hand grabs, until it regrows', () => {
+    const world = new RecordingWorld(createRandom());
+    const [patch] = TOBY_PATCHES;
+    expect(world.describeItems().tobyFind).toBeNull();
+    const grab: number = stepToGrab(world, patch);
+    world.step();
+    expect(world.describeItems().clovers).not.toContain(patch);
+    expect(world.describeItems().clovers).toHaveLength(
+      CLOVER_PATCHES.length - 1,
+    );
+    expect(world.describeItems().tobyFind).toBe(grab);
+    expect(world.countTobyClovers()).toBe(1);
+    stepTimes(world, REGROW_STEPS - 1);
+    expect(world.describeItems().clovers).not.toContain(patch);
+    world.step();
+    expect(world.describeItems().clovers).toContain(patch);
+  });
+
+  it('takes nothing from a patch without its clover', () => {
+    const world = new RecordingWorld(createRandom());
+    const [patch] = TOBY_PATCHES;
+    const first: number = stepToGrab(world, patch);
+    world.step();
+    // He comes back to the patch before it has regrown.
+    const again: number = first + TOBY_LOOP_STEPS;
+    expect(again).toBeLessThan(first + REGROW_STEPS);
+    stepTimes(world, again - 1 - world.stepCount);
+    world.step();
+    expect(findTobyGrab(world.stepCount)).toEqual({ step: again, patch });
+    expect(world.describeItems().tobyFind).not.toBe(again);
+    // He holds the clovers he took, the one from the other patch as well.
+    expect(world.countTobyClovers()).toBe(2);
+  });
+
+  it('leaves the clover to a player who picks it a step before him', () => {
+    const world = new RecordingWorld(createRandom());
+    const id: number = addRival(world);
+    const grab: number = stepToGrab(world, TOBY_PATCHES[1], 2);
+    pickItem(world, id);
+    world.step();
+    world.step();
+    expect(world.stepCount).toBe(grab);
+    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describeItems().tobyFind).not.toBe(grab);
+  });
+
+  it('takes the clover before a player who picks it as his hand grabs', () => {
+    const world = new RecordingWorld(createRandom());
+    const id: number = addRival(world);
+    const grab: number = stepToGrab(world, TOBY_PATCHES[1]);
+    pickItem(world, id);
+    world.step();
+    expect(world.stepCount).toBe(grab);
+    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describeItems().tobyFind).toBe(grab);
+    expect(world.countTobyClovers()).toBeGreaterThan(0);
+  });
+
+  it('picks nothing in a cave', () => {
+    const world = new World(createRandom(), { map: 'cave' });
+    stepTimes(world, TOBY_LOOP_STEPS);
+    expect(world.describeItems().tobyFind).toBeUndefined();
+    expect(world.countTobyClovers()).toBe(0);
+  });
+
+  it('holds every clover he takes, without end', () => {
+    const world = new RecordingWorld(createRandom());
+    let expected = 0;
+    for (let step = 0; step < 20 * TOBY_LOOP_STEPS; step++) {
+      const grab: TobyGrab = findTobyGrab(world.stepCount + 1);
+      if (
+        grab.step === world.stepCount + 1 &&
+        world.describeItems().clovers.includes(grab.patch)
+      ) {
+        expected++;
+      }
+      world.step();
+    }
+    expect(expected).toBeGreaterThan(10);
+    expect(world.countTobyClovers()).toBe(expected);
+  });
+});
+
+/** Where Toby squats at the patch of clover by the gate. */
+const TOBY_BY_GATE: GroundVector = TOBY_ENDS[1];
+
+/**
+ * Brings a player into the village, standing beyond the patch of clover by
+ * the gate from where Toby squats at it, facing him, within reach of him,
+ * carrying some items, among which is Martha's token, so that she leaves
+ * it alone.
+ *
+ * @param {World} world - The world.
+ * @param {readonly ItemKindId[]} carried - What else the player carries.
+ * @returns {number} The identifier of the player.
+ */
+function admitTalker(world: World, carried: readonly ItemKindId[]): number {
+  const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTRE;
+  const [first, second] = TOBY_ENDS;
+  const away: number = measureDistance(first, second);
+  const place: GroundVector = {
+    x: patch.x + ((second.x - first.x) / away) * 0.8,
+    z: patch.z + ((second.z - first.z) / away) * 0.8,
+  };
+  const yaw: number =
+    (Math.atan2(TOBY_BY_GATE.x - place.x, TOBY_BY_GATE.z - place.z) * 180) /
+    Math.PI;
+  const player: Player = {
+    id: 1,
+    appearance: 1,
+    mover: new AuthoritativePlayer(createMotion(place, yaw)),
+    health: PLAYER_HEALTH,
+    deathSteps: 0,
+    lastSlash: null,
+    inventory: ['spy-token', ...carried],
+    acquaintances: [],
+    dialogue: null,
+    turnCount: 0,
+    isHunted: false,
+    speeches: [],
+  };
+  world.admitPlayer(player, { ...place, yaw });
+  return player.id;
+}
+
+/**
+ * Has a player of a world talk to Toby as he picks at the patch of clover
+ * by the gate, once his hand has grabbed there, and tells what he says.
+ *
+ * @param {RecordingWorld} world - The world.
+ * @param {number} id - The identifier of the player, which stands where
+ *   {@link admitTalker} brings it.
+ * @returns {string[]} The lines he says to the player.
+ * @throws {Error} If the player does not talk to him.
+ */
+function talkToToby(world: RecordingWorld, id: number): string[] {
+  for (let step = 0; step < 2 * TOBY_LOOP_STEPS; step++) {
+    const next: number = world.stepCount + 1;
+    const grab: TobyGrab = findTobyGrab(next);
+    if (
+      grab.patch === TOBY_PATCHES[1] &&
+      next - grab.step < TOBY_ACTIVITY_STEPS.Pick - TOBY_GRAB_STEPS - 15
+    ) {
+      break;
+    }
+    world.step();
+  }
+  world.takeSpeeches(id);
+  interactPlayer(world, id);
+  world.step();
+  expect(findPlayer(world, id).action).toBe('Talk');
+  stepTimes(world, TALK_STEPS);
+  return world
+    .takeSpeeches(id)
+    .map(({ villager, line }) => `${villager}:${line}`);
+}
+
+describe('a player who talks to Toby', () => {
+  it('gets a clover he holds with his line of giving it', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const id: number = admitTalker(world, []);
+    expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
+    const held: number = world.countTobyClovers();
+    expect(world.findInventory(id)).toEqual(['spy-token', 'clover']);
+    expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
+    expect(world.countTobyClovers()).toBe(held - 1);
+    expect(world.findInventory(id)).toEqual([
+      'spy-token',
+      'clover',
+      'clover',
+    ]);
+  });
+
+  it('hears one of his three other lines once he holds no clover', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const id: number = admitTalker(world, []);
+    while (world.countTobyClovers() > 0 || world.stepCount < 300) {
+      talkToToby(world, id);
+    }
+    const carried: ItemKindId[] = world.findInventory(id) ?? [];
+    expect(talkToToby(world, id)).toEqual(['toby:villager.toby.line.3']);
+    expect(world.findInventory(id)).toEqual(carried);
+    expect(world.countTobyClovers()).toBe(0);
+  });
+
+  it('keeps his clovers from a player whose bag is full', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const full: ItemKindId[] = Array.from(
+      { length: INVENTORY_SIZE - 1 },
+      (): ItemKindId => 'sword',
+    );
+    const id: number = admitTalker(world, full);
+    expect(talkToToby(world, id)).toEqual(['toby:villager.toby.line.3']);
+    expect(world.countTobyClovers()).toBeGreaterThan(0);
+    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
+    expect(world.describeItems().items).toEqual([]);
+  });
+
+  it('says each of his lines, at random', () => {
+    const heard = new Set<string>();
+    for (const draw of [0, 0.3, 0.6, 0.9]) {
+      const world = new RecordingWorld(() => draw);
+      const id: number = admitTalker(world, []);
+      for (const line of talkToToby(world, id)) {
+        heard.add(line);
+      }
+    }
+    expect(heard).toEqual(
+      new Set([
+        'toby:villager.toby.line.1',
+        'toby:villager.toby.line.2',
+        'toby:villager.toby.line.3',
+        'toby:villager.toby.gift',
+      ]),
+    );
   });
 });
 

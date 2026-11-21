@@ -183,6 +183,8 @@ export const EN_MESSAGES = {
     'If you want something, go and see the village chief. She lives in the biggest house!',
   'villager.toby.line.3':
     "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
+  'villager.toby.found': 'Found one!',
+  'villager.toby.gift': "Here, this one's for you! It brings good luck.",
   'villager.edwin.name': 'Prisoner',
   'villager.edwin.knownName': 'Envoy Edwin',
   'villager.edwin.call': 'Help! Is anyone there?',

@@ -25,18 +25,23 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CLOVER_PATCHES,
   PLAYER_RADIUS,
   SIMULATION_RATE,
   SPAWN_POINT_COUNT,
+  TOBY_ACTIVITY_STEPS,
   TOBY_CLOVERS,
+  TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
   TOBY_RADIUS,
+  TOBY_STOW_STEPS,
   Terrain,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
   WALK_SPEED,
   findPlacement,
   findSpawnPoint,
+  findTobyGrab,
   findTobyPose,
   findTurn,
   measurePushReach,
@@ -50,6 +55,7 @@ import type {
   Placement,
   Shape,
   TobyActivity,
+  TobyGrab,
   TobyPose,
 } from '../src/index.ts';
 
@@ -352,6 +358,59 @@ describe('the course of Toby', () => {
     }
     const halfway: TobyPose = findTobyPose(1.5);
     expect(halfway.elapsed).toBeCloseTo(1.5 / SIMULATION_RATE, 9);
+  });
+});
+
+describe('findTobyGrab', () => {
+  /** The steps of the loop at which his hand grabs at the clover. */
+  const GRABS: readonly number[] = LOOP.filter(
+    (step: number) => findTobyGrab(step).step === step,
+  );
+
+  it('grabs once at each end of his run, as he picks there', () => {
+    expect(GRABS).toHaveLength(2);
+    for (const step of GRABS) {
+      const pose: TobyPose = findTobyPose(step);
+      expect(pose.activity).toBe('Pick');
+      expect(pose.elapsed * SIMULATION_RATE).toBeCloseTo(TOBY_GRAB_STEPS, 9);
+    }
+  });
+
+  it('grabs at the patch in front of him', () => {
+    for (const step of GRABS) {
+      const { patch }: TobyGrab = findTobyGrab(step);
+      const centre: GroundVector | undefined = CLOVER_PATCHES[patch];
+      const pose: TobyPose = findTobyPose(step);
+      expect(centre).toBeDefined();
+      expect(
+        Math.min(
+          ...TOBY_CLOVERS.map((clover: GroundVector) =>
+            measureDistance(clover, pose),
+          ),
+        ),
+      ).toBeCloseTo(measureDistance(centre ?? pose, pose), 9);
+      expect(measureDistance(centre ?? pose, pose)).toBeLessThan(1);
+    }
+  });
+
+  it('tells the latest grab at a step or before it, loop after loop', () => {
+    for (const step of [-500, -1, 0, 1, 77.5, 100, 400, 12_345]) {
+      const grab: TobyGrab = findTobyGrab(step);
+      expect(grab.step).toBeLessThanOrEqual(step);
+      const later: number = grab.step + TOBY_LOOP_STEPS;
+      expect(findTobyGrab(later)).toEqual({
+        step: later,
+        patch: grab.patch,
+      });
+      for (let between = grab.step + 1; between <= step; between++) {
+        expect(findTobyGrab(between)).toEqual(grab);
+      }
+    }
+  });
+
+  it('puts a clover away before he stands up', () => {
+    expect(TOBY_STOW_STEPS).toBeGreaterThan(TOBY_GRAB_STEPS);
+    expect(TOBY_STOW_STEPS).toBeLessThan(TOBY_ACTIVITY_STEPS.Pick);
   });
 });
 

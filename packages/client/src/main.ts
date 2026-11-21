@@ -41,6 +41,7 @@ import {
   decodeServerMessage,
   encodeClientMessage,
   findSpawnPoint,
+  findTobyGrab,
 } from '@clovervale/shared';
 import type {
   ClientMessage,
@@ -100,7 +101,7 @@ import { SnapshotTimeline } from './interpolation.ts';
 import type { PlayersView } from './interpolation.ts';
 import { InventoryBag } from './inventory-bag.ts';
 import type { BagResponse, ItemRequest } from './inventory-bag.ts';
-import { ItemFigures } from './item-figures.ts';
+import { ItemFigures, createHeldClover } from './item-figures.ts';
 import { createItemNotices, findGainedItems } from './item-notices.ts';
 import type { ItemNotices } from './item-notices.ts';
 import {
@@ -155,6 +156,12 @@ import { SpeechBubble, findHeadTop } from './speech-bubble.ts';
 import './style.css';
 import { TalkWatch } from './talk-watch.ts';
 import { TobyFigure } from './toby-figure.ts';
+import {
+  TobyExclamation,
+  findShownItems,
+  hasTobyFound,
+} from './toby-finds.ts';
+import type { TobyUtterance, WorldNews } from './toby-finds.ts';
 import { Translator, isMessageId } from './translator.ts';
 import {
   createMonsterFigure,
@@ -244,8 +251,11 @@ let describeServer = (): string => translator.translate('server.connecting');
 let describeModels = (): string => translator.translate('models.loading');
 /** How the server judged the latest slash of the player of the page. */
 let lastSlash: SlashJudgement | null = null;
-/** What there is to pick in the world, as the server last told. */
-let worldItems: WorldItems | null = null;
+/**
+ * What there is to pick in the world, as the server last told, and the
+ * step of the snapshot that told it.
+ */
+let worldNews: WorldNews | null = null;
 /** What the player of the page carries, as the server last told. */
 let inventory: readonly ItemKindId[] | null = null;
 /**
@@ -353,6 +363,8 @@ const speech = new SpeechBubble(stage, translator);
 const talks = new TalkWatch();
 /** What tells when Edwin calls out for help. */
 const edwinCall = new EdwinCall();
+/** What tells when Toby exclaims that he has found a four-leaved clover. */
+const exclamation = new TobyExclamation();
 const fade = createMapFade(document.body);
 const viewport: Viewport = showScene(
   scene,
@@ -441,7 +453,7 @@ async function showModels(): Promise<void> {
   const child: Figure | null = createVillagerFigure(models, TOBY_FILE);
   if (child !== null) {
     scene.add(child.root);
-    toby = new TobyFigure(child.root, child.clips);
+    toby = new TobyFigure(child.root, child.clips, createHeldClover());
   }
   wallPitchfork =
     models.find((model: LoadedModel) => model.file === PITCHFORK_FILE)
@@ -644,12 +656,18 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * hits among them.  Toby is shown as he is at the step of the server the
  * player of the page is shown at as it walks, running on evenly whether it
  * walks or rests, while the player of the page is shown as predicted, and as
- * he is when the others are shown otherwise.  Once the player of the page
- * starts to talk to a villager that chatters, as predicted, what the villager
- * says is shown above its head, and follows the head of Toby as he goes on and
- * squats, and that of Martha as she goes about.  Martha's pitchfork is shown
- * where it is, as {@link showPitchfork} tells.  The prompt is hidden while the
- * player is in a dialogue.
+ * he is when the others are shown otherwise; he holds a four-leaved clover
+ * he finds, as {@link hasTobyFound} tells, and exclaims, as
+ * {@link showTobyExclamation} tells, and the patches of clover are shown
+ * with their clovers as they are at that step, as far as those he takes
+ * go, which the prompt tells of at the step an interaction would start at.
+ * Once the player of the page starts to talk to a villager that chatters,
+ * as predicted, what the villager says is shown above its head, but for
+ * one whose lines the server chooses, which says what the server tells,
+ * and follows the head of Toby as he goes on and squats, and that of
+ * Martha as she goes about.  Martha's pitchfork is shown where it is, as
+ * {@link showPitchfork} tells.  The prompt is hidden while the player is in
+ * a dialogue.
  */
 function showPlayers(): void {
   const now: number = performance.now();
@@ -677,7 +695,14 @@ function showPlayers(): void {
     const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
     view = { ...view, players };
   }
-  if (shownStep !== null) {
+  if (worldNews !== null) {
+    itemFigures.show(findShownItems(worldNews, shownStep ?? worldNews.step));
+  }
+  if (tobyStep !== null) {
+    const isFound: boolean = hasTobyFound(findTobyGrab(tobyStep), worldNews);
+    toby?.show(tobyStep, isFound);
+    showTobyExclamation(exclamation.notice(tobyStep, isFound), tobyStep);
+  } else if (shownStep !== null) {
     toby?.show(shownStep);
   }
   figures.showPlayers(view.players);
@@ -690,7 +715,8 @@ function showPlayers(): void {
   const predicted: PlayerMotion | null = prediction?.motion ?? null;
   // An interaction would start at the next step of the player.
   const nextStep: number = prediction?.readNextStep(now) ?? 0;
-  const world: WorldItems = worldItems ?? NO_WORLD_ITEMS;
+  const world: WorldItems =
+    worldNews === null ? NO_WORLD_ITEMS : findShownItems(worldNews, nextStep);
   const carried: readonly ItemKindId[] = inventory ?? [];
   const monsters: readonly MonsterState[] = timeline.latestMonsters ?? [];
   prompt.show(
@@ -725,9 +751,11 @@ function showPlayers(): void {
     shownMap,
     monsters,
   );
-  // A villager with something to tell says what the server tells it to.
+  // A villager with something to tell says what the server tells it to,
+  // and one with lines of its own one of them, unless the server chooses.
   if (
     villager !== null &&
+    villager.hasServerLines !== true &&
     describeVillager(translator, villager).lines.length > 0
   ) {
     speech.say(villager, findShownHead(villager, shownStep ?? 0));
@@ -798,6 +826,35 @@ function findShownHead(villager: Villager, step: number): Vector3 {
     (candidate: LoadedModel) => candidate.file === villager.file,
   );
   return findHeadTop(villager, model?.root ?? null, step, shownMonsters);
+}
+
+/**
+ * Has Toby exclaim in a bubble above his head that he has found a
+ * four-leaved clover, as {@link TobyExclamation} tells, while the player of
+ * the page is not in a dialogue and no other bubble is shown, and take it
+ * back, if it is still shown, once the page learns he found none.
+ *
+ * @param {TobyUtterance | null} utterance - What he is to do about his
+ *   bubble, if anything.
+ * @param {number} step - The step of the server he is shown at, which may
+ *   fall between two.
+ */
+function showTobyExclamation(
+  utterance: TobyUtterance | null,
+  step: number,
+): void {
+  if (TOBY_VILLAGER === undefined || utterance === null) {
+    return;
+  }
+  if (utterance === 'hush') {
+    speech.hush(TOBY_VILLAGER);
+  } else if (!dialogueBox.isOpen && speech.describe() === null) {
+    speech.say(
+      TOBY_VILLAGER,
+      findShownHead(TOBY_VILLAGER, step),
+      'villager.toby.found',
+    );
+  }
 }
 
 /**
@@ -913,16 +970,19 @@ function receiveMessage(data: string): void {
       panel.showMonster(describeMonster(translator, message.monsters));
       lastSlash = message.slash;
       panel.showSlash(describeSlash(translator, lastSlash));
-      worldItems = {
-        clovers: message.clovers,
-        items: message.items,
-        looted: message.looted,
+      worldNews = {
+        step: message.step,
+        items: {
+          clovers: message.clovers,
+          items: message.items,
+          looted: message.looted,
+          tobyFind: message.tobyFind,
+        },
       };
       for (const kind of findGainedItems(inventory, message.inventory)) {
         itemNotices.show(kind);
       }
       inventory = message.inventory;
-      itemFigures.show(worldItems);
       cave.showLooted(message.looted);
       const health: number =
         message.players.find((player: PlayerState) => player.id === ownId)
@@ -1015,7 +1075,7 @@ function leaveMap(): void {
   speech.clear();
   monsterFigures.showMonsters([]);
   shownMonsters = [];
-  worldItems = null;
+  worldNews = null;
   itemFigures.show(null);
 }
 
@@ -1145,7 +1205,7 @@ async function connectToServer(): Promise<void> {
     timeline.clear();
     schedule.clear();
     lastSlash = null;
-    worldItems = null;
+    worldNews = null;
     inventory = null;
     itemFigures.show(null);
     bagView.show(null, PLAYER_HEALTH);
@@ -1226,7 +1286,7 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     chooseSpaceInput(
       prediction.motion,
       step,
-      worldItems ?? NO_WORLD_ITEMS,
+      worldNews === null ? NO_WORLD_ITEMS : findShownItems(worldNews, step),
       shownMap,
       timeline.latestMonsters ?? [],
     ),

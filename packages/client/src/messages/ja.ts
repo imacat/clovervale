@@ -178,6 +178,8 @@ export const JA_MESSAGES: MessageTable = {
     'おうちに住んでるよ。',
   'villager.toby.line.3':
     '四つ葉のをさがしてるんだ！見つけたら、いいことがあるんだよ。',
+  'villager.toby.found': 'あった！',
+  'villager.toby.gift': 'これ、あげる！いいことがあるよ。',
   'villager.edwin.name': '囚人',
   'villager.edwin.knownName': '使者エドウィン',
   'villager.edwin.call': '助けてくれ！誰かいないのか？',

@@ -365,6 +365,7 @@ describe('findVillager by Toby', () => {
       id: 'toby',
       file: 'npc-toby.glb',
       map: 'village',
+      hasServerLines: true,
     });
     expect(findInteraction(facing, RUNNING)).toBe('Talk');
   });

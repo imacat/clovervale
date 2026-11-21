@@ -25,7 +25,13 @@
 import { AnimationMixer, Box3, LoopRepeat, Vector3 } from 'three';
 import type { AnimationAction, AnimationClip, Object3D } from 'three';
 
-import { findTobyPose } from '@clovervale/shared';
+import {
+  TOBY_ACTIVITY_STEPS,
+  TOBY_GRAB_STEPS,
+  TOBY_STOW_STEPS,
+  findTobyGrab,
+  findTobyPose,
+} from '@clovervale/shared';
 import type { TobyActivity, TobyPose } from '@clovervale/shared';
 
 import { IDLE_CLIP } from './clip-choice.ts';
@@ -44,6 +50,8 @@ export interface TobyView {
   readonly activity: TobyActivity;
   /** The name of the clip the figure plays, or `null` if it has none. */
   readonly clip: string | null;
+  /** Whether he is shown holding a four-leaved clover he has found. */
+  readonly isHolding: boolean;
 }
 
 /**
@@ -55,6 +63,34 @@ const LOOPING_ACTIVITIES: readonly TobyActivity[] = ['Pick', 'Run'];
 /** The name of the bone the head of the model goes with. */
 const HEAD_BONE = 'Head';
 
+/** The name of the bone the right hand of the model goes with. */
+const HAND_BONE = 'HandR';
+
+/**
+ * Where the foot of the stalk of a four-leaved clover held in the right
+ * hand is, in the frame of the bone of the hand, in metres: in his fist,
+ * which the bone points out of along -Y, as the arm does.
+ */
+const HELD_CLOVER_OFFSET = -0.035;
+
+/**
+ * The name of the clip of his picking at a patch of clover as he finds its
+ * four-leaved clover, over the whole of his picking.
+ */
+const FIND_CLIP = 'Find';
+
+/**
+ * How many steps after his hand grabs at a four-leaved clover he finds
+ * Toby holds it, until he has put it away.
+ */
+const HOLD_STEPS: number = TOBY_STOW_STEPS - TOBY_GRAB_STEPS;
+
+/**
+ * How many steps after his hand grabs at a patch of clover Toby goes on
+ * picking there.
+ */
+const PICK_ON_STEPS: number = TOBY_ACTIVITY_STEPS.Pick - TOBY_GRAB_STEPS;
+
 /**
  * The model of Toby, stood where his course has him and posed as he is
  * there, wholly by the step of the server it shows him at.
@@ -63,7 +99,11 @@ const HEAD_BONE = 'Head';
  * squatting down, standing up and turning round once over their length,
  * picking at the clover over and over, and running over and over at the
  * pace of his run, so that his feet keep to the ground he covers.  A model
- * that lacks the clip of an activity idles instead.
+ * that lacks the clip of an activity idles instead.  As he picks after his
+ * hand has grabbed at a four-leaved clover he has found, the model plays
+ * the clip of finding one in its place, if it has it, from where he is in
+ * his picking, and he holds the clover in his right hand until he has put
+ * it away.
  */
 export class TobyFigure {
   readonly #root: Object3D;
@@ -71,6 +111,7 @@ export class TobyFigure {
   readonly #mixer: AnimationMixer;
   readonly #head: Object3D | null;
   readonly #headRise: number | null;
+  readonly #clover: Object3D | null;
   #action: AnimationAction | null = null;
   #view: TobyView | null = null;
 
@@ -80,8 +121,16 @@ export class TobyFigure {
    * @param {Object3D} root - The root of the model, standing in the
    *   village.
    * @param {readonly AnimationClip[]} clips - The clips of the model.
+   * @param {Object3D | null} [clover] - The four-leaved clover he holds as
+   *   he finds one, which is put in the right hand of the model, or on the
+   *   model if it has no right hand, hidden, or `null` for none, which it
+   *   is by default.
    */
-  constructor(root: Object3D, clips: readonly AnimationClip[]) {
+  constructor(
+    root: Object3D,
+    clips: readonly AnimationClip[],
+    clover: Object3D | null = null,
+  ) {
     this.#root = root;
     root.visible = false;
     this.#clips = new Map(
@@ -95,6 +144,19 @@ export class TobyFigure {
       this.#head === null || !Number.isFinite(top)
         ? null
         : top - this.#head.getWorldPosition(new Vector3()).y;
+    this.#clover = clover;
+    if (clover !== null) {
+      clover.visible = false;
+      const hand: Object3D | undefined = root.getObjectByName(HAND_BONE);
+      if (hand === undefined) {
+        root.add(clover);
+      } else {
+        // The stalk sticks out of his fist the way his fingers point.
+        clover.position.set(0, HELD_CLOVER_OFFSET, 0);
+        clover.rotation.set(Math.PI, 0, 0);
+        hand.add(clover);
+      }
+    }
   }
 
   /**
@@ -102,19 +164,40 @@ export class TobyFigure {
    *
    * @param {number} step - The number of the step, which may fall between
    *   two steps.
+   * @param {boolean} [isFound] - Whether he found a four-leaved clover at
+   *   the latest grab of his hand at the step or before it, which he did
+   *   not by default.
    */
-  show(step: number): void {
+  show(step: number, isFound = false): void {
     const pose: TobyPose = findTobyPose(step);
     this.#root.visible = true;
     this.#root.position.set(pose.x, 0, pose.z);
     this.#root.rotation.y = (pose.yaw * Math.PI) / 180;
+    const since: number = step - findTobyGrab(step).step;
+    const isFinding: boolean =
+      isFound && pose.activity === 'Pick' && since < PICK_ON_STEPS;
     const clip: AnimationClip | undefined =
-      this.#clips.get(pose.activity) ?? this.#clips.get(IDLE_CLIP);
+      (isFinding ? this.#clips.get(FIND_CLIP) : undefined) ??
+      this.#clips.get(pose.activity) ??
+      this.#clips.get(IDLE_CLIP);
     if (clip !== undefined) {
       this.#pose(clip, pose);
     }
+    const isHolding: boolean =
+      this.#clover !== null && isFinding && since < HOLD_STEPS;
+    if (this.#clover !== null) {
+      this.#clover.visible = isHolding;
+    }
     const { x, z, yaw, activity } = pose;
-    this.#view = { step, x, z, yaw, activity, clip: clip?.name ?? null };
+    this.#view = {
+      step,
+      x,
+      z,
+      yaw,
+      activity,
+      clip: clip?.name ?? null,
+      isHolding,
+    };
   }
 
   /**
@@ -162,8 +245,10 @@ export class TobyFigure {
       action.play();
       this.#action = action;
     }
+    // His finding is played once over the whole of his picking.
     const isLooping: boolean =
-      LOOPING_ACTIVITIES.includes(pose.activity) || clip.name === IDLE_CLIP;
+      clip.name !== FIND_CLIP &&
+      (LOOPING_ACTIVITIES.includes(pose.activity) || clip.name === IDLE_CLIP);
     action.time = isLooping ? pose.elapsed % clip.duration : pose.elapsed;
     this.#mixer.update(0);
   }

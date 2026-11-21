@@ -518,4 +518,43 @@ describe('SpeechBubble with Toby', () => {
     bubble.follow(TOBY, new Vector3(-10.5, 1.1, -0.2));
     expect(bubble.describe()).toBeNull();
   });
+
+  it('exclaims as he finds a four-leaved clover, in every language', async () => {
+    const found: readonly [Translator, string][] = [
+      [new Translator(), 'Found one!'],
+      [await createTranslator('zh-TW'), '找到了！'],
+      [await createTranslator('zh-CN'), '找到啦！'],
+      [await createTranslator('ja'), 'あった！'],
+    ];
+    for (const [translator, line] of found) {
+      const { bubble } = createBubble(translator);
+      bubble.say(TOBY, new Vector3(-8, 0.8, 0), 'villager.toby.found');
+      expect(bubble.describe()?.line).toBe(line);
+    }
+  });
+
+  it('gives a clover with a line of his own, in every language', async () => {
+    const gift: readonly [Translator, string][] = [
+      [new Translator(), "Here, this one's for you! It brings good luck."],
+      [await createTranslator('zh-TW'), '這個給你！會有好運喔。'],
+      [await createTranslator('zh-CN'), '这个给你！会有好运哦。'],
+      [await createTranslator('ja'), 'これ、あげる！いいことがあるよ。'],
+    ];
+    for (const [translator, line] of gift) {
+      const { bubble } = createBubble(translator);
+      bubble.say(TOBY, new Vector3(-8, 0.8, 0), 'villager.toby.gift');
+      expect(bubble.describe()?.line).toBe(line);
+    }
+  });
+
+  it('takes back what he said, and only what he said', () => {
+    const { parent, bubble } = createBubble();
+    bubble.say(NANCY, HEAD);
+    bubble.hush(TOBY);
+    expect(bubble.describe()?.name).toBe('Nancy');
+    bubble.say(TOBY, new Vector3(-8, 0.8, 0), 'villager.toby.found');
+    bubble.hush(TOBY);
+    expect(bubble.describe()).toBeNull();
+    expect(parent.children).toHaveLength(0);
+  });
 });

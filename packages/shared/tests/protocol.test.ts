@@ -118,6 +118,7 @@ const NOTHING_TO_PICK = {
   clovers: [],
   items: [],
   looted: [],
+  tobyFind: null,
   inventory: [],
   dialogue: null,
   acquaintances: [],
@@ -587,6 +588,7 @@ describe('the server message codec', () => {
       clovers: [0, 3, 10],
       items: [ITEM, second],
       looted: [],
+      tobyFind: null,
       inventory: ['clover', 'clover'],
       dialogue: null,
       acquaintances: [],
@@ -608,6 +610,41 @@ describe('the server message codec', () => {
       looted: [0, 4],
       inventory: ['sword', 'leather-armour', 'clover'],
     });
+  });
+
+  it('decodes a snapshot message that tells when Toby last took a clover', () => {
+    const message = createSnapshotMessage(
+      342,
+      [PLAYER],
+      [],
+      OWN,
+      null,
+      { clovers: [0, 3], items: [], tobyFind: 197 },
+    );
+    expect(message.tobyFind).toBe(197);
+    expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
+      type: 'snapshot',
+      clovers: [0, 3],
+      tobyFind: 197,
+    });
+  });
+
+  it.each([
+    ['is missing', { tobyFind: undefined }],
+    ['is no whole number', { tobyFind: 19.5 }],
+    ['is not a number', { tobyFind: '197' }],
+  ])('rejects a snapshot whose step of the clover Toby took %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'snapshot',
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      own: OWN,
+      slash: null,
+      ...NOTHING_TO_PICK,
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
   });
 
   it.each([

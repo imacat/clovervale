@@ -245,15 +245,19 @@ export {
   TOBY_CLOVERS,
   TOBY_ENDS,
   TOBY_FILE,
+  TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
+  TOBY_PATCHES,
   TOBY_RADIUS,
   TOBY_RUN_SPEED,
+  TOBY_STOW_STEPS,
+  findTobyGrab,
   findTobyPose,
   measurePushReach,
   pushAside,
   resolveWalk,
 } from './toby.ts';
-export type { TobyActivity, TobyPose } from './toby.ts';
+export type { TobyActivity, TobyGrab, TobyPose } from './toby.ts';
 export {
   FOUNTAIN_RIM_RADIUS,
   VILLAGE_BOUNDARY,

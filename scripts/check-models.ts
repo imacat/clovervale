@@ -390,13 +390,21 @@ const CHILD_ACTIVITY_DURATIONS: Readonly<Record<string, number>> =
 /**
  * The shortest and the longest each clip of Toby may last, in seconds:
  * squatting down, standing up and turning round each as long as his course
- * gives them, and no round of picking or stride of his run longer than his
- * picking or his run.
+ * gives them, no round of picking or stride of his run longer than his
+ * picking or his run, and his picking when he finds a four-leaved clover
+ * as long as his picking.
  */
 const CHILD_CLIP_DURATIONS: Readonly<
   Record<string, readonly [number, number]>
 > = Object.fromEntries([
   ['Idle', [0, Infinity]],
+  [
+    'Find',
+    [
+      (CHILD_ACTIVITY_DURATIONS.Pick ?? 0) - 1e-6,
+      CHILD_ACTIVITY_DURATIONS.Pick ?? 0,
+    ],
+  ],
   ...Object.entries(CHILD_ACTIVITY_DURATIONS).map(
     ([activity, duration]: [string, number]): [string, [number, number]] => [
       activity,
@@ -415,6 +423,7 @@ const CHILD_CLIP_CHAIN: Readonly<
   Record<string, readonly [from: string, to: string]>
 > = {
   Squat: ['Run', 'Pick'],
+  Find: ['Pick', 'Pick'],
   Rise: ['Pick', 'Idle'],
   Turn: ['Idle', 'Run'],
 };
