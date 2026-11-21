@@ -192,7 +192,8 @@ canvas {
   pointer-events: auto;
 }
 
-.bag-icon {
+.bag-icon,
+.help-button {
   position: relative;
   box-sizing: border-box;
   width: 48px;
@@ -205,7 +206,9 @@ canvas {
 }
 
 .bag-icon svg,
-.bag-slot svg {
+.bag-slot svg,
+.help-button svg,
+.help-mouse svg {
   display: block;
   width: 100%;
   height: 100%;
@@ -226,8 +229,12 @@ canvas {
   stroke-linecap: round;
 }
 
-/* The key that opens the bag, on its icon, drawn as a key cap. */
-.bag-key {
+/*
+ * The key that opens the bag, on its icon, and the key that opens the help
+ * sheet, on its button, drawn as key caps.
+ */
+.bag-key,
+.help-key {
   position: absolute;
   right: -6px;
   bottom: -6px;
@@ -448,4 +455,244 @@ canvas {
   stroke: #e8c46a;
   stroke-width: 2;
   stroke-linecap: round;
+}
+
+/*
+ * The button of the help sheet, right of the icon of the bag, drawn like
+ * it: a piece of parchment with a question mark.
+ */
+.help-button {
+  position: fixed;
+  bottom: 16px;
+  left: 76px;
+  user-select: none;
+}
+
+.help-icon-sheet {
+  fill: #ecdcb0;
+  stroke: #7a5a30;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.help-icon-curl {
+  fill: #c9ad74;
+  stroke: #7a5a30;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.help-icon-mark {
+  fill: none;
+  stroke: #5a3a1c;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.help-icon-dot {
+  fill: #5a3a1c;
+}
+
+/*
+ * The help sheet: a clear veil over the whole page but the panel, which
+ * keeps the pointer from the game, and a sheet of parchment in the middle,
+ * over the panel too, that lists the controls in two columns.
+ */
+.help {
+  position: fixed;
+  inset: 0;
+}
+
+.help[hidden],
+.help-sheet[hidden] {
+  display: none;
+}
+
+.help-sheet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1002;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  box-sizing: border-box;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 18px 28px 22px;
+  border: 1px solid #a8864e;
+  border-radius: 4px 10px 6px 12px;
+  background:
+    radial-gradient(
+      ellipse at center,
+      #f6ebcd 0%,
+      #eedcaf 60%,
+      #ddc28a 100%
+    );
+  box-shadow:
+    inset 0 0 28px rgb(122 82 34 / 45%),
+    0 8px 24px rgb(0 0 0 / 45%);
+  color: #3e2a14;
+  font: 15px sans-serif;
+}
+
+.help-title {
+  margin: 0 0 16px;
+  color: #4a2f17;
+  font: bold 26px serif;
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+/* The cross that closes the sheet, as a red tab at its top right. */
+.help-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #6e1c16;
+  border-radius: 4px;
+  background: #b3342a;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 35%);
+  cursor: pointer;
+}
+
+.help-close::before,
+.help-close::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: #fbefe0;
+}
+
+.help-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.help-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.help-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-template-rows: repeat(4, auto);
+  gap: 14px 24px;
+}
+
+.help-control {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+/* The key caps of a control, in clusters side by side, at its right. */
+.help-caps {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* A cluster of key caps, its lines centred as on a keyboard. */
+.help-cap-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.help-cap-line {
+  display: flex;
+  gap: 3px;
+}
+
+/* A key of the keyboard, drawn as a key cap. */
+.help-cap {
+  box-sizing: border-box;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border: 1px solid #7a5a30;
+  border-bottom-width: 3px;
+  border-radius: 4px;
+  background: #fbf4e0;
+  color: #3e2a14;
+  font: bold 12px/20px sans-serif;
+  text-align: center;
+}
+
+.help-cap.is-wide {
+  min-width: 48px;
+}
+
+.help-mouse {
+  width: 48px;
+  height: 48px;
+}
+
+.help-mouse-body {
+  fill: #fbf4e0;
+  stroke: #7a5a30;
+  stroke-width: 2.5;
+}
+
+.help-mouse-button {
+  fill: #c9a04a;
+}
+
+.help-mouse-line {
+  fill: none;
+  stroke: #7a5a30;
+  stroke-width: 2;
+}
+
+.help-mouse-drag {
+  fill: none;
+  stroke: #7a5a30;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.help-label {
+  line-height: 1.4;
+}
+
+/* The button at the foot of the sheet that closes it. */
+.help-ok {
+  width: fit-content;
+  min-width: 96px;
+  margin: 20px auto 0;
+  padding: 6px 18px;
+  box-sizing: border-box;
+  border: 1px solid #7a5a30;
+  border-bottom-width: 3px;
+  border-radius: 6px;
+  background: #e6cf98;
+  color: #3e2a14;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+}
+
+.help-ok:hover {
+  background: #f0dcab;
+}
+
+/* One column of controls on a narrow page. */
+@media (width <= 560px) {
+  .help-controls {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: row;
+    grid-template-rows: none;
+  }
 }

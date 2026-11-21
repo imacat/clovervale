@@ -365,16 +365,18 @@ function createClickable(
  * what it is, with its cursor, the menu of the item the cursor is on while
  * it is open, with the actions that cannot be chosen now greyed out, a line
  * under the slots that names the item the cursor is on, blank for an empty
- * slot, and a line that tells the keys.  A click on the icon, a slot or an
- * action of the menu does to the bag what {@link InventoryBag} tells; no
- * click on any part of the bag reaches the game underneath.  What the bag
- * shows is worded again in each language the page comes to speak.
+ * slot, and a line that tells the keys.  A click on a slot or an action of
+ * the menu does to the bag what {@link InventoryBag} tells, and a click on
+ * the icon is left to the caller; no click on any part of the bag reaches
+ * the game underneath.  What the bag shows is worded again in each language
+ * the page comes to speak.
  *
  * @param {HTMLElement} parent - What the bag is added to.
  * @param {Translator} translator - The translator of the text of the page.
  * @param {InventoryBag} bag - The bag.
  * @param {(request: ItemRequest) => void} carryOut - Carries out an action
  *   chosen in the menu of an item.
+ * @param {() => void} clickIcon - Called when the icon is clicked.
  * @returns {BagView} The bag as shown.
  */
 export function createBagView(
@@ -382,6 +384,7 @@ export function createBagView(
   translator: Translator,
   bag: InventoryBag,
   carryOut: (request: ItemRequest) => void,
+  clickIcon: () => void,
 ): BagView {
   let shown: readonly ItemKindId[] | null = null;
   let shownHealth: number | null = null;
@@ -440,10 +443,7 @@ export function createBagView(
   const hint: HTMLDivElement = document.createElement('div');
   hint.className = 'bag-hint';
   frame.append(title, body, itemName, hint);
-  const icon: HTMLDivElement = createClickable('bag-icon', () => {
-    bag.clickIcon();
-    render();
-  });
+  const icon: HTMLDivElement = createClickable('bag-icon', clickIcon);
   const key: HTMLSpanElement = document.createElement('span');
   key.className = 'bag-key';
   key.textContent = 'I';

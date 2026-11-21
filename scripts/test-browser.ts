@@ -156,6 +156,26 @@ interface MarthaLook {
   readonly notices: readonly string[];
 }
 
+/** How a page shows its help sheet. */
+interface HelpLook {
+  /** Whether the sheet is open. */
+  readonly isOpen: boolean;
+  /** The title of the sheet. */
+  readonly title: string;
+  /** The words on the button at the foot of the sheet. */
+  readonly ok: string;
+  /** What each control the sheet lists does. */
+  readonly labels: readonly string[];
+  /** The key shown on the button of the sheet, or `null` if none is. */
+  readonly buttonKey: string | null;
+  /** Whether the bag is open. */
+  readonly isBagOpen: boolean;
+  /** The way the camera looks, in degrees, as the yaw of a player. */
+  readonly heading: number;
+  /** The players the page shows. */
+  readonly figures: readonly FigureView[];
+}
+
 /** A monster in the latest snapshot of a page. */
 interface CaveMonsterView {
   /** The identifier of the monster. */
@@ -881,6 +901,38 @@ const LANGUAGE_NAMES: readonly string[] = [
 const ZH_TW_NAME = '正體中文';
 /** The name of English, as the language control offers it. */
 const EN_NAME = 'English';
+/** The title of the help sheet, and its button that closes it. */
+const HELP_WORDS = { title: 'Controls', ok: 'OK' } as const;
+/** The title of the help sheet, and its button, in Traditional Chinese. */
+const ZH_TW_HELP_WORDS = { title: '操作說明', ok: '確認' } as const;
+/** How many controls the help sheet lists. */
+const HELP_CONTROL_COUNT = 8;
+/** The key values WebDriver gives the keys the help sheet takes. */
+const HELP_KEYS = {
+  help: 'h',
+  enter: '\uE007',
+  escape: '\uE00C',
+} as const;
+/** The codes of keys of the browser the game does not use. */
+const BROWSER_KEYS: readonly string[] = ['F5', 'F11', 'F12', 'Tab'];
+/** The expression that tells how a page shows its help sheet, as JSON. */
+const HELP_EXPRESSION = `(() => {
+  const sheet = document.querySelector('.help-sheet');
+  const button = document.querySelector('.help-button');
+  const bag = document.querySelector('.bag-window');
+  return JSON.stringify({
+    isOpen: sheet !== null && !sheet.hidden,
+    title: document.querySelector('.help-title')?.textContent ?? '',
+    ok: document.querySelector('.help-ok')?.textContent ?? '',
+    labels: [...document.querySelectorAll('.help-label')].map(
+      (label) => label.textContent,
+    ),
+    buttonKey: button?.querySelector('.help-key')?.textContent ?? null,
+    isBagOpen: bag !== null && !bag.hidden,
+    heading: window.clovervale.describeHeading(),
+    figures: window.clovervale.describeFigures(),
+  });
+})()`;
 /** The notice of the sword got from a chest. */
 const SWORD_NOTICE = 'You got the short sword';
 /** The notice of the leather armour got, in Traditional Chinese. */
@@ -4259,6 +4311,262 @@ async function checkCameraKeys(
 }
 
 /**
+ * Reads how a page shows its help sheet.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<HelpLook>} How the page shows it.
+ */
+async function readHelpLook(
+  session: BidiSession,
+  context: string,
+): Promise<HelpLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, HELP_EXPRESSION),
+  ) as HelpLook;
+}
+
+/**
+ * Describes how a page shows its help sheet, for an error message.
+ *
+ * @param {HelpLook} look - How the page shows it.
+ * @returns {string} The description.
+ */
+function describeHelpLook(look: HelpLook): string {
+  return (
+    `the help sheet ${look.isOpen ? 'open' : 'closed'}, titled ` +
+    `"${look.title}" with "${look.ok}" at its foot and ` +
+    `${String(look.labels.length)} controls, its button keyed ` +
+    `"${String(look.buttonKey)}", and the bag ` +
+    (look.isBagOpen ? 'open' : 'closed')
+  );
+}
+
+/**
+ * Checks that a page leaves the keys of the browser the game does not use
+ * to the browser, so that they do what the browser does with them.  The
+ * keys are only told to the page, and never reach the browser itself.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {string} what - What is open on the page, for an error message.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page keeps a key of the browser from it.
+ */
+async function checkBrowserKeys(
+  session: BidiSession,
+  context: string,
+  what: string,
+): Promise<void> {
+  const kept: string[] = JSON.parse(
+    await evaluateInPage(
+      session,
+      context,
+      `JSON.stringify(${JSON.stringify(BROWSER_KEYS)}.filter((code) => {
+        const event = new KeyboardEvent('keydown', {
+          code,
+          key: code,
+          bubbles: true,
+          cancelable: true,
+        });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      }))`,
+    ),
+  ) as string[];
+  if (kept.length > 0) {
+    throw new Error(
+      `While ${what} is open, the page keeps ${kept.join(', ')} from the ` +
+        'browser.',
+    );
+  }
+}
+
+/**
+ * Checks the help sheet: that the first page opens it by itself on the
+ * first visit of the browser, in English, and the second page, on a later
+ * visit, does not; that while it is open, a walking key held down does not
+ * walk the player, an arrow key does not turn the camera, I does not open
+ * the bag, and the keys of the browser are left to it; that it follows the language chosen in the panel; that
+ * Esc, Enter, the H key, its cross and the button at its foot close it, and
+ * the H key and its button open it; and that the H key opens it over the
+ * open bag, which closes, while the bag, open, holds the player too, and
+ * leaves the keys of the browser to it as well.  The
+ * sheet is left closed.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the first page.
+ * @param {string} other - The browsing context of the second page.
+ * @param {number} id - The identifier of the player of the first page.
+ * @returns {Promise<void>} A promise settled once the pages have passed.
+ * @throws {Error} If a page does not show its help sheet so.
+ */
+async function checkHelp(
+  session: BidiSession,
+  context: string,
+  other: string,
+  id: number,
+): Promise<void> {
+  const look = (): Promise<HelpLook> => readHelpLook(session, context);
+  const press = async (key: string): Promise<void> => {
+    await sendKey(session, context, 'keyDown', key);
+    await sendKey(session, context, 'keyUp', key);
+  };
+  const click = async (selector: string): Promise<void> => {
+    await evaluateInPage(
+      session,
+      context,
+      `(() => {
+        document.querySelector(${JSON.stringify(selector)})?.click();
+        return '';
+      })()`,
+    );
+  };
+  const expectOpen = async (
+    isOpen: boolean,
+    what: string,
+  ): Promise<HelpLook> =>
+    waitFor(
+      look,
+      (seen: HelpLook) => seen.isOpen === isOpen,
+      ACTION_TIMEOUT,
+      (seen: HelpLook) =>
+        `With ${what}, the first page tells ${describeHelpLook(seen)}.`,
+    );
+
+  const first: HelpLook = await look();
+  if (
+    !first.isOpen ||
+    first.title !== HELP_WORDS.title ||
+    first.ok !== HELP_WORDS.ok ||
+    first.labels.length !== HELP_CONTROL_COUNT ||
+    first.buttonKey !== 'H'
+  ) {
+    throw new Error(
+      `On the first visit, the first page tells ${describeHelpLook(first)}.`,
+    );
+  }
+  const later: HelpLook = await readHelpLook(session, other);
+  if (later.isOpen || later.buttonKey !== 'H') {
+    throw new Error(
+      `On a later visit, the second page tells ${describeHelpLook(later)}.`,
+    );
+  }
+
+  // Held while the sheet or the bag is open.
+  const checkHeld = async (what: string): Promise<void> => {
+    const before: HelpLook = await look();
+    for (const key of ['d', LEFT_ARROW]) {
+      await sendKey(session, context, 'keyDown', key);
+    }
+    await sleep(DIALOGUE_HOLD_DURATION);
+    for (const key of ['d', LEFT_ARROW]) {
+      await sendKey(session, context, 'keyUp', key);
+    }
+    const after: HelpLook = await look();
+    const was: FigureView | undefined = before.figures.find(
+      (figure: FigureView) => figure.id === id,
+    );
+    const is: FigureView | undefined = after.figures.find(
+      (figure: FigureView) => figure.id === id,
+    );
+    if (
+      was === undefined ||
+      is === undefined ||
+      Math.hypot(is.x - was.x, is.z - was.z) > STANDING_DRIFT ||
+      Math.abs(after.heading - before.heading) > YAW_TOLERANCE
+    ) {
+      throw new Error(
+        `With D and the left arrow held down while ${what} is open, the ` +
+          `first page moves its player from ${JSON.stringify(was)} to ` +
+          `${JSON.stringify(is)} and turns its camera from ` +
+          `${before.heading.toFixed(1)} to ${after.heading.toFixed(1)} ` +
+          'degrees.',
+      );
+    }
+  };
+  await checkHeld('the help sheet');
+  await checkBrowserKeys(session, context, 'the help sheet');
+  await press('i');
+  await sleep(VIEW_SETTLE_DURATION);
+  const unbagged: HelpLook = await look();
+  if (!unbagged.isOpen || unbagged.isBagOpen) {
+    throw new Error(
+      `With I pressed while the help sheet is open, the first page tells ` +
+        `${describeHelpLook(unbagged)}.`,
+    );
+  }
+  await saveView(session, context, 'help-en.png');
+
+  await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
+  await waitFor(
+    look,
+    (seen: HelpLook) =>
+      seen.isOpen &&
+      seen.title === ZH_TW_HELP_WORDS.title &&
+      seen.ok === ZH_TW_HELP_WORDS.ok,
+    ACTION_TIMEOUT,
+    (seen: HelpLook) =>
+      `With "${ZH_TW_NAME}" chosen while the help sheet is open, the ` +
+        `first page tells ${describeHelpLook(seen)}.`,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'help-zh-tw.png');
+  await chooseLanguage(session, context, ZH_TW_LANGUAGE_CONTROL, EN_NAME);
+  await waitFor(
+    look,
+    (seen: HelpLook) => seen.title === HELP_WORDS.title,
+    ACTION_TIMEOUT,
+    (seen: HelpLook) =>
+      `With "${EN_NAME}" chosen again, the first page tells ` +
+      `${describeHelpLook(seen)}.`,
+  );
+
+  await press(HELP_KEYS.escape);
+  await expectOpen(false, 'Esc pressed on the help sheet');
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveView(session, context, 'help-button.png');
+  await press(HELP_KEYS.help);
+  await expectOpen(true, 'H pressed');
+  await press(HELP_KEYS.enter);
+  await expectOpen(false, 'Enter pressed on the help sheet');
+  await click('.help-button');
+  await expectOpen(true, 'its button clicked');
+  await click('.help-close');
+  await expectOpen(false, 'the cross of the help sheet clicked');
+  await press(HELP_KEYS.help);
+  await expectOpen(true, 'H pressed again');
+  await press(HELP_KEYS.help);
+  await expectOpen(false, 'H pressed on the help sheet');
+  await click('.help-button');
+  await expectOpen(true, 'its button clicked again');
+  await click('.help-ok');
+  await expectOpen(false, 'the button at the foot of the help sheet clicked');
+
+  await press('i');
+  await waitFor(
+    look,
+    (seen: HelpLook) => seen.isBagOpen && !seen.isOpen,
+    ACTION_TIMEOUT,
+    (seen: HelpLook) =>
+      `With I pressed, the first page tells ${describeHelpLook(seen)}.`,
+  );
+  await checkHeld('the bag');
+  await checkBrowserKeys(session, context, 'the bag');
+  await press(HELP_KEYS.help);
+  await waitFor(
+    look,
+    (seen: HelpLook) => seen.isOpen && !seen.isBagOpen,
+    ACTION_TIMEOUT,
+    (seen: HelpLook) =>
+      `With H pressed while the bag is open, the first page tells ` +
+      `${describeHelpLook(seen)}.`,
+  );
+  await press(HELP_KEYS.escape);
+  await expectOpen(false, 'Esc pressed on the help sheet over the bag');
+}
+
+/**
  * Reads how a page shows the map its player is in.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -4717,6 +5025,7 @@ async function talkToEdwin(
         `${describeCaveLook(held)}, from ${describeCaveLook(pleading)}.`,
     );
   }
+  await checkBrowserKeys(session, context, 'the dialogue box');
   await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
   await waitForDialogue(
     ZH_TW_EDWIN_PLEA,
@@ -4780,7 +5089,8 @@ async function talkToEdwin(
  * the dialogue box shows his plea and the one reply, without a bubble or a
  * prompt, worded again once Traditional Chinese is chosen in the panel,
  * and once English is again.  A key that would walk the player held down
- * then moves it not at all, and the dogs stand still meanwhile.  Enter has
+ * then moves it not at all, the dogs stand still meanwhile, and the keys
+ * of the browser are left to it.  Enter has
  * him tell who he is, under his name, and Esc changes nothing then.
  * Enter has him give his message, which shows in the bag and in a notice,
  * and Enter again ends the dialogue, after which the page calls him by his
@@ -5542,6 +5852,11 @@ async function checkMartha(
       MARTHA_LEAST_WALK;
   const isAsking = (seen: MarthaLook): boolean =>
     JSON.stringify(seen.dialogue) === JSON.stringify(MARTHA_ASK);
+  const isHelpOpen = async (): Promise<boolean> =>
+    (await readHelpLook(session, actor)).isOpen;
+  // The help sheet, opened as Martha comes over, closes as she starts to
+  // talk, if she has not started already.
+  await press(HELP_KEYS.help);
   await waitFor(
     readBoth,
     ([own, other]: [MarthaLook, MarthaLook]) =>
@@ -5557,6 +5872,20 @@ async function checkMartha(
       `${describeMarthaLook(own)}, and the second page ` +
       `${describeMarthaLook(other)}.`,
   );
+  await waitFor(
+    isHelpOpen,
+    (isOpen: boolean) => !isOpen,
+    ACTION_TIMEOUT,
+    () => 'As Martha asks, the first page shows its help sheet.',
+  );
+  await press(HELP_KEYS.help);
+  await sleep(VIEW_SETTLE_DURATION);
+  if ((await isHelpOpen()) || !isAsking(await look())) {
+    throw new Error(
+      'With H pressed as Martha asks, the first page shows its help ' +
+        `sheet, and tells ${describeMarthaLook(await look())}.`,
+    );
+  }
   await turnCamera(session, actor, MARTHA_CAMERA_TURN);
   await zoomCamera(session, actor, MARTHA_CAMERA_ZOOM);
   await sleep(VIEW_SETTLE_DURATION);
@@ -6295,6 +6624,7 @@ async function checkClient(): Promise<void> {
       );
     }
 
+    await checkHelp(session, first, second, id);
     await checkToby(session, first, second);
     await checkTobyFind(session, first, second);
     await checkNight(session, first, second);
@@ -6355,7 +6685,7 @@ try {
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, show Toby ' +
       'alike, finding a clover, hear what Nancy says, speak the language ' +
-      'chosen, pick, ' +
+      'chosen, show the controls, pick, ' +
       'carry and put down a clover, go down into a cave of their own, kill ' +
       'its two wild dogs, talk ' +
       'to the prisoner through his bars, loot the store rooms, use a ' +

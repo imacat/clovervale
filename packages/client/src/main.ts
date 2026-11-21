@@ -91,6 +91,9 @@ import { EdwinCall, areDogsDead, isOnScreen } from './edwin-call.ts';
 import { EventSchedule } from './event-schedule.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
+import { HelpSheet, openHelpOnFirstVisit } from './help-sheet.ts';
+import { createHelpView } from './help-view.ts';
+import type { HelpView } from './help-view.ts';
 import { HitMarkers } from './hit-markers.ts';
 import {
   createPrompt,
@@ -319,7 +322,26 @@ const bagView: BagView = createBagView(
   (request: ItemRequest) => {
     carryOutItemAction(request);
   },
+  () => {
+    clickBagIcon();
+  },
 );
+/** The help sheet that tells the controls of the game. */
+const helpSheet = new HelpSheet();
+const helpView: HelpView = createHelpView(
+  document.body,
+  translator,
+  helpSheet,
+  () => {
+    clickHelpButton();
+  },
+  () => {
+    helpSheet.close();
+    helpView.render();
+  },
+);
+openHelpOnFirstVisit(helpSheet, languageStorage);
+helpView.render();
 /** The dialogue the player of the page is in, and the reply chosen. */
 const dialogueBox = new DialogueBox();
 const dialogueView: DialogueBoxView = createDialogueView(
@@ -577,6 +599,54 @@ function carryOutItemAction(request: ItemRequest): void {
   if (prediction?.motion.action !== 'Die') {
     sendInput({ type: request.action, slot: request.slot });
   }
+}
+
+/**
+ * Holds the controls of play while the bag, the help sheet or a dialogue
+ * opens: the keys held down walk the player and turn the camera no more.
+ */
+function holdPlay(): void {
+  moveKeys.releaseAllKeys();
+  cameraKeys.releaseAllKeys();
+  sendMove();
+}
+
+/**
+ * Opens the bag if it is closed, and closes it if open, as a click on its
+ * icon does, unless the player is in a dialogue.  The help sheet is open
+ * over the icon, so that it cannot be clicked then.
+ */
+function clickBagIcon(): void {
+  if (dialogueBox.isOpen) {
+    return;
+  }
+  bag.clickIcon();
+  if (bag.isOpen) {
+    holdPlay();
+  }
+  bagView.render();
+}
+
+/**
+ * Opens the help sheet, as a click on its button does, unless the player
+ * is in a dialogue.  The bag closes as the sheet opens.
+ */
+function clickHelpButton(): void {
+  if (dialogueBox.isOpen) {
+    return;
+  }
+  openHelp();
+}
+
+/** Opens the help sheet, closing the bag, and holds the controls of play. */
+function openHelp(): void {
+  if (bag.isOpen) {
+    bag.clickIcon();
+    bagView.render();
+  }
+  helpSheet.open();
+  holdPlay();
+  helpView.render();
 }
 
 /**
@@ -1032,9 +1102,9 @@ function receiveMessage(data: string): void {
 /**
  * Shows the dialogue the player of the page is in, as the server tells,
  * with the villagers called by the names they go by once they have told the
- * player who they are.  As a dialogue opens, the bag closes, the bubble of
- * any villager is taken away, and the keys held down walk the player and
- * turn the camera no more.
+ * player who they are.  As a dialogue opens, the bag and the help sheet
+ * close, the bubble of any villager is taken away, and the keys held down
+ * walk the player and turn the camera no more.
  *
  * @param {DialogueView | null} dialogue - The dialogue, or `null` while
  *   the player is in none.
@@ -1057,9 +1127,11 @@ function showDialogue(
     bag.clickIcon();
     bagView.render();
   }
-  moveKeys.releaseAllKeys();
-  cameraKeys.releaseAllKeys();
-  sendMove();
+  if (helpSheet.isOpen) {
+    helpSheet.close();
+    helpView.render();
+  }
+  holdPlay();
 }
 
 /**
@@ -1232,8 +1304,9 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
   if (event.altKey || event.ctrlKey || event.metaKey) {
     return;
   }
-  // The dialogue box takes every key while it is open, so that the player
-  // neither moves nor does anything else.
+  // The dialogue box takes every key of the game while it is open, so that
+  // the player neither moves nor does anything else, and leaves every other
+  // key to the browser.
   const answer: DialogueResponse = dialogueBox.pressKey(event.code);
   if (answer.isHandled) {
     event.preventDefault();
@@ -1243,8 +1316,28 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     dialogueView.render();
     return;
   }
-  // The bag takes its keys first, so that while it is open the arrow keys,
-  // Enter and Esc do nothing else; the keys of play go on working.
+  if (dialogueBox.isOpen) {
+    return;
+  }
+  // The help sheet comes next: the H key opens it over the bag, and while
+  // it is open, it takes every key of the game, and leaves every other key
+  // to the browser.
+  if (event.code === 'KeyH' || helpSheet.isOpen) {
+    if (event.repeat && event.code === 'KeyH') {
+      event.preventDefault();
+      return;
+    }
+    if (!helpSheet.isOpen) {
+      event.preventDefault();
+      openHelp();
+    } else if (helpSheet.pressKey(event.code)) {
+      event.preventDefault();
+      helpView.render();
+    }
+    return;
+  }
+  // The bag takes its keys next, so that while it is open the arrow keys,
+  // Enter and Esc do nothing else, and the keys of play do nothing at all.
   const wasOpen: boolean = bag.isOpen;
   const response: BagResponse =
     event.repeat && event.code === 'KeyI'
@@ -1256,10 +1349,15 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
       carryOutItemAction(response.request);
     }
     if (bag.isOpen && !wasOpen) {
-      // An arrow key held down as the bag opens turns the camera no more.
-      cameraKeys.releaseAllKeys();
+      holdPlay();
     }
     bagView.render();
+    return;
+  }
+  if (bag.isOpen) {
+    if (findKeyCommand(event.code) !== null) {
+      event.preventDefault();
+    }
     return;
   }
   if (cameraKeys.pressKey(event.code)) {

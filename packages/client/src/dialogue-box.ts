@@ -24,6 +24,8 @@
 
 import type { DialogueView, ReplyInput } from '@clovervale/shared';
 
+import { isGameKey } from './player-input.ts';
+
 /** What the player of the page answers in its dialogue. */
 export type DialogueRequest = ReplyInput;
 
@@ -49,7 +51,8 @@ const PASSED: DialogueResponse = { isHandled: false, request: null };
  * server last told, and the reply the cursor is on.
  *
  * The box is open while the server tells of a dialogue, and it takes every
- * key then, so that the player neither moves nor does anything else.  The
+ * key of the game then, so that the player neither moves nor does anything
+ * else, and leaves every other key to the browser.  The
  * up and down arrows move the cursor over the replies, stopping at the
  * ends; Enter, or a click on a reply, answers with the reply, or ends a
  * dialogue that offers none.  Once the player
@@ -115,7 +118,7 @@ export class DialogueBox {
    */
   pressKey(code: string): DialogueResponse {
     const dialogue: DialogueView | null = this.#dialogue;
-    if (dialogue === null) {
+    if (dialogue === null || !isGameKey(code)) {
       return PASSED;
     }
     if (ENTER_KEYS.has(code)) {

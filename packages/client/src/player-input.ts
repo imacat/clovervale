@@ -50,8 +50,37 @@ const KEY_COMMANDS: Readonly<Record<string, KeyCommand>> = {
   Space: 'interact',
 };
 
+/**
+ * The codes of the keys the game uses anywhere: the walking keys, the space
+ * bar, the arrow keys, I and H, Enter, and Esc.
+ */
+const GAME_KEYS: ReadonlySet<string> = new Set([
+  ...Object.keys(KEY_COMMANDS),
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'KeyI',
+  'KeyH',
+  'Enter',
+  'NumpadEnter',
+  'Escape',
+]);
+
 /** The number of decimal places a direction is rounded to. */
 const DIRECTION_PRECISION = 3;
+
+/**
+ * Tells whether the game uses a key anywhere, so that whatever holds the
+ * keys of play back is to take it, and leave every other key to the
+ * browser.
+ *
+ * @param {string} code - The code of the key, as in a keyboard event.
+ * @returns {boolean} Whether the game uses the key.
+ */
+export function isGameKey(code: string): boolean {
+  return GAME_KEYS.has(code);
+}
 
 /**
  * Finds what a key tells the player to do.

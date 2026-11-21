@@ -64,12 +64,20 @@ describe('a dialogue box', () => {
     expect(box.pressKey('KeyW')).toEqual({ isHandled: false, request: null });
   });
 
-  it('takes every key while open, so that the player does not move', () => {
+  it('takes the keys of the game while open, so that the player does not move', () => {
     const box: DialogueBox = openBox(ASKED);
-    for (const code of ['KeyW', 'ArrowLeft', 'Space', 'KeyI']) {
+    for (const code of ['KeyW', 'ArrowLeft', 'Space', 'KeyI', 'KeyH']) {
       expect(box.pressKey(code)).toEqual({ isHandled: true, request: null });
     }
     expect(box.cursor).toBe(0);
+  });
+
+  it('leaves the keys the game does not use to the browser while open', () => {
+    const box: DialogueBox = openBox(ASKED);
+    for (const code of ['F5', 'F11', 'F12', 'Tab', 'KeyQ']) {
+      expect(box.pressKey(code)).toEqual({ isHandled: false, request: null });
+    }
+    expect(box.isOpen).toBe(true);
   });
 
   it('moves its cursor over the replies, stopping at the ends', () => {
