@@ -733,6 +733,11 @@ function readGamepads(seconds: number): void {
   for (const button of gamepads.readPads(states, seconds)) {
     pressPadButton(button);
   }
+  // A browser may let the page make sound after a gamepad is pressed, as
+  // after a key; one that does not refuses it harmlessly.
+  if (gamepads.isNudged) {
+    music.allow(panel.music);
+  }
   gamepads.isPaused = findPadScreen() !== 'play';
   viewport.zoom(gamepads.resolveZoom(seconds));
 }

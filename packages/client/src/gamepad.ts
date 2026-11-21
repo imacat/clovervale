@@ -170,6 +170,11 @@ interface ReadPad {
    * its dead zone.
    */
   readonly isStickHeld: boolean;
+  /**
+   * The places of all the buttons held down, and `-1` and `-2` for the
+   * left and the right sticks pushed beyond their dead zones.
+   */
+  readonly touched: ReadonlySet<number>;
 }
 
 /**
@@ -190,6 +195,18 @@ export class Gamepads implements CameraHold {
    */
   isPaused = false;
   #pads = new Map<number, ReadPad>();
+  #isNudged = false;
+
+  /**
+   * Whether the last read found fresh input on a pad, even while paused:
+   * any button pressed, or a stick pushed beyond its dead zone, that was
+   * not so at the read before.
+   *
+   * @returns {boolean} Whether there was fresh input.
+   */
+  get isNudged(): boolean {
+    return this.#isNudged;
+  }
 
   /**
    * Whether the owner holds the camera with a pad now.
@@ -225,6 +242,7 @@ export class Gamepads implements CameraHold {
   ): PadButton[] {
     const pressed: PadButton[] = [];
     const pads = new Map<number, ReadPad>();
+    let isNudged = false;
     for (const state of states) {
       if (
         state === null ||
@@ -271,6 +289,23 @@ export class Gamepads implements CameraHold {
         readAxis(state, AXES.rightY),
         TURN_DEAD_ZONE,
       );
+      const touched = new Set<number>();
+      state.buttons.forEach((button: PadButtonState, place: number) => {
+        if (button.pressed) {
+          touched.add(place);
+        }
+      });
+      if (Math.hypot(leftX, leftY) > WALK_DEAD_ZONE) {
+        touched.add(-1);
+      }
+      if (turnX !== 0 || turnY !== 0) {
+        touched.add(-2);
+      }
+      for (const place of touched) {
+        if (last?.touched.has(place) !== true) {
+          isNudged = true;
+        }
+      }
       pads.set(state.index, {
         held,
         heldTimes,
@@ -278,9 +313,11 @@ export class Gamepads implements CameraHold {
         turnX,
         turnY,
         isStickHeld,
+        touched,
       });
     }
     this.#pads = pads;
+    this.#isNudged = isNudged;
     return pressed;
   }
 

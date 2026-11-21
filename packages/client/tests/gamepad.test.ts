@@ -444,3 +444,44 @@ describe('the keys the buttons act as', () => {
     }
   });
 });
+
+describe('telling fresh input on the gamepads', () => {
+  it('tells each fresh press of any button, once per press', () => {
+    const pads = new Gamepads();
+    readHold(pads);
+    expect(pads.isNudged).toBe(false);
+    for (const button of ['a', 'x', 'back', 'dpadUp'] as const) {
+      readHold(pads, { buttons: [button] });
+      expect(pads.isNudged).toBe(true);
+      readHold(pads, { buttons: [button] });
+      expect(pads.isNudged).toBe(false);
+      readHold(pads);
+      expect(pads.isNudged).toBe(false);
+    }
+  });
+
+  it('tells each stick leaving its dead zone, once per push', () => {
+    const pads = new Gamepads();
+    for (const hold of [{ left: [1, 0] }, { right: [0, -1] }] as const) {
+      readHold(pads, hold);
+      expect(pads.isNudged).toBe(true);
+      readHold(pads, hold);
+      expect(pads.isNudged).toBe(false);
+      readHold(pads);
+      expect(pads.isNudged).toBe(false);
+    }
+  });
+
+  it('ignores a stick within its dead zone', () => {
+    const pads = new Gamepads();
+    readHold(pads, { left: [WALK_DEAD_ZONE, 0], right: [TURN_DEAD_ZONE, 0] });
+    expect(pads.isNudged).toBe(false);
+  });
+
+  it('tells fresh input while paused', () => {
+    const pads = new Gamepads();
+    pads.isPaused = true;
+    readHold(pads, { buttons: ['lb'] });
+    expect(pads.isNudged).toBe(true);
+  });
+});
