@@ -27,12 +27,14 @@ import {
   PLAYER_RADIUS,
   PLAZA_CENTRE,
   SIMULATION_RATE,
+  TOBY_ENDS,
   WALK_SPEED,
   findPlacement,
+  findYaw,
   movePosition,
   placePoint,
 } from '@clovervale/shared';
-import type { GroundVector } from '@clovervale/shared';
+import type { GroundVector, Pose } from '@clovervale/shared';
 
 /** A place in the village worth walking to. */
 export interface PointOfInterest {
@@ -43,34 +45,58 @@ export interface PointOfInterest {
 }
 
 /**
- * What a bot visits: the name, the file name of the model, and where a
- * player stands to visit it, as the model has it before it is placed.
+ * Where Toby's run lies: the middle of it, facing along it towards the
+ * gate, so that its right-hand side is the side towards the inside of the
+ * village, with open ground, and its left-hand side the side of the fence.
  */
-type Visit = readonly [name: string, file: string, local: GroundVector];
+const TOBY_RUN: Pose = {
+  x: (TOBY_ENDS[0].x + TOBY_ENDS[1].x) / 2,
+  z: (TOBY_ENDS[0].z + TOBY_ENDS[1].z) / 2,
+  yaw: findYaw({
+    x: TOBY_ENDS[1].x - TOBY_ENDS[0].x,
+    z: TOBY_ENDS[1].z - TOBY_ENDS[0].z,
+  }),
+};
 
 /**
- * The places a bot patrols between, each where a player stands to visit
- * what stands there: in front of the door of the weapon shop, at the rim of
- * the fountain on the side of the spawn points of the players, in front of
- * Nancy the villager, in front of Basil at the door of the apothecary's,
- * and by the stones that mark the spawn point of the monster, on the side
- * of the village.
+ * What a bot visits: the name, where what stands there is and which way it
+ * faces, and where a player stands to visit it, as what stands there has
+ * it before it is placed.
+ */
+type Visit = readonly [name: string, anchor: Pose, local: GroundVector];
+
+/**
+ * The places a bot patrols between, each where a player stands to look at
+ * what stands there, as one strolling by would, rather than walking up to
+ * the villagers: in front of the middle of the stall of the weapon shop,
+ * out of the way of Emma at her anvil; at the rim of the fountain on the
+ * side of the spawn points of the players; in front of the middle of the
+ * herb rack of the apothecary's, away from Basil at the door; beside the
+ * middle of Toby's run, on the side of the open ground, far enough from it
+ * that he never pushes a player there; on the open ground in front of
+ * Martha's porch, before her; and by the stones that mark the spawn point
+ * of the monster, on the side of the village.
  */
 const VISITS: readonly Visit[] = [
-  ['weapon shop', 'weapon-shop.glb', { x: -2.4156, z: 3.4 }],
-  ['fountain', 'fountain.glb', { x: 0, z: 2.6 }],
-  ['NPC', 'npc-nancy.glb', { x: 0, z: 1.2 }],
-  ['apothecary', 'npc-basil.glb', { x: 0, z: 1.2 }],
-  ['spawn point', 'prop-spawn-stones.glb', { x: -1.5, z: -2.1 }],
+  ['weapon shop', findPlacement('weapon-shop.glb'), { x: 0.1644, z: 3.6 }],
+  ['fountain', findPlacement('fountain.glb'), { x: 0, z: 2.6 }],
+  ['apothecary', findPlacement('prop-herb-rack.glb'), { x: 0, z: 1.3 }],
+  ['Toby', TOBY_RUN, { x: 1.2, z: 0 }],
+  ['village chief', findPlacement('npc-martha.glb'), { x: 0, z: 1.5 }],
+  [
+    'spawn point',
+    findPlacement('prop-spawn-stones.glb'),
+    { x: -1.5, z: -2.1 },
+  ],
 ];
 
 /**
  * The places a bot patrols between, where the models of the village stand.
  */
 export const POINTS_OF_INTEREST: readonly PointOfInterest[] = VISITS.map(
-  ([name, file, local]: Visit): PointOfInterest => ({
+  ([name, anchor, local]: Visit): PointOfInterest => ({
     name,
-    position: placePoint(findPlacement(file), local),
+    position: placePoint(anchor, local),
   }),
 );
 

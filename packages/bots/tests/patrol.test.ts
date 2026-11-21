@@ -24,11 +24,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PLAYER_RADIUS,
   SPAWN_POINT_COUNT,
+  TALK_REACH,
+  TOBY_ENDS,
+  TOBY_RADIUS,
   VILLAGE_TERRAIN,
   applyInput,
   createMotion,
   findInteraction,
+  findPlacement,
   findSpawnPoint,
   findVillagePath,
   stepMotion,
@@ -77,11 +82,94 @@ function measureDistance(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
+/**
+ * Measures how far a point is from Toby's run, from one end of it to the
+ * other, where he squats, turns and runs.
+ *
+ * @param {GroundVector} point - The point.
+ * @returns {number} The least distance between the point and the run, in
+ *   metres.
+ */
+function measureFromTobyRun(point: GroundVector): number {
+  const [start, end] = TOBY_ENDS;
+  const run: GroundVector = { x: end.x - start.x, z: end.z - start.z };
+  const share: number = Math.min(
+    Math.max(
+      ((point.x - start.x) * run.x + (point.z - start.z) * run.z) /
+        (run.x ** 2 + run.z ** 2),
+      0,
+    ),
+    1,
+  );
+  return measureDistance(point, {
+    x: start.x + run.x * share,
+    z: start.z + run.z * share,
+  });
+}
+
+/**
+ * Walks a player along a route by the rules of the server, and tells where
+ * it is at every step.
+ *
+ * @param {GroundVector} from - Where the player starts.
+ * @param {readonly Leg[]} legs - The legs of the route.
+ * @returns {GroundVector[]} Where the player is at the start and after
+ *   every step.
+ */
+function traceRoute(from: GroundVector, legs: readonly Leg[]): GroundVector[] {
+  const trace: GroundVector[] = [from];
+  let motion: PlayerMotion = createMotion(from, 0);
+  for (const leg of legs) {
+    motion = applyInput(motion, { type: 'move', direction: leg.direction });
+    for (let step = 0; step < leg.steps; step++) {
+      motion = stepMotion(motion, 0);
+      trace.push({ x: motion.x, z: motion.z });
+    }
+  }
+  return trace;
+}
+
+/** The least distance between the centres of Toby and a player. */
+const TOBY_REACH: number = TOBY_RADIUS + PLAYER_RADIUS;
+
 describe('POINTS_OF_INTEREST', () => {
   it('lets a player stand at every point', () => {
     for (const { position } of POINTS_OF_INTEREST) {
       expect(VILLAGE_TERRAIN.isClear(position)).toBe(true);
     }
+  });
+
+  it('keeps out of talking reach of Nancy, Emma and Basil', () => {
+    for (const file of ['npc-nancy.glb', 'npc-emma.glb', 'npc-basil.glb']) {
+      const villager: GroundVector = findPlacement(file);
+      for (const { position } of POINTS_OF_INTEREST) {
+        expect(measureDistance(position, villager)).toBeGreaterThan(
+          TALK_REACH,
+        );
+      }
+    }
+  });
+
+  it("stands beside the middle of Toby's run, out of his way", () => {
+    const [start, end] = TOBY_ENDS;
+    const middle: GroundVector = {
+      x: (start.x + end.x) / 2,
+      z: (start.z + end.z) / 2,
+    };
+    const beside: boolean = POINTS_OF_INTEREST.some(
+      ({ position }) =>
+        measureDistance(position, middle) <= TALK_REACH &&
+        measureFromTobyRun(position) > TOBY_REACH,
+    );
+    expect(beside).toBe(true);
+  });
+
+  it('stands in front of Martha, within talking reach of her', () => {
+    const martha: GroundVector = findPlacement('npc-martha.glb');
+    const near: boolean = POINTS_OF_INTEREST.some(
+      ({ position }) => measureDistance(position, martha) <= TALK_REACH,
+    );
+    expect(near).toBe(true);
   });
 });
 
@@ -132,6 +220,22 @@ describe('planRoute', () => {
         expect(measureDistance(end, to)).toBeLessThanOrEqual(
           STEP_DISTANCE / 2 + 1e-9,
         );
+      }
+    }
+  });
+
+  it("keeps out of Toby's way on every walk between the points", () => {
+    for (const { position: from } of POINTS_OF_INTEREST) {
+      const routes: Leg[][] = [
+        ...POINTS_OF_INTEREST.map(({ position: to }) =>
+          planRoute(from, findVillagePath(from, to) ?? []),
+        ),
+        planDrinkingWalk(from, findVillagePath) ?? [],
+      ];
+      for (const legs of routes) {
+        for (const point of traceRoute(from, legs)) {
+          expect(measureFromTobyRun(point)).toBeGreaterThan(TOBY_REACH);
+        }
       }
     }
   });
