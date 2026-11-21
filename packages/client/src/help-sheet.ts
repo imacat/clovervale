@@ -28,7 +28,7 @@ import { isGameKey } from './player-input.ts';
 /** The key the first visit is remembered by. */
 const STORAGE_KEY = 'clovervale.helpSeen';
 
-/** The number of pages of the help sheet. */
+/** The number of pages of the help sheet without the page of the credits. */
 export const HELP_PAGE_COUNT = 3;
 /** The page of the help sheet that tells the keyboard and the mouse. */
 export const KEYBOARD_PAGE = 0;
@@ -36,6 +36,11 @@ export const KEYBOARD_PAGE = 0;
 export const GAMEPAD_PAGE = 1;
 /** The page of the help sheet that tells the touch controls. */
 export const TOUCH_PAGE = 2;
+/**
+ * The page of the help sheet that tells the credits of the game, the last,
+ * while the sheet offers them.
+ */
+export const CREDITS_PAGE = 3;
 
 /** The keys that close the help sheet. */
 const CLOSE_KEYS: ReadonlySet<string> = new Set([
@@ -55,6 +60,11 @@ const CLOSE_KEYS: ReadonlySet<string> = new Set([
  * does anything with it, and leaves every other key to the browser.
  */
 export class HelpSheet {
+  /**
+   * Whether the sheet offers the credits of the game, on a page of their
+   * own after the others.
+   */
+  hasCredits = false;
   #isOpen = false;
   #page: number = KEYBOARD_PAGE;
 
@@ -77,14 +87,24 @@ export class HelpSheet {
   }
 
   /**
-   * Opens the sheet, at a page.
+   * The number of pages of the sheet, with the page of the credits while
+   * it offers them.
+   *
+   * @returns {number} The number of pages.
+   */
+  get pageCount(): number {
+    return this.hasCredits ? HELP_PAGE_COUNT + 1 : HELP_PAGE_COUNT;
+  }
+
+  /**
+   * Opens the sheet, at a page, though never at the page of the credits.
    *
    * @param {number} [page] - The page, the page of the keyboard by default.
    */
   open(page: number = KEYBOARD_PAGE): void {
     this.#isOpen = true;
     this.#page = KEYBOARD_PAGE;
-    this.turnToPage(page);
+    this.turnToPage(Math.min(page, HELP_PAGE_COUNT - 1));
   }
 
   /**
@@ -95,7 +115,7 @@ export class HelpSheet {
    */
   turnToPage(page: number): void {
     if (this.#isOpen) {
-      this.#page = Math.min(Math.max(page, 0), HELP_PAGE_COUNT - 1);
+      this.#page = Math.min(Math.max(page, 0), this.pageCount - 1);
     }
   }
 

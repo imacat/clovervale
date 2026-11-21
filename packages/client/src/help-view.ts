@@ -25,7 +25,8 @@
  */
 
 import { drawBag } from './bag-view.ts';
-import { HELP_PAGE_COUNT } from './help-sheet.ts';
+import { drawCredits } from './credits-view.ts';
+import type { CreditsView } from './credits-view.ts';
 import type { HelpSheet } from './help-sheet.ts';
 import type { PlainMessageId } from './messages/en.ts';
 import { drawHand } from './touch-view.ts';
@@ -143,6 +144,7 @@ const PAGE_NAMES: readonly PlainMessageId[] = [
   'help.keyboard',
   'help.gamepad',
   'help.touch',
+  'help.credits',
 ];
 
 /**
@@ -542,7 +544,9 @@ function drawPage(
  * button that closes it at its foot.  The first page tells the keyboard
  * and the mouse, the second the gamepad, its buttons drawn as on a
  * Logitech F310, and the third the touch controls, drawn as small
- * pictures.  While the sheet is open, no
+ * pictures; while the sheet offers the credits of the game, a fourth page
+ * tells them, and before that there is no trace of it.  While the sheet is
+ * open, no
  * click on the page outside the panel reaches the game underneath.  What
  * the sheet shows is worded again in each language the page comes to
  * speak.
@@ -595,7 +599,16 @@ export function createHelpView(
   const [padPage, padLabels] = drawPage(PAD_ROWS.map(drawBadges));
   const [touchPage, touchLabels] = drawPage(TOUCH_ROWS.map(drawTouchBadge));
   touchPage.classList.add('is-touch-page');
-  const pages: readonly HTMLDivElement[] = [keyboardPage, padPage, touchPage];
+  const credits: CreditsView = drawCredits(translator);
+  const creditsPage: HTMLDivElement = document.createElement('div');
+  creditsPage.className = 'help-credits-page';
+  creditsPage.append(credits.element);
+  const pages: readonly HTMLDivElement[] = [
+    keyboardPage,
+    padPage,
+    touchPage,
+    creditsPage,
+  ];
   const turnBy = (step: number): void => {
     sheet.turnToPage(sheet.page + step);
     render();
@@ -647,18 +660,20 @@ export function createHelpView(
     tellLabels(CONTROL_ROWS, keyboardLabels);
     tellLabels(PAD_ROWS, padLabels);
     tellLabels(TOUCH_ROWS, touchLabels);
-    const { page } = sheet;
+    credits.relabel();
+    const { page, pageCount } = sheet;
     pages.forEach((shown: HTMLDivElement, index: number) => {
       shown.hidden = index !== page;
     });
     dotList.forEach((dot: HTMLSpanElement, index: number) => {
       dot.classList.toggle('is-current', index === page);
+      dot.hidden = index >= pageCount;
     });
     dots.setAttribute(
       'aria-label',
       translator.translate('help.page', {
         page: String(page + 1),
-        count: String(HELP_PAGE_COUNT),
+        count: String(pageCount),
       }),
     );
     subtitle.textContent = translator.translate(
@@ -666,7 +681,7 @@ export function createHelpView(
     );
     const arrows: readonly [HTMLDivElement, PlainMessageId, boolean][] = [
       [previous, 'help.previous', page > 0],
-      [next, 'help.next', page < HELP_PAGE_COUNT - 1],
+      [next, 'help.next', page < pageCount - 1],
     ];
     for (const [arrow, key, isEnabled] of arrows) {
       const arrowLabel: string = translator.translate(key);

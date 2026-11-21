@@ -195,6 +195,22 @@ export const EN_MESSAGES = {
   'help.touchChoose': 'Tap to choose in the inventory and in dialogues',
   'help.touchButtons':
     'The buttons at the top left open the inventory and this help',
+  'help.credits': 'Credits',
+  'ending.text':
+    'With the evidence and the intelligence in hand, you set off for the capital of the kingdom.',
+  'ending.end': 'The End',
+  'credits.title': 'Credits',
+  'credits.version': 'Version {version}',
+  'credits.author': 'Author',
+  'credits.authorName': 'imacat',
+  'credits.ai': 'AI assistance',
+  'credits.music': 'Music',
+  'credits.musicTitle': '“{title}”',
+  'credits.musicSource': 'by {author}, from {source}',
+  'credits.libraries': 'Libraries',
+  'credits.licence': 'Licence',
+  'credits.gameLicence':
+    'This game project is licensed under the {licence}; the music and the libraries are under their own licences.',
   'itemNotice.gained': 'You got {item}',
   'silverNotice.gainedOne': 'You got 1 silver coin',
   'silverNotice.gained': 'You got {count} silver coins',

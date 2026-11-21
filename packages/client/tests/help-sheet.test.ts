@@ -25,6 +25,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CREDITS_PAGE,
   GAMEPAD_PAGE,
   HELP_PAGE_COUNT,
   HelpSheet,
@@ -182,6 +183,43 @@ describe('a help sheet', () => {
     const sheet = new HelpSheet();
     expect(sheet.pressKey('ArrowRight')).toBe(false);
     sheet.turnToPage(GAMEPAD_PAGE);
+    expect(sheet.page).toBe(KEYBOARD_PAGE);
+  });
+});
+
+describe('the page of the credits on the help sheet', () => {
+  it('is not there at first', () => {
+    const sheet: HelpSheet = openSheet();
+    expect(sheet.hasCredits).toBe(false);
+    expect(sheet.pageCount).toBe(HELP_PAGE_COUNT);
+    sheet.turnToPage(TOUCH_PAGE);
+    sheet.pressKey('ArrowRight');
+    expect(sheet.page).toBe(TOUCH_PAGE);
+    sheet.turnToPage(CREDITS_PAGE);
+    expect(sheet.page).toBe(TOUCH_PAGE);
+  });
+
+  it('comes last once the sheet offers the credits', () => {
+    const sheet: HelpSheet = openSheet();
+    sheet.hasCredits = true;
+    expect(CREDITS_PAGE).toBe(HELP_PAGE_COUNT);
+    expect(sheet.pageCount).toBe(HELP_PAGE_COUNT + 1);
+    sheet.turnToPage(TOUCH_PAGE);
+    sheet.pressKey('ArrowRight');
+    expect(sheet.page).toBe(CREDITS_PAGE);
+    sheet.pressKey('ArrowRight');
+    expect(sheet.page).toBe(CREDITS_PAGE);
+    sheet.pressKey('ArrowLeft');
+    expect(sheet.page).toBe(TOUCH_PAGE);
+  });
+
+  it('is never the page the sheet opens at', () => {
+    const sheet = new HelpSheet();
+    sheet.hasCredits = true;
+    sheet.open(CREDITS_PAGE);
+    expect(sheet.page).toBe(TOUCH_PAGE);
+    sheet.close();
+    sheet.pressKey('KeyH');
     expect(sheet.page).toBe(KEYBOARD_PAGE);
   });
 });

@@ -94,6 +94,10 @@ import type { DialogueRequest, DialogueResponse } from './dialogue-box.ts';
 import { createDialogueView } from './dialogue-view.ts';
 import type { DialogueBoxView } from './dialogue-view.ts';
 import { EdwinCall, areDogsDead, isOnScreen } from './edwin-call.ts';
+import { EndingSheet, EndingWatch, ROLL_DURATION } from './ending-sheet.ts';
+import type { EndingResponse } from './ending-sheet.ts';
+import { createEndingView, prefersReducedMotion } from './ending-view.ts';
+import type { EndingView } from './ending-view.ts';
 import { EventSchedule } from './event-schedule.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
@@ -383,6 +387,10 @@ const bagView: BagView = createBagView(
   },
   touchView.isTouch,
 );
+/** The sheet of the ending and the credits of the game. */
+const endingSheet = new EndingSheet();
+/** What tells when the ending opens by itself. */
+const endingWatch = new EndingWatch();
 /** The help sheet that tells the controls of the game. */
 const helpSheet = new HelpSheet();
 const helpView: HelpView = createHelpView(
@@ -403,6 +411,15 @@ openHelpOnFirstVisit(
   touchView.isTouch() ? TOUCH_PAGE : KEYBOARD_PAGE,
 );
 helpView.render();
+const endingView: EndingView = createEndingView(
+  document.body,
+  translator,
+  endingSheet,
+  () => {
+    endingSheet.advance(performance.now());
+    endingView.render();
+  },
+);
 /** The dialogue the player of the page is in, and the reply chosen. */
 const dialogueBox = new DialogueBox();
 const dialogueView: DialogueBoxView = createDialogueView(
@@ -470,6 +487,7 @@ const viewport: Viewport = showScene(
     readTouch();
     sendMove();
     showPlayers();
+    showEnding();
     showTimeOfDay();
     outlines.visible = panel.obstacles.isShown;
     caveOutlines.visible = panel.obstacles.isShown;
@@ -688,8 +706,9 @@ function carryOutItemAction(request: ItemRequest): void {
 }
 
 /**
- * Holds the controls of play while the bag, the help sheet or a dialogue
- * opens: the keys held down walk the player and turn the camera no more,
+ * Holds the controls of play while the bag, the help sheet, the ending
+ * sheet or a dialogue opens: the keys held down walk the player and turn
+ * the camera no more,
  * the fingers on the screen are let go of, and the gamepads walk, turn and
  * zoom no more while it stays open; a left stick pushed then chooses
  * nothing until it has come back to the centre.
@@ -710,7 +729,9 @@ function holdPlay(): void {
  * @returns {PadScreen} What is open.
  */
 function findPadScreen(): PadScreen {
-  if (dialogueBox.isOpen || bag.isOpen) {
+  // On the ending sheet, A and B advance it as Enter and Esc do, and the
+  // left stick scrolls it as the arrow keys do, as in a choice.
+  if (dialogueBox.isOpen || endingSheet.isOpen || bag.isOpen) {
     return 'choice';
   }
   return helpSheet.isOpen ? 'help' : 'play';
@@ -769,7 +790,12 @@ function readTouch(): void {
  */
 function pressPadButton(button: PadButton): void {
   const screen: PadScreen = findPadScreen();
-  if (button === 'start' && screen !== 'help' && !dialogueBox.isOpen) {
+  if (
+    button === 'start' &&
+    screen !== 'help' &&
+    !dialogueBox.isOpen &&
+    !endingSheet.isOpen
+  ) {
     openHelp(GAMEPAD_PAGE);
     return;
   }
@@ -781,11 +807,11 @@ function pressPadButton(button: PadButton): void {
 
 /**
  * Opens the bag if it is closed, and closes it if open, as a click on its
- * icon does, unless the player is in a dialogue.  The help sheet is open
- * over the icon, so that it cannot be clicked then.
+ * icon does, unless the player is in a dialogue or on the ending sheet.
+ * The help sheet is open over the icon, so that it cannot be clicked then.
  */
 function clickBagIcon(): void {
-  if (dialogueBox.isOpen) {
+  if (dialogueBox.isOpen || endingSheet.isOpen) {
     return;
   }
   bag.clickIcon();
@@ -797,11 +823,11 @@ function clickBagIcon(): void {
 
 /**
  * Opens the help sheet, as a click on its button does, unless the player
- * is in a dialogue, at the page of touch on a touch device.  The bag closes
- * as the sheet opens.
+ * is in a dialogue or on the ending sheet, at the page of touch on a touch
+ * device.  The bag closes as the sheet opens.
  */
 function clickHelpButton(): void {
-  if (dialogueBox.isOpen) {
+  if (dialogueBox.isOpen || endingSheet.isOpen) {
     return;
   }
   openHelp(touchView.isTouch() ? TOUCH_PAGE : KEYBOARD_PAGE);
@@ -821,6 +847,53 @@ function openHelp(page?: number): void {
   helpSheet.open(page);
   holdPlay();
   helpView.render();
+}
+
+/**
+ * Opens the ending sheet, closing the bag and the help sheet, and holds the
+ * controls of play.  It unrolls, unless the person at the page asks for
+ * little motion.  From now on, the help sheet offers the credits on a page
+ * of their own.
+ */
+function openEnding(): void {
+  if (bag.isOpen) {
+    bag.clickIcon();
+    bagView.render();
+  }
+  helpSheet.close();
+  endingSheet.rollDuration = prefersReducedMotion() ? 0 : ROLL_DURATION;
+  endingSheet.open(performance.now());
+  helpSheet.hasCredits = true;
+  holdPlay();
+  endingView.render();
+  helpView.render();
+}
+
+/** Closes the ending sheet at once, back to play. */
+function closeEnding(): void {
+  endingSheet.close();
+  endingView.render();
+}
+
+/**
+ * Shows the ending sheet as it unrolls and rolls up, and opens it with the
+ * ending once {@link EndingWatch} tells it is to, as the page knows what
+ * its player carries and where.
+ */
+function showEnding(): void {
+  if (endingSheet.update(performance.now())) {
+    endingView.render();
+  }
+  if (
+    endingWatch.notice(
+      performance.now(),
+      inventory,
+      shownMap,
+      dialogueBox.isOpen,
+    )
+  ) {
+    openEnding();
+  }
 }
 
 /**
@@ -1295,8 +1368,8 @@ function receiveMessage(data: string): void {
 /**
  * Shows the dialogue the player of the page is in, as the server tells,
  * with the villagers called by the names they go by once they have told the
- * player who they are.  As a dialogue opens, the bag and the help sheet
- * close, the bubble of any villager is taken away, and the keys held down
+ * player who they are.  As a dialogue opens, the bag, the help sheet and
+ * the ending sheet close, the bubble of any villager is taken away, and the keys held down
  * walk the player and turn the camera no more.
  *
  * @param {DialogueView | null} dialogue - The dialogue, or `null` while
@@ -1323,6 +1396,9 @@ function showDialogue(
   if (helpSheet.isOpen) {
     helpSheet.close();
     helpView.render();
+  }
+  if (endingSheet.isOpen) {
+    closeEnding();
   }
   holdPlay();
 }
@@ -1518,6 +1594,21 @@ function pressGameKey(code: string, isRepeat: boolean): boolean {
   }
   if (dialogueBox.isOpen) {
     return false;
+  }
+  // The ending sheet comes next, over the help sheet and the bag, which are
+  // closed while it is open: it takes every key of the game, and leaves
+  // every other key to the browser.
+  if (endingSheet.isOpen) {
+    const reply: EndingResponse = endingSheet.pressKey(
+      code,
+      performance.now(),
+      isRepeat,
+    );
+    if (reply.scroll !== 0) {
+      endingView.scroll(reply.scroll);
+    }
+    endingView.render();
+    return reply.isHandled;
   }
   // The help sheet comes next: the H key opens it over the bag, and while
   // it is open, it takes every key of the game, and leaves every other key

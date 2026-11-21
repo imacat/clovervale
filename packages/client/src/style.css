@@ -572,15 +572,19 @@ canvas {
 /*
  * The help sheet: a clear veil over the whole page but the panel, which
  * keeps the pointer from the game, and a sheet of parchment in the middle,
- * over the panel too, that lists the controls in two columns.
+ * over the panel too, that lists the controls in two columns.  The ending
+ * sheet has the same veil.
  */
-.help {
+.help,
+.ending {
   position: fixed;
   inset: 0;
 }
 
 .help[hidden],
-.help-sheet[hidden] {
+.help-sheet[hidden],
+.ending[hidden],
+.ending-scroll[hidden] {
   display: none;
 }
 
@@ -927,6 +931,19 @@ canvas {
   background: #7a5a30;
 }
 
+/*
+ * The page of the credits, centred as on the scroll of the ending, under
+ * the name of the page instead of a title of its own.
+ */
+.help-credits-page {
+  text-align: center;
+}
+
+.help-credits-page[hidden],
+.help-credits-page .credits-title {
+  display: none;
+}
+
 /* The button at the foot of the sheet that closes it. */
 .help-ok {
   width: fit-content;
@@ -946,6 +963,193 @@ canvas {
 
 .help-ok:hover {
   background: #f0dcab;
+}
+
+/*
+ * The ending sheet: a scroll of parchment in the middle of the page, over
+ * the panel too, between two wooden rollers, its parchment as tall as what
+ * it tells while it is unrolled and none at all while it is rolled up, so
+ * that the rollers part from the middle and come together there again,
+ * showing what it tells from the middle out.  The credits scroll inside
+ * the parchment where they do not fit.
+ */
+.ending-scroll {
+  --roller-height: 22px;
+
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(560px, calc(100vw - 80px));
+  transform: translate(-50%, -50%);
+  user-select: none;
+  color: #3e2a14;
+  font: 15px sans-serif;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 14px rgb(0 0 0 / 45%));
+}
+
+/* A wooden roller, turned and polished, with a knob at either end. */
+.ending-roller {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(100% + 24px);
+  height: var(--roller-height);
+  border: 1px solid #3b210c;
+  border-radius: 6px;
+  background: linear-gradient(
+    #a8703c 0%,
+    #e0a868 22%,
+    #b47a42 50%,
+    #7c4a20 78%,
+    #5a3212 100%
+  );
+}
+
+.ending-roller::before,
+.ending-roller::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  width: 16px;
+  height: calc(var(--roller-height) + 8px);
+  border: 1px solid #2c1808;
+  border-radius: 8px;
+  background: linear-gradient(
+    #6e4018 0%,
+    #c08850 25%,
+    #8a5426 55%,
+    #4a2a0e 100%
+  );
+}
+
+.ending-roller::before {
+  left: -14px;
+}
+
+.ending-roller::after {
+  right: -14px;
+}
+
+/*
+ * The parchment between the rollers, which unrolls and rolls up, as tall
+ * as the page tells it has unrolled, overlapped by the rollers a little.
+ */
+.ending-reel {
+  flex: none;
+  width: 100%;
+  height: 0;
+  margin: -3px 0;
+}
+
+.ending-paper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      90deg,
+      rgb(122 82 34 / 35%) 0%,
+      transparent 6%,
+      transparent 94%,
+      rgb(122 82 34 / 35%) 100%
+    ),
+    linear-gradient(
+      rgb(90 58 28 / 40%) 0%,
+      transparent 4%,
+      transparent 96%,
+      rgb(90 58 28 / 40%) 100%
+    ),
+    #eedcaf;
+}
+
+.ending-page {
+  flex: none;
+  box-sizing: border-box;
+  padding: 26px 28px;
+  text-align: center;
+}
+
+.ending-page[hidden] {
+  display: none;
+}
+
+.ending-credits {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 32px - 2 * var(--roller-height));
+  padding: 14px 20px;
+}
+
+.ending-roll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 8px;
+  scrollbar-color: #a8864e transparent;
+  scrollbar-width: thin;
+}
+
+.ending-story {
+  padding: 40px 32px;
+}
+
+.ending-text {
+  margin: 0 0 16px;
+  font: 20px/1.6 serif;
+}
+
+.ending-end {
+  margin: 0;
+  color: #4a2f17;
+  font: bold 18px serif;
+  letter-spacing: 0.2em;
+}
+
+.credits-title {
+  margin: 0 0 12px;
+  color: #4a2f17;
+  font: bold 24px serif;
+  letter-spacing: 0.08em;
+}
+
+.credits-name {
+  color: #4a2f17;
+  font: bold 20px serif;
+}
+
+.credits-version,
+.credits-licence {
+  color: #6a4a26;
+  font-size: 13px;
+}
+
+.credits-section {
+  margin-top: 18px;
+}
+
+.credits-heading {
+  margin: 0 0 4px;
+  color: #7a5a30;
+  font: bold 13px sans-serif;
+  letter-spacing: 0.12em;
+}
+
+.credits-line {
+  margin: 2px 0;
+  line-height: 1.5;
+}
+
+.credits-work {
+  font-style: italic;
 }
 
 /* One column of controls on a narrow page. */
@@ -1166,6 +1370,7 @@ canvas {
   touch-action: pan-y;
 }
 
+
 .is-touch .help-title {
   margin-bottom: 10px;
   font-size: 22px;
@@ -1203,6 +1408,7 @@ canvas {
   margin-top: 12px;
   padding: 10px 24px;
 }
+
 
 /*
  * The help sheet on a screen held on its side, wide and short: smaller
