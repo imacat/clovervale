@@ -122,6 +122,7 @@ const NOTHING_TO_PICK = {
   inventory: [],
   dialogue: null,
   acquaintances: [],
+  quests: {},
 } as const;
 
 /** A dialogue, to put in snapshots. */
@@ -592,6 +593,7 @@ describe('the server message codec', () => {
       inventory: ['clover', 'clover'],
       dialogue: null,
       acquaintances: [],
+      quests: {},
     });
   });
 
@@ -743,6 +745,37 @@ describe('the server message codec', () => {
     ],
     ['has no number of its line', { dialogue: { ...DIALOGUE, turn: 0 } }],
   ])('rejects a snapshot whose dialogue %s', (_, flaw) => {
+    const data = JSON.stringify({
+      ...createSnapshotMessage(4, [PLAYER], [], OWN),
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it('decodes a snapshot message that tells how far the quests have got', () => {
+    const message = createSnapshotMessage(
+      4,
+      [PLAYER],
+      [],
+      OWN,
+      null,
+      undefined,
+      ['martha-ointment'],
+      null,
+      [],
+      { 'toby-hurt': 'started' },
+    );
+    const decoded = decodeServerMessage(encodeServerMessage(message));
+    expect(decoded).toEqual(message);
+    expect(decoded).toMatchObject({ quests: { 'toby-hurt': 'started' } });
+  });
+
+  it.each([
+    ['are missing', { quests: undefined }],
+    ['are a list', { quests: ['toby-hurt'] }],
+    ['name no quest there is', { quests: { 'lost-dog': 'done' } }],
+    ['tell no stage there is', { quests: { 'toby-hurt': 'given up' } }],
+  ])('rejects a snapshot whose quests %s', (_, flaw) => {
     const data = JSON.stringify({
       ...createSnapshotMessage(4, [PLAYER], [], OWN),
       ...flaw,

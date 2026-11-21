@@ -196,6 +196,7 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'item.healingPotion': '治疗药水',
   'item.clovervaleMessage': '四叶谷的情报',
   'item.spyToken': '四叶谷间谍的信物',
+  'item.marthaOintment': '玛莎的药膏',
   'container.chest': '宝箱',
   'container.barrel': '木桶',
 
@@ -235,4 +236,20 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'dialogue.martha.tellPrisoner': '村长！井里关着人，快去救他！',
   'dialogue.martha.confession':
     '哼，被你发现了！我是敌国的间谍。那个王国的使者想带着情报偷偷溜走，被我抓到，就把他关起来了。既然你也知道了，那就留下来陪他吧！',
+  'dialogue.martha.welcome': '你好啊，外地人！有什么事吗？',
+  'dialogue.martha.askMedicine':
+    '托比在外面玩，摔了一跤受伤了。你这儿有药吗？',
+  'dialogue.martha.ointment':
+    '哎哟！小孩子就是贪玩。伤得重不重啊？来，这药赶紧拿去给托比！',
+  'dialogue.martha.hurry': '快拿去给托比吧！',
+  'dialogue.martha.wonder': '托比怎么样了？药膏给他抹上了吗？',
+  'dialogue.martha.tellLost': '不好意思，药膏弄丢了。',
+  'dialogue.martha.replace': '没事儿，我再给你拿一罐。来，赶紧拿去给托比！',
+  'dialogue.toby.hurt':
+    '呜呜……我刚才摔了一跤，好疼啊。爸爸妈妈都下地干活去了。妈妈说，有事可以去找村长……',
+  'dialogue.toby.promise': '我去问问村长。你在这儿等着，别乱跑啊。',
+  'dialogue.toby.moan': '好疼啊……',
+  'dialogue.toby.dress':
+    '别动，我给你抹点药。好了。以后玩的时候要小心点儿哦！',
+  'dialogue.toby.thanks': '嗯，知道啦。谢谢！这个送给你！',
 };

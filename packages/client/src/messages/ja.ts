@@ -195,6 +195,7 @@ export const JA_MESSAGES: MessageTable = {
   'item.healingPotion': '回復薬',
   'item.clovervaleMessage': '四葉谷の情報',
   'item.spyToken': '四葉谷のスパイの証',
+  'item.marthaOintment': 'マーサの塗り薬',
   'container.chest': '宝箱',
   'container.barrel': '樽',
 
@@ -245,4 +246,22 @@ export const JA_MESSAGES: MessageTable = {
     '村長！井戸の中に人が閉じ込められてるんだ。早く助けてあげて！',
   'dialogue.martha.confession':
     'ふん、バレちゃったのね！私は敵国のスパイよ。あの王国の使者が情報を持ってこっそり逃げようとしたから、捕まえて閉じ込めてやったの。知られたからには、あなたにも残ってもらうわ。あの人と一緒にね！',
+  'dialogue.martha.welcome': 'あら、こんにちは、旅の人！何かご用？',
+  'dialogue.martha.askMedicine':
+    'トビーが外で遊んでて、転んでけがしちゃったんだ。何か薬はある？',
+  'dialogue.martha.ointment':
+    'あらまあ！子どもってのは、遊びだすと夢中なんだから。けがはひどいの？ほら、この薬、早くトビーに持っていってあげて！',
+  'dialogue.martha.hurry': '早くトビーに持っていってあげて！',
+  'dialogue.martha.wonder': 'トビーはどう？薬、塗ってあげた？',
+  'dialogue.martha.tellLost': 'ごめん、薬をなくしちゃった。',
+  'dialogue.martha.replace':
+    'いいのよ、もうひと瓶あげるから。ほら、早くトビーに持っていってあげて！',
+  'dialogue.toby.hurt':
+    'うえーん……さっき転んじゃった。いたいよう。パパもママも畑に行ってるの。ママがね、なにかあったら村長さんのところに行きなさいって……',
+  'dialogue.toby.promise':
+    '村長さんに聞いてくるね。ここで待ってて。どこにも行っちゃだめだよ。',
+  'dialogue.toby.moan': 'いたいよう……',
+  'dialogue.toby.dress':
+    'じっとしてて。薬、塗ってあげるね。はい、できた。これからは気をつけて遊ぶんだよ！',
+  'dialogue.toby.thanks': 'うん。ありがとう！これ、あげる！',
 };

@@ -307,6 +307,38 @@ function drawSpyToken(): SVGElement {
   ]);
 }
 
+/**
+ * Draws a small jar of Martha's ointment: a squat earthenware jar with a
+ * band of darker clay round its belly, its mouth covered with a cloth tied
+ * round the neck with string, the ends of the knot hanging down.
+ *
+ * @returns {SVGElement} The jar.
+ */
+function drawMarthaOintment(): SVGElement {
+  return drawPicture([
+    createSvgElement('path', {
+      d:
+        'M25 23 L39 23 C49 28 53 37 52 45 C51 53 44 58 32 58 ' +
+        'C20 58 13 53 12 45 C11 37 15 28 25 23Z',
+      class: 'bag-ointment-jar',
+    }),
+    createSvgElement('path', {
+      d: 'M13 39 C24 42 40 42 51 39',
+      class: 'bag-ointment-band',
+    }),
+    createSvgElement('path', {
+      d:
+        'M20 22 C20 14 26 9 32 9 C38 9 44 14 44 22 L47 28 ' +
+        'C40 26 24 26 17 28Z',
+      class: 'bag-ointment-cloth',
+    }),
+    createSvgElement('path', {
+      d: 'M20 22 C27 24.5 37 24.5 44 22 M44 23 L48 32 M44 23 L42 33',
+      class: 'bag-ointment-string',
+    }),
+  ]);
+}
+
 /** What each kind of item is drawn as in a slot of the bag. */
 const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
   clover: drawClover,
@@ -315,6 +347,7 @@ const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
   'healing-potion': drawHealingPotion,
   'clovervale-message': drawClovervaleMessage,
   'spy-token': drawSpyToken,
+  'martha-ointment': drawMarthaOintment,
 };
 
 /**

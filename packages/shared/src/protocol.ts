@@ -38,6 +38,8 @@ import {
 } from './items.ts';
 import type { GroundItem, ItemKindId, WorldItems } from './items.ts';
 import type { GroundVector } from './movement.ts';
+import { isQuestLog } from './quests.ts';
+import type { QuestLog } from './quests.ts';
 import type {
   DropInput,
   InteractInput,
@@ -54,7 +56,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 26;
+export const PROTOCOL_VERSION = 27;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -298,6 +300,11 @@ export interface SnapshotMessage {
    * once, in the order they did.
    */
   readonly acquaintances: readonly VillagerId[];
+  /**
+   * How far the player of the peer has got with each quest it has taken
+   * on.
+   */
+  readonly quests: QuestLog;
 }
 
 /**
@@ -437,6 +444,8 @@ export function createWelcomeMessage(
  * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
  *   told the player of the peer who they are, in the order they did, which
  *   are none by default.
+ * @param {QuestLog} [quests] - How far the player of the peer has got with
+ *   each quest it has taken on, which are none by default.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
@@ -449,6 +458,7 @@ export function createSnapshotMessage(
   inventory: readonly ItemKindId[] = [],
   dialogue: DialogueView | null = null,
   acquaintances: readonly VillagerId[] = [],
+  quests: QuestLog = {},
 ): SnapshotMessage {
   const { clovers, items, looted = [], tobyFind = null } = world;
   return {
@@ -465,6 +475,7 @@ export function createSnapshotMessage(
     inventory,
     dialogue,
     acquaintances,
+    quests,
   };
 }
 
@@ -598,7 +609,8 @@ export function decodeServerMessage(data: string): ServerMessage {
     (value.tobyFind === null || Number.isInteger(value.tobyFind)) &&
     isInventory(value.inventory) &&
     (value.dialogue === null || isDialogueView(value.dialogue)) &&
-    isAcquaintanceList(value.acquaintances)
+    isAcquaintanceList(value.acquaintances) &&
+    isQuestLog(value.quests)
   ) {
     const players: unknown[] = value.players;
     const monsters: unknown[] = value.monsters;
@@ -677,6 +689,7 @@ export function decodeServerMessage(data: string): ServerMessage {
                 turn: dialogue.turn,
               },
         acquaintances: [...value.acquaintances],
+        quests: { ...value.quests },
       };
     }
   }

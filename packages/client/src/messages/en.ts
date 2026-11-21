@@ -202,6 +202,7 @@ export const EN_MESSAGES = {
   'item.healingPotion': 'healing potion',
   'item.clovervaleMessage': 'message from Clovervale',
   'item.spyToken': 'token of the Clovervale spy',
+  'item.marthaOintment': "jar of Martha's ointment",
   'container.chest': 'chest',
   'container.barrel': 'barrel',
 
@@ -252,6 +253,25 @@ export const EN_MESSAGES = {
     "Chief! There's someone locked up down the well. Quick, go and save them!",
   'dialogue.martha.confession':
     "Hmph, so you found out! I'm an enemy spy. That royal envoy tried to sneak off with what he'd learnt, so I caught him and locked him up. Now that you know too, you can stay and keep him company!",
+  'dialogue.martha.welcome': 'Hello, stranger! What can I do for you?',
+  'dialogue.martha.askMedicine':
+    'Toby was playing outside and fell over and hurt himself. Have you got any medicine?',
+  'dialogue.martha.ointment':
+    "Oh my goodness! Children, always running about. Is it bad? Here, take this ointment to Toby, quick!",
+  'dialogue.martha.hurry': 'Go on, take it to Toby, quick!',
+  'dialogue.martha.wonder':
+    "How's Toby doing? Did you put the ointment on him?",
+  'dialogue.martha.tellLost': "Sorry, I've lost the ointment.",
+  'dialogue.martha.replace':
+    "Never mind, I'll fetch you another jar. Here, take it to Toby, quick!",
+  'dialogue.toby.hurt':
+    "Waaah… I fell over just now and it really hurts. Mummy and Daddy have both gone to the fields. Mummy said if anything's wrong, I can go to the village chief…",
+  'dialogue.toby.promise':
+    "I'll go and ask the village chief. You wait here, and don't wander off.",
+  'dialogue.toby.moan': 'Owww, it hurts…',
+  'dialogue.toby.dress':
+    "Hold still, I'll put some ointment on it. There, all done. Be careful when you're playing from now on, OK?",
+  'dialogue.toby.thanks': "Okay. Thank you! This one's for you!",
 } as const;
 
 /** A message of the page. */

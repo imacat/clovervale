@@ -23,7 +23,33 @@
  *   it.
  */
 
-import type { ItemKindId, VillagerId } from '@clovervale/shared';
+import { CLOVER_KIND } from '@clovervale/shared';
+import type {
+  ItemKindId,
+  QuestId,
+  QuestLog,
+  QuestStage,
+  VillagerId,
+} from '@clovervale/shared';
+
+/** How far a player must have got with a quest. */
+export interface QuestCondition {
+  /** The quest. */
+  readonly id: QuestId;
+  /**
+   * The stages the player must have got to one of, among which `null`
+   * stands for not having taken the quest on.
+   */
+  readonly stages: readonly (QuestStage | null)[];
+}
+
+/** A stage a player gets to in a quest. */
+export interface QuestStep {
+  /** The quest. */
+  readonly id: QuestId;
+  /** The stage. */
+  readonly stage: QuestStage;
+}
 
 /**
  * What must hold of a player for a line to be said to it.  Whatever is left
@@ -41,14 +67,23 @@ export interface DialogueCondition {
   readonly lacks?: ItemKindId;
   /** Another villager who must have told the player who it is. */
   readonly knows?: VillagerId;
+  /** How far the player must have got with a quest. */
+  readonly quest?: QuestCondition;
 }
 
 /** What comes of a line once it is said to a player. */
 export interface DialogueOutcome {
   /** Whether the villager tells the player who it is with the line. */
   readonly introduces?: boolean;
+  /**
+   * An item the villager takes from the player with the line, before it
+   * gives any.
+   */
+  readonly takes?: ItemKindId;
   /** An item the villager gives the player with the line. */
   readonly gives?: ItemKindId;
+  /** The stage the player gets to in a quest with the line. */
+  readonly sets?: QuestStep;
 }
 
 /** A reply a player is offered after a line. */
@@ -105,6 +140,8 @@ export interface Listener {
   readonly inventory: readonly ItemKindId[];
   /** The villagers who have told the player who they are. */
   readonly acquaintances: readonly VillagerId[];
+  /** How far the player has got with each quest it has taken on. */
+  readonly quests: QuestLog;
 }
 
 /**
@@ -122,6 +159,18 @@ export const TOBY_LINES: readonly string[] = [
  * four-leaved clover.
  */
 export const TOBY_GIFT_LINE = 'villager.toby.gift';
+
+/** The quest in which Toby, who has hurt himself, waits for ointment. */
+const TOBY_HURT: QuestId = 'toby-hurt';
+
+/** That a player is on {@link TOBY_HURT}, given the ointment or not. */
+const ON_TOBY_HURT: QuestCondition = {
+  id: TOBY_HURT,
+  stages: ['started', 'supplied'],
+};
+
+/** The item Martha gives a player to take to Toby, hurt. */
+const MARTHA_OINTMENT: ItemKindId = 'martha-ointment';
 
 /** The item Edwin gives a player to take to the king. */
 const EDWIN_MESSAGE: ItemKindId = 'clovervale-message';
@@ -171,16 +220,122 @@ const EDWIN_SCRIPT: DialogueScript = {
 };
 
 /**
- * What Martha, the village chief, who is the enemy spy, says to a player
+ * What Toby, the child who hunts for four-leaved clover, says of his fall:
+ * to a player who has not taken on {@link TOBY_HURT}, that he has fallen
+ * and hurt himself, with his parents out in the fields, and that his
+ * mother told him to go to the village chief, which has the player take
+ * it on and promise to ask her; to a player on it without
+ * {@link MARTHA_OINTMENT}, in passing, that it still hurts; and to a player
+ * on it with the ointment, that it still hurts, which the player answers
+ * by putting the ointment on and telling him to take care, and his promise
+ * to, with his thanks, with which he takes the ointment, the quest is done,
+ * and he gives the player a four-leaved clover.  To a player who has done
+ * the quest, he only chatters.
+ */
+const TOBY_SCRIPT: DialogueScript = {
+  nodes: {
+    hurt: {
+      condition: { quest: { id: TOBY_HURT, stages: [null] } },
+      line: 'dialogue.toby.hurt',
+      replies: [{ text: 'dialogue.toby.promise', next: null }],
+      outcome: { sets: { id: TOBY_HURT, stage: 'started' } },
+    },
+    ache: {
+      condition: {
+        quest: ON_TOBY_HURT,
+        carries: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.toby.moan',
+      replies: [{ text: 'dialogue.toby.dress', next: 'thank' }],
+    },
+    thank: {
+      condition: {
+        quest: ON_TOBY_HURT,
+        carries: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.toby.thanks',
+      replies: [],
+      outcome: {
+        takes: MARTHA_OINTMENT,
+        gives: CLOVER_KIND,
+        sets: { id: TOBY_HURT, stage: 'done' },
+      },
+    },
+    moan: {
+      condition: {
+        quest: ON_TOBY_HURT,
+        lacks: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.toby.moan',
+      replies: [],
+      isRemark: true,
+    },
+  },
+  openings: ['hurt', 'ache', 'moan'],
+};
+
+/**
+ * What Martha, the village chief, who is the enemy spy, says.  To a player
  * she has come up to as it climbs out of her well: she asks who it is and
  * why it has come out of the well; the player tells her of the envoy of
  * the kingdom shut in down there, if Edwin has told it who he is, or else
  * of somebody shut in down there; and she owns up to being the spy, and
- * tells the player it is to stay down there too.  None of it is said
- * when the player talks to her: she only chatters then.
+ * tells the player it is to stay down there too.  To a player who talks
+ * to her on {@link TOBY_HURT}: without {@link MARTHA_OINTMENT}, before she
+ * has given it any, she welcomes it, is told of Toby's fall, and gives it
+ * her ointment for him; without it, once she has given it some, she asks
+ * after Toby, is told the ointment is lost, and gives it another jar; and
+ * with it, she tells it in passing to hurry to him.  To any other
+ * player who talks to her, she only chatters.
  */
 const MARTHA_SCRIPT: DialogueScript = {
   nodes: {
+    welcome: {
+      condition: {
+        quest: { id: TOBY_HURT, stages: ['started'] },
+        lacks: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.martha.welcome',
+      replies: [{ text: 'dialogue.martha.askMedicine', next: 'ointment' }],
+    },
+    ointment: {
+      condition: {
+        quest: { id: TOBY_HURT, stages: ['started'] },
+        lacks: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.martha.ointment',
+      replies: [],
+      outcome: {
+        gives: MARTHA_OINTMENT,
+        sets: { id: TOBY_HURT, stage: 'supplied' },
+      },
+    },
+    wonder: {
+      condition: {
+        quest: { id: TOBY_HURT, stages: ['supplied'] },
+        lacks: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.martha.wonder',
+      replies: [{ text: 'dialogue.martha.tellLost', next: 'replace' }],
+    },
+    replace: {
+      condition: {
+        quest: { id: TOBY_HURT, stages: ['supplied'] },
+        lacks: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.martha.replace',
+      replies: [],
+      outcome: { gives: MARTHA_OINTMENT },
+    },
+    hurry: {
+      condition: {
+        quest: ON_TOBY_HURT,
+        carries: MARTHA_OINTMENT,
+      },
+      line: 'dialogue.martha.hurry',
+      replies: [],
+      isRemark: true,
+    },
     askEnvoy: {
       condition: { knows: 'edwin' },
       line: 'dialogue.martha.ask',
@@ -195,17 +350,20 @@ const MARTHA_SCRIPT: DialogueScript = {
       replies: [],
     },
   },
-  openings: [],
+  openings: ['welcome', 'wonder', 'hurry'],
   approaches: ['askEnvoy', 'ask'],
 };
 
 /**
  * What the villagers with something to tell say, by villager.  A villager
- * without a script only chatters, which the peers word themselves.
+ * without a script, or without an opening for a player, only chatters,
+ * which the peers word themselves, but for Toby, whose chatter the server
+ * chooses.
  */
 export const DIALOGUE_SCRIPTS: Readonly<
   Partial<Record<VillagerId, DialogueScript>>
 > = {
+  toby: TOBY_SCRIPT,
   edwin: EDWIN_SCRIPT,
   martha: MARTHA_SCRIPT,
 };
@@ -289,8 +447,10 @@ export function meetsCondition(
   villager: VillagerId,
   listener: Listener,
 ): boolean {
-  const { isAcquainted, carries, lacks, knows } = node.condition ?? {};
+  const { isAcquainted, carries, lacks, knows, quest } = node.condition ?? {};
   return (
+    (quest === undefined ||
+      quest.stages.includes(listener.quests[quest.id] ?? null)) &&
     (isAcquainted === undefined ||
       listener.acquaintances.includes(villager) === isAcquainted) &&
     (carries === undefined || listener.inventory.includes(carries)) &&

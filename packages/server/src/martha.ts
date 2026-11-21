@@ -267,6 +267,16 @@ export class Martha {
   }
 
   /**
+   * Tells whether Martha talks with a player now, having come up to it.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {boolean} Whether she does.
+   */
+  isTalkingWith(id: number): boolean {
+    return this.#mode === 'talk' && this.#targetId === id;
+  }
+
+  /**
    * Has Martha deal with a player that has climbed out of her well, once
    * she is done with those before it, unless she deals with it already or
    * it waits for her already.

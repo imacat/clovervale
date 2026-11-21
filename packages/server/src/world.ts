@@ -37,6 +37,7 @@ import {
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   SPAWN_YAW,
+  VILLAGERS,
   canInteract,
   canUseItem,
   createMotion,
@@ -49,6 +50,7 @@ import {
   hasRoom,
   interpolatePlaced,
   isFighting,
+  isVillagerFree,
   isWithinStrike,
 } from '@clovervale/shared';
 import type {
@@ -67,6 +69,9 @@ import type {
   PlayerMotion,
   PlayerState,
   Pose,
+  QuestId,
+  QuestLog,
+  QuestStage,
   SlashJudgement,
   StampedInput,
   TobyGrab,
@@ -94,6 +99,11 @@ import type { MonsterSpawn, Quarry } from './monster.ts';
  * coming up to it as it climbs out of her well.
  */
 export const SPY_TOKEN: ItemKindId = 'spy-token';
+
+/** Martha, the village chief, as a villager a player can talk to. */
+const MARTHA_VILLAGER: Villager | undefined = VILLAGERS.find(
+  (villager: Villager) => villager.id === 'martha',
+);
 
 /**
  * The furthest back on the clock of the server a slash can be judged on
@@ -151,6 +161,8 @@ export interface Player {
    * did.
    */
   readonly acquaintances: VillagerId[];
+  /** How far the player has got with each quest it has taken on. */
+  readonly quests: Partial<Record<QuestId, QuestStage>>;
   /** The dialogue the player is in, or `null` while it is in none. */
   dialogue: Dialogue | null;
   /** The number of lines said to the player in its dialogues so far. */
@@ -343,7 +355,8 @@ export class World {
    * lowest-numbered one if several tie), and a place on the plaza clear of
    * the obstacles and, while there is room, of everyone else, where it
    * idles facing the fountain, at full health, carrying nothing, in no
-   * dialogue, told by no villager who it is, and not hunted by Martha.
+   * dialogue, told by no villager who it is, on no quest, and not hunted
+   * by Martha.
    *
    * @param {readonly number[]} [elsewhere] - The appearances of the players
    *   in other worlds, none by default.
@@ -361,6 +374,7 @@ export class World {
       lastSlash: null,
       inventory: [],
       acquaintances: [],
+      quests: {},
       dialogue: null,
       turnCount: 0,
       isHunted: false,
@@ -381,8 +395,9 @@ export class World {
 
   /**
    * Brings a player from another world into this one, with its health,
-   * what it carries, the villagers who have told it who they are, whether
-   * Martha hunts it, and the inputs of its peer still to come.  It stops
+   * what it carries, the villagers who have told it who they are, how far
+   * it has got with the quests, whether Martha hunts it, and the inputs of
+   * its peer still to come.  It stops
    * whatever it was doing and idles where it arrives, but still wants to
    * move the way it did.  A player that arrives in the village somewhere
    * in particular, as one that climbs out of the well does, and that does
@@ -468,19 +483,23 @@ export class World {
    * its interaction names, if any, does not matter.  A talk is never judged
    * either.  An interaction slashes rather than talks while a living
    * monster, as it was before the step, is in front of the player and
-   * within the reach of its slash.  A talk that starts at the step to
-   * Toby has him say a line to the player in passing, kept for the player
-   * to be told once: one of his lines at random, among which, while the
-   * inventory of the player has room, is the line with which he gives the
-   * player a four-leaved clover, into its inventory.  A talk to any other villager without a script changes
-   * nothing else in the world.  A talk that starts at the step to a
+   * within the reach of its slash.  A talk that starts at the step to a
    * villager with a script, as {@link findOpening} finds, opens with the
    * first of its openings whose condition holds of the player then, if any:
    * a line said in passing is kept for the player to be told once, and any
-   * other line starts a dialogue there.  Whenever a line is said to a
+   * other line starts a dialogue there.  A talk that starts at the step to
+   * Toby without such an opening has him say a line to the player in
+   * passing, kept for the player to be told once: one of his lines at
+   * random, among which, while the inventory of the player has room, is
+   * the line with which he gives the player a four-leaved clover, into its
+   * inventory.  A talk to any other villager without such an opening
+   * changes nothing else in the world.  Whenever a line is said to a
    * player, what the line brings about comes about at once: the villager
-   * may tell the player who it is, and may give it an item, which is laid
-   * at its feet as if put down if its inventory has no room for it.  A
+   * may tell the player who it is; may take an item of the kind it names
+   * out of the inventory of the player, the items after it closing up; may
+   * then give it an item, which is laid at its feet as if put down if its
+   * inventory has no room for it; and may have the player get to a stage
+   * of a quest.  A
    * reply that comes into effect at the step, while the player is in a
    * dialogue, names one of the replies offered: one that leads to a line
    * whose condition holds of the player then takes the dialogue on to that
@@ -497,8 +516,10 @@ export class World {
    * a player she comes up to is in a dialogue with her from then on, which
    * starts with the first of her approaches, as {@link findApproach} finds,
    * and a player she loses in a fight, or that leaves the village while
-   * she fights it, she hunts from then on.  The village is never held
-   * still for a dialogue.
+   * she fights it, she hunts from then on.  A player in any other dialogue
+   * with her leaves it as soon as she is no longer free to be talked to,
+   * as {@link isVillagerFree} tells, after the step.  The village is never
+   * held still for a dialogue.
    *
    * Then the strikes are judged.  A slash that starts at the step hits
    * every monster that is alive, and was alive, in front of the player and
@@ -686,6 +707,7 @@ export class World {
         player.isHunted = true;
       }
     }
+    this.#endTalksWithBusyMartha();
     for (const slasher of slashers) {
       if (!leaving.has(slasher.player)) {
         this.#judgeSlash(slasher);
@@ -804,6 +826,18 @@ export class World {
    */
   findAcquaintances(id: number): VillagerId[] {
     return [...(this.#players.get(id)?.acquaintances ?? [])];
+  }
+
+  /**
+   * Tells how far a player has got with the quests, which only the player
+   * itself is to be told.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {QuestLog} The stage of each quest the player has taken on,
+   *   which are none if the player is not in the world.
+   */
+  findQuests(id: number): QuestLog {
+    return { ...this.#players.get(id)?.quests };
   }
 
   /**
@@ -978,6 +1012,29 @@ export class World {
   }
 
   /**
+   * Ends the dialogue of every player with Martha but the one she has come
+   * up to, if she is no longer free to be talked to.
+   */
+  #endTalksWithBusyMartha(): void {
+    const martha: Martha | null = this.#martha;
+    if (
+      martha === null ||
+      MARTHA_VILLAGER === undefined ||
+      isVillagerFree(MARTHA_VILLAGER, [martha.state])
+    ) {
+      return;
+    }
+    for (const player of this.#players.values()) {
+      if (
+        player.dialogue?.villager === 'martha' &&
+        !martha.isTalkingWith(player.id)
+      ) {
+        player.dialogue = null;
+      }
+    }
+  }
+
+  /**
    * Lists the players of the world as Martha sees them.
    *
    * @returns {Suspect[]} The players, in the order they came in.
@@ -1125,7 +1182,7 @@ export class World {
   /**
    * Starts a talk between a player that has just begun to talk and the
    * villager it faces, if the villager has a script with an opening for
-   * the player.
+   * the player, or else has Toby, if it faces him, chatter.
    *
    * @param {Player} player - The player.
    * @param {PlayerMotion} pose - Where the player stands, and which way it
@@ -1147,14 +1204,13 @@ export class World {
     if (villager === null) {
       return;
     }
-    if (villager.id === 'toby') {
-      this.#chatterToby(player);
-      return;
-    }
     const opening: string | null = findOpening(villager.id, player);
     const node: DialogueNode | null =
       opening === null ? null : findDialogueNode(villager.id, opening);
     if (opening === null || node === null) {
+      if (villager.id === 'toby') {
+        this.#chatterToby(player);
+      }
       return;
     }
     if (node.isRemark === true) {
@@ -1248,12 +1304,20 @@ export class World {
    * @param {DialogueNode} node - The line.
    */
   #bringAbout(player: Player, villager: VillagerId, node: DialogueNode): void {
-    const { introduces = false, gives } = node.outcome ?? {};
+    const { introduces = false, takes, gives, sets } = node.outcome ?? {};
     if (introduces && !player.acquaintances.includes(villager)) {
       player.acquaintances.push(villager);
     }
+    const slot: number =
+      takes === undefined ? -1 : player.inventory.indexOf(takes);
+    if (slot !== -1) {
+      player.inventory.splice(slot, 1);
+    }
     if (gives !== undefined) {
       this.#giveItem(player, gives);
+    }
+    if (sets !== undefined) {
+      player.quests[sets.id] = sets.stage;
     }
   }
 

@@ -44,15 +44,20 @@ import {
   CAVE_DOG_HOMES,
   CAVE_LANDING,
   CAVE_ROPE,
+  CLOVER_PATCHES,
   SIMULATION_RATE,
   SLASH_REACH,
   TOBY_ACTIVITIES,
+  TOBY_ENDS,
   TOBY_GRAB_STEPS,
+  TOBY_PATCHES,
   TOBY_STOW_STEPS,
   VILLAGERS,
   WELL_STAND,
+  findPlacement,
   findTobyGrab,
   findTobyPose,
+  findVillagePath,
   locateVillager,
 } from '@clovervale/shared';
 import type {
@@ -6697,6 +6702,820 @@ async function checkMartha(
   await turnCamera(session, actor, -MARTHA_CAMERA_TURN);
 }
 
+/** Where Toby squats at the patch of clover by the gate. */
+const TOBY_SQUAT: GroundVector = TOBY_ENDS[1];
+/**
+ * Where a player stands to talk to Toby as he picks at the patch of clover
+ * by the gate: beyond the patch from where he squats, out of his way.
+ */
+const BY_TOBY: GroundVector = (() => {
+  const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? TOBY_SQUAT;
+  const [first, second] = TOBY_ENDS;
+  const apart: number = Math.hypot(second.x - first.x, second.z - first.z);
+  return {
+    x: patch.x + ((second.x - first.x) / apart) * 0.8,
+    z: patch.z + ((second.z - first.z) / apart) * 0.8,
+  };
+})();
+/** Where Martha stands on her porch. */
+const MARTHA_HOME_SPOT: GroundVector = findPlacement('npc-martha.glb');
+/** Where a player stands before Martha on her porch. */
+const BY_MARTHA: GroundVector = (() => {
+  const { x, z, yaw } = findPlacement('npc-martha.glb');
+  const turn: number = (yaw * Math.PI) / 180;
+  return { x: x + Math.sin(turn) * 1.2, z: z + Math.cos(turn) * 1.2 };
+})();
+/** Where a player stands off Martha's porch, out of her reach. */
+const AWAY_FROM_MARTHA: GroundVector = (() => {
+  const { x, z, yaw } = findPlacement('npc-martha.glb');
+  const turn: number = (yaw * Math.PI) / 180;
+  return { x: x + Math.sin(turn) * 3.6, z: z + Math.cos(turn) * 3.6 };
+})();
+/** The dialogue box as Martha asks after Toby, her jar lost. */
+const MARTHA_WONDER: DialogueLookView = {
+  name: 'Chief Martha',
+  line: "How's Toby doing? Did you put the ointment on him?",
+  replies: ["Sorry, I've lost the ointment."],
+  cursor: 0,
+};
+/** The dialogue box as Martha gives another jar. */
+const MARTHA_REPLACE: DialogueLookView = {
+  name: 'Chief Martha',
+  line: "Never mind, I'll fetch you another jar. Here, take it to Toby, quick!",
+  replies: [],
+  cursor: 0,
+};
+/** The longest a player is walked across the village for, in ms. */
+const QUEST_WALK_TIMEOUT = 40_000;
+/** How often the keys walking a player across the village are set, in ms. */
+const QUEST_STEER_INTERVAL = 50;
+/**
+ * How near a player walked across the village comes to a point on its way
+ * before it walks on to the next, in metres.
+ */
+const QUEST_WAY_NEARNESS = 0.4;
+/** How near a player walked across the village stops to its end, in metres. */
+const QUEST_STOP_NEARNESS = 0.15;
+/** How many times a player tries to talk to Toby as he picks. */
+const QUEST_TALK_TRIES = 3;
+/** The prompt to talk to Toby. */
+const TOBY_TALK_PROMPT = 'Press Space to talk to Toby';
+/** The prompt to talk to Martha. */
+const MARTHA_TALK_PROMPT = 'Press Space to talk to Chief Martha';
+/** The dialogue box as Toby tells of his fall, in English. */
+const TOBY_HURT: DialogueLookView = {
+  name: 'Toby',
+  line:
+    'Waaah… I fell over just now and it really hurts. Mummy and Daddy have ' +
+    "both gone to the fields. Mummy said if anything's wrong, I can go to " +
+    'the village chief…',
+  replies: [
+    "I'll go and ask the village chief. You wait here, and don't wander off.",
+  ],
+  cursor: 0,
+};
+/** What Toby moans to a player on the quest without the ointment. */
+const TOBY_MOAN: SpeechWordsView = { name: 'Toby', line: 'Owww, it hurts…' };
+/** The dialogue box as Martha welcomes a player on the quest. */
+const MARTHA_WELCOME: DialogueLookView = {
+  name: 'Chief Martha',
+  line: 'Hello, stranger! What can I do for you?',
+  replies: [
+    'Toby was playing outside and fell over and hurt himself. Have you got ' +
+      'any medicine?',
+  ],
+  cursor: 0,
+};
+/** The dialogue box as Martha gives her ointment. */
+const MARTHA_OINTMENT: DialogueLookView = {
+  name: 'Chief Martha',
+  line:
+    'Oh my goodness! Children, always running about. Is it bad? Here, ' +
+    'take this ointment to Toby, quick!',
+  replies: [],
+  cursor: 0,
+};
+/** What Martha tells a player who carries her ointment. */
+const MARTHA_HURRY: SpeechWordsView = {
+  name: 'Chief Martha',
+  line: 'Go on, take it to Toby, quick!',
+};
+/** The dialogue box as Toby moans to a player who brings the ointment. */
+const TOBY_ACHE: DialogueLookView = {
+  name: 'Toby',
+  line: 'Owww, it hurts…',
+  replies: [
+    "Hold still, I'll put some ointment on it. There, all done. Be careful " +
+      "when you're playing from now on, OK?",
+  ],
+  cursor: 0,
+};
+/** The dialogue box as Toby thanks the player and gives it a clover. */
+const TOBY_THANKS: DialogueLookView = {
+  name: 'Toby',
+  line: "Okay. Thank you! This one's for you!",
+  replies: [],
+  cursor: 0,
+};
+/** What Toby says in passing to a player who has done the quest. */
+const TOBY_ORDINARY_LINES: readonly string[] = [
+  "Mummy says I mustn't go outside. There are wild dogs out there.",
+  'If you want something, go and see the village chief. She lives in the ' +
+    'biggest house!',
+  "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
+  "Here, this one's for you! It brings good luck.",
+];
+/** The name of the ointment. */
+const OINTMENT_NAME = "jar of Martha's ointment";
+/** The notice of the ointment got from Martha. */
+const OINTMENT_NOTICE = `You got the ${OINTMENT_NAME}`;
+/** The prompt by the ointment on the ground. */
+const OINTMENT_PROMPT = `Press Space to pick up the ${OINTMENT_NAME}`;
+/** The actions the menu of the ointment in the bag lists. */
+const OINTMENT_ACTIONS: readonly MenuActionView[] = [
+  { label: 'Drop', isEnabled: true },
+];
+/** The notice of the four-leaved clover Toby gives. */
+const QUEST_CLOVER_NOTICE = 'You got the four-leaved clover';
+/**
+ * How far the wheel is turned to zoom the camera in on the ointment on the
+ * ground, in pixels, below zero.
+ */
+const OINTMENT_CAMERA_ZOOM = -1500;
+/**
+ * The expression that clicks the slot of the ointment in the bag of a
+ * page, and gives the number of the slot, or -1.
+ */
+const OINTMENT_SLOT_CLICK_EXPRESSION = `(() => {
+  const slots = [...document.querySelectorAll('.bag-slot')];
+  const index = slots.findIndex(
+    (slot) => slot.dataset.kind === 'martha-ointment',
+  );
+  slots[index]?.click();
+  return String(index);
+})()`;
+
+/** How a page shows its player on the quest of Toby, hurt. */
+interface QuestLook {
+  /** The player of the page in the latest snapshot, if it is there. */
+  readonly own: {
+    readonly x: number;
+    readonly z: number;
+    readonly yaw: number;
+    readonly action: string;
+  } | null;
+  /** The player of the page as the page draws it, if it does. */
+  readonly drawn: FigureView | null;
+  /** Martha in the latest snapshot, if she is there. */
+  readonly martha: CaveMonsterView | null;
+  /** How the page shows Toby, or `null` while it does not show him. */
+  readonly toby: TobyLook['toby'];
+  /** The way the camera looks, in degrees, as the yaw of a player. */
+  readonly heading: number;
+  /** The prompt shown, or `null` while none is. */
+  readonly prompt: string | null;
+  /** The dialogue box, or `null` while it is closed. */
+  readonly dialogue: DialogueLookView | null;
+  /** The bubble shown, or `null` while none is. */
+  readonly speech: SpeechWordsView | null;
+  /** The kinds of the items in the slots of the bag. */
+  readonly slots: readonly string[];
+  /** The notices of the items got. */
+  readonly notices: readonly string[];
+  /** Whether the bag is open. */
+  readonly isBagOpen: boolean;
+  /** The actions the open menu of an item lists, or `null` if none is open. */
+  readonly menu: readonly MenuActionView[] | null;
+  /** The name of the item chosen in the bag, if it shows one. */
+  readonly bagItemName: string;
+  /** The kinds of the items drawn on the ground, with where they lie. */
+  readonly items: readonly (ItemView & { readonly kind: string })[];
+}
+
+/**
+ * Makes the expression that tells how a page shows its player on the
+ * quest of Toby, hurt, as JSON.
+ *
+ * @param {number} id - The identifier of the player.
+ * @returns {string} The expression.
+ */
+function createQuestExpression(id: number): string {
+  return `(() => {
+    const shown = (element) =>
+      element === null || element.hidden ? null : element.textContent;
+    const speech = window.clovervale.describeSpeech();
+    const menu = document.querySelector('.bag-menu');
+    const bag = document.querySelector('.bag-window');
+    return JSON.stringify({
+      own: window.clovervale.listLatestPlayers()
+        .find((player) => player.id === ${String(id)}) ?? null,
+      drawn: window.clovervale.describeFigures()
+        .find((figure) => figure.id === ${String(id)}) ?? null,
+      martha: window.clovervale.listLatestMonsters()
+        .find((monster) => monster.kind === 'martha') ?? null,
+      toby: window.clovervale.describeToby(),
+      heading: window.clovervale.describeHeading(),
+      prompt: shown(document.querySelector('.interaction-prompt')),
+      dialogue: window.clovervale.describeDialogue(),
+      speech: speech === null ? null : { name: speech.name, line: speech.line },
+      slots: [...document.querySelectorAll('.bag-slot')]
+        .map((slot) => slot.dataset.kind ?? ''),
+      notices: [...document.querySelectorAll('.item-notice')]
+        .map((notice) => notice.textContent),
+      isBagOpen: bag !== null && !bag.hidden,
+      menu: menu === null || menu.hidden
+        ? null
+        : [...menu.querySelectorAll('.bag-action')].map((action) => ({
+            label: action.textContent,
+            isEnabled: action.getAttribute('aria-disabled') !== 'true',
+          })),
+      bagItemName:
+        document.querySelector('.bag-item-name')?.textContent ?? '',
+      items: window.clovervale.describeItems().items,
+    });
+  })()`;
+}
+
+/**
+ * Reads how a page shows its player on the quest of Toby, hurt.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<QuestLook>} How the page shows it.
+ */
+async function readQuestLook(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<QuestLook> {
+  return JSON.parse(
+    await evaluateInPage(session, context, createQuestExpression(id)),
+  ) as QuestLook;
+}
+
+/**
+ * Describes how a page shows its player on the quest of Toby, hurt, for
+ * the error messages.
+ *
+ * @param {QuestLook} look - How the page shows it.
+ * @returns {string} The description.
+ */
+function describeQuestLook(look: QuestLook): string {
+  return (
+    `the player ${JSON.stringify(look.own)} drawn at ` +
+    `${JSON.stringify(look.drawn)}, Martha ${JSON.stringify(look.martha)}, ` +
+    `Toby ${JSON.stringify(look.toby)}, the prompt ` +
+    `${JSON.stringify(look.prompt)}, the dialogue ` +
+    `${JSON.stringify(look.dialogue)}, the bubble ` +
+    `${JSON.stringify(look.speech)}, the bag ` +
+    `${look.isBagOpen ? 'open' : 'closed'} with ` +
+    `${JSON.stringify(look.slots)} naming "${look.bagItemName}" and the ` +
+    `menu ${JSON.stringify(look.menu)}, the notices ` +
+    `${JSON.stringify(look.notices)} and the items on the ground ` +
+    JSON.stringify(look.items)
+  );
+}
+
+/**
+ * Finds the keys that walk the player of a page a way, under the camera as
+ * it looks.
+ *
+ * @param {number} heading - The way the camera looks, in degrees, as the
+ *   yaw of a player.
+ * @param {GroundVector} way - The way to walk.
+ * @returns {readonly string[]} The keys to hold down together.
+ */
+function findWalkKeys(heading: number, way: GroundVector): readonly string[] {
+  const turn: number =
+    (Math.round((Math.atan2(way.x, way.z) * 4) / Math.PI) + 8) % 8;
+  // The keys walk the way they do as the camera looks, which a key walking
+  // down the view from the first view of the village, north.
+  const shift: number = Math.round((heading - 180) / 45);
+  return TURN_KEYS[(((turn - shift) % 8) + 8) % 8] ?? [];
+}
+
+/**
+ * Walks the player of a page to a point of the village around the
+ * obstacles, holding down the keys that walk it towards the next point on
+ * its way as the page draws it, and waits for it to stop there, facing the
+ * way it walked last.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @param {GroundVector} to - The point.
+ * @param {string} where - Where the player walks, for the error messages.
+ * @returns {Promise<QuestLook>} How the page shows it, once stopped.
+ * @throws {Error} If the player finds no way, or does not get there in time.
+ */
+async function walkInVillage(
+  session: BidiSession,
+  context: string,
+  id: number,
+  to: GroundVector,
+  where: string,
+): Promise<QuestLook> {
+  const look = (): Promise<QuestLook> => readQuestLook(session, context, id);
+  const start: QuestLook = await look();
+  const path: GroundVector[] | null =
+    start.drawn === null ? null : findVillagePath(start.drawn, to);
+  if (path === null) {
+    throw new Error(
+      `The player finds no way ${where}: the first page tells ` +
+        `${describeQuestLook(start)}.`,
+    );
+  }
+  const deadline: number = Date.now() + QUEST_WALK_TIMEOUT;
+  let held: readonly string[] = [];
+  const hold = async (keys: readonly string[]): Promise<void> => {
+    for (const key of held.filter((key: string) => !keys.includes(key))) {
+      await sendKey(session, context, 'keyUp', key);
+    }
+    for (const key of keys.filter((key: string) => !held.includes(key))) {
+      await sendKey(session, context, 'keyDown', key);
+    }
+    held = keys;
+  };
+  try {
+    for (const [index, point] of path.entries()) {
+      const nearness: number =
+        index === path.length - 1 ? QUEST_STOP_NEARNESS : QUEST_WAY_NEARNESS;
+      for (;;) {
+        const seen: QuestLook = await look();
+        const { drawn } = seen;
+        if (drawn === null || Date.now() > deadline) {
+          throw new Error(
+            `Walking ${where}, the first page tells ` +
+              `${describeQuestLook(seen)}.`,
+          );
+        }
+        const way: GroundVector = { x: point.x - drawn.x, z: point.z - drawn.z };
+        if (Math.hypot(way.x, way.z) <= nearness) {
+          break;
+        }
+        await hold(findWalkKeys(seen.heading, way));
+        await sleep(QUEST_STEER_INTERVAL);
+      }
+    }
+  } finally {
+    await hold([]);
+  }
+  return waitFor(
+    look,
+    (seen: QuestLook) => seen.own?.action === 'Idle',
+    ACTION_TIMEOUT,
+    (seen: QuestLook) =>
+      `Stopped ${where}, the first page tells ${describeQuestLook(seen)}.`,
+  );
+}
+
+/**
+ * Turns the player of a page to face a point, with a tap of the keys that
+ * walk it that way, and waits for it to stop.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @param {GroundVector} point - The point.
+ * @returns {Promise<QuestLook>} How the page shows it, once stopped.
+ */
+async function faceInVillage(
+  session: BidiSession,
+  context: string,
+  id: number,
+  point: GroundVector,
+): Promise<QuestLook> {
+  const look = (): Promise<QuestLook> => readQuestLook(session, context, id);
+  const seen: QuestLook = await look();
+  const keys: readonly string[] = findWalkKeys(seen.heading, {
+    x: point.x - (seen.drawn?.x ?? NaN),
+    z: point.z - (seen.drawn?.z ?? NaN),
+  });
+  for (const key of keys) {
+    await sendKey(session, context, 'keyDown', key);
+  }
+  await sleep(TAP_DURATION);
+  for (const key of keys) {
+    await sendKey(session, context, 'keyUp', key);
+  }
+  await sleep(VIEW_SETTLE_DURATION);
+  return waitFor(
+    look,
+    (shown: QuestLook) => shown.own?.action === 'Idle',
+    ACTION_TIMEOUT,
+    (shown: QuestLook) =>
+      `Turned to ${JSON.stringify(point)}, the first page tells ` +
+      `${describeQuestLook(shown)}.`,
+  );
+}
+
+/**
+ * Has the player of a page, standing by the patch of clover by the gate
+ * and facing it, talk to Toby as he picks there: it waits for the page to
+ * prompt it to talk to him as he picks, presses the space bar, and waits
+ * for what he says, trying again on a later round of his if it talked to
+ * nobody.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player.
+ * @param {(look: QuestLook) => boolean} isAnswered - Tells whether the page
+ *   shows what he is to say.
+ * @param {string} what - What he is to say, for the error messages.
+ * @returns {Promise<QuestLook>} How the page shows it once he says it.
+ * @throws {Error} If he never says it.
+ */
+async function talkToToby(
+  session: BidiSession,
+  context: string,
+  id: number,
+  isAnswered: (look: QuestLook) => boolean,
+  what: string,
+): Promise<QuestLook> {
+  const look = (): Promise<QuestLook> => readQuestLook(session, context, id);
+  for (let tries = 1; ; tries++) {
+    await waitFor(
+      look,
+      (seen: QuestLook) =>
+        seen.prompt === TOBY_TALK_PROMPT &&
+        seen.toby?.activity === 'Pick' &&
+        seen.dialogue === null,
+      TOBY_FIND_TIMEOUT,
+      (seen: QuestLook) =>
+        `Waiting by the patch by the gate to talk to Toby, the first page ` +
+        `tells ${describeQuestLook(seen)}.`,
+    );
+    await sendKey(session, context, 'keyDown', ' ');
+    await sendKey(session, context, 'keyUp', ' ');
+    try {
+      return await waitFor(look, isAnswered, ACTION_TIMEOUT, () => '');
+    } catch (error: unknown) {
+      if (tries >= QUEST_TALK_TRIES) {
+        throw new Error(
+          `With the space bar pressed by Toby, the first page never shows ` +
+            `${what}: it tells ${describeQuestLook(await look())}.`,
+          { cause: error },
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Saves the view of a page as a picture with its panel folded up, so that
+ * the panel hides nothing of the dialogue box, if the environment names a
+ * directory for the views.  The panel is unfolded again after.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {string} name - The file name of the picture.
+ * @returns {Promise<void>} A promise settled once it is saved, if it is.
+ */
+async function saveViewUnpanelled(
+  session: BidiSession,
+  context: string,
+  name: string,
+): Promise<void> {
+  if (SCREENSHOT_DIR === undefined) {
+    return;
+  }
+  const toggleTitle =
+    'document.querySelector(".lil-gui.lil-root > .lil-title").click(), ""';
+  await evaluateInPage(session, context, toggleTitle);
+  try {
+    await sleep(VIEW_SETTLE_DURATION);
+    await saveView(session, context, name);
+  } finally {
+    await evaluateInPage(session, context, toggleTitle);
+  }
+}
+
+/**
+ * Checks that a player plays the quest of Toby, hurt, through, as a player
+ * who has beaten Martha.
+ *
+ * The player walks to the patch of clover by the gate, facing it, and
+ * talks to Toby as he picks there.  The dialogue box shows him telling of
+ * his fall, with the reply that promises to ask the village chief, while
+ * he goes on running his course and the player stands still; Enter ends
+ * it.  Talked to again, he only moans in a bubble that it hurts.  The
+ * player walks up to Martha, idling on her porch, and talks to her behind
+ * a slow connection: the dialogue box shows her welcome, with the reply
+ * that asks her for medicine for Toby, and Enter has her give her ointment,
+ * which shows in the bag and in a notice; Enter ends the dialogue, and
+ * talked to again, she only tells the player in a bubble to hurry.  She
+ * never chatters meanwhile.  Off her porch, in the bag, the menu of the
+ * ointment offers only to drop it; dropped, it lies on the ground at the
+ * feet of the player, which picks it up again with the space bar, and
+ * drops it again.  Talked to without it, Martha asks after Toby, and told
+ * the ointment is lost, gives another jar.  Back by Toby,
+ * talked to, the dialogue box shows him moaning that it hurts, with the
+ * reply that puts the ointment on and tells him to take care, and Enter
+ * has him thank the player, which takes the ointment out of the bag and
+ * gives the player a four-leaved clover, told in a notice; Enter ends the dialogue, and talked to again, he says one of his
+ * ordinary lines in a bubble.  The views of each dialogue, of the bag with
+ * the ointment, and of the ointment on the ground are saved if the
+ * environment names a directory for them.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page of the
+ *   player, which is in the village, not hunted by Martha.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the player has passed.
+ * @throws {Error} If the page does not show it so.
+ */
+async function checkTobyQuest(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const look = (): Promise<QuestLook> => readQuestLook(session, context, id);
+  const press = async (key: string): Promise<void> => {
+    await sendKey(session, context, 'keyDown', key);
+    await sendKey(session, context, 'keyUp', key);
+  };
+  const isShowing = (seen: QuestLook, shown: DialogueLookView): boolean =>
+    JSON.stringify(seen.dialogue) === JSON.stringify(shown) &&
+    seen.speech === null &&
+    seen.prompt === null;
+  const waitForDialogue = (
+    shown: DialogueLookView,
+    after: string,
+    isAlso: (seen: QuestLook) => boolean = () => true,
+  ): Promise<QuestLook> =>
+    waitFor(
+      look,
+      (seen: QuestLook) => isShowing(seen, shown) && isAlso(seen),
+      ACTION_TIMEOUT,
+      (seen: QuestLook) =>
+        `With ${after}, the first page tells ${describeQuestLook(seen)}.`,
+    );
+  const waitForEnd = (after: string): Promise<QuestLook> =>
+    waitFor(
+      look,
+      (seen: QuestLook) => seen.dialogue === null,
+      ACTION_TIMEOUT,
+      (seen: QuestLook) =>
+        `With ${after}, the first page tells ${describeQuestLook(seen)}.`,
+    );
+  const toVillage = describeQuestLook;
+  const countClovers = (seen: QuestLook): number =>
+    seen.slots.filter((kind: string) => kind === 'clover').length;
+  const listCarried = (seen: QuestLook): string[] =>
+    seen.slots.filter((kind: string) => kind !== '');
+
+  // Toby tells of his fall.
+  await walkInVillage(session, context, id, BY_TOBY, 'to the gate');
+  await faceInVillage(session, context, id, TOBY_SQUAT);
+  const hurt: QuestLook = await talkToToby(
+    session,
+    context,
+    id,
+    (seen: QuestLook) => isShowing(seen, TOBY_HURT),
+    'Toby telling of his fall',
+  );
+  await sleep(DIALOGUE_HOLD_DURATION);
+  const held: QuestLook = await look();
+  if (
+    !isShowing(held, TOBY_HURT) ||
+    held.own?.x !== hurt.own?.x ||
+    held.own?.z !== hurt.own?.z ||
+    held.toby === null ||
+    hurt.toby === null ||
+    held.toby.step - hurt.toby.step <
+      (DIALOGUE_HOLD_DURATION / STEP_MILLISECONDS) * 0.5
+  ) {
+    throw new Error(
+      `In the dialogue with Toby, the first page tells ` +
+        `${toVillage(held)}, after ${toVillage(hurt)}.`,
+    );
+  }
+  await saveViewUnpanelled(session, context, 'quest-toby-hurt.png');
+  await press(BAG_KEYS.enter);
+  await waitForEnd('the promise to ask the village chief chosen');
+  await talkToToby(
+    session,
+    context,
+    id,
+    (seen: QuestLook) =>
+      seen.dialogue === null &&
+      seen.speech?.name === TOBY_MOAN.name &&
+      seen.speech.line === TOBY_MOAN.line,
+    'Toby moaning that it hurts',
+  );
+
+  // Martha gives her ointment.
+  const ointmentBefore: number = listCarried(await look()).length;
+  await walkInVillage(session, context, id, BY_MARTHA, 'to Martha');
+  await faceInVillage(session, context, id, MARTHA_HOME_SPOT);
+  await waitFor(
+    look,
+    (seen: QuestLook) =>
+      seen.martha?.mode === 'idle' && seen.prompt === MARTHA_TALK_PROMPT,
+    MONSTER_TIMEOUT * 2,
+    (seen: QuestLook) =>
+      `Before Martha on her porch, the first page tells ${toVillage(seen)}.`,
+  );
+  await setControl(session, context, 'Net delay (ms)', NETWORK_DELAY);
+  try {
+    // She never chatters to a player on the quest, though the page shows
+    // what it is told late; Toby may still exclaim at a find.
+    const isQuiet = (seen: QuestLook): boolean => {
+      if (
+        seen.speech?.name === MARTHA_HURRY.name &&
+        seen.speech.line !== MARTHA_HURRY.line
+      ) {
+        throw new Error(
+          `Talking to Martha on the quest, the first page tells ` +
+            `${toVillage(seen)}.`,
+        );
+      }
+      return true;
+    };
+    await press(' ');
+    await waitFor(
+      look,
+      (seen: QuestLook) => isQuiet(seen) && isShowing(seen, MARTHA_WELCOME),
+      ACTION_TIMEOUT,
+      (seen: QuestLook) =>
+        `With the space bar pressed before Martha on the quest, the first ` +
+        `page tells ${toVillage(seen)}.`,
+    );
+    await sleep(VIEW_SETTLE_DURATION);
+    await saveViewUnpanelled(session, context, 'quest-martha-welcome.png');
+    await press(BAG_KEYS.enter);
+    await waitForDialogue(
+      MARTHA_OINTMENT,
+      'the medicine for Toby asked for',
+      (seen: QuestLook) =>
+        listCarried(seen).length === ointmentBefore + 1 &&
+        listCarried(seen).at(-1) === 'martha-ointment' &&
+        seen.notices.includes(OINTMENT_NOTICE),
+    );
+    await sleep(VIEW_SETTLE_DURATION);
+    await saveViewUnpanelled(session, context, 'quest-martha-ointment.png');
+    await press(BAG_KEYS.enter);
+    await waitForEnd('Enter pressed as Martha gives her ointment');
+    await press(' ');
+    await waitFor(
+      look,
+      (seen: QuestLook) =>
+        isQuiet(seen) &&
+        seen.dialogue === null &&
+        JSON.stringify(seen.speech) === JSON.stringify(MARTHA_HURRY),
+      ACTION_TIMEOUT,
+      (seen: QuestLook) =>
+        `With Martha talked to by a player carrying her ointment, the ` +
+        `first page tells ${toVillage(seen)}.`,
+    );
+  } finally {
+    await setControl(session, context, 'Net delay (ms)', 0);
+  }
+
+  // The ointment cannot be used, but is put down and picked up again, away
+  // from Martha, who would be talked to rather.
+  const dropOintment = async (): Promise<QuestLook> => {
+    await press('i');
+    const slot = Number(
+      await evaluateInPage(session, context, OINTMENT_SLOT_CLICK_EXPRESSION),
+    );
+    const menu: QuestLook = await waitFor(
+      look,
+      (seen: QuestLook) =>
+        seen.isBagOpen &&
+        slot >= 0 &&
+        seen.bagItemName === OINTMENT_NAME &&
+        JSON.stringify(seen.menu) === JSON.stringify(OINTMENT_ACTIONS),
+      ACTION_TIMEOUT,
+      (seen: QuestLook) =>
+        `With the slot of the ointment clicked in the open bag, the first ` +
+        `page tells ${toVillage(seen)}.`,
+    );
+    await sleep(VIEW_SETTLE_DURATION);
+    await saveViewUnpanelled(session, context, 'quest-ointment-bag.png');
+    await press(BAG_KEYS.enter);
+    await waitFor(
+      look,
+      (seen: QuestLook) =>
+        !seen.slots.includes('martha-ointment') &&
+        seen.items.some(
+          (item) =>
+            item.kind === 'martha-ointment' &&
+            Math.abs(item.x - (menu.own?.x ?? NaN)) <= ITEM_NEARNESS &&
+            Math.abs(item.z - (menu.own?.z ?? NaN)) <= ITEM_NEARNESS,
+        ),
+      ACTION_TIMEOUT,
+      (seen: QuestLook) =>
+        `With the ointment dropped, the first page tells ${toVillage(seen)}.`,
+    );
+    await press(BAG_KEYS.escape);
+    return waitFor(
+      look,
+      (seen: QuestLook) => !seen.isBagOpen && seen.prompt === OINTMENT_PROMPT,
+      ACTION_TIMEOUT,
+      (seen: QuestLook) =>
+        `With the bag closed over the ointment dropped, the first page ` +
+        `tells ${toVillage(seen)}.`,
+    );
+  };
+  await walkInVillage(session, context, id, AWAY_FROM_MARTHA, 'off the porch');
+  await dropOintment();
+  if (SCREENSHOT_DIR !== undefined) {
+    // The player steps on, away from the camera, so as not to hide the
+    // jar, and back.
+    const { heading } = await look();
+    const beyond: GroundVector = {
+      x: AWAY_FROM_MARTHA.x + Math.sin((heading * Math.PI) / 180) * 0.9,
+      z: AWAY_FROM_MARTHA.z + Math.cos((heading * Math.PI) / 180) * 0.9,
+    };
+    await walkInVillage(session, context, id, beyond, 'beyond the jar');
+    await zoomCamera(session, context, OINTMENT_CAMERA_ZOOM);
+    await sleep(VIEW_SETTLE_DURATION);
+    await saveViewUnpanelled(session, context, 'quest-ointment-ground.png');
+    await zoomCamera(session, context, -OINTMENT_CAMERA_ZOOM);
+    await walkInVillage(session, context, id, AWAY_FROM_MARTHA, 'back');
+  }
+  await waitFor(
+    look,
+    (seen: QuestLook) => seen.prompt === OINTMENT_PROMPT,
+    ACTION_TIMEOUT,
+    (seen: QuestLook) =>
+      `By the ointment dropped, the first page tells ${toVillage(seen)}.`,
+  );
+  await press(' ');
+  await waitFor(
+    look,
+    (seen: QuestLook) =>
+      listCarried(seen).at(-1) === 'martha-ointment' &&
+      !seen.items.some((item) => item.kind === 'martha-ointment'),
+    ACTION_TIMEOUT,
+    (seen: QuestLook) =>
+      `With the ointment picked up again, the first page tells ` +
+      `${toVillage(seen)}.`,
+  );
+
+  // Martha gives another jar to a player who has lost hers.
+  await dropOintment();
+  await walkInVillage(session, context, id, BY_MARTHA, 'back to Martha');
+  await faceInVillage(session, context, id, MARTHA_HOME_SPOT);
+  await waitFor(
+    look,
+    (seen: QuestLook) =>
+      seen.martha?.mode === 'idle' && seen.prompt === MARTHA_TALK_PROMPT,
+    ACTION_TIMEOUT,
+    (seen: QuestLook) =>
+      `Back before Martha, the first page tells ${toVillage(seen)}.`,
+  );
+  await press(' ');
+  await waitForDialogue(MARTHA_WONDER, 'Martha talked to without her jar');
+  await saveViewUnpanelled(session, context, 'quest-martha-wonder.png');
+  await press(BAG_KEYS.enter);
+  await waitForDialogue(
+    MARTHA_REPLACE,
+    'the jar told lost',
+    (seen: QuestLook) => listCarried(seen).at(-1) === 'martha-ointment',
+  );
+  await press(BAG_KEYS.enter);
+  await waitForEnd('Enter pressed as Martha gives another jar');
+
+  // Toby takes the ointment and gives a clover.
+  await walkInVillage(session, context, id, BY_TOBY, 'back to the gate');
+  await faceInVillage(session, context, id, TOBY_SQUAT);
+  const aching: QuestLook = await talkToToby(
+    session,
+    context,
+    id,
+    (seen: QuestLook) => isShowing(seen, TOBY_ACHE),
+    'Toby moaning to the player who brings the ointment',
+  );
+  await saveViewUnpanelled(session, context, 'quest-toby-ache.png');
+  await press(BAG_KEYS.enter);
+  await waitForDialogue(
+    TOBY_THANKS,
+    'the ointment put on Toby',
+    (seen: QuestLook) =>
+      !seen.slots.includes('martha-ointment') &&
+      listCarried(seen).length === listCarried(aching).length &&
+      countClovers(seen) === countClovers(aching) + 1 &&
+      seen.notices.includes(QUEST_CLOVER_NOTICE),
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  await saveViewUnpanelled(session, context, 'quest-toby-thanks.png');
+  await press(BAG_KEYS.enter);
+  await waitForEnd('Enter pressed as Toby thanks the player');
+  await talkToToby(
+    session,
+    context,
+    id,
+    (seen: QuestLook) =>
+      seen.dialogue === null &&
+      seen.speech?.name === 'Toby' &&
+      TOBY_ORDINARY_LINES.includes(seen.speech.line),
+    'one of the ordinary lines of Toby',
+  );
+}
+
 /**
  * Reads the time of day a page tells.
  *
@@ -7824,7 +8643,8 @@ async function checkTouch(session: BidiSession, url: string): Promise<void> {
  * the language chosen in its panel at once, that a player that picks a
  * four-leaved clover sees it in its slots, and that once it puts the clover
  * down, the player of the other page sees it on the ground, picks it up and
- * sees it in its own slots, and that the camera of a page
+ * sees it in its own slots, that a player plays the quest of Toby, hurt,
+ * through, taking Martha's ointment to him, and that the camera of a page
  * follows the player of the other page when its panel is set to, until
  * that player leaves.  The server holds its clock at noon, which both
  * pages tell, and a page that previews midnight in its panel shows the
@@ -7918,6 +8738,7 @@ async function checkClient(): Promise<void> {
     await checkInventory(session, first, second, id, otherId);
     await checkCave(session, first, second, id);
     await checkMartha(session, first, second, id);
+    await checkTobyQuest(session, first, id);
     await checkCamera(session, first, id, second, otherId);
     await checkCameraKeys(session, first, id);
     await checkGamepad(session, first, id);
@@ -7965,7 +8786,7 @@ try {
       'its two wild dogs, talk ' +
       'to the prisoner through his bars, loot the store rooms, use a ' +
       'healing potion, and climb back up, have Martha come over, talk ' +
-      'with her and beat her, have the ' +
+      'with her and beat her, take her ointment to a hurt Toby, have the ' +
       'camera follow another player, turn the camera with the arrow keys, ' +
       'play with a gamepad, play by touch on a phone held either way, ' +
       'darken at night, preview a time of ' +

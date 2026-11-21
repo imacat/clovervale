@@ -78,6 +78,7 @@ export const LYING_ITEM_FILES: Readonly<
   'healing-potion': 'prop-item-healing-potion.glb',
   'clovervale-message': 'prop-item-clovervale-message.glb',
   'spy-token': 'prop-item-spy-token.glb',
+  'martha-ointment': 'prop-item-martha-ointment.glb',
 };
 
 /** The file name of the healing fountain. */

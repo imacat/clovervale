@@ -44,6 +44,7 @@ import { buildNpcEdwin } from './npc-edwin.ts';
 import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import { buildNpcToby } from './npc-toby.ts';
+import { buildItemMarthaOintment } from './ointment.ts';
 import { buildPropPitchfork, buildPropPitchforkLying } from './pitchfork.ts';
 import { buildItemHealingPotion } from './potion.ts';
 import {
@@ -125,5 +126,6 @@ export function listModels(): ModelEntry[] {
       build: buildItemClovervaleMessage,
     },
     { name: 'prop-item-spy-token', build: buildItemSpyToken },
+    { name: 'prop-item-martha-ointment', build: buildItemMarthaOintment },
   ];
 }

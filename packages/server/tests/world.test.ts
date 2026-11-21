@@ -81,6 +81,7 @@ import type {
   Placement,
   PlayerState,
   Pose,
+  QuestLog,
   TobyGrab,
   Villager,
 } from '@clovervale/shared';
@@ -1599,9 +1600,15 @@ const TOBY_BY_GATE: GroundVector = TOBY_ENDS[1];
  *
  * @param {World} world - The world.
  * @param {readonly ItemKindId[]} carried - What else the player carries.
+ * @param {QuestLog} [quests] - How far the player has got with the
+ *   quests, which is having done the quest of Toby, hurt, by default.
  * @returns {number} The identifier of the player.
  */
-function admitTalker(world: World, carried: readonly ItemKindId[]): number {
+function admitTalker(
+  world: World,
+  carried: readonly ItemKindId[],
+  quests: QuestLog = { 'toby-hurt': 'done' },
+): number {
   const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTRE;
   const [first, second] = TOBY_ENDS;
   const away: number = measureDistance(first, second);
@@ -1621,6 +1628,7 @@ function admitTalker(world: World, carried: readonly ItemKindId[]): number {
     lastSlash: null,
     inventory: ['spy-token', ...carried],
     acquaintances: [],
+    quests: { ...quests },
     dialogue: null,
     turnCount: 0,
     isHunted: false,
@@ -1714,6 +1722,125 @@ describe('a player who talks to Toby', () => {
         'toby:villager.toby.gift',
       ]),
     );
+  });
+});
+
+describe('a player on the quest of Toby, hurt, who talks to him', () => {
+  /**
+   * Has a player choose the first reply in its dialogue, and takes a step.
+   *
+   * @param {World} world - The world.
+   * @param {number} id - The identifier of the player.
+   */
+  function reply(world: World, id: number): void {
+    world.receiveInput(id, {
+      type: 'reply',
+      choice: 0,
+      sequence: ++lastSequence,
+      after: 0,
+    });
+    world.step();
+  }
+
+  it('takes the quest on as he tells of his fall the first time', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const id: number = admitTalker(world, [], {});
+    expect(world.findQuests(id)).toEqual({});
+    expect(talkToToby(world, id)).toEqual([]);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'toby',
+      line: 'dialogue.toby.hurt',
+      replies: ['dialogue.toby.promise'],
+      turn: 1,
+    });
+    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'started' });
+    expect(world.findInventory(id)).toEqual(['spy-token']);
+    reply(world, id);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'started' });
+  });
+
+  it('stands still in the dialogue while Toby runs on', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const id: number = admitTalker(world, [], {});
+    talkToToby(world, id);
+    const player: PlayerState = findPlayer(world, id);
+    steerPlayer(world, id, { x: 1, z: 0 });
+    stepTimes(world, 2 * SIMULATION_RATE);
+    expect(world.findDialogue(id)).not.toBeNull();
+    expect(findPlayer(world, id)).toMatchObject({
+      x: player.x,
+      z: player.z,
+      action: 'Idle',
+    });
+  });
+
+  it('only hears him moan in passing without the ointment', () => {
+    for (const stage of ['started', 'supplied'] as const) {
+      const world = new RecordingWorld(() => 0.99);
+      const id: number = admitTalker(world, [], { 'toby-hurt': stage });
+      expect(talkToToby(world, id)).toEqual(['toby:dialogue.toby.moan']);
+      expect(world.findDialogue(id)).toBeNull();
+      expect(world.findInventory(id)).toEqual(['spy-token']);
+      expect(talkToToby(world, id)).toEqual(['toby:dialogue.toby.moan']);
+      expect(world.findQuests(id)).toEqual({ 'toby-hurt': stage });
+    }
+  });
+
+  it('gives him the ointment and gets a clover, which ends the quest', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const id: number = admitTalker(world, ['martha-ointment'], {
+      'toby-hurt': 'supplied',
+    });
+    expect(talkToToby(world, id)).toEqual([]);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'toby',
+      line: 'dialogue.toby.moan',
+      replies: ['dialogue.toby.dress'],
+      turn: 1,
+    });
+    expect(world.findInventory(id)).toEqual(['spy-token', 'martha-ointment']);
+    reply(world, id);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'toby',
+      line: 'dialogue.toby.thanks',
+      replies: [],
+      turn: 2,
+    });
+    expect(world.findInventory(id)).toEqual(['spy-token', 'clover']);
+    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'done' });
+    reply(world, id);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
+  });
+
+  it('gets the clover into the slot of the ointment in a full bag', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const full: ItemKindId[] = [
+      'martha-ointment',
+      ...Array.from({ length: INVENTORY_SIZE - 2 }, (): ItemKindId => 'sword'),
+    ];
+    const id: number = admitTalker(world, full, { 'toby-hurt': 'started' });
+    talkToToby(world, id);
+    reply(world, id);
+    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
+    expect(world.findInventory(id)).not.toContain('martha-ointment');
+    expect(world.findInventory(id)?.at(-1)).toBe('clover');
+    expect(world.describeItems().items).toEqual([]);
+  });
+
+  it('gets no clover once it has put the ointment down in the dialogue', () => {
+    const world = new RecordingWorld(() => 0.99);
+    const id: number = admitTalker(world, ['martha-ointment'], {
+      'toby-hurt': 'started',
+    });
+    talkToToby(world, id);
+    dropItem(world, id, 1);
+    world.step();
+    reply(world, id);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(world.findInventory(id)).toEqual(['spy-token']);
+    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'started' });
   });
 });
 
@@ -1861,6 +1988,7 @@ function admitCarrier(
     lastSlash: null,
     inventory: [...carried],
     acquaintances: [],
+    quests: {},
     dialogue: null,
     turnCount: 0,
     isHunted: false,
@@ -2050,6 +2178,7 @@ describe('a world of the cave', () => {
       lastSlash: null,
       inventory: [...carried],
       acquaintances: [],
+      quests: {},
       dialogue: null,
       turnCount: 0,
       isHunted: false,
@@ -2700,12 +2829,15 @@ describe('Martha in the village', () => {
    *   nothing by default.
    * @param {readonly Villager['id'][]} [known] - The villagers who have
    *   told the player who they are, none by default.
+   * @param {QuestLog} [quests] - How far the player has got with the
+   *   quests, none by default.
    * @returns {Player} The player.
    */
   function climbOut(
     world: World,
     carried: readonly ItemKindId[] = [],
     known: readonly Villager['id'][] = [],
+    quests: QuestLog = {},
   ): Player {
     const player: Player = {
       id: ++lastClimber,
@@ -2716,6 +2848,7 @@ describe('Martha in the village', () => {
       lastSlash: null,
       inventory: [...carried],
       acquaintances: [...known],
+      quests: { ...quests },
       dialogue: null,
       turnCount: 0,
       isHunted: false,
@@ -3073,5 +3206,193 @@ describe('Martha in the village', () => {
     stepTimes(world, SIT_STEPS);
     waitForMartha(world, 'talk');
     expect(world.findDialogue(second)?.villager).toBe('martha');
+  });
+
+  /** Where a player stands before Martha on her porch, facing her. */
+  const BY_MARTHA: GroundVector = {
+    x: PORCH.x + Math.sin((PORCH.yaw * Math.PI) / 180) * 1.2,
+    z: PORCH.z + Math.cos((PORCH.yaw * Math.PI) / 180) * 1.2,
+  };
+
+  /**
+   * Brings a player into the village on the plaza, as one that comes back
+   * after dying does, which Martha leaves alone.
+   *
+   * @param {World} world - The village.
+   * @param {readonly ItemKindId[]} carried - What the player carries.
+   * @param {QuestLog} quests - How far the player has got with the quests.
+   * @returns {number} The identifier of the player.
+   */
+  function admitVisitor(
+    world: World,
+    carried: readonly ItemKindId[],
+    quests: QuestLog,
+  ): number {
+    const player: Player = {
+      id: ++lastClimber,
+      appearance: 1,
+      mover: new AuthoritativePlayer(createMotion(PLAZA_CENTRE, 0)),
+      health: PLAYER_HEALTH,
+      deathSteps: 0,
+      lastSlash: null,
+      inventory: [...carried],
+      acquaintances: [],
+      quests: { ...quests },
+      dialogue: null,
+      turnCount: 0,
+      isHunted: false,
+      speeches: [],
+    };
+    world.admitPlayer(player, null);
+    return player.id;
+  }
+
+  /**
+   * Walks a player up to Martha on her porch, unless it is there already,
+   * and has it talk to her, as she stands idling there.
+   *
+   * @param {World} world - The village.
+   * @param {number} id - The identifier of the player.
+   * @returns {string[]} What she says to the player in passing.
+   */
+  function talkToMartha(world: World, id: number): string[] {
+    if (measureDistance(findPlayer(world, id), BY_MARTHA) > 0.1) {
+      walkPlayer(world, id, BY_MARTHA);
+      turnPlayer(world, id, PORCH);
+    }
+    world.takeSpeeches(id);
+    expect(findMartha(world).mode).toBe('idle');
+    interactPlayer(world, id);
+    world.step();
+    expect(findPlayer(world, id).action).toBe('Talk');
+    stepTimes(world, TALK_STEPS);
+    return world
+      .takeSpeeches(id)
+      .map(({ villager, line }) => `${villager}:${line}`);
+  }
+
+  it('gives her ointment to a player on the quest of Toby, hurt', () => {
+    const world: World = createVillage();
+    const id: number = admitVisitor(world, [], { 'toby-hurt': 'started' });
+    expect(talkToMartha(world, id)).toEqual([]);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'martha',
+      line: 'dialogue.martha.welcome',
+      replies: ['dialogue.martha.askMedicine'],
+      turn: 1,
+    });
+    reply(world, id);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'martha',
+      line: 'dialogue.martha.ointment',
+      replies: [],
+      turn: 2,
+    });
+    expect(world.findInventory(id)).toEqual(['martha-ointment']);
+    reply(world, id);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(findMartha(world)).toMatchObject({ mode: 'idle', isArmed: false });
+    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'supplied' });
+  });
+
+  it('only tells a player who carries her ointment to hurry', () => {
+    for (const stage of ['started', 'supplied'] as const) {
+      const world: World = createVillage();
+      const id: number = admitVisitor(world, ['martha-ointment'], {
+        'toby-hurt': stage,
+      });
+      expect(talkToMartha(world, id)).toEqual([
+        'martha:dialogue.martha.hurry',
+      ]);
+      expect(world.findDialogue(id)).toBeNull();
+      expect(world.findInventory(id)).toEqual(['martha-ointment']);
+    }
+  });
+
+  it('asks after Toby and gives another jar to a player who lost hers', () => {
+    const world: World = createVillage();
+    const id: number = admitVisitor(world, [], { 'toby-hurt': 'started' });
+    talkToMartha(world, id);
+    reply(world, id);
+    reply(world, id);
+    dropItem(world, id);
+    world.step();
+    expect(world.findInventory(id)).toEqual([]);
+    talkToMartha(world, id);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'martha',
+      line: 'dialogue.martha.wonder',
+      replies: ['dialogue.martha.tellLost'],
+      turn: 3,
+    });
+    reply(world, id);
+    expect(world.findDialogue(id)).toEqual({
+      villager: 'martha',
+      line: 'dialogue.martha.replace',
+      replies: [],
+      turn: 4,
+    });
+    expect(world.findInventory(id)).toEqual(['martha-ointment']);
+    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'supplied' });
+    reply(world, id);
+    expect(world.findDialogue(id)).toBeNull();
+    expect(talkToMartha(world, id)).toEqual(['martha:dialogue.martha.hurry']);
+  });
+
+  it('asks after Toby whenever a player she has supplied comes without', () => {
+    const world: World = createVillage();
+    const id: number = admitVisitor(world, [], { 'toby-hurt': 'supplied' });
+    expect(talkToMartha(world, id)).toEqual([]);
+    expect(world.findDialogue(id)?.line).toBe('dialogue.martha.wonder');
+    reply(world, id);
+    expect(world.findInventory(id)).toEqual(['martha-ointment']);
+  });
+
+  it('gives her ointment to a player on the quest who has beaten her', () => {
+    const world: World = createVillage();
+    const id: number = admitVisitor(world, ['spy-token'], {
+      'toby-hurt': 'started',
+    });
+    talkToMartha(world, id);
+    reply(world, id);
+    expect(world.findInventory(id)).toEqual(['spy-token', 'martha-ointment']);
+  });
+
+  it('says nothing of the quest to a player not on it', () => {
+    for (const quests of [{}, { 'toby-hurt': 'done' }] as const) {
+      const world: World = createVillage();
+      const id: number = admitVisitor(world, [], quests);
+      expect(talkToMartha(world, id)).toEqual([]);
+      expect(world.findDialogue(id)).toBeNull();
+      expect(world.findInventory(id)).toEqual([]);
+    }
+  });
+
+  it('comes up to a player on the quest who climbs out of the well', () => {
+    const world: World = createVillage();
+    const { id }: Player = climbOut(world, [], [], { 'toby-hurt': 'started' });
+    waitForMartha(world, 'talk');
+    expect(world.findDialogue(id)).toMatchObject({
+      villager: 'martha',
+      line: 'dialogue.martha.ask',
+    });
+    reply(world, id);
+    reply(world, id);
+    world.step();
+    expect(findMartha(world).mode).toBe('chase');
+    expect(world.findInventory(id)).toEqual([]);
+  });
+
+  it('ends a talk of the quest as she sets out to a player out of the well', () => {
+    const world: World = createVillage();
+    const id: number = admitVisitor(world, [], { 'toby-hurt': 'started' });
+    talkToMartha(world, id);
+    expect(world.findDialogue(id)?.line).toBe('dialogue.martha.welcome');
+    const { id: climber }: Player = climbOut(world);
+    world.step();
+    expect(findMartha(world).mode).toBe('approach');
+    expect(world.findDialogue(id)).toBeNull();
+    waitForMartha(world, 'talk');
+    expect(world.findDialogue(climber)?.line).toBe('dialogue.martha.ask');
   });
 });

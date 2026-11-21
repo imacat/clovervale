@@ -42,6 +42,7 @@ import {
   encodeClientMessage,
   findSpawnPoint,
   findTobyGrab,
+  hasQuestWords,
 } from '@clovervale/shared';
 import type {
   ClientMessage,
@@ -59,6 +60,7 @@ import type {
   PlayerInput,
   PlayerMotion,
   PlayerState,
+  QuestLog,
   ServerMessage,
   SlashJudgement,
   StampedInput,
@@ -283,6 +285,11 @@ let inventory: readonly ItemKindId[] | null = null;
  * server last told.
  */
 let acquaintances: readonly VillagerId[] = [];
+/**
+ * How far the player of the page has got with the quests, as the server
+ * last told.
+ */
+let quests: QuestLog = {};
 
 /** The models that stand in the village whoever is connected. */
 const actors: Actor[] = [];
@@ -900,7 +907,8 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * go, which the prompt tells of at the step an interaction would start at.
  * Once the player of the page starts to talk to a villager that chatters,
  * as predicted, what the villager says is shown above its head, but for
- * one whose lines the server chooses, which says what the server tells,
+ * one whose lines the server chooses, always or while the player is on a
+ * quest the villager takes part in, which says what the server tells,
  * and follows the head of Toby as he goes on and squats, and that of
  * Martha as she goes about.  Martha's pitchfork is shown where it is, as
  * {@link showPitchfork} tells.  The prompt is hidden while the player is in
@@ -994,6 +1002,7 @@ function showPlayers(): void {
   if (
     villager !== null &&
     villager.hasServerLines !== true &&
+    !hasQuestWords(villager.id, quests) &&
     describeVillager(translator, villager).lines.length > 0
   ) {
     speech.say(villager, findShownHead(villager, shownStep ?? 0));
@@ -1226,6 +1235,7 @@ function receiveMessage(data: string): void {
         message.players.find((player: PlayerState) => player.id === ownId)
           ?.health ?? PLAYER_HEALTH;
       bagView.show(inventory, health);
+      quests = message.quests;
       showDialogue(message.dialogue, message.acquaintances);
     }
     return;
@@ -1450,6 +1460,7 @@ async function connectToServer(): Promise<void> {
     inventory = null;
     itemFigures.show(null);
     bagView.show(null, PLAYER_HEALTH);
+    quests = {};
     showDialogue(null, []);
     panel.showMonster(describeMonster(translator, null));
     panel.showSlash(describeSlash(translator, null));

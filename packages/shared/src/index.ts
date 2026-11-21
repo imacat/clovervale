@@ -140,6 +140,14 @@ export type {
 } from './items.ts';
 export { DIALOGUE_REPLY_LIMIT, isDialogueText } from './dialogue.ts';
 export type { DialogueView } from './dialogue.ts';
+export {
+  QUESTS,
+  QUEST_IDS,
+  QUEST_STAGES,
+  hasQuestWords,
+  isQuestLog,
+} from './quests.ts';
+export type { Quest, QuestId, QuestLog, QuestStage } from './quests.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
 export type { Placed } from './interpolation.ts';
 export {
