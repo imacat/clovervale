@@ -61,7 +61,7 @@ Deploying
 
 The files in `support-files/` are an example of a deployment at
 `https://clovervale.imacat.idv.tw/`, with Apache serving the client and
-passing `wss://clovervale.imacat.idv.tw/ws` on to the game server
+passing the WebSocket connections at `/ws` on to the game server
 through a Unix socket file, and with systemd running the game server
 and the bots.  The bots connect through Apache, as the players do.
 Change the site name and the paths in them to your own.  As root, with
