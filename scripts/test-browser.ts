@@ -770,8 +770,14 @@ const MONSTER_TIMEOUT = 15_000;
  * centre to centre, in metres, which is within the reach of a slash.
  */
 const MONSTER_NEARNESS = 1.3;
-/** How long a key is tapped to step a player, in milliseconds. */
-const TAP_DURATION = 40;
+/**
+ * How long a key is tapped to step a player, in milliseconds, which is
+ * longer than a step of the simulation, so that the press and the release
+ * never come into effect at the same step and leave the player as it was.
+ */
+const TAP_DURATION = 100;
+/** How long a finger taps the screen, in milliseconds. */
+const TOUCH_TAP_DURATION = 40;
 /**
  * The most degrees a player may face away from the way its keys walk it,
  * for it to count as facing that way.
@@ -4169,6 +4175,14 @@ const SPEECH_SIDE_Z = -5.6;
 const SPEECH_RETURN_Z = -6.2;
 /** How far one turn of the mouse wheel zooms, as a factor of distance. */
 const ZOOM_STEP_FACTOR = 0.95;
+/**
+ * How far short of where it brings Nancy to the edge of the view a player
+ * lets go of the key that walks it there, in metres, which is further than
+ * it walks on before the key is let go of.
+ */
+const SPEECH_STOP_SHORT = 0.4;
+/** The most taps of a key a player then steps the rest of the way with. */
+const SPEECH_MOST_NUDGES = 8;
 
 /**
  * Checks that a page keeps the bubble of Nancy wholly on the screen, its
@@ -4293,18 +4307,61 @@ async function checkSpeechEdges(
           `${where} to step south of her`,
         );
         // Walking west brings her right across the view, and east, left.
+        // The player stops short of where she is to be, as it walks on
+        // until the key is let go of, and steps the rest of the way.
         const isRight: boolean = (await readScreen()).footX < target;
+        const short: number =
+          (SPEECH_STOP_SHORT * scale) / (await readDistance());
         await walkUntil(
           isRight ? 'a' : 'd',
           (seen: TalkLook) => {
-            const x: number = seen.speech?.screen?.footX ?? NaN;
-            return isRight ? !(x < target) : !(x > target);
+            const x: number | undefined = seen.speech?.screen?.footX;
+            // The walk ends too once the bubble has gone, which fails
+            // where the bubble is read next.
+            return (
+              x === undefined ||
+              (isRight ? x >= target - short : x <= target + short)
+            );
           },
           ACTION_TIMEOUT,
           where,
         );
+        const isIdle = (seen: TalkLook): boolean =>
+          seen.own?.action === 'Idle';
+        const describeProblem = (seen: TalkLook): string =>
+          `Stepping its player ${where}, the page tells ` +
+          `${describeTalkLook(seen)}.`;
         await sleep(POLL_INTERVAL * 2);
-        const screen: SpeechScreen = await readScreen();
+        let stopped: TalkLook = await waitFor(
+          look,
+          isIdle,
+          ACTION_TIMEOUT,
+          describeProblem,
+        );
+        let screen: SpeechScreen = await readScreen();
+        for (
+          let nudges = 0;
+          Math.abs(screen.footX - target) > SPEECH_EDGE_NEARNESS &&
+          nudges < SPEECH_MOST_NUDGES;
+          nudges++
+        ) {
+          const key: string = screen.footX < target ? 'a' : 'd';
+          const x: number | undefined = stopped.own?.x;
+          await sendKey(session, context, 'keyDown', key);
+          try {
+            await sleep(TAP_DURATION);
+          } finally {
+            await sendKey(session, context, 'keyUp', key);
+          }
+          stopped = await waitFor(
+            look,
+            (seen: TalkLook) => isIdle(seen) && seen.own?.x !== x,
+            ACTION_TIMEOUT,
+            describeProblem,
+          );
+          await sleep(POLL_INTERVAL * 2);
+          screen = await readScreen();
+        }
         await saveView(session, context, `speech-${name}-${side}.png`);
         const shown =
           `On a view ${name}, ${String(width)} by ${String(height)}, ` +
@@ -6188,7 +6245,7 @@ async function checkCreditsByTouch(
           actions: [
             { type: 'pointerMove', x, y },
             { type: 'pointerDown', button: 0 },
-            { type: 'pause', duration: TAP_DURATION },
+            { type: 'pause', duration: TOUCH_TAP_DURATION },
             { type: 'pointerUp', button: 0 },
           ],
         },
@@ -7879,6 +7936,14 @@ const QUEST_STEER_INTERVAL = 50;
 const QUEST_WAY_NEARNESS = 0.4;
 /** How near a player walked across the village stops to its end, in metres. */
 const QUEST_STOP_NEARNESS = 0.15;
+/**
+ * The most degrees a player turned to face a point may face away from the
+ * way its keys walk it, which is half the turn from one way the keys walk
+ * to the next.
+ */
+const FACE_TOLERANCE = 22.5;
+/** The most times a player taps its keys to turn to face a point. */
+const FACE_TRIES = 3;
 /** How many times a player tries to talk to Toby as he picks. */
 const QUEST_TALK_TRIES = 3;
 /** The prompt to talk to Toby. */
@@ -8187,9 +8252,16 @@ async function walkInVillage(
   } finally {
     await hold([]);
   }
+  // A snapshot from before a short walk tells that the player idles too,
+  // but somewhere other than where the page, which is ahead of the server,
+  // draws it.
   return waitFor(
     look,
-    (seen: QuestLook) => seen.own?.action === 'Idle',
+    (seen: QuestLook) =>
+      seen.own?.action === 'Idle' &&
+      seen.drawn !== null &&
+      Math.hypot(seen.drawn.x - seen.own.x, seen.drawn.z - seen.own.z) <=
+        STANDING_DRIFT,
     ACTION_TIMEOUT,
     (seen: QuestLook) =>
       `Stopped ${where}, the first page tells ${describeQuestLook(seen)}.`,
@@ -8198,13 +8270,15 @@ async function walkInVillage(
 
 /**
  * Turns the player of a page to face a point, with a tap of the keys that
- * walk it that way, and waits for it to stop.
+ * walk it that way, and waits for it to stop, tapping again if it did not
+ * turn.
  *
  * @param {BidiSession} session - The session with the browser.
  * @param {string} context - The browsing context of the page.
  * @param {number} id - The identifier of the player.
  * @param {GroundVector} point - The point.
  * @returns {Promise<QuestLook>} How the page shows it, once stopped.
+ * @throws {Error} If the player never turns that way.
  */
 async function faceInVillage(
   session: BidiSession,
@@ -8213,27 +8287,43 @@ async function faceInVillage(
   point: GroundVector,
 ): Promise<QuestLook> {
   const look = (): Promise<QuestLook> => readQuestLook(session, context, id);
-  const seen: QuestLook = await look();
-  const keys: readonly string[] = findWalkKeys(seen.heading, {
-    x: point.x - (seen.drawn?.x ?? NaN),
-    z: point.z - (seen.drawn?.z ?? NaN),
-  });
-  for (const key of keys) {
-    await sendKey(session, context, 'keyDown', key);
+  let seen: QuestLook = await look();
+  for (let tries = 1; ; tries++) {
+    const keys: readonly string[] = findWalkKeys(seen.heading, {
+      x: point.x - (seen.drawn?.x ?? NaN),
+      z: point.z - (seen.drawn?.z ?? NaN),
+    });
+    // The way the keys walk the player, under the camera as it looks.
+    const yaw: number = TURN_KEYS.indexOf(keys) * 45 + seen.heading - 180;
+    for (const key of keys) {
+      await sendKey(session, context, 'keyDown', key);
+    }
+    await sleep(TAP_DURATION);
+    for (const key of keys) {
+      await sendKey(session, context, 'keyUp', key);
+    }
+    await sleep(VIEW_SETTLE_DURATION);
+    seen = await waitFor(
+      look,
+      (shown: QuestLook) => shown.own?.action === 'Idle',
+      ACTION_TIMEOUT,
+      (shown: QuestLook) =>
+        `Turned to ${JSON.stringify(point)}, the first page tells ` +
+        `${describeQuestLook(shown)}.`,
+    );
+    const turn: number = findTurnBetween(yaw, seen.own?.yaw ?? NaN);
+    if (Math.abs(turn) <= FACE_TOLERANCE) {
+      return seen;
+    }
+    if (tries >= FACE_TRIES) {
+      throw new Error(
+        `With ${keys.join(' and ').toUpperCase()} tapped ` +
+          `${String(tries)} times to turn to ${JSON.stringify(point)}, a ` +
+          `yaw of ${yaw.toFixed(1)} degrees, the first page tells ` +
+          `${describeQuestLook(seen)}.`,
+      );
+    }
   }
-  await sleep(TAP_DURATION);
-  for (const key of keys) {
-    await sendKey(session, context, 'keyUp', key);
-  }
-  await sleep(VIEW_SETTLE_DURATION);
-  return waitFor(
-    look,
-    (shown: QuestLook) => shown.own?.action === 'Idle',
-    ACTION_TIMEOUT,
-    (shown: QuestLook) =>
-      `Turned to ${JSON.stringify(point)}, the first page tells ` +
-      `${describeQuestLook(shown)}.`,
-  );
 }
 
 /**
@@ -9817,7 +9907,7 @@ async function checkTouch(session: BidiSession, url: string): Promise<void> {
       [
         { type: 'pointerMove', x, y },
         { type: 'pointerDown', button: 0 },
-        { type: 'pause', duration: TAP_DURATION },
+        { type: 'pause', duration: TOUCH_TAP_DURATION },
         { type: 'pointerUp', button: 0 },
       ],
     ]);
