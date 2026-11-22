@@ -57,6 +57,9 @@ describe('wordCount', () => {
     [35, 'zh-CN', '三十五'],
     [100, 'zh-TW', '100'],
     [3, 'ja', '3'],
+    [3, 'es', 'tres'],
+    [12, 'es', 'doce'],
+    [13, 'es', '13'],
   ] as const)(
     'words %i in %s as "%s"',
     (count: number, code: LanguageCode, words: string) => {
@@ -80,6 +83,9 @@ describe('wordDialogueText', () => {
     expect(
       wordDialogueText(await createTranslator('zh-CN'), 'dialogue.basil.offer'),
     ).toContain('三枚银币');
+    expect(
+      wordDialogueText(await createTranslator('es'), 'dialogue.basil.offer'),
+    ).toContain('tres monedas de plata');
   });
 
   it('words a line that takes no value', async () => {

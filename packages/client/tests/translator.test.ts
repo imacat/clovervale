@@ -99,6 +99,10 @@ describe('Translator', () => {
     expect(translator.translate('prompt.talk', { name: '南茜' })).toBe(
       '按空白鍵與南茜交談',
     );
+    expect(await translator.choose('es')).toBe(true);
+    expect(translator.translate('prompt.talk', { name: 'Nancy' })).toBe(
+      'Presiona Espacio para hablar con Nancy',
+    );
     expect(await translator.choose('en')).toBe(true);
     expect(translator.translate('panel.server')).toBe('Server');
   });
@@ -111,6 +115,10 @@ describe('Translator', () => {
     expect(
       translator.translateOptional('villager.martha.name.inSentence'),
     ).toBeNull();
+    await translator.choose('es');
+    expect(
+      translator.translateOptional('villager.martha.name.inSentence'),
+    ).toBe('la alcaldesa Marta');
     await translator.choose('ja');
     expect(
       translator.translateOptional('villager.edwin.name.inSentence'),
@@ -197,6 +205,7 @@ describe('loadMessages', () => {
       '四葉谷',
       '四叶谷',
       'クローバーヴェイル',
+      'Valtrébol',
     ]);
   });
 

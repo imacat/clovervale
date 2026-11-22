@@ -132,11 +132,11 @@ function standByMartha(): PlayerMotion {
 /**
  * Makes a translator of the text into a language.
  *
- * @param {'zh-TW' | 'zh-CN' | 'ja'} code - The language.
+ * @param {'zh-TW' | 'zh-CN' | 'ja' | 'es'} code - The language.
  * @returns {Promise<Translator>} The translator.
  */
 async function createTranslator(
-  code: 'zh-TW' | 'zh-CN' | 'ja',
+  code: 'zh-TW' | 'zh-CN' | 'ja' | 'es',
 ): Promise<Translator> {
   const translator = new Translator();
   await translator.choose(code);
@@ -168,6 +168,10 @@ describe('describePrompt', () => {
     expect(describePrompt(zhCn, byMartha, 0)).toBe('按空格键与村长玛莎交谈');
     const ja: Translator = await createTranslator('ja');
     expect(describePrompt(ja, byMartha, 0)).toBe('スペースキーで村長マーサと話す');
+    const es: Translator = await createTranslator('es');
+    expect(describePrompt(es, byMartha, 0)).toBe(
+      'Presiona Espacio para hablar con la alcaldesa Marta',
+    );
   });
 
   it('tells it in the language of the page, in its word order', async () => {
@@ -178,6 +182,13 @@ describe('describePrompt', () => {
     expect(describePrompt(zhCn, BY_NANCY, 0)).toBe('按空格键与南茜交谈');
     const ja: Translator = await createTranslator('ja');
     expect(describePrompt(ja, BY_NANCY, 0)).toBe('スペースキーでナンシーと話す');
+    const es: Translator = await createTranslator('es');
+    expect(describePrompt(es, BY_NANCY, 0)).toBe(
+      'Presiona Espacio para hablar con Nancy',
+    );
+    expect(describePrompt(es, BY_FOUNTAIN, 0)).toBe(
+      'Presiona Espacio para beber de la fuente',
+    );
   });
 
   it('tells a player by Emma, facing her, that it can talk to her', async () => {
@@ -192,6 +203,10 @@ describe('describePrompt', () => {
     const ja: Translator = await createTranslator('ja');
     expect(describePrompt(ja, BY_EMMA, 0)).toBe(
       'スペースキーで鍛冶屋のエマと話す',
+    );
+    const es: Translator = await createTranslator('es');
+    expect(describePrompt(es, BY_EMMA, 0)).toBe(
+      'Presiona Espacio para hablar con Emma la herrera',
     );
   });
 
@@ -263,6 +278,10 @@ describe('describePrompt on a touch device', () => {
     expect(describeOnTouch(ja, BY_NANCY)).toBe(
       'アクションボタンでナンシーと話す',
     );
+    const es: Translator = await createTranslator('es');
+    expect(describeOnTouch(es, BY_NANCY)).toBe(
+      'Toca el botón de acción para hablar con Nancy',
+    );
   });
 
   it('tells nothing while the action button makes the player slash', () => {
@@ -286,6 +305,9 @@ describe('describeSpaceKey', () => {
     expect(describeSpaceKey(zhTw, killMotion(BY_FOUNTAIN), 0)).toBe('無');
     const ja: Translator = await createTranslator('ja');
     expect(describeSpaceKey(ja, BY_NANCY, 0)).toBe('ナンシーと話す');
+    const es: Translator = await createTranslator('es');
+    expect(describeSpaceKey(es, BY_NANCY, 0)).toBe('hablar con Nancy');
+    expect(describeSpaceKey(es, FACING_AWAY, 0)).toBe('dar un tajo');
   });
 
   it('tells that it does nothing while the player cannot interact', () => {
@@ -318,6 +340,10 @@ describe('describePrompt by Toby', () => {
     expect(describePrompt(zhCn, facing, step)).toBe('按空格键与托比交谈');
     const ja: Translator = await createTranslator('ja');
     expect(describePrompt(ja, facing, step)).toBe('スペースキーでトビーと話す');
+    const es: Translator = await createTranslator('es');
+    expect(describePrompt(es, facing, step)).toBe(
+      'Presiona Espacio para hablar con Tobi',
+    );
     // Once he has run off, the space bar slashes.
     const gone: number = step + TOBY_LOOP_STEPS / 2;
     expect(findTobyPose(gone).x).not.toBe(toby.x);
@@ -362,6 +388,10 @@ describe('describePrompt by a patch of clover', () => {
     expect(describePrompt(ja, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
       'スペースキーで四つ葉のクローバーを拾う',
     );
+    const es: Translator = await createTranslator('es');
+    expect(describePrompt(es, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
+      'Presiona Espacio para recoger el trébol de cuatro hojas',
+    );
   });
 
   it('tells the player its inventory is full, in every language', async () => {
@@ -382,6 +412,10 @@ describe('describePrompt by a patch of clover', () => {
     const ja: Translator = await createTranslator('ja');
     expect(describePrompt(ja, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
       '持ち物がいっぱいで四つ葉のクローバーを拾えない',
+    );
+    const es: Translator = await createTranslator('es');
+    expect(describePrompt(es, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
+      'Tu inventario está lleno: no puedes recoger el trébol de cuatro hojas',
     );
   });
 
@@ -505,6 +539,12 @@ describe('describePrompt by the ways into and out of the cave', () => {
     expect(
       describeBoth(await createTranslator('ja'), IN_BURROW, 'village'),
     ).toEqual(['スペースキーで巣穴に潜る', '巣穴に潜る']);
+    expect(
+      describeBoth(await createTranslator('es'), IN_BURROW, 'village'),
+    ).toEqual([
+      'Presiona Espacio para bajar por la madriguera',
+      'bajar por la madriguera',
+    ]);
   });
 
   it('tells a player in the burrow it slashes at the living dog in front', () => {
@@ -527,6 +567,9 @@ describe('describePrompt by the ways into and out of the cave', () => {
     ).toEqual(['按空格键顺着绳子爬上去', '顺着绳子爬上去']);
     expect(describeBoth(await createTranslator('ja'), BY_ROPE, 'cave')).toEqual(
       ['スペースキーでロープを登る', 'ロープを登る'],
+    );
+    expect(describeBoth(await createTranslator('es'), BY_ROPE, 'cave')).toEqual(
+      ['Presiona Espacio para subir por la cuerda', 'subir por la cuerda'],
     );
   });
 
@@ -638,6 +681,10 @@ describe('describePrompt in the cave', () => {
       'スペースキーで囚人と話す',
       '囚人と話す',
     ]);
+    expect(describeBoth(await createTranslator('es'), AT_BARS)).toEqual([
+      'Presiona Espacio para hablar con el prisionero',
+      'hablar con el prisionero',
+    ]);
   });
 
   it('tells a player at the bars it slashes at a living dog in front', () => {
@@ -688,6 +735,10 @@ describe('describePrompt in the cave', () => {
       'スペースキーで使者エドウィンと話す',
       '使者エドウィンと話す',
     ]);
+    expect(wordBoth(await createTranslator('es'))).toEqual([
+      'Presiona Espacio para hablar con Edwin el emisario',
+      'hablar con Edwin el emisario',
+    ]);
   });
 
   it('tells a player before a full chest it can open it, in every language', async () => {
@@ -707,6 +758,10 @@ describe('describePrompt in the cave', () => {
     expect(describeBoth(await createTranslator('ja'), before)).toEqual([
       'スペースキーで宝箱を開ける',
       '宝箱を開ける',
+    ]);
+    expect(describeBoth(await createTranslator('es'), before)).toEqual([
+      'Presiona Espacio para abrir el cofre',
+      'abrir el cofre',
     ]);
   });
 
@@ -771,6 +826,12 @@ describe('describePrompt in the cave', () => {
     ).toEqual([
       '樽は空っぽだ',
       'なし（樽は空っぽ）',
+    ]);
+    expect(
+      describeBoth(await createTranslator('es'), empty, ALL_LOOTED),
+    ).toEqual([
+      'El barril está vacío',
+      'nada, porque el barril está vacío',
     ]);
   });
 

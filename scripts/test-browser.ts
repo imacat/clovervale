@@ -1026,6 +1026,7 @@ const LANGUAGE_NAMES: readonly string[] = [
   '正體中文',
   '简体中文',
   '日本語',
+  'Español',
 ];
 /** The name of Traditional Chinese, as the language control offers it. */
 const ZH_TW_NAME = '正體中文';

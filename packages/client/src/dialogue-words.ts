@@ -58,6 +58,23 @@ const ENGLISH_COUNTS: readonly string[] = [
   'twelve',
 ];
 
+/** The Spanish words for the counts from zero to twelve. */
+const SPANISH_COUNTS: readonly string[] = [
+  'cero',
+  'uno',
+  'dos',
+  'tres',
+  'cuatro',
+  'cinco',
+  'seis',
+  'siete',
+  'ocho',
+  'nueve',
+  'diez',
+  'once',
+  'doce',
+];
+
 /** The Chinese digits from zero to nine. */
 const CHINESE_DIGITS: readonly string[] = [
   '零',
@@ -107,8 +124,8 @@ function wordChineseCount(count: number, code: 'zh-TW' | 'zh-CN'): string {
 
 /**
  * Words a count of things in a language, as it is said in speech: in words
- * up to twelve in English, in Chinese numerals below a hundred in Chinese,
- * and in digits otherwise, as Japanese has it.
+ * up to twelve in English and in Spanish, in Chinese numerals below a
+ * hundred in Chinese, and in digits otherwise, as Japanese has it.
  *
  * @param {number} count - The count.
  * @param {LanguageCode} code - The language.
@@ -126,6 +143,8 @@ export function wordCount(count: number, code: LanguageCode): string {
       return count < 100 ? wordChineseCount(count, code) : String(count);
     case 'ja':
       return String(count);
+    case 'es':
+      return SPANISH_COUNTS[count] ?? String(count);
   }
 }
 

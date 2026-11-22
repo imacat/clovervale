@@ -75,7 +75,7 @@ describe('findGainedItems', () => {
 describe('wordItemNotice', () => {
   it('names the item got in the language of the page', async () => {
     const words: string[] = [wordItemNotice(new Translator(), 'sword')];
-    for (const code of ['zh-TW', 'zh-CN', 'ja'] as const) {
+    for (const code of ['zh-TW', 'zh-CN', 'ja', 'es'] as const) {
       const translator = new Translator();
       await translator.choose(code);
       words.push(wordItemNotice(translator, 'sword'));
@@ -85,6 +85,7 @@ describe('wordItemNotice', () => {
       '取得短劍',
       '取得短剑',
       '短剣を手に入れた',
+      'Obtienes una espada corta',
     ]);
   });
 
@@ -102,6 +103,24 @@ describe('wordItemNotice', () => {
       'You got the message from Clovervale',
       'You got the token of the Clovervale spy',
       "You got a jar of Martha's ointment",
+    ]);
+  });
+
+  it('words each item got in Spanish as it is received', async () => {
+    const translator: Translator = new Translator();
+    await translator.choose('es');
+    expect(
+      ITEM_KINDS.map(({ id }: { readonly id: ItemKindId }) =>
+        wordItemNotice(translator, id),
+      ),
+    ).toEqual([
+      'Obtienes un trébol de cuatro hojas',
+      'Obtienes una espada corta',
+      'Obtienes una armadura de cuero',
+      'Obtienes una poción curativa',
+      'Obtienes el mensaje de Valtrébol',
+      'Obtienes la insignia de la espía de Valtrébol',
+      'Obtienes un frasco de ungüento de Marta',
     ]);
   });
 });
@@ -133,7 +152,7 @@ describe('wordSilverNotice', () => {
       wordSilverNotice(english, 1),
       wordSilverNotice(english, 2),
     ];
-    for (const code of ['zh-TW', 'zh-CN', 'ja'] as const) {
+    for (const code of ['zh-TW', 'zh-CN', 'ja', 'es'] as const) {
       const translator = new Translator();
       await translator.choose(code);
       words.push(wordSilverNotice(translator, 1));
@@ -148,6 +167,8 @@ describe('wordSilverNotice', () => {
       '取得 2 枚银币',
       '銀貨を1枚手に入れた',
       '銀貨を2枚手に入れた',
+      'Obtienes 1 moneda de plata',
+      'Obtienes 2 monedas de plata',
     ]);
   });
 });

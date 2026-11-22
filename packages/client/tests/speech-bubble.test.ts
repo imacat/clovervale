@@ -213,11 +213,11 @@ function talkRepeatedly(
 /**
  * Makes a translator of the text into a language.
  *
- * @param {'zh-TW' | 'zh-CN' | 'ja'} code - The language.
+ * @param {'zh-TW' | 'zh-CN' | 'ja' | 'es'} code - The language.
  * @returns {Promise<Translator>} The translator.
  */
 async function createTranslator(
-  code: 'zh-TW' | 'zh-CN' | 'ja',
+  code: 'zh-TW' | 'zh-CN' | 'ja' | 'es',
 ): Promise<Translator> {
   const translator = new Translator();
   await translator.choose(code);
@@ -578,6 +578,7 @@ describe('SpeechBubble with Toby', () => {
       [await createTranslator('zh-TW'), '找到了！'],
       [await createTranslator('zh-CN'), '找到啦！'],
       [await createTranslator('ja'), 'あった！'],
+      [await createTranslator('es'), '¡Aquí hay uno!'],
     ];
     for (const [translator, line] of found) {
       const { bubble } = createBubble(translator);
@@ -592,6 +593,10 @@ describe('SpeechBubble with Toby', () => {
       [await createTranslator('zh-TW'), '這個給你！會有好運喔。'],
       [await createTranslator('zh-CN'), '这个给你！会有好运哦。'],
       [await createTranslator('ja'), 'これ、あげる！いいことがあるよ。'],
+      [
+        await createTranslator('es'),
+        '¡Toma, este es para ti! Da buena suerte.',
+      ],
     ];
     for (const [translator, line] of gift) {
       const { bubble } = createBubble(translator);
@@ -1028,6 +1033,7 @@ describe('SpeechBubble with players who speak', () => {
   it.each([
     ['zh-CN', '请问艾玛在哪儿？'],
     ['ja', 'すみません、エマさんはどこにいますか？'],
+    ['es', 'Disculpe, ¿dónde puedo encontrar a Emma?'],
   ] as const)('words a phrase in %s for a page in it', async (code, line) => {
     const { bubble } = createBubble(await createTranslator(code));
     bubble.sayPhraseAs(7, 'askEmma', PLAYER_HEAD);

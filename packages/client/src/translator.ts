@@ -65,6 +65,8 @@ export async function loadMessages(
       return (await import('./messages/zh-cn.ts')).ZH_CN_MESSAGES;
     case 'ja':
       return (await import('./messages/ja.ts')).JA_MESSAGES;
+    case 'es':
+      return (await import('./messages/es.ts')).ES_MESSAGES;
   }
 }
 

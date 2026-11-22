@@ -385,11 +385,16 @@ describe('describeSlots', () => {
 
   it('names the items in the language of the page', async () => {
     const names: (string | null)[] = [];
-    for (const code of ['zh-TW', 'zh-CN', 'ja'] as const) {
+    for (const code of ['zh-TW', 'zh-CN', 'ja', 'es'] as const) {
       const translator = new Translator();
       await translator.choose(code);
       names.push(describeSlots(translator, ['clover'])[0]?.name ?? null);
     }
-    expect(names).toEqual(['四葉幸運草', '四叶幸运草', '四つ葉のクローバー']);
+    expect(names).toEqual([
+      '四葉幸運草',
+      '四叶幸运草',
+      '四つ葉のクローバー',
+      'trébol de cuatro hojas',
+    ]);
   });
 });

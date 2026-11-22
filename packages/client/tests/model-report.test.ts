@@ -40,11 +40,11 @@ const MISSING: ModelProblem = { file: 'npc-nancy.glb', reason: 'missing' };
 /**
  * Makes a translator of the text into a language.
  *
- * @param {'zh-TW' | 'zh-CN' | 'ja'} code - The language.
+ * @param {'zh-TW' | 'zh-CN' | 'ja' | 'es'} code - The language.
  * @returns {Promise<Translator>} The translator.
  */
 async function createTranslator(
-  code: 'zh-TW' | 'zh-CN' | 'ja',
+  code: 'zh-TW' | 'zh-CN' | 'ja' | 'es',
 ): Promise<Translator> {
   const translator = new Translator();
   await translator.choose(code);
@@ -68,6 +68,11 @@ describe('summariseModels', () => {
     expect(summariseModels(zhTw, 20, [])).toBe('已顯示 20 個');
     expect(summariseModels(zhTw, 11, [MISSING])).toBe(
       '已顯示 11 個，1 個問題',
+    );
+    const es: Translator = await createTranslator('es');
+    expect(summariseModels(es, 1, [])).toBe('Mostrados: 1');
+    expect(summariseModels(es, 11, [MISSING])).toBe(
+      'Mostrados: 11; problemas: 1',
     );
   });
 });

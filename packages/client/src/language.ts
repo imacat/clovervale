@@ -23,7 +23,7 @@
  */
 
 /** A language the page speaks, by its language tag. */
-export type LanguageCode = 'en' | 'zh-TW' | 'zh-CN' | 'ja';
+export type LanguageCode = 'en' | 'zh-TW' | 'zh-CN' | 'ja' | 'es';
 
 /** A language the page speaks. */
 export interface Language {
@@ -80,6 +80,7 @@ export const LANGUAGES: readonly Language[] = [
       '"Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", ' +
       '"Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
   },
+  { code: 'es', name: 'Español', fontFamily: 'sans-serif' },
 ];
 
 /** The language the page speaks without anything else to go by. */
@@ -115,8 +116,9 @@ export function findLanguage(code: LanguageCode): Language {
  * @returns {LanguageCode | null} Traditional Chinese for the Chinese of
  *   Taiwan, Hong Kong and Macau or in Traditional characters, Simplified
  *   Chinese for the Chinese of China and Singapore, in Simplified
- *   characters or without more said, Japanese for any Japanese, English
- *   for any English, and `null` for anything else.
+ *   characters or without more said, Japanese for any Japanese, Spanish
+ *   for any Spanish, English for any English, and `null` for anything
+ *   else.
  */
 export function matchLanguage(tag: string): LanguageCode | null {
   const [primary, ...rest] = tag.toLowerCase().split('-');
@@ -125,6 +127,9 @@ export function matchLanguage(tag: string): LanguageCode | null {
   }
   if (primary === 'ja') {
     return 'ja';
+  }
+  if (primary === 'es') {
+    return 'es';
   }
   if (primary !== 'zh') {
     return null;

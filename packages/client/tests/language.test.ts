@@ -69,6 +69,7 @@ describe('LANGUAGES', () => {
       ['zh-TW', '正體中文'],
       ['zh-CN', '简体中文'],
       ['ja', '日本語'],
+      ['es', 'Español'],
     ]);
   });
 });
@@ -91,6 +92,12 @@ describe('matchLanguage', () => {
     expect(matchLanguage('ja-JP')).toBe('ja');
   });
 
+  it('takes any Spanish as Spanish', () => {
+    for (const tag of ['es', 'es-ES', 'es-MX', 'es-AR', 'es-419']) {
+      expect(matchLanguage(tag)).toBe('es');
+    }
+  });
+
   it('takes any English as English', () => {
     for (const tag of ['en', 'en-US', 'en-GB']) {
       expect(matchLanguage(tag)).toBe('en');
@@ -101,10 +108,20 @@ describe('matchLanguage', () => {
     expect(matchLanguage('ZH-tw')).toBe('zh-TW');
     expect(matchLanguage('zh-hans')).toBe('zh-CN');
     expect(matchLanguage('JA-jp')).toBe('ja');
+    expect(matchLanguage('ES-mx')).toBe('es');
   });
 
   it('matches nothing for another language', () => {
-    for (const tag of ['fr', 'de-DE', 'eng', 'zhx', 'jav', 'ko-KR', '']) {
+    for (const tag of [
+      'fr',
+      'de-DE',
+      'eng',
+      'zhx',
+      'jav',
+      'est',
+      'ko-KR',
+      '',
+    ]) {
       expect(matchLanguage(tag)).toBeNull();
     }
   });
@@ -119,6 +136,7 @@ describe('chooseLanguage', () => {
     expect(chooseLanguage(null, ['fr', 'zh-HK', 'en'])).toBe('zh-TW');
     expect(chooseLanguage(null, ['de', 'en-GB', 'ja'])).toBe('en');
     expect(chooseLanguage(null, ['ko', 'zh', 'ja'])).toBe('zh-CN');
+    expect(chooseLanguage(null, ['pt-BR', 'es-CO', 'en'])).toBe('es');
   });
 
   it('ignores a saved choice the page does not speak', () => {
