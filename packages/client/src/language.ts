@@ -23,7 +23,7 @@
  */
 
 /** A language the page speaks, by its language tag. */
-export type LanguageCode = 'en' | 'zh-TW' | 'zh-CN' | 'ja' | 'es';
+export type LanguageCode = 'en' | 'es' | 'ja' | 'zh-TW' | 'zh-CN';
 
 /** A language the page speaks. */
 export interface Language {
@@ -56,9 +56,19 @@ export interface LanguageStorage {
   setItem(key: string, value: string): void;
 }
 
-/** The languages the page speaks, English, the default, first. */
+/**
+ * The languages the page speaks, in the code point order of their names.
+ */
 export const LANGUAGES: readonly Language[] = [
   { code: 'en', name: 'English', fontFamily: 'sans-serif' },
+  { code: 'es', name: 'Español', fontFamily: 'sans-serif' },
+  {
+    code: 'ja',
+    name: '日本語',
+    fontFamily:
+      '"Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", ' +
+      '"Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
+  },
   {
     code: 'zh-TW',
     name: '正體中文',
@@ -73,14 +83,6 @@ export const LANGUAGES: readonly Language[] = [
       '"Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", ' +
       '"PingFang SC", "Microsoft YaHei", sans-serif',
   },
-  {
-    code: 'ja',
-    name: '日本語',
-    fontFamily:
-      '"Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans JP", ' +
-      '"Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
-  },
-  { code: 'es', name: 'Español', fontFamily: 'sans-serif' },
 ];
 
 /** The language the page speaks without anything else to go by. */

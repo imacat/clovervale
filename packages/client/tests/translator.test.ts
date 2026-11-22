@@ -202,10 +202,10 @@ describe('loadMessages', () => {
     }
     expect(titles).toEqual([
       'Clovervale',
+      'Valtrébol',
+      'クローバーヴェイル',
       '四葉谷',
       '四叶谷',
-      'クローバーヴェイル',
-      'Valtrébol',
     ]);
   });
 

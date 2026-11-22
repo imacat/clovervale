@@ -61,15 +61,15 @@ function createStorage(): LanguageStorage & { items: Map<string, string> } {
 }
 
 describe('LANGUAGES', () => {
-  it('names each language in the language itself, English first', () => {
+  it('names each language in the language itself, in the order of the names', () => {
     expect(
       LANGUAGES.map(({ code, name }) => [code, name]),
     ).toEqual([
       ['en', 'English'],
+      ['es', 'Español'],
+      ['ja', '日本語'],
       ['zh-TW', '正體中文'],
       ['zh-CN', '简体中文'],
-      ['ja', '日本語'],
-      ['es', 'Español'],
     ]);
   });
 });

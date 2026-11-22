@@ -1020,13 +1020,16 @@ const SCREENSHOT_DIR: string | undefined = process.env.CLOVERVALE_SCREENSHOTS;
 const PAGE_LANGUAGE = 'en';
 /** The name of the language control of the panel in English. */
 const LANGUAGE_CONTROL = 'Language';
-/** The languages the language control offers, by their own names. */
+/**
+ * The languages the language control offers, by their own names, in the
+ * code point order of those names.
+ */
 const LANGUAGE_NAMES: readonly string[] = [
   'English',
+  'Español',
+  '日本語',
   '正體中文',
   '简体中文',
-  '日本語',
-  'Español',
 ];
 /** The name of Traditional Chinese, as the language control offers it. */
 const ZH_TW_NAME = '正體中文';
