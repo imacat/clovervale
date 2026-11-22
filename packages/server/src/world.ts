@@ -39,6 +39,7 @@ import {
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   SPAWN_YAW,
+  TOBY_FOUND_LINE,
   VILLAGERS,
   canInteract,
   canUseItem,
@@ -49,6 +50,7 @@ import {
   findPickTarget,
   findSpawnPoint,
   findTobyGrab,
+  findTobyPose,
   findVillager,
   hasRoom,
   interpolatePlaced,
@@ -184,8 +186,8 @@ export interface Player {
    */
   isHunted: boolean;
   /**
-   * What the villagers have said to the player in passing since it was last
-   * taken, in the order they said it.
+   * What the villagers have said to the player in passing, or within its
+   * hearing, since it was last taken, in the order they said it.
    */
   speeches: Speech[];
   /**
@@ -503,7 +505,10 @@ export class World {
    * any player picks at the step, and it is gone from the patch until it
    * regrows {@link CLOVER_REGROW_DURATION} seconds later, as if a player
    * had picked it, and he holds it from then on; he takes nothing from a
-   * patch without its clover.
+   * patch without its clover.  As he takes one, he exclaims
+   * {@link TOBY_FOUND_LINE} in passing, which every player of the world
+   * within {@link SAY_RANGE} metres of him, as the players stand before the
+   * step, hears, and nobody else.
    *
    * A player that slashes, drinks from the fountain or talks to a villager
    * stands still, without turning, for as long as that lasts.  Any other
@@ -898,8 +903,9 @@ export class World {
   }
 
   /**
-   * Takes what the villagers have said to a player in passing since it was
-   * last taken, which only the player itself is to be told.
+   * Takes what the villagers have said to a player in passing, or within
+   * its hearing, since it was last taken, which only the player itself is
+   * to be told.
    *
    * @param {number} id - The identifier of the player.
    * @returns {Speech[]} What they said, in the order they said it, each
@@ -1211,7 +1217,9 @@ export class World {
 
   /**
    * Has Toby take the four-leaved clover of the patch of clover his hand
-   * grabs at, if it grabs at this step and the patch has its clover.
+   * grabs at, if it grabs at this step and the patch has its clover, and
+   * exclaim {@link TOBY_FOUND_LINE} as he does, which every player within
+   * {@link SAY_RANGE} metres of him then hears, and nobody else.
    */
   #letTobyPick(): void {
     const grab: TobyGrab = findTobyGrab(this.#stepCount);
@@ -1225,6 +1233,13 @@ export class World {
     }
     this.#regrowSteps[grab.patch] = this.#stepCount + REGROW_STEPS;
     this.#tobyFind = this.#stepCount;
+    const { x, z } = findTobyPose(this.#stepCount);
+    for (const player of this.#players.values()) {
+      const { motion } = player.mover;
+      if (Math.hypot(motion.x - x, motion.z - z) <= SAY_RANGE) {
+        player.speeches.push({ villager: 'toby', line: TOBY_FOUND_LINE });
+      }
+    }
   }
 
   /**

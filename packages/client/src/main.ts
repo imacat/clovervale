@@ -35,6 +35,7 @@ import {
   SIMULATION_RATE,
   SPAWN_YAW,
   TOBY_FILE,
+  TOBY_FOUND_LINE,
   VILLAGERS,
   VILLAGE_TERRAIN,
   createInteractMessage,
@@ -192,12 +193,8 @@ import {
 import './style.css';
 import { TalkWatch } from './talk-watch.ts';
 import { TobyFigure } from './toby-figure.ts';
-import {
-  TobyExclamation,
-  findShownItems,
-  hasTobyFound,
-} from './toby-finds.ts';
-import type { TobyUtterance, WorldNews } from './toby-finds.ts';
+import { findShownItems, hasTobyFound } from './toby-finds.ts';
+import type { WorldNews } from './toby-finds.ts';
 import { TouchControls } from './touch-controls.ts';
 import { createTouchView } from './touch-view.ts';
 import type { TouchView } from './touch-view.ts';
@@ -325,6 +322,8 @@ let forgeGlow: ForgeGlow | null = null;
 let windowGlow: WindowGlow | null = null;
 /** Toby, once his model has been loaded. */
 let toby: TobyFigure | null = null;
+/** The root of the model of Toby, once it has been loaded. */
+let tobyRoot: Object3D | null = null;
 /**
  * Martha's pitchfork as it leans against the wall of her house, once its
  * model has been loaded.
@@ -485,8 +484,6 @@ const speech = new SpeechBubble(stage, translator);
 const talks = new TalkWatch();
 /** What tells when Edwin calls out for help. */
 const edwinCall = new EdwinCall();
-/** What tells when Toby exclaims that he has found a four-leaved clover. */
-const exclamation = new TobyExclamation();
 const fade = createMapFade(document.body);
 /** The arrow keys held down to turn the camera. */
 const cameraKeys = new CameraKeys();
@@ -606,6 +603,7 @@ async function showModels(): Promise<void> {
   const child: Figure | null = createVillagerFigure(models, TOBY_FILE);
   if (child !== null) {
     scene.add(child.root);
+    tobyRoot = child.root;
     toby = new TobyFigure(child.root, child.clips, createHeldClover());
   }
   wallPitchfork =
@@ -1137,9 +1135,8 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * player of the page is shown at as it walks, running on evenly whether it
  * walks or rests, while the player of the page is shown as predicted, and as
  * he is when the others are shown otherwise; he holds a four-leaved clover
- * he finds, as {@link hasTobyFound} tells, and exclaims, as
- * {@link showTobyExclamation} tells, and the patches of clover are shown
- * with their clovers as they are at that step, as far as those he takes
+ * he finds, as {@link hasTobyFound} tells, and the patches of clover are
+ * shown with their clovers as they are at that step, as far as those he takes
  * go, which the prompt tells of at the step an interaction would start at.
  * Once the player of the page starts to talk to a villager that chatters,
  * as predicted, what the villager says is shown above its head, but for
@@ -1181,9 +1178,7 @@ function showPlayers(): void {
     itemFigures.show(findShownItems(worldNews, shownStep ?? worldNews.step));
   }
   if (tobyStep !== null) {
-    const isFound: boolean = hasTobyFound(findTobyGrab(tobyStep), worldNews);
-    toby?.show(tobyStep, isFound);
-    showTobyExclamation(exclamation.notice(tobyStep, isFound), tobyStep);
+    toby?.show(tobyStep, hasTobyFound(findTobyGrab(tobyStep), worldNews));
   } else if (shownStep !== null) {
     toby?.show(shownStep);
   }
@@ -1314,32 +1309,27 @@ function findShownHead(villager: Villager, step: number): Vector3 {
 }
 
 /**
- * Has Toby exclaim in a bubble above his head that he has found a
- * four-leaved clover, as {@link TobyExclamation} tells, while the player of
- * the page is not in a dialogue and no other bubble is shown, and take it
- * back, if it is still shown, once the page learns he found none.
+ * Tells whether the page shows a line a villager says to its player, as
+ * the server tells of it, in a bubble above the head of the villager.
  *
- * @param {TobyUtterance | null} utterance - What he is to do about his
- *   bubble, if anything.
- * @param {number} step - The step of the server he is shown at, which may
- *   fall between two.
+ * @param {Villager} villager - The villager.
+ * @param {string} line - The message of the line.
+ * @returns {boolean} Whether the villager is in the map shown and the
+ *   player of the page is not in a dialogue, and, for the line Toby
+ *   exclaims to the players nearby as he finds a four-leaved clover, also
+ *   whether no other bubble of a villager is shown and Toby is on the
+ *   screen.
  */
-function showTobyExclamation(
-  utterance: TobyUtterance | null,
-  step: number,
-): void {
-  if (TOBY_VILLAGER === undefined || utterance === null) {
-    return;
+function canShowSpeech(villager: Villager, line: string): boolean {
+  if (villager.map !== shownMap || dialogueBox.isOpen) {
+    return false;
   }
-  if (utterance === 'hush') {
-    speech.hush(TOBY_VILLAGER);
-  } else if (!dialogueBox.isOpen && speech.describe() === null) {
-    speech.say(
-      TOBY_VILLAGER,
-      findShownHead(TOBY_VILLAGER, step),
-      'villager.toby.found',
-    );
-  }
+  return (
+    line !== TOBY_FOUND_LINE ||
+    (speech.describe() === null &&
+      tobyRoot !== null &&
+      isOnScreen(viewport.getCamera(), tobyRoot, null))
+  );
 }
 
 /**
@@ -1490,9 +1480,9 @@ function receiveMessage(data: string): void {
     );
     if (
       ownId !== null &&
-      villager?.map === shownMap &&
+      villager !== undefined &&
       isMessageId(line) &&
-      !dialogueBox.isOpen
+      canShowSpeech(villager, line)
     ) {
       const step: number = prediction?.step ?? 0;
       speech.say(villager, findShownHead(villager, step), line);

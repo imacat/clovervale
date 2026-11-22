@@ -24,19 +24,10 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  TOBY_GRAB_STEPS,
-  TOBY_LOOP_STEPS,
-  TOBY_STOW_STEPS,
-  findTobyGrab,
-} from '@clovervale/shared';
+import { TOBY_LOOP_STEPS, findTobyGrab } from '@clovervale/shared';
 import type { TobyGrab, WorldItems } from '@clovervale/shared';
 
-import {
-  TobyExclamation,
-  findShownItems,
-  hasTobyFound,
-} from '../src/toby-finds.ts';
+import { findShownItems, hasTobyFound } from '../src/toby-finds.ts';
 import type { WorldNews } from '../src/toby-finds.ts';
 
 /** A grab of Toby's, some loops in. */
@@ -156,42 +147,5 @@ describe('findShownItems', () => {
     expect(
       findShownItems({ step: GRAB.step - 6, items: world }, GRAB.step),
     ).toEqual({ ...world, clovers: without(GRAB.patch) });
-  });
-});
-
-describe('TobyExclamation', () => {
-  /** How many steps he holds a clover he has found. */
-  const HOLD: number = TOBY_STOW_STEPS - TOBY_GRAB_STEPS;
-
-  it('has him exclaim once as he grabs a clover he finds', () => {
-    const exclamation = new TobyExclamation();
-    expect(exclamation.notice(GRAB.step - 1, false)).toBeNull();
-    expect(exclamation.notice(GRAB.step, true)).toBe('say');
-    expect(exclamation.notice(GRAB.step + 1, true)).toBeNull();
-    expect(exclamation.notice(GRAB.step + HOLD, true)).toBeNull();
-    expect(exclamation.notice(NEXT.step, true)).toBe('say');
-  });
-
-  it('has him say nothing at a grab that finds nothing', () => {
-    const exclamation = new TobyExclamation();
-    for (let step = GRAB.step - 3; step < GRAB.step + HOLD + 3; step++) {
-      expect(exclamation.notice(step, false)).toBeNull();
-    }
-  });
-
-  it('takes back what he said once the news tells he found nothing', () => {
-    const exclamation = new TobyExclamation();
-    expect(exclamation.notice(GRAB.step, true)).toBe('say');
-    expect(exclamation.notice(GRAB.step + 4, false)).toBe('hush');
-    expect(exclamation.notice(GRAB.step + 5, false)).toBeNull();
-  });
-
-  it('has him exclaim once the news tells he found one after all', () => {
-    const exclamation = new TobyExclamation();
-    expect(exclamation.notice(GRAB.step, false)).toBeNull();
-    expect(exclamation.notice(GRAB.step + 4, true)).toBe('say');
-    // Too late, once he has put it away.
-    const late = new TobyExclamation();
-    expect(late.notice(GRAB.step + HOLD, true)).toBeNull();
   });
 });

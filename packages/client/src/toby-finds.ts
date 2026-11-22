@@ -31,12 +31,7 @@
  * the snapshot that tells of the grab sets it right.
  */
 
-import {
-  TOBY_GRAB_STEPS,
-  TOBY_LOOP_STEPS,
-  TOBY_STOW_STEPS,
-  findTobyGrab,
-} from '@clovervale/shared';
+import { TOBY_LOOP_STEPS, findTobyGrab } from '@clovervale/shared';
 import type { TobyGrab, WorldItems } from '@clovervale/shared';
 
 /** What the page last heard of the world from the server. */
@@ -46,9 +41,6 @@ export interface WorldNews {
   /** What there was to pick in the world then. */
   readonly items: WorldItems;
 }
-
-/** What Toby is to do about a bubble of what he says. */
-export type TobyUtterance = 'say' | 'hush';
 
 /**
  * Tells whether Toby found a four-leaved clover at a grab of his, as far
@@ -104,42 +96,4 @@ export function findShownItems(news: WorldNews, step: number): WorldItems {
     clovers = [...clovers, next.patch].sort((a: number, b: number) => a - b);
   }
   return clovers === items.clovers ? items : { ...items, clovers };
-}
-
-/**
- * When Toby exclaims that he has found a four-leaved clover, in a bubble
- * above his head: once as he grabs one, and not at all if he finds none.
- */
-export class TobyExclamation {
-  /** The step of the grab he last exclaimed at, or `null` for none. */
-  #said: number | null = null;
-
-  /**
-   * Notices Toby as the page shows him at a step, and tells what he is to
-   * do about his bubble.
-   *
-   * @param {number} step - The step he is shown at, which may fall between
-   *   two steps.
-   * @param {boolean} isFound - Whether he found a clover at his latest grab
-   *   at the step or before it, as far as the page can tell.
-   * @returns {TobyUtterance | null} `'say'` the first time he is noticed
-   *   holding a clover he found at a grab, before he has put it away;
-   *   `'hush'` the first time he is noticed to have found nothing at the
-   *   grab he last exclaimed at, as the page has learnt since; and `null`
-   *   otherwise.
-   */
-  notice(step: number, isFound: boolean): TobyUtterance | null {
-    const grab: TobyGrab = findTobyGrab(step);
-    const isHolding: boolean =
-      isFound && step - grab.step < TOBY_STOW_STEPS - TOBY_GRAB_STEPS;
-    if (isHolding && this.#said !== grab.step) {
-      this.#said = grab.step;
-      return 'say';
-    }
-    if (!isFound && this.#said === grab.step) {
-      this.#said = null;
-      return 'hush';
-    }
-    return null;
-  }
 }

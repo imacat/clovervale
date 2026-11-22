@@ -44,6 +44,12 @@ export const TOBY_FILE = 'npc-toby.glb';
 /** The radius of the body of Toby on the ground, in metres. */
 export const TOBY_RADIUS = 0.25;
 
+/**
+ * The message of the line Toby exclaims to the players nearby as he finds
+ * a four-leaved clover.
+ */
+export const TOBY_FOUND_LINE = 'villager.toby.found';
+
 /** What Toby can be doing, in the order he does it at each end of his run. */
 export const TOBY_ACTIVITIES = [
   'Squat',

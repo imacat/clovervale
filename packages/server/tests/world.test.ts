@@ -53,6 +53,7 @@ import {
   TALK_STEPS,
   TOBY_ACTIVITY_STEPS,
   TOBY_ENDS,
+  TOBY_FOUND_LINE,
   TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
   TOBY_PATCHES,
@@ -94,7 +95,7 @@ import type {
 import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
 import type { MonsterSpawn } from '../src/monster.ts';
 import { LAG_COMPENSATION_LIMIT, World } from '../src/world.ts';
-import type { Player, Saying } from '../src/world.ts';
+import type { Player, Saying, Speech } from '../src/world.ts';
 
 /** The numbers of the wild dog of the village. */
 const VILLAGE_DOG: MonsterKind = MONSTER_KINDS['village-dog'];
@@ -1594,6 +1595,68 @@ describe('Toby picking at a patch of clover', () => {
   });
 });
 
+/**
+ * Brings a player into a world a distance east of where Toby squats at the
+ * patch of clover by the gate.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {number} distance - The distance, in metres.
+ * @returns {number} The identifier of the player.
+ */
+function admitBystander(world: World, id: number, distance: number): number {
+  const { x, z } = TOBY_ENDS[1];
+  return admitSpeaker(world, id, { x: x + distance, z });
+}
+
+describe('Toby exclaiming as he finds a four-leaved clover', () => {
+  /** What the players who hear him are told. */
+  const FOUND: Speech[] = [{ villager: 'toby', line: TOBY_FOUND_LINE }];
+
+  it('is heard by the players within range of him as his hand grabs', () => {
+    const world = new RecordingWorld(createRandom());
+    stepToGrab(world, TOBY_PATCHES[1]);
+    const near: number = admitBystander(world, 1, 1.5);
+    const edge: number = admitBystander(world, 2, SAY_RANGE - 0.1);
+    expect(world.takeSpeeches(near)).toEqual([]);
+    world.step();
+    expect(world.takeSpeeches(near)).toEqual(FOUND);
+    expect(world.takeSpeeches(edge)).toEqual(FOUND);
+    expect(world.takeSpeeches(near)).toEqual([]);
+  });
+
+  it('is not heard by a player out of range', () => {
+    const world = new RecordingWorld(createRandom());
+    stepToGrab(world, TOBY_PATCHES[1]);
+    const near: number = admitBystander(world, 1, 1.5);
+    const far: number = admitBystander(world, 2, SAY_RANGE + 0.1);
+    world.step();
+    expect(world.takeSpeeches(far)).toEqual([]);
+    expect(world.takeSpeeches(near)).toEqual(FOUND);
+  });
+
+  it('is not heard by a player who comes within range afterwards', () => {
+    const world = new RecordingWorld(createRandom());
+    stepToGrab(world, TOBY_PATCHES[1]);
+    world.step();
+    const late: number = admitBystander(world, 1, 1.5);
+    stepTimes(world, TOBY_ACTIVITY_STEPS.Pick - TOBY_GRAB_STEPS);
+    expect(world.takeSpeeches(late)).toEqual([]);
+  });
+
+  it('is not heard at a grab that finds nothing', () => {
+    const world = new RecordingWorld(createRandom());
+    const first: number = stepToGrab(world, TOBY_PATCHES[1]);
+    // He comes back to the patch before it has regrown.
+    const again: number = first + TOBY_LOOP_STEPS;
+    stepTimes(world, again - 1 - world.stepCount);
+    const near: number = admitBystander(world, 1, 1.5);
+    world.step();
+    expect(findTobyGrab(world.stepCount).step).toBe(again);
+    expect(world.takeSpeeches(near)).toEqual([]);
+  });
+});
+
 /** Where Toby squats at the patch of clover by the gate. */
 const TOBY_BY_GATE: GroundVector = TOBY_ENDS[1];
 
@@ -1658,11 +1721,11 @@ function admitTalker(
  */
 function talkToToby(world: RecordingWorld, id: number): string[] {
   for (let step = 0; step < 2 * TOBY_LOOP_STEPS; step++) {
-    const next: number = world.stepCount + 1;
-    const grab: TobyGrab = findTobyGrab(next);
+    const grab: TobyGrab = findTobyGrab(world.stepCount);
     if (
       grab.patch === TOBY_PATCHES[1] &&
-      next - grab.step < TOBY_ACTIVITY_STEPS.Pick - TOBY_GRAB_STEPS - 15
+      world.stepCount - grab.step <
+        TOBY_ACTIVITY_STEPS.Pick - TOBY_GRAB_STEPS - 15
     ) {
       break;
     }

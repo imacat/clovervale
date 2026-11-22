@@ -46,6 +46,8 @@ import {
   CAVE_ROPE,
   CLOVER_PATCHES,
   HEALING_POTION_PRICE,
+  PLAZA_CENTRE,
+  SAY_RANGE,
   SIMULATION_RATE,
   SLASH_REACH,
   TOBY_ACTIVITIES,
@@ -9659,10 +9661,10 @@ function describeTobyFindLook(look: TobyFindLook): string {
 /**
  * Checks that a page behind a slow connection, and another page, show
  * Toby finding a four-leaved clover alike: holding it in his hand as he
- * picks, from his grab until he puts it away, and never otherwise, with
- * his bubble saying he found one, while the patch is shown without its
- * clover, and that the page goes on showing so as the server tells it of
- * the find, without taking it back.
+ * picks, from his grab until he puts it away, and never otherwise, while
+ * the patch is shown without its clover, wherever their players stand, and
+ * that the page goes on showing so as the server tells it of the find,
+ * without taking it back.
  *
  * @param {BidiSession} session - The session with the browser.
  * @param {string} first - The browsing context of the page behind the
@@ -9709,7 +9711,6 @@ async function checkTobyFind(
       findTobyGrab(look.toby.step).step === grab.step &&
       look.toby.isHolding &&
       look.toby.clip === 'Find' &&
-      look.speech?.line === TOBY_FOUND_LINE &&
       !look.clovers.includes(grab.patch);
     for (const [context, name] of [
       [first, 'first'],
@@ -9749,6 +9750,155 @@ async function checkTobyFind(
   } finally {
     await setControl(session, first, 'Net delay (ms)', 0);
   }
+}
+
+/**
+ * Where a player stands to hear Toby from behind its camera: two metres
+ * within the range of what is said from where he squats at the patch of
+ * clover by the gate, towards the fountain, which is within that range of
+ * where he squats at the other patch as well.
+ */
+const WITHIN_TOBY_HEARING: GroundVector = (() => {
+  const apart: number = Math.hypot(
+    PLAZA_CENTRE.x - TOBY_SQUAT.x,
+    PLAZA_CENTRE.z - TOBY_SQUAT.z,
+  );
+  const share: number = (SAY_RANGE - 2) / apart;
+  return {
+    x: TOBY_SQUAT.x + (PLAZA_CENTRE.x - TOBY_SQUAT.x) * share,
+    z: TOBY_SQUAT.z + (PLAZA_CENTRE.z - TOBY_SQUAT.z) * share,
+  };
+})();
+/**
+ * How far from its player the camera is zoomed in to, in metres, to leave
+ * Toby behind it as it looks away from him.
+ */
+const TOBY_UNSEEN_CAMERA_DISTANCE = 3;
+
+/**
+ * Checks that a page shows what Toby exclaims as he finds a four-leaved
+ * clover only while he is on its screen: that, with its player within
+ * hearing of him and its camera looking away from him, the page shows him
+ * holding the clover he finds without any bubble, and that, with its
+ * player by the patch of clover by the gate, it shows his bubble saying he
+ * found one as he holds the clover of that patch.  The camera ends as it
+ * started, and the player by the patch by the gate.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player of the page.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page does not show him so.
+ */
+async function checkTobyExclamation(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const hold: number = TOBY_STOW_STEPS - TOBY_GRAB_STEPS;
+  const look = (): Promise<TobyFindLook> => readTobyFindLook(session, context);
+  const readDistance = async (): Promise<number> =>
+    Number(
+      await evaluateInPage(
+        session,
+        context,
+        'String(window.clovervale.describeCameraDistance())',
+      ),
+    );
+  // Zooms the camera to a distance from what it looks at.
+  const zoomTo = async (distance: number): Promise<void> => {
+    const turns: number =
+      Math.log(distance / (await readDistance())) /
+      Math.log(ZOOM_STEP_FACTOR);
+    if (Math.abs(turns) >= 0.1) {
+      await zoomCamera(session, context, Math.round(-turns * ZOOM_DELTA));
+    }
+  };
+  const isExclaiming = (seen: TobyFindLook): boolean =>
+    seen.speech?.line === TOBY_FOUND_LINE;
+
+  // Within hearing of him, the camera looks away from him.
+  await walkInVillage(
+    session,
+    context,
+    id,
+    WITHIN_TOBY_HEARING,
+    'to within hearing of Toby',
+  );
+  const { heading } = await readQuestLook(session, context, id);
+  const distance: number = await readDistance();
+  await turnCameraTo(
+    session,
+    context,
+    id,
+    findHeading(TOBY_SQUAT, WITHIN_TOBY_HEARING),
+  );
+  await zoomTo(TOBY_UNSEEN_CAMERA_DISTANCE);
+  const away =
+    `With its player ${String(SAY_RANGE - 2)} metres from Toby and its ` +
+    'camera looking away from him, the first page';
+  try {
+    await waitFor(
+      look,
+      (seen: TobyFindLook) =>
+        seen.speech === null && seen.toby?.isHolding === false,
+      SPEECH_TIMEOUT,
+      (seen: TobyFindLook) => `${away} ${describeTobyFindLook(seen)}.`,
+    );
+    const isHushed = (seen: TobyFindLook): boolean => {
+      if (isExclaiming(seen)) {
+        throw new Error(
+          `${away} shows his bubble: it ${describeTobyFindLook(seen)}.`,
+        );
+      }
+      return true;
+    };
+    const found: TobyFindLook = await waitFor(
+      look,
+      (seen: TobyFindLook) => isHushed(seen) && seen.toby?.isHolding === true,
+      TOBY_FIND_TIMEOUT,
+      (seen: TobyFindLook) =>
+        `${away} never shows Toby holding a clover: it ` +
+        `${describeTobyFindLook(seen)}.`,
+    );
+    const grab: TobyGrab = findTobyGrab(found.toby?.step ?? NaN);
+    await waitFor(
+      look,
+      (seen: TobyFindLook) =>
+        isHushed(seen) && (seen.toby?.step ?? NaN) >= grab.step + hold,
+      ACTION_TIMEOUT,
+      (seen: TobyFindLook) =>
+        `${away} never shows Toby putting the clover away: it ` +
+        `${describeTobyFindLook(seen)}.`,
+    );
+  } finally {
+    await zoomTo(distance);
+    await turnCameraTo(session, context, id, heading);
+  }
+
+  // By the patch by the gate, he is on the screen as he picks at it.
+  await walkInVillage(session, context, id, BY_TOBY, 'to the gate');
+  await waitFor(
+    look,
+    (seen: TobyFindLook) =>
+      seen.toby?.isHolding === true &&
+      findTobyGrab(seen.toby.step).patch === TOBY_PATCHES[1] &&
+      isExclaiming(seen),
+    TOBY_FIND_TIMEOUT,
+    (seen: TobyFindLook) =>
+      'With its player by the patch of clover by the gate, the first page ' +
+      `never shows the bubble of Toby as he finds its clover: it ` +
+      `${describeTobyFindLook(seen)}.`,
+  );
+  // The bubble is over before the checks that talk to him go on.
+  await waitFor(
+    look,
+    (seen: TobyFindLook) => seen.speech === null,
+    SPEECH_TIMEOUT,
+    (seen: TobyFindLook) =>
+      `With Toby's find a while ago, the first page ` +
+      `${describeTobyFindLook(seen)}.`,
+  );
 }
 
 /** The size of the screen of a phone held upright, in CSS pixels. */
@@ -10517,6 +10667,7 @@ async function checkClient(): Promise<void> {
     await checkInventory(session, first, second, id, otherId);
     await checkCave(session, first, second, id);
     await checkMartha(session, first, second, id);
+    await checkTobyExclamation(session, first, id);
     await checkTobyQuest(session, first, id);
     await checkApothecary(session, first, id);
     await checkCamera(session, first, id, second, otherId);
