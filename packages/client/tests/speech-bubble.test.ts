@@ -1004,6 +1004,62 @@ describe('SpeechBubble with players who speak', () => {
     });
   });
 
+  it('shows a phrase a player says in the language of the page', async () => {
+    const translator: Translator = await createTranslator('zh-TW');
+    const { parent, bubble, painted } = createBubble(translator);
+    bubble.sayPhraseAs(7, 'askInn', PLAYER_HEAD);
+    expect(parent.children).toHaveLength(1);
+    expect(bubble.describeSaid()).toEqual([
+      {
+        player: 7,
+        line: '這附近有旅店可以休息嗎？',
+        x: PLAYER_HEAD.x,
+        y: parent.children[0]?.position.y,
+        z: PLAYER_HEAD.z,
+        isShown: true,
+        screen: null,
+      },
+    ]);
+    expect(painted).toEqual([
+      { name: '', line: '這附近有旅店可以休息嗎？', language: 'zh-TW' },
+    ]);
+  });
+
+  it.each([
+    ['zh-CN', '请问艾玛在哪儿？'],
+    ['ja', 'すみません、エマさんはどこにいますか？'],
+  ] as const)('words a phrase in %s for a page in it', async (code, line) => {
+    const { bubble } = createBubble(await createTranslator(code));
+    bubble.sayPhraseAs(7, 'askEmma', PLAYER_HEAD);
+    expect(listLines(bubble)).toEqual([[7, line]]);
+  });
+
+  it('shows a phrase in another language once told to', async () => {
+    const translator = new Translator();
+    const { parent, bubble, painted } = createBubble(translator);
+    bubble.sayPhraseAs(7, 'swordPrice', PLAYER_HEAD);
+    expect(listLines(bubble)).toEqual([[7, 'How much for this sword?']]);
+    await translator.choose('zh-TW');
+    bubble.relabel();
+    expect(parent.children).toHaveLength(1);
+    expect(listLines(bubble)).toEqual([[7, '這把劍怎麼賣？']]);
+    expect(painted.at(-1)).toEqual({
+      name: '',
+      line: '這把劍怎麼賣？',
+      language: 'zh-TW',
+    });
+  });
+
+  it('shows a phrase and a line typed in the one bubble of a player', () => {
+    const { parent, bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayPhraseAs(7, 'swordPrice', PLAYER_HEAD);
+    expect(listLines(bubble)).toEqual([[7, 'How much for this sword?']]);
+    bubble.sayAs(7, 'Two.', PLAYER_HEAD);
+    expect(listLines(bubble)).toEqual([[7, 'Two.']]);
+    expect(parent.children).toHaveLength(1);
+  });
+
   it('replaces the line of a player with its next one', () => {
     const { parent, bubble } = createBubble();
     bubble.sayAs(7, 'One.', PLAYER_HEAD);

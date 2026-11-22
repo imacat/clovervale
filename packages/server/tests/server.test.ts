@@ -50,6 +50,7 @@ import {
   WALK_SPEED,
   createInteractMessage,
   createMoveMessage,
+  createPhraseMessage,
   createSayMessage,
   decodeServerMessage,
   encodeClientMessage,
@@ -62,6 +63,7 @@ import type {
   InputProgress,
   ItemKindId,
   MonsterState,
+  PhrasedMessage,
   PlayerState,
   SaidMessage,
   ServerMessage,
@@ -201,6 +203,21 @@ class Peer {
     for (;;) {
       const [message] = await this.#receive();
       if (message.type === 'said') {
+        return message;
+      }
+    }
+  }
+
+  /**
+   * Waits to be told what a player says, a line or a phrase.
+   *
+   * @returns {Promise<SaidMessage | PhrasedMessage>} The next said or
+   *   phrased message.
+   */
+  async receiveSpoken(): Promise<SaidMessage | PhrasedMessage> {
+    for (;;) {
+      const [message] = await this.#receive();
+      if (message.type === 'said' || message.type === 'phrased') {
         return message;
       }
     }
@@ -637,6 +654,36 @@ describe('the game server', () => {
         players.some((player: PlayerState) => player.action === 'Walk'),
     );
     expect(findPlayer(snapshot, speakerId).action).toBe('Walk');
+    expect(speaker.isClosed).toBe(false);
+  });
+
+  it('tells the peers nearby the phrase a player says, and who', async () => {
+    const [speaker, speakerId] = await connectPeer();
+    const [listener] = await connectPeer();
+    await speaker.receiveSnapshotWhere(isPair);
+    speaker.send(createPhraseMessage('askInn'));
+    const phrased: PhrasedMessage = {
+      type: 'phrased',
+      player: speakerId,
+      code: 'askInn',
+    };
+    expect(await listener.receiveSpoken()).toEqual(phrased);
+    expect(await speaker.receiveSpoken()).toEqual(phrased);
+  });
+
+  it('drops a phrase no player can say, and keeps the peer', async () => {
+    const [speaker, speakerId] = await connectPeer();
+    const [listener] = await connectPeer();
+    await speaker.receiveSnapshotWhere(isPair);
+    speaker.send(createPhraseMessage('Hello there!'));
+    speaker.send(createPhraseMessage('askTheTime'));
+    speaker.send(createPhraseMessage('askEmma'));
+    const phrased: PhrasedMessage = {
+      type: 'phrased',
+      player: speakerId,
+      code: 'askEmma',
+    };
+    expect(await listener.receiveSpoken()).toEqual(phrased);
     expect(speaker.isClosed).toBe(false);
   });
 

@@ -26,6 +26,7 @@
 import {
   createEventsMessage,
   createMapMessage,
+  createPhrasedMessage,
   createSaidMessage,
   createSnapshotMessage,
   createSpeechMessage,
@@ -166,6 +167,18 @@ export class Realm {
   }
 
   /**
+   * Has a player say a phrase to the players nearby in the world it is in,
+   * as {@link World.sayPhrase} tells, which no player of any other world
+   * hears.
+   *
+   * @param {number} id - The identifier of the player.
+   * @param {string} code - The code its peer sent.
+   */
+  receivePhrase(id: number, code: string): void {
+    this.findWorld(id)?.sayPhrase(id, code);
+  }
+
+  /**
    * Moves every world one step of the simulation forward, as
    * {@link World.step} tells, and then has every player who has left a
    * world arrive in the one it goes to.
@@ -261,8 +274,10 @@ export class Realm {
             ),
           ...world
             .takeSayings(id)
-            .map(({ player, text }: Saying) =>
-              createSaidMessage(player, text),
+            .map((saying: Saying) =>
+              'text' in saying
+                ? createSaidMessage(saying.player, saying.text)
+                : createPhrasedMessage(saying.player, saying.phrase),
             ),
         );
         if (eventsMessage !== null) {

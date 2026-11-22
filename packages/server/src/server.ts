@@ -95,8 +95,8 @@ const SOCKET_FILE_MODE = 0o660;
  * peer how the day goes.  A peer that sends anything but well-formed
  * client messages, or inputs that are not numbered upwards, or more inputs
  * than can wait for their turn, is disconnected.  A line a peer has its
- * player say is heard as {@link Realm.receiveSay} tells.  Every peer is
- * sent what
+ * player say is heard as {@link Realm.receiveSay} tells, and a phrase as
+ * {@link Realm.receivePhrase} tells.  Every peer is sent what
  * {@link Realm.composeMessages} composes for its player, again and again,
  * as the simulation of the worlds goes on: which map its player is in,
  * whenever that changes, and snapshots of the world its player is in and
@@ -145,6 +145,10 @@ export async function startServer(
       }
       if (message.type === 'say') {
         realm.receiveSay(player.id, message.text);
+        return;
+      }
+      if (message.type === 'phrase') {
+        realm.receivePhrase(player.id, message.code);
         return;
       }
       if (!realm.receiveInput(player.id, message)) {

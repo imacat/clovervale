@@ -38,6 +38,7 @@ import type { Camera, Object3D } from 'three';
 import { locateVillager } from '@clovervale/shared';
 import type {
   MonsterState,
+  PhraseCode,
   Villager,
   VillagerId,
 } from '@clovervale/shared';
@@ -263,7 +264,8 @@ interface ShownSpeech {
   readonly lineIndex: number;
   /**
    * The message of the line the villager says, if it was given, in place of
-   * one of its lines.
+   * one of its lines, or the message of the phrase a player says, if it
+   * says one.
    */
   readonly lineId: PlainMessageId | null;
   /** What the bubble shows. */
@@ -748,6 +750,38 @@ export class SpeechBubble {
    * @param {Vector3} head - The top of the head of the player.
    */
   sayAs(player: number, line: string, head: Vector3): void {
+    this.#showSaid(player, line, null, head);
+  }
+
+  /**
+   * Shows a phrase a player says, in the language of the page, in the
+   * bubble of that player, as {@link sayAs} shows a line it typed.
+   *
+   * @param {number} player - The identifier of the player.
+   * @param {PhraseCode} code - The code of the phrase the player says.
+   * @param {Vector3} head - The top of the head of the player.
+   */
+  sayPhraseAs(player: number, code: PhraseCode, head: Vector3): void {
+    const lineId: PlainMessageId = `phrase.${code}`;
+    this.#showSaid(player, this.#translator.translate(lineId), lineId, head);
+  }
+
+  /**
+   * Shows what a player says in a bubble of its own, in place of the
+   * bubble of that player shown before, if any.
+   *
+   * @param {number} player - The identifier of the player.
+   * @param {string} line - What the player says, shown as plain text.
+   * @param {PlainMessageId | null} lineId - The message of the phrase it
+   *   says, or `null` for a line it typed.
+   * @param {Vector3} head - The top of the head of the player.
+   */
+  #showSaid(
+    player: number,
+    line: string,
+    lineId: PlainMessageId | null,
+    head: Vector3,
+  ): void {
     this.hushPlayer(player);
     const words: SpeechWords = {
       name: '',
@@ -763,7 +797,7 @@ export class SpeechBubble {
     this.#said.set(player, {
       villager: null,
       lineIndex: 0,
-      lineId: null,
+      lineId,
       words,
       sprite,
       painted,
@@ -959,18 +993,25 @@ export class SpeechBubble {
   }
 
   /**
-   * Shows the bubble of a villager being shown, if any, in the language of
-   * the page now, in the same place, until the same end.  What the players
-   * say stays as they typed it, drawn in the fonts of that language.
+   * Shows the bubble of a villager being shown, if any, and the phrases
+   * the players say, in the language of the page now, in the same place,
+   * until the same end.  What the players typed stays as they typed it,
+   * drawn in the fonts of that language.
    */
   relabel(): void {
+    const { language } = this.#translator;
     for (const shown of this.#listShown()) {
-      this.#repaint(
-        shown,
-        shown.villager === null
-          ? { ...shown.words, language: this.#translator.language }
-          : this.#describe(shown.villager, shown.lineIndex, shown.lineId),
-      );
+      const { villager, lineId, words } = shown;
+      let relabelled: SpeechWords;
+      if (villager !== null) {
+        relabelled = this.#describe(villager, shown.lineIndex, lineId);
+      } else if (lineId !== null) {
+        const line: string = this.#translator.translate(lineId);
+        relabelled = { ...words, line, language };
+      } else {
+        relabelled = { ...words, language };
+      }
+      this.#repaint(shown, relabelled);
     }
   }
 

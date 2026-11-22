@@ -3996,3 +3996,82 @@ describe('a player who says a line', () => {
     expect(world.takeSayings(99)).toEqual([]);
   });
 });
+
+describe('a player who says a phrase', () => {
+  it('is heard by itself and by the players within range', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const near: number = admitListener(world, 2, 1.5);
+    const edge: number = admitListener(world, 3, SAY_RANGE);
+    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    const said: Saying[] = [{ player: speaker, phrase: 'askInn' }];
+    expect(world.takeSayings(speaker)).toEqual(said);
+    expect(world.takeSayings(near)).toEqual(said);
+    expect(world.takeSayings(edge)).toEqual(said);
+    expect(world.takeSayings(near)).toEqual([]);
+  });
+
+  it('is not heard by a player out of range', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const far: number = admitListener(world, 2, SAY_RANGE + 0.1);
+    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    expect(world.takeSayings(far)).toEqual([]);
+    expect(world.takeSayings(speaker)).toHaveLength(1);
+  });
+
+  it.each([
+    ['a line typed', 'Hello there!'],
+    ['a code of no phrase there is', 'askTheTime'],
+    ['an empty code', ''],
+  ])('says nothing of %s', (_, code) => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const listener: number = admitListener(world, 2, 1.5);
+    expect(world.sayPhrase(speaker, code)).toBe(false);
+    expect(world.takeSayings(speaker)).toEqual([]);
+    expect(world.takeSayings(listener)).toEqual([]);
+    // What is not said does not keep the next phrase from being said.
+    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+  });
+
+  it('says one phrase at most in the time between two lines', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    stepTimes(world, SAY_INTERVAL_STEPS - 1);
+    expect(world.sayPhrase(speaker, 'askEmma')).toBe(false);
+    world.step();
+    expect(world.sayPhrase(speaker, 'askBasil')).toBe(true);
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, phrase: 'askInn' },
+      { player: speaker, phrase: 'askBasil' },
+    ]);
+  });
+
+  it('shares that time with the lines the player types', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    stepTimes(world, SAY_INTERVAL_STEPS - 1);
+    expect(world.say(speaker, 'Anyone?')).toBe(false);
+    world.step();
+    expect(world.say(speaker, 'Anyone?')).toBe(true);
+    stepTimes(world, SAY_INTERVAL_STEPS - 1);
+    expect(world.sayPhrase(speaker, 'askEmma')).toBe(false);
+    world.step();
+    expect(world.sayPhrase(speaker, 'askEmma')).toBe(true);
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, phrase: 'askInn' },
+      { player: speaker, text: 'Anyone?' },
+      { player: speaker, phrase: 'askEmma' },
+    ]);
+  });
+
+  it('says nothing for a player who is not in the world', () => {
+    const world = new World(createRandom());
+    const listener: number = admitListener(world, 1, 0);
+    expect(world.sayPhrase(99, 'askInn')).toBe(false);
+    expect(world.takeSayings(listener)).toEqual([]);
+  });
+});

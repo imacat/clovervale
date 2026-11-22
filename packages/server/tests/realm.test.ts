@@ -54,6 +54,7 @@ import type {
   GameEvent,
   GroundVector,
   MonsterState,
+  PhrasedMessage,
   PlayerInput,
   PlayerState,
   SaidMessage,
@@ -949,5 +950,61 @@ describe('what a player of the realm says', () => {
     realm.composeMessages();
     realm.receiveSay(id, 'Made it.');
     expect(listSaid(realm.composeMessages().get(id))).toEqual([]);
+  });
+});
+
+/**
+ * Lists the phrases the messages for a player tell it the players have
+ * said, as the realm composes them.
+ *
+ * @param {(readonly ServerMessage[]) | undefined} messages - The
+ *   messages.
+ * @returns {PhrasedMessage[]} The phrased messages among them.
+ */
+function listPhrased(
+  messages: readonly ServerMessage[] | undefined,
+): PhrasedMessage[] {
+  return (messages ?? []).filter(
+    (message: ServerMessage): message is PhrasedMessage =>
+      message.type === 'phrased',
+  );
+}
+
+describe('a phrase a player of the realm says', () => {
+  it('is sent to it and to a player beside it in the village, once', () => {
+    const realm = new Realm(createRandom());
+    const [first, second] = addDiggers(realm);
+    realm.receivePhrase(first, 'askInn');
+    const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+    const phrased: PhrasedMessage[] = [
+      { type: 'phrased', player: first, code: 'askInn' },
+    ];
+    expect(listPhrased(composed.get(first))).toEqual(phrased);
+    expect(listPhrased(composed.get(second))).toEqual(phrased);
+    realm.step();
+    const later: Map<number, ServerMessage[]> = realm.composeMessages();
+    expect(listPhrased(later.get(first))).toEqual([]);
+    expect(listPhrased(later.get(second))).toEqual([]);
+  });
+
+  it('is not heard down in a cave when said in the village above', () => {
+    const realm = new Realm(createRandom());
+    const [first, second] = addDiggers(realm);
+    goDown(realm, first);
+    realm.receivePhrase(second, 'askInn');
+    const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+    expect(listPhrased(composed.get(first))).toEqual([]);
+    expect(listPhrased(composed.get(second))).toHaveLength(1);
+  });
+
+  it('is not sent to anyone if it is no phrase a player can say', () => {
+    const realm = new Realm(createRandom());
+    const [first, second] = addDiggers(realm);
+    realm.receivePhrase(first, 'Hello there!');
+    const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+    for (const id of [first, second]) {
+      expect(listPhrased(composed.get(id))).toEqual([]);
+      expect(listSaid(composed.get(id))).toEqual([]);
+    }
   });
 });

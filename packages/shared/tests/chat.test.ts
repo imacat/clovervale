@@ -25,9 +25,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PHRASE_CODES,
   SAY_BREAK_LIMIT,
   SAY_LENGTH_LIMIT,
   cleanSayText,
+  isPhraseCode,
   isSayText,
 } from '../src/chat.ts';
 
@@ -150,5 +152,23 @@ describe('isSayText', () => {
     ['is too long', 'a'.repeat(SAY_LENGTH_LIMIT + 1)],
   ])('refuses what %s', (_, value) => {
     expect(isSayText(value)).toBe(false);
+  });
+});
+
+describe('isPhraseCode', () => {
+  it('takes the code of every phrase a player can say', () => {
+    for (const code of PHRASE_CODES) {
+      expect(isPhraseCode(code)).toBe(true);
+    }
+  });
+
+  it.each([
+    ['is no text', 7],
+    ['is empty', ''],
+    ['is a line typed', 'Hello there!'],
+    ['is a code in other letters', 'ASKINN'],
+    ['is a name every object has', 'toString'],
+  ])('refuses what %s', (_, value) => {
+    expect(isPhraseCode(value)).toBe(false);
   });
 });

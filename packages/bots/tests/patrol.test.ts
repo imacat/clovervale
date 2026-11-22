@@ -18,7 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module bots/tests/patrol Tests for where a bot walks to, and how.
+ * @module bots/tests/patrol Tests for where a bot walks to, and how, and
+ *   what it says there.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -46,12 +47,13 @@ import {
   POINTS_OF_INTEREST,
   STEP_DISTANCE,
   chooseNextPoint,
+  choosePhrase,
   planDrinkingWalk,
   planEscape,
   planLeg,
   planRoute,
 } from '../src/patrol.ts';
-import type { Leg } from '../src/patrol.ts';
+import type { Leg, PlaceLines } from '../src/patrol.ts';
 
 /**
  * Walks a player along a leg by the rules of the server.
@@ -170,6 +172,80 @@ describe('POINTS_OF_INTEREST', () => {
       ({ position }) => measureDistance(position, martha) <= TALK_REACH,
     );
     expect(near).toBe(true);
+  });
+});
+
+describe('what a bot says at the points of interest', () => {
+  /**
+   * Finds what a bot says at a point of interest.
+   *
+   * @param {string} name - What stands there.
+   * @returns {PlaceLines} Its lines there.
+   */
+  const findLines = (name: string): PlaceLines =>
+    POINTS_OF_INTEREST.find((point) => point.name === name)?.lines ?? [];
+
+  it('is nothing at the fountain or the spawn point of the monster', () => {
+    expect(findLines('fountain')).toEqual([]);
+    expect(findLines('spawn point')).toEqual([]);
+  });
+
+  it('is two lines in turn everywhere else', () => {
+    for (const { name, lines } of POINTS_OF_INTEREST) {
+      if (name !== 'fountain' && name !== 'spawn point') {
+        expect(lines).toHaveLength(2);
+      }
+    }
+  });
+
+  it('asks Martha for an inn, then the way to one of four', () => {
+    const lines: PlaceLines = findLines('village chief');
+    const draws: number[] = [0, 0.3, 0.6, 0.9];
+    expect(choosePhrase(lines, 0, () => 0.9)).toBe('askInn');
+    expect(draws.map((draw) => choosePhrase(lines, 1, () => draw))).toEqual([
+      'askApothecary',
+      'askEmma',
+      'askBasil',
+      'askNancy',
+    ]);
+  });
+});
+
+describe('choosePhrase', () => {
+  /** Two lines, the second of which is one of three phrases. */
+  const LINES: PlaceLines = [
+    ['swordPrice'],
+    ['askEmma', 'askBasil', 'askNancy'],
+  ];
+
+  it('says the lines in turn, over and over', () => {
+    const said = [0, 1, 2, 3, 4].map((turn: number) =>
+      choosePhrase(LINES, turn, () => 0),
+    );
+    expect(said).toEqual([
+      'swordPrice',
+      'askEmma',
+      'swordPrice',
+      'askEmma',
+      'swordPrice',
+    ]);
+  });
+
+  it('picks any phrase of a line, each as likely as the others', () => {
+    const draws: number[] = [0, 0.33, 0.34, 0.66, 0.67, 0.99];
+    expect(draws.map((draw) => choosePhrase(LINES, 1, () => draw))).toEqual([
+      'askEmma',
+      'askEmma',
+      'askBasil',
+      'askBasil',
+      'askNancy',
+      'askNancy',
+    ]);
+  });
+
+  it('says nothing where there are no lines', () => {
+    expect(choosePhrase([], 0, () => 0)).toBeNull();
+    expect(choosePhrase([], 3, () => 0.5)).toBeNull();
   });
 });
 

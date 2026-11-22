@@ -30,6 +30,8 @@ import {
   createInteractMessage,
   createMapMessage,
   createMoveMessage,
+  createPhraseMessage,
+  createPhrasedMessage,
   createSaidMessage,
   createSayMessage,
   createSnapshotMessage,
@@ -885,6 +887,30 @@ describe('the server message codec', () => {
     expect(() => decodeServerMessage(data)).toThrow();
   });
 
+  it('decodes the phrased message it encodes', () => {
+    const message = createPhrasedMessage(7, 'askInn');
+    expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+      type: 'phrased',
+      player: 7,
+      code: 'askInn',
+    });
+  });
+
+  it.each([
+    ['names no player', { player: 'seven' }],
+    ['has no code', { code: undefined }],
+    ['has a code of no phrase there is', { code: 'askTheTime' }],
+    ['has a line typed for its code', { code: 'Hello there!' }],
+  ])('rejects a phrased message that %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'phrased',
+      player: 7,
+      code: 'askInn',
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
   it.each([
     ['is missing', { inventory: undefined }],
     ['is not a list', { inventory: 'clover' }],
@@ -1103,6 +1129,21 @@ describe('the client message codec', () => {
   it('rejects a say message without a text', () => {
     expect(() => decodeClientMessage('{"type":"say"}')).toThrow();
     expect(() => decodeClientMessage('{"type":"say","text":7}')).toThrow();
+  });
+
+  it('decodes the phrase message it encodes, as it was sent', () => {
+    for (const code of ['askInn', 'askTheTime', '']) {
+      const message = createPhraseMessage(code);
+      expect(decodeClientMessage(encodeClientMessage(message))).toEqual({
+        type: 'phrase',
+        code,
+      });
+    }
+  });
+
+  it('rejects a phrase message without a code', () => {
+    expect(() => decodeClientMessage('{"type":"phrase"}')).toThrow();
+    expect(() => decodeClientMessage('{"type":"phrase","code":7}')).toThrow();
   });
 
   it('rejects a message of an unknown type', () => {

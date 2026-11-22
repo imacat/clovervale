@@ -314,4 +314,16 @@ export const JA_MESSAGES: MessageTable = {
   'dialogue.basil.full':
     'かばん、もういっぱいみたいですね。ちょっと整理してから、また来てください！',
   'dialogue.basil.farewell': 'はい、また必要になったら、いつでも来てくださいね！',
+
+  'phrase.herbScent': 'この草、何ですか？いい香りですね。',
+  'phrase.headacheHerb': '頭痛に効く薬草って、ありますか？',
+  'phrase.swordPrice': 'この剣、いくらですか？',
+  'phrase.lighterSword': 'もう少し軽いの、ありませんか？これだと重くて……',
+  'phrase.slowDown': 'ねえ、そんなに走ると転んじゃうよ。ゆっくりね。',
+  'phrase.stayInside': '村の外に出ちゃだめだよ。野犬がいるからね。',
+  'phrase.askInn': 'この辺に、休める宿ってありますか？',
+  'phrase.askApothecary': 'すみません、薬草屋さんにはどう行けばいいですか？',
+  'phrase.askEmma': 'すみません、エマさんはどこにいますか？',
+  'phrase.askBasil': 'すみません、バジルさんはどこにいますか？',
+  'phrase.askNancy': 'すみません、ナンシーさんはどこにいますか？',
 };

@@ -298,4 +298,16 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'dialogue.basil.short': '啊，银币不够啊。不好意思，我也得吃饭嘛……',
   'dialogue.basil.full': '你背包好像装不下了。先收拾一下再来吧！',
   'dialogue.basil.farewell': '好嘞，要用的时候再来找我啊！',
+
+  'phrase.herbScent': '这是什么草啊？闻着真香。',
+  'phrase.headacheHerb': '有没有治头疼的草药？',
+  'phrase.swordPrice': '这把剑怎么卖？',
+  'phrase.lighterSword': '有没有轻一点儿的？这把我拿不太动。',
+  'phrase.slowDown': '小朋友，慢点儿跑，别摔着了。',
+  'phrase.stayInside': '可别往村子外头跑啊，外面有野狗。',
+  'phrase.askInn': '这附近有没有旅店能歇歇脚？',
+  'phrase.askApothecary': '请问草药铺怎么走？',
+  'phrase.askEmma': '请问艾玛在哪儿？',
+  'phrase.askBasil': '请问巴索在哪儿？',
+  'phrase.askNancy': '请问南茜在哪儿？',
 };

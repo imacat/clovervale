@@ -59,6 +59,7 @@ import type {
   MapId,
   MonsterKindId,
   MonsterState,
+  PhraseCode,
   PlayerInput,
   PlayerMotion,
   PlayerState,
@@ -859,6 +860,20 @@ function showSaid(player: number, line: string): void {
 }
 
 /**
+ * Shows a phrase a player says, in the language of the page, in a bubble
+ * above its head, where and when {@link showSaid} shows a line it typed.
+ *
+ * @param {number} player - The identifier of the player.
+ * @param {PhraseCode} code - The code of the phrase the player says.
+ */
+function showPhrase(player: number, code: PhraseCode): void {
+  const figure: Object3D | null = figures.findFigure(player);
+  if (figure !== null && isOnScreen(viewport.getCamera(), figure, null)) {
+    speech.sayPhraseAs(player, code, findFigureTop(figure));
+  }
+}
+
+/**
  * Keeps the bubbles of the players above their heads as they go about:
  * a bubble is not seen while its player is off the screen, and is taken
  * away once its player is shown no more.
@@ -1492,6 +1507,12 @@ function receiveMessage(data: string): void {
   if (message.type === 'said') {
     if (ownId !== null) {
       showSaid(message.player, message.text);
+    }
+    return;
+  }
+  if (message.type === 'phrased') {
+    if (ownId !== null) {
+      showPhrase(message.player, message.code);
     }
     return;
   }

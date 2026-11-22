@@ -19,7 +19,7 @@
 
 /**
  * @module bots/bot A headless peer of the game server, whose player
- *   patrols the village.
+ *   patrols the village, and says something there now and then.
  */
 
 import {
@@ -29,6 +29,7 @@ import {
   SIMULATION_RATE,
   createInteractMessage,
   createMoveMessage,
+  createPhraseMessage,
   decodeServerMessage,
   encodeClientMessage,
   findInteraction,
@@ -38,24 +39,34 @@ import {
 import type {
   GroundVector,
   InputProgress,
+  PhraseCode,
   PlayerState,
   ServerMessage,
 } from '@clovervale/shared';
 
 import {
   POINTS_OF_INTEREST,
+  SPEAK_CHANCE,
+  SPEAK_DELAY,
   STEP_DISTANCE,
   chooseNextPoint,
+  choosePhrase,
   planDrinkingWalk,
   planEscape,
   planRoute,
 } from './patrol.ts';
-import type { Leg } from './patrol.ts';
+import type { Leg, PlaceLines, PointOfInterest } from './patrol.ts';
+
+/** A point a bot walks to. */
+export interface PatrolPoint extends GroundVector {
+  /** What the bot says there, which is nothing by default. */
+  readonly lines?: PlaceLines;
+}
 
 /** How a bot patrols. */
 export interface PatrolSettings {
   /** The points the bot walks between, at least one. */
-  readonly points: readonly GroundVector[];
+  readonly points: readonly PatrolPoint[];
   /** The shortest time the bot stays at a point, in milliseconds. */
   readonly minPause: number;
   /** The longest time the bot stays at a point, in milliseconds. */
@@ -76,6 +87,11 @@ export interface PatrolSettings {
    * before it patrols on.  {@link THIRSTY_HEALTH} by default.
    */
   readonly thirstyHealth?: number;
+  /**
+   * The chance that the bot speaks on arriving at a point where it has
+   * something to say.  {@link SPEAK_CHANCE} by default.
+   */
+  readonly speakChance?: number;
 }
 
 /**
@@ -87,10 +103,15 @@ export const THIRSTY_HEALTH: number = PLAYER_HEALTH / 2;
 /**
  * How a bot patrols unless told otherwise: between the points of interest
  * of the village, around the obstacles, staying at each for one to three
- * seconds.
+ * seconds, and saying what a bot says there now and then.
  */
 export const DEFAULT_PATROL: PatrolSettings = {
-  points: POINTS_OF_INTEREST.map(({ position }) => position),
+  points: POINTS_OF_INTEREST.map(
+    ({ position, lines }: PointOfInterest): PatrolPoint => ({
+      ...position,
+      lines,
+    }),
+  ),
   minPause: 1000,
   maxPause: 3000,
   drawRandom: Math.random,
@@ -144,6 +165,13 @@ const ATTEMPT_LIMIT = 5;
  * player that dies gives up the rest of its walk, and sets out again from
  * where it comes back.
  *
+ * On getting to a point where it has something to say, the player speaks
+ * with the speak chance of the patrol: it stands there for
+ * {@link SPEAK_DELAY} milliseconds, says a phrase to the players nearby,
+ * and only then starts its stay.  The lines it has at a point take turns
+ * from one time it speaks there to the next, as {@link choosePhrase}
+ * tells.  A player that dies before it speaks says nothing.
+ *
  * A player whose health has fallen to the thirsty health of the patrol
  * walks to the fountain instead, once it has come to rest, and drinks from
  * it again and again until it is at full health, then patrols on to
@@ -179,10 +207,13 @@ export function startBot(
     let attempts = 0;
     let isStaying = false;
     let readyTime = 0;
+    let speechTimer: NodeJS.Timeout | null = null;
+    const speechCounts = new Map<number, number>();
     let visit: FountainVisit = 'none';
     const timers = new Set<NodeJS.Timeout>();
     const findPath = patrol.findPath ?? findVillagePath;
     const thirstyHealth: number = patrol.thirstyHealth ?? THIRSTY_HEALTH;
+    const speakChance: number = patrol.speakChance ?? SPEAK_CHANCE;
     const sendMove = (after: number, direction: GroundVector): void => {
       if (socket.readyState === WebSocket.OPEN) {
         const stamp = { sequence: ++sequence, after };
@@ -245,6 +276,47 @@ export function startBot(
       timers.clear();
       sendMove(0, STOP);
     };
+    const hush = (): void => {
+      if (speechTimer !== null) {
+        clearTimeout(speechTimer);
+        speechTimer = null;
+      }
+    };
+    /**
+     * Has the player of the bot speak at the point it has just got to, if
+     * it has something to say there and chances to.
+     *
+     * @returns {number} How long the player stands there before it has
+     *   spoken, in milliseconds, which is no time if it does not speak.
+     */
+    const speak = (): number => {
+      const place: number | null = point;
+      const lines: PlaceLines = patrol.points[place ?? 0]?.lines ?? [];
+      if (
+        place === null ||
+        lines.length === 0 ||
+        patrol.drawRandom() >= speakChance
+      ) {
+        return 0;
+      }
+      const turn: number = speechCounts.get(place) ?? 0;
+      const code: PhraseCode | null = choosePhrase(
+        lines,
+        turn,
+        patrol.drawRandom,
+      );
+      if (code === null) {
+        return 0;
+      }
+      speechCounts.set(place, turn + 1);
+      speechTimer = setTimeout(() => {
+        speechTimer = null;
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(encodeClientMessage(createPhraseMessage(code)));
+        }
+      }, SPEAK_DELAY);
+      return SPEAK_DELAY;
+    };
     /**
      * Has the player of the bot visit the fountain, if it is to.
      *
@@ -294,6 +366,7 @@ export function startBot(
         // The player comes back elsewhere, where the rest of the walk would
         // lead it astray, so it is to rest by then and set out afresh.
         stopWalking();
+        hush();
         visit = 'none';
         return;
       }
@@ -307,13 +380,15 @@ export function startBot(
         return;
       }
       if (target !== null && !isStaying) {
-        if (!isNear(own.motion, target) && attempts < ATTEMPT_LIMIT) {
+        const hasArrived: boolean = isNear(own.motion, target);
+        if (!hasArrived && attempts < ATTEMPT_LIMIT) {
           setOut(own.motion, target);
           return;
         }
         isStaying = true;
         readyTime =
           now +
+          (hasArrived ? speak() : 0) +
           patrol.minPause +
           patrol.drawRandom() * (patrol.maxPause - patrol.minPause);
         return;
@@ -353,7 +428,8 @@ export function startBot(
         message.type === 'events' ||
         message.type === 'map' ||
         message.type === 'speech' ||
-        message.type === 'said'
+        message.type === 'said' ||
+        message.type === 'phrased'
       ) {
         return;
       }
@@ -383,6 +459,7 @@ export function startBot(
         clearTimeout(timer);
       }
       timers.clear();
+      hush();
       if (playerId === null) {
         fail(new Error(`The server at ${url} left without a welcome.`));
       } else if (isStopping) {

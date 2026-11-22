@@ -18,7 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module bots/patrol Where a bot walks to in the village, and how.
+ * @module bots/patrol Where a bot walks to in the village, and how, and
+ *   what it says there.
  */
 
 import {
@@ -34,7 +35,13 @@ import {
   movePosition,
   placePoint,
 } from '@clovervale/shared';
-import type { GroundVector, Pose } from '@clovervale/shared';
+import type { GroundVector, PhraseCode, Pose } from '@clovervale/shared';
+
+/**
+ * What a bot says at a place: its lines there, said in turn, one each time
+ * it speaks there, each line the phrases it is one of, picked at random.
+ */
+export type PlaceLines = readonly (readonly PhraseCode[])[];
 
 /** A place in the village worth walking to. */
 export interface PointOfInterest {
@@ -42,6 +49,8 @@ export interface PointOfInterest {
   readonly name: string;
   /** Where a player stands to visit it. */
   readonly position: GroundVector;
+  /** What a bot says there, which is nothing where it has no lines. */
+  readonly lines: PlaceLines;
 }
 
 /**
@@ -60,10 +69,15 @@ const TOBY_RUN: Pose = {
 
 /**
  * What a bot visits: the name, where what stands there is and which way it
- * faces, and where a player stands to visit it, as what stands there has
- * it before it is placed.
+ * faces, where a player stands to visit it, as what stands there has it
+ * before it is placed, and what a bot says there.
  */
-type Visit = readonly [name: string, anchor: Pose, local: GroundVector];
+type Visit = readonly [
+  name: string,
+  anchor: Pose,
+  local: GroundVector,
+  lines: PlaceLines,
+];
 
 /**
  * The places a bot patrols between, each where a player stands to look at
@@ -75,18 +89,37 @@ type Visit = readonly [name: string, anchor: Pose, local: GroundVector];
  * middle of Toby's run, on the side of the open ground, far enough from it
  * that he never pushes a player there; on the open ground in front of
  * Martha's porch, before her; and by the stones that mark the spawn point
- * of the monster, on the side of the village.
+ * of the monster, on the side of the village.  A bot has something to say
+ * at each but the fountain and the spawn point of the monster: of the
+ * wares at the shops, to Toby as he runs, and, before Martha, to ask for
+ * an inn and then the way to somewhere or someone.
  */
 const VISITS: readonly Visit[] = [
-  ['weapon shop', findPlacement('weapon-shop.glb'), { x: 0.1644, z: 3.6 }],
-  ['fountain', findPlacement('fountain.glb'), { x: 0, z: 2.6 }],
-  ['apothecary', findPlacement('prop-herb-rack.glb'), { x: 0, z: 1.3 }],
-  ['Toby', TOBY_RUN, { x: 1.2, z: 0 }],
-  ['village chief', findPlacement('npc-martha.glb'), { x: 0, z: 1.5 }],
+  [
+    'weapon shop',
+    findPlacement('weapon-shop.glb'),
+    { x: 0.1644, z: 3.6 },
+    [['swordPrice'], ['lighterSword']],
+  ],
+  ['fountain', findPlacement('fountain.glb'), { x: 0, z: 2.6 }, []],
+  [
+    'apothecary',
+    findPlacement('prop-herb-rack.glb'),
+    { x: 0, z: 1.3 },
+    [['herbScent'], ['headacheHerb']],
+  ],
+  ['Toby', TOBY_RUN, { x: 1.2, z: 0 }, [['slowDown'], ['stayInside']]],
+  [
+    'village chief',
+    findPlacement('npc-martha.glb'),
+    { x: 0, z: 1.5 },
+    [['askInn'], ['askApothecary', 'askEmma', 'askBasil', 'askNancy']],
+  ],
   [
     'spawn point',
     findPlacement('prop-spawn-stones.glb'),
     { x: -1.5, z: -2.1 },
+    [],
   ],
 ];
 
@@ -94,11 +127,45 @@ const VISITS: readonly Visit[] = [
  * The places a bot patrols between, where the models of the village stand.
  */
 export const POINTS_OF_INTEREST: readonly PointOfInterest[] = VISITS.map(
-  ([name, anchor, local]: Visit): PointOfInterest => ({
+  ([name, anchor, local, lines]: Visit): PointOfInterest => ({
     name,
     position: placePoint(anchor, local),
+    lines,
   }),
 );
+
+/**
+ * The chance that a bot speaks on arriving at a place where it has
+ * something to say.
+ */
+export const SPEAK_CHANCE: number = 1 / 4;
+
+/**
+ * How long a bot that speaks at a place stands there before it does, in
+ * milliseconds.
+ */
+export const SPEAK_DELAY = 1000;
+
+/**
+ * Chooses what a bot says at a place.
+ *
+ * @param {PlaceLines} lines - What a bot says there.
+ * @param {number} turn - The number of times the bot has spoken there
+ *   before.
+ * @param {() => number} drawRandom - Gives a random number from 0 up to but
+ *   not including 1.
+ * @returns {PhraseCode | null} The phrase: of the line whose turn it is,
+ *   the lines taking turns in their order, over and over, any phrase of
+ *   that line as likely as the others; or `null` where there are no lines.
+ */
+export function choosePhrase(
+  lines: PlaceLines,
+  turn: number,
+  drawRandom: () => number,
+): PhraseCode | null {
+  const line: readonly PhraseCode[] = lines[turn % lines.length] ?? [];
+  return line[Math.floor(drawRandom() * line.length)] ?? null;
+}
 
 /** How far a walking player goes in one simulation step, in metres. */
 export const STEP_DISTANCE: number = WALK_SPEED / SIMULATION_RATE;

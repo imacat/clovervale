@@ -55,6 +55,7 @@ import {
   hasRoom,
   interpolatePlaced,
   isFighting,
+  isPhraseCode,
   isVillagerFree,
   isWithinStrike,
 } from '@clovervale/shared';
@@ -70,6 +71,7 @@ import type {
   MapId,
   MonsterState,
   Passage,
+  PhraseCode,
   PickTarget,
   PlayerMotion,
   PlayerState,
@@ -196,8 +198,8 @@ export interface Player {
    */
   sayings: Saying[];
   /**
-   * The number of the step at which the player last said a line, or `null`
-   * if it has said none.
+   * The number of the step at which the player last said a line or a
+   * phrase, or `null` if it has said neither.
    */
   saidStep: number | null;
 }
@@ -220,13 +222,24 @@ export interface Speech {
   readonly line: string;
 }
 
-/** What a player says to the players nearby. */
-export interface Saying {
+/** A line a player says to the players nearby. */
+export interface SaidLine {
   /** The identifier of the player who speaks. */
   readonly player: number;
   /** The line the player says. */
   readonly text: string;
 }
+
+/** A phrase a player says to the players nearby. */
+export interface SaidPhrase {
+  /** The identifier of the player who speaks. */
+  readonly player: number;
+  /** The code of the phrase the player says. */
+  readonly phrase: PhraseCode;
+}
+
+/** What a player says to the players nearby. */
+export type Saying = SaidLine | SaidPhrase;
 
 /** An item that lies on the ground, and until when. */
 interface LyingItem {
@@ -928,38 +941,84 @@ export class World {
    * heard by every player of the world within {@link SAY_RANGE} metres of
    * the player then, the player itself among them, and by nobody else.
    * Nothing is said if the player is not in the world, if nothing is left
-   * of the text to say, or if the player said its last line less than
-   * {@link SAY_INTERVAL} seconds ago, in this world or another.
+   * of the text to say, or if the player said its last line or phrase
+   * less than {@link SAY_INTERVAL} seconds ago, in this world or another.
    *
    * @param {number} id - The identifier of the player.
    * @param {string} text - The text its peer sent.
    * @returns {boolean} Whether the player said a line.
    */
   say(id: number, text: string): boolean {
+    const speaker: Player | null = this.#findSpeaker(id);
+    const line: string | null = cleanSayText(text);
+    if (speaker === null || line === null) {
+      return false;
+    }
+    this.#tellNearby(speaker, { player: id, text: line });
+    return true;
+  }
+
+  /**
+   * Has a player say a phrase to the players nearby, at once.
+   *
+   * The phrase is heard as a line is, as {@link World.say} tells: by every
+   * player of the world within {@link SAY_RANGE} metres of the player
+   * then, the player itself among them, and by nobody else.  Nothing is
+   * said if the player is not in the world, if the code is not that of a
+   * phrase a player can say, as {@link isPhraseCode} tells, or if the
+   * player said its last line or phrase less than {@link SAY_INTERVAL}
+   * seconds ago, in this world or another.
+   *
+   * @param {number} id - The identifier of the player.
+   * @param {string} code - The code its peer sent.
+   * @returns {boolean} Whether the player said a phrase.
+   */
+  sayPhrase(id: number, code: string): boolean {
+    const speaker: Player | null = this.#findSpeaker(id);
+    if (speaker === null || !isPhraseCode(code)) {
+      return false;
+    }
+    this.#tellNearby(speaker, { player: id, phrase: code });
+    return true;
+  }
+
+  /**
+   * Finds a player who may say something now.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {Player | null} The player, or `null` if it is not in the
+   *   world, or said its last line or phrase less than
+   *   {@link SAY_INTERVAL} seconds ago.
+   */
+  #findSpeaker(id: number): Player | null {
     const speaker: Player | undefined = this.#players.get(id);
     if (speaker === undefined) {
-      return false;
+      return null;
     }
     const { saidStep } = speaker;
-    if (
-      saidStep !== null &&
+    return saidStep !== null &&
       this.#stepCount - saidStep < SAY_INTERVAL_STEPS
-    ) {
-      return false;
-    }
-    const line: string | null = cleanSayText(text);
-    if (line === null) {
-      return false;
-    }
+      ? null
+      : speaker;
+  }
+
+  /**
+   * Has every player within {@link SAY_RANGE} metres of a player, the
+   * player itself among them, hear what it says, and notes that it spoke
+   * now.
+   *
+   * @param {Player} speaker - The player who speaks.
+   * @param {Saying} saying - What it says.
+   */
+  #tellNearby(speaker: Player, saying: Saying): void {
     speaker.saidStep = this.#stepCount;
     const { x, z } = speaker.mover.motion;
     for (const player of this.#players.values()) {
       const { motion } = player.mover;
       if (Math.hypot(motion.x - x, motion.z - z) <= SAY_RANGE) {
-        player.sayings.push({ player: id, text: line });
+        player.sayings.push(saying);
       }
     }
-    return true;
   }
 
   /**

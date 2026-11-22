@@ -32,13 +32,14 @@ import {
 } from '@clovervale/shared';
 import type {
   GroundVector,
+  PhraseCode,
   PlayerState,
   ServerMessage,
 } from '@clovervale/shared';
 
 import { startBot } from '../src/bot.ts';
 import type { PatrolSettings, RunningBot } from '../src/bot.ts';
-import { STEP_DISTANCE } from '../src/patrol.ts';
+import { SPEAK_CHANCE, STEP_DISTANCE } from '../src/patrol.ts';
 
 /** How long a test waits for something at most, in milliseconds. */
 const WAIT_TIMEOUT = 8000;
@@ -66,10 +67,25 @@ const PATROL: PatrolSettings = {
   drawRandom: () => 0,
 };
 
-/** A peer that only watches the snapshots of a server. */
+/** A phrase a watcher heard a player say. */
+interface HeardPhrase {
+  /** The identifier of the player who said it. */
+  readonly player: number;
+  /** The code of the phrase. */
+  readonly code: PhraseCode;
+  /** The number of snapshots the watcher had got by then. */
+  readonly snapshotCount: number;
+}
+
+/**
+ * A peer that only watches the snapshots of a server, and hears what the
+ * players near its own say.
+ */
 interface Watcher {
   /** Every snapshot of the players so far, the latest last. */
   readonly snapshots: (readonly PlayerState[])[];
+  /** Every phrase heard so far, the latest last. */
+  readonly phrases: HeardPhrase[];
   /** Disconnects the watcher. */
   readonly close: () => void;
 }
@@ -83,14 +99,20 @@ interface Watcher {
 function watchServer(url: string): Watcher {
   const socket = new WebSocket(url);
   const snapshots: (readonly PlayerState[])[] = [];
+  const phrases: HeardPhrase[] = [];
   socket.addEventListener('message', (event) => {
     const message: ServerMessage = decodeServerMessage(String(event.data));
     if (message.type === 'snapshot') {
       snapshots.push(message.players);
     }
+    if (message.type === 'phrased') {
+      const { player, code } = message;
+      phrases.push({ player, code, snapshotCount: snapshots.length });
+    }
   });
   return {
     snapshots,
+    phrases,
     close: () => {
       socket.close();
     },
@@ -302,6 +324,75 @@ describe('startBot', () => {
       expect(drinks).toBe(1);
     },
     TEST_TIMEOUT * 2,
+  );
+
+  it(
+    'says its lines at a point in turn, a second into a longer stay',
+    async () => {
+      const [first, second] = POINTS as [GroundVector, GroundVector];
+      const bot: RunningBot = await startTestBot({
+        ...PATROL,
+        points: [
+          { ...first, lines: [['swordPrice'], ['askEmma', 'askBasil']] },
+          second,
+        ],
+      });
+      const watcher: Watcher = watchServer(url);
+      cleanups.push(watcher.close);
+      const findBot = (): PlayerState | undefined =>
+        findPlayer(watcher.snapshots.at(-1), bot.playerId);
+
+      await waitUntil(() => isIdleAt(findBot(), first));
+      const arrival: number = watcher.snapshots.length;
+      await waitUntil(() => findBot()?.action === 'Walk');
+      const departure: number = watcher.snapshots.length;
+      await waitUntil(() => watcher.phrases.length === 2);
+
+      expect(
+        watcher.phrases.map(({ player, code }: HeardPhrase) => [player, code]),
+      ).toEqual([
+        [bot.playerId, 'swordPrice'],
+        [bot.playerId, 'askEmma'],
+      ]);
+      // A second is about ten snapshots, and half a second about five.
+      const spoken: number = watcher.phrases[0]?.snapshotCount ?? 0;
+      expect(spoken - arrival).toBeGreaterThanOrEqual(7);
+      expect(departure - spoken).toBeGreaterThanOrEqual(3);
+      for (const players of watcher.snapshots.slice(arrival, spoken)) {
+        expect(isIdleAt(findPlayer(players, bot.playerId), first)).toBe(true);
+      }
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'says nothing when it does not chance to, and stays no longer',
+    async () => {
+      const [first, second] = POINTS as [GroundVector, GroundVector];
+      const bot: RunningBot = await startTestBot({
+        ...PATROL,
+        points: [{ ...first, lines: [['swordPrice'], ['askEmma']] }, second],
+        drawRandom: () => SPEAK_CHANCE,
+      });
+      const watcher: Watcher = watchServer(url);
+      cleanups.push(watcher.close);
+      const findBot = (): PlayerState | undefined =>
+        findPlayer(watcher.snapshots.at(-1), bot.playerId);
+
+      await waitUntil(() => isIdleAt(findBot(), first));
+      const arrival: number = watcher.snapshots.length;
+      await waitUntil(() => findBot()?.action === 'Walk');
+      const departure: number = watcher.snapshots.length;
+      await waitUntil(() => isIdleAt(findBot(), second));
+      await waitUntil(() => isIdleAt(findBot(), first));
+      await waitUntil(() => findBot()?.action === 'Walk');
+
+      expect(watcher.phrases).toEqual([]);
+      // Half a second is about five snapshots, where a bot that speaks
+      // stays for about fifteen.
+      expect(departure - arrival).toBeLessThanOrEqual(9);
+    },
+    TEST_TIMEOUT,
   );
 
   it('leaves the village when stopped', async () => {

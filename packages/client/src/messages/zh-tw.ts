@@ -296,4 +296,16 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'dialogue.basil.short': '啊，銀幣不夠耶。不好意思，我也要吃飯⋯⋯',
   'dialogue.basil.full': '你的背包好像裝不下了。先整理一下再來吧！',
   'dialogue.basil.farewell': '好，需要的時候再來找我喔！',
+
+  'phrase.herbScent': '這是什麼草？聞起來好香。',
+  'phrase.headacheHerb': '有沒有治頭痛的藥草？',
+  'phrase.swordPrice': '這把劍怎麼賣？',
+  'phrase.lighterSword': '有沒有輕一點的？我拿不太動。',
+  'phrase.slowDown': '小朋友，跑慢一點，別跌倒了。',
+  'phrase.stayInside': '不要跑到村子外面去喔，外面有野狗。',
+  'phrase.askInn': '這附近有旅店可以休息嗎？',
+  'phrase.askApothecary': '請問藥草舖怎麼走？',
+  'phrase.askEmma': '請問艾瑪在哪裡？',
+  'phrase.askBasil': '請問巴索在哪裡？',
+  'phrase.askNancy': '請問南茜在哪裡？',
 };

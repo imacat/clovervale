@@ -38,6 +38,29 @@ export const SAY_INTERVAL = 2;
 /** The most line breaks a line a player says has, which make its rows. */
 export const SAY_BREAK_LIMIT = 3;
 
+/**
+ * The codes of the phrases a player can say without typing them, which
+ * every peer that hears one words in its own language: what a traveller
+ * says at the herb rack of the apothecary's, at the stall of the weapon
+ * shop, to a child who runs about, and to ask the way.
+ */
+export const PHRASE_CODES = [
+  'herbScent',
+  'headacheHerb',
+  'swordPrice',
+  'lighterSword',
+  'slowDown',
+  'stayInside',
+  'askInn',
+  'askApothecary',
+  'askEmma',
+  'askBasil',
+  'askNancy',
+] as const;
+
+/** The code of a phrase a player can say without typing it. */
+export type PhraseCode = (typeof PHRASE_CODES)[number];
+
 /** Half a character, left over without its other half. */
 const LONE_SURROGATE_PATTERN = /[\uD800-\uDFFF]/gu;
 
@@ -93,4 +116,15 @@ export function cleanSayText(text: string): string | null {
  */
 export function isSayText(value: unknown): value is string {
   return typeof value === 'string' && cleanSayText(value) === value;
+}
+
+/**
+ * Tells whether a decoded value is the code of a phrase a player can say,
+ * one of {@link PHRASE_CODES}.
+ *
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} Whether it is.
+ */
+export function isPhraseCode(value: unknown): value is PhraseCode {
+  return (PHRASE_CODES as readonly unknown[]).includes(value);
 }

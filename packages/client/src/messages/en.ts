@@ -25,7 +25,8 @@
 /**
  * The text of the page in English, by message.  A name in braces, as in
  * `{name}`, stands for a value the message takes.  What a villager says is
- * a list of lines, numbered from one, as in `villager.nancy.line.1`.
+ * a list of lines, numbered from one, as in `villager.nancy.line.1`.  A
+ * phrase a player says goes by its code, as in `phrase.askInn`.
  */
 export const EN_MESSAGES = {
   title: 'Clovervale',
@@ -323,6 +324,19 @@ export const EN_MESSAGES = {
   'dialogue.basil.full':
     'Looks like your bag is full. Sort it out a bit and come back!',
   'dialogue.basil.farewell': 'Okay! Come and find me whenever you need one!',
+
+  'phrase.herbScent': "What's this herb? It smells lovely.",
+  'phrase.headacheHerb': 'Have you got any herbs for a headache?',
+  'phrase.swordPrice': 'How much for this sword?',
+  'phrase.lighterSword': 'Have you got a lighter one? I can hardly lift this.',
+  'phrase.slowDown': "Slow down, little one, or you'll trip.",
+  'phrase.stayInside':
+    "Don't go running out of the village, now. There are wild dogs out there.",
+  'phrase.askInn': 'Is there an inn around here where I could rest?',
+  'phrase.askApothecary': "Excuse me, how do I get to the apothecary's?",
+  'phrase.askEmma': 'Excuse me, where can I find Emma?',
+  'phrase.askBasil': 'Excuse me, where can I find Basil?',
+  'phrase.askNancy': 'Excuse me, where can I find Nancy?',
 } as const;
 
 /** A message of the page. */

@@ -25,7 +25,8 @@ import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
 import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
 import { CAVE_CONTAINERS } from './cave.ts';
-import { isSayText } from './chat.ts';
+import { isPhraseCode, isSayText } from './chat.ts';
+import type { PhraseCode } from './chat.ts';
 import { isMonsterKindId } from './combat.ts';
 import type { MonsterKindId } from './combat.ts';
 import type { DayCycle } from './day-cycle.ts';
@@ -57,7 +58,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 31;
+export const PROTOCOL_VERSION = 32;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -368,6 +369,21 @@ export interface SaidMessage {
   readonly text: string;
 }
 
+/**
+ * A phrase a player nearby says, or the player of the peer itself, to be
+ * shown above its head for a while as what a player says is, worded in the
+ * language of the peer, which the server sends every peer whose player
+ * hears it, once.
+ */
+export interface PhrasedMessage {
+  /** The message discriminator. */
+  readonly type: 'phrased';
+  /** The identifier of the player who speaks. */
+  readonly player: number;
+  /** The code of the phrase the player says. */
+  readonly code: PhraseCode;
+}
+
 /** Any message the server can send to a peer. */
 export type ServerMessage =
   | WelcomeMessage
@@ -375,7 +391,8 @@ export type ServerMessage =
   | EventsMessage
   | MapMessage
   | SpeechMessage
-  | SaidMessage;
+  | SaidMessage
+  | PhrasedMessage;
 
 /** What a peer sends whenever the way its player wants to move changes. */
 export type MoveMessage = MoveInput & InputStamp;
@@ -429,6 +446,20 @@ export interface SayMessage {
   readonly text: string;
 }
 
+/**
+ * What a peer sends whenever its player says a phrase to the players
+ * nearby, by its code, for each of them to read in its own language.  It
+ * is no input of the player, and is not numbered among them.  Whether it
+ * is a phrase a player can say, and who hears it, is for the server to
+ * decide.
+ */
+export interface PhraseMessage {
+  /** The message discriminator. */
+  readonly type: 'phrase';
+  /** The code the peer sent. */
+  readonly code: string;
+}
+
 /** Any message a peer can send to the server. */
 export type ClientMessage =
   | MoveMessage
@@ -438,7 +469,8 @@ export type ClientMessage =
   | UseMessage
   | ReplyMessage
   | TravelMessage
-  | SayMessage;
+  | SayMessage
+  | PhraseMessage;
 
 /**
  * Creates the welcome message for the current protocol version.
@@ -577,6 +609,30 @@ export function createSaidMessage(player: number, text: string): SaidMessage {
  */
 export function createSayMessage(text: string): SayMessage {
   return { type: 'say', text };
+}
+
+/**
+ * Creates a phrased message.
+ *
+ * @param {number} player - The identifier of the player who speaks.
+ * @param {PhraseCode} code - The code of the phrase the player says.
+ * @returns {PhrasedMessage} The phrased message.
+ */
+export function createPhrasedMessage(
+  player: number,
+  code: PhraseCode,
+): PhrasedMessage {
+  return { type: 'phrased', player, code };
+}
+
+/**
+ * Creates a phrase message.
+ *
+ * @param {string} code - The code of the phrase.
+ * @returns {PhraseMessage} The phrase message.
+ */
+export function createPhraseMessage(code: string): PhraseMessage {
+  return { type: 'phrase', code };
 }
 
 /**
@@ -779,6 +835,17 @@ export function decodeServerMessage(data: string): ServerMessage {
       text: value.text,
     };
   }
+  if (
+    value.type === 'phrased' &&
+    Number.isInteger(value.player) &&
+    isPhraseCode(value.code)
+  ) {
+    return {
+      type: 'phrased',
+      player: value.player as number,
+      code: value.code,
+    };
+  }
   if (value.type === 'events' && Array.isArray(value.events)) {
     const events: unknown[] = value.events;
     if (events.every(isGameEvent)) {
@@ -802,7 +869,8 @@ export function encodeClientMessage(message: ClientMessage): string {
  * Decodes a client message received from the wire.
  *
  * The time an interact message names is left out if it is `null`.  The
- * text of a say message is decoded as it was typed, whatever it holds.
+ * text of a say message is decoded as it was typed, and the code of a
+ * phrase message as it was sent, whatever they hold.
  *
  * @param {string} data - The encoded message.
  * @returns {ClientMessage} The decoded message.
@@ -812,6 +880,9 @@ export function decodeClientMessage(data: string): ClientMessage {
   const value: Record<string, unknown> = parseObject(data, 'client');
   if (value.type === 'say' && typeof value.text === 'string') {
     return { type: 'say', text: value.text };
+  }
+  if (value.type === 'phrase' && typeof value.code === 'string') {
+    return { type: 'phrase', code: value.code };
   }
   const { sequence, after } = value;
   if (isCount(sequence) && sequence > 0 && isCount(after)) {

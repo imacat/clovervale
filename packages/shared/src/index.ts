@@ -40,13 +40,16 @@ export type {
   StampedInput,
 } from './authoritative-player.ts';
 export {
+  PHRASE_CODES,
   SAY_BREAK_LIMIT,
   SAY_INTERVAL,
   SAY_LENGTH_LIMIT,
   SAY_RANGE,
   cleanSayText,
+  isPhraseCode,
   isSayText,
 } from './chat.ts';
+export type { PhraseCode } from './chat.ts';
 export {
   DEATH_DURATION,
   MONSTER_KINDS,
@@ -207,6 +210,8 @@ export {
   createInteractMessage,
   createMapMessage,
   createMoveMessage,
+  createPhraseMessage,
+  createPhrasedMessage,
   createSaidMessage,
   createSayMessage,
   createSnapshotMessage,
@@ -232,6 +237,8 @@ export type {
   MonsterMode,
   MonsterState,
   MoveMessage,
+  PhraseMessage,
+  PhrasedMessage,
   PickMessage,
   PlayerState,
   ReplyMessage,
