@@ -869,9 +869,9 @@ const CLIMB_KEY = 'climb up the rope';
 /** The prompt by the rope in the cave. */
 const CLIMB_PROMPT = 'Press Space to climb up the rope';
 /** What the panel tells the space bar does at the bars before the prisoner. */
-const EDWIN_TALK_KEY = 'talk to Prisoner';
+const EDWIN_TALK_KEY = 'talk to the prisoner';
 /** The prompt at the bars before the prisoner. */
-const EDWIN_TALK_PROMPT = 'Press Space to talk to Prisoner';
+const EDWIN_TALK_PROMPT = 'Press Space to talk to the prisoner';
 /**
  * What the panel tells the space bar does at the bars before the prisoner,
  * once he has told the player who he is.

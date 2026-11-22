@@ -103,6 +103,20 @@ describe('Translator', () => {
     expect(translator.translate('panel.server')).toBe('Server');
   });
 
+  it('words a message a language may leave out only where it has it', async () => {
+    const translator = new Translator();
+    expect(translator.translateOptional('villager.edwin.name.inSentence')).toBe(
+      'the prisoner',
+    );
+    expect(
+      translator.translateOptional('villager.martha.name.inSentence'),
+    ).toBeNull();
+    await translator.choose('ja');
+    expect(
+      translator.translateOptional('villager.edwin.name.inSentence'),
+    ).toBeNull();
+  });
+
   it('falls back to English for a message the language lacks', async () => {
     const translator = new Translator(() =>
       Promise.resolve({ title: '四葉谷' }),
@@ -186,11 +200,16 @@ describe('loadMessages', () => {
     ]);
   });
 
-  it('has every message in every language, and no other', async () => {
+  it('has every message in every language, and no other but the names of villagers inside a sentence', async () => {
     const ids: string[] = Object.keys(EN_MESSAGES).sort();
     for (const { code } of LANGUAGES) {
       const table: Partial<MessageTable> = await loadMessages(code);
-      expect([code, Object.keys(table).sort()]).toEqual([code, ids]);
+      expect([
+        code,
+        Object.keys(table)
+          .filter((id: string) => !/^villager\.[a-z]+\.name\.inSentence$/u.test(id))
+          .sort(),
+      ]).toEqual([code, ids]);
     }
   });
 

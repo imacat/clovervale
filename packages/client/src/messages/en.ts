@@ -22,6 +22,8 @@
  *   every message the page has.
  */
 
+import type { VillagerId } from '@clovervale/shared';
+
 /**
  * The text of the page in English, by message.  A name in braces, as in
  * `{name}`, stands for a value the message takes.  What a villager says is
@@ -343,10 +345,25 @@ export const EN_MESSAGES = {
 export type MessageId = keyof typeof EN_MESSAGES;
 
 /**
- * The text of the page in a language, by message, with every message and
- * no other.
+ * A message a language may leave out: the name of a villager as it reads
+ * inside a sentence, as in `villager.edwin.name.inSentence`, where that
+ * differs from the name the villager goes by.
  */
-export type MessageTable = Readonly<Record<MessageId, string>>;
+export type OptionalMessageId = `villager.${VillagerId}.name.inSentence`;
+
+/**
+ * The text of the page in a language, by message, with every message, any
+ * of the messages a language may leave out, and no other.
+ */
+export type MessageTable = Readonly<Record<MessageId, string>> &
+  Readonly<Partial<Record<OptionalMessageId, string>>>;
+
+/** The messages a language may leave out that English has. */
+export const EN_OPTIONAL_MESSAGES: Readonly<
+  Partial<Record<OptionalMessageId, string>>
+> = {
+  'villager.edwin.name.inSentence': 'the prisoner',
+};
 
 /**
  * The names of the values a message takes.

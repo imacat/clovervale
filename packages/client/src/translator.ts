@@ -24,13 +24,17 @@
 
 import { DEFAULT_LANGUAGE } from './language.ts';
 import type { LanguageCode } from './language.ts';
-import { EN_MESSAGES } from './messages/en.ts';
+import { EN_MESSAGES, EN_OPTIONAL_MESSAGES } from './messages/en.ts';
 import type {
   MessageId,
   MessageTable,
   MessageValues,
+  OptionalMessageId,
   PlainMessageId,
 } from './messages/en.ts';
+
+/** The text of the page in English, by message. */
+const EN_TABLE: MessageTable = { ...EN_MESSAGES, ...EN_OPTIONAL_MESSAGES };
 
 /**
  * Loads the text of the page in a language.
@@ -54,7 +58,7 @@ export async function loadMessages(
 ): Promise<Partial<MessageTable>> {
   switch (code) {
     case 'en':
-      return EN_MESSAGES;
+      return EN_TABLE;
     case 'zh-TW':
       return (await import('./messages/zh-tw.ts')).ZH_TW_MESSAGES;
     case 'zh-CN':
@@ -84,7 +88,7 @@ export class Translator {
   readonly #listeners: (() => void)[] = [];
   #language: LanguageCode = DEFAULT_LANGUAGE;
   // A table may lack a message, if it is not checked as it is built.
-  #messages: Partial<MessageTable> = EN_MESSAGES;
+  #messages: Partial<MessageTable> = EN_TABLE;
   /** How many languages have been chosen so far. */
   #choiceCount = 0;
 
@@ -134,6 +138,18 @@ export class Translator {
   }
 
   /**
+   * Words a message a language may leave out in the language the page
+   * speaks now.
+   *
+   * @param {OptionalMessageId} id - The message.
+   * @returns {string | null} The message, or `null` if the language
+   *   leaves it out.
+   */
+  translateOptional(id: OptionalMessageId): string | null {
+    return this.#messages[id] ?? null;
+  }
+
+  /**
    * Speaks a language from now on, once its text is loaded, unless
    * another is chosen meanwhile, and then tells the listeners if the
    * language has changed.
@@ -147,7 +163,7 @@ export class Translator {
     const choice: number = ++this.#choiceCount;
     let messages: Partial<MessageTable>;
     if (code === DEFAULT_LANGUAGE) {
-      messages = EN_MESSAGES;
+      messages = EN_TABLE;
     } else {
       try {
         messages = await this.#load(code);

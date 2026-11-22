@@ -155,7 +155,11 @@ export function describeSpaceKey(
     monsters,
   );
   if (villager !== null) {
-    const { name } = describeVillager(translator, villager, acquaintances);
+    const { sentenceName: name } = describeVillager(
+      translator,
+      villager,
+      acquaintances,
+    );
     return translator.translate('spaceKey.talk', { name });
   }
   if (findInteraction(motion, step, map) === 'Drink') {
@@ -244,7 +248,11 @@ export function describePrompt(
     monsters,
   );
   if (villager !== null) {
-    const { name } = describeVillager(translator, villager, acquaintances);
+    const { sentenceName: name } = describeVillager(
+      translator,
+      villager,
+      acquaintances,
+    );
     return translator.translate(
       isTouch ? 'touchPrompt.talk' : 'prompt.talk',
       { name },

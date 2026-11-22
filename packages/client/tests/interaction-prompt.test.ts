@@ -623,8 +623,8 @@ describe('describePrompt in the cave', () => {
 
   it('tells a player at the bars it can talk to the prisoner, in every language', async () => {
     expect(describeBoth(EN, AT_BARS)).toEqual([
-      'Press Space to talk to Prisoner',
-      'talk to Prisoner',
+      'Press Space to talk to the prisoner',
+      'talk to the prisoner',
     ]);
     expect(describeBoth(await createTranslator('zh-TW'), AT_BARS)).toEqual([
       '按空白鍵與囚犯交談',
@@ -655,7 +655,7 @@ describe('describePrompt in the cave', () => {
     };
     const world: WorldItems = { clovers: [], items: [], looted: [] };
     expect(describeSpaceKey(EN, turned, 0, world, [], 'cave')).toBe(
-      'talk to Prisoner',
+      'talk to the prisoner',
     );
     expect([
       describePrompt(EN, turned, 0, world, [], 'cave', [dog]),

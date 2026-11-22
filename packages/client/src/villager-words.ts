@@ -45,6 +45,11 @@ export interface VillagerWords {
    */
   readonly name: string;
   /**
+   * The name of the villager as it reads inside a sentence, which is its
+   * name unless the language words it otherwise there.
+   */
+  readonly sentenceName: string;
+  /**
    * The lines the villager says when a player talks to it, one line each
    * time, picked at random, but never the line it said the time before.
    */
@@ -106,11 +111,17 @@ export function describeVillager(
   acquaintances: readonly VillagerId[] = [],
 ): VillagerWords {
   const knownName = `villager.${villager.id}.knownName`;
+  let name: string = translator.translate(`villager.${villager.id}.name`);
+  let sentenceName: string =
+    translator.translateOptional(`villager.${villager.id}.name.inSentence`) ??
+    name;
+  if (acquaintances.includes(villager.id) && isKnownNameId(knownName)) {
+    name = translator.translate(knownName);
+    sentenceName = name;
+  }
   return {
-    name:
-      acquaintances.includes(villager.id) && isKnownNameId(knownName)
-        ? translator.translate(knownName)
-        : translator.translate(`villager.${villager.id}.name`),
+    name,
+    sentenceName,
     lines: listLineIds(villager).map((id: LineId) => translator.translate(id)),
   };
 }
