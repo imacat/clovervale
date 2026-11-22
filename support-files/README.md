@@ -41,10 +41,20 @@ use another game server, name it in the page address, for example
 `client/` directory may also hold a `client.conf` naming the game
 server; `support-files/.env.client` is an example of it.
 
-Run the bots against the game server at `ws://localhost:8080`, or at
-the URL in the `SERVER_URL` environment variable.
+Run the bots.  There are 4 of them, or as many as the `--count` option
+tells, and they connect to the game server at `ws://localhost:8080`, or
+at the WebSocket URL of the `--server` option.
 
     node bots/bots.cjs
+
+The `BOT_COUNT` and `SERVER_URL` settings tell the same as the two
+options.  A setting is an environment variable, or else a line of the
+`.env` file in the directory that the bots are run in, if there is
+one; `support-files/.env.bots` is an example of it.  An option takes
+precedence over an environment variable, and an environment variable
+over the file.
+
+    SERVER_URL=ws://game.example.com:9000 BOT_COUNT=8 node bots/bots.cjs
 
 Deploying
 ---------
@@ -52,12 +62,13 @@ Deploying
 The files in `support-files/` are an example of a deployment at
 `https://clovervale.imacat.idv.tw/`, with Apache serving the client and
 passing `wss://clovervale.imacat.idv.tw/ws` on to the game server
-through a Unix socket file, and with systemd running the game server.
-Change the site name and the paths in them to your own.  Only the game
-server and the client are installed.  As root, with `rsync` installed:
+through a Unix socket file, and with systemd running the game server
+and the bots.  The bots connect through Apache, as the players do.
+Change the site name and the paths in them to your own.  As root, with
+`rsync` installed:
 
- 1. Create the user and the group of the game server, and let Apache
-    into the group.
+ 1. Create the user and the group of the game server and the bots, and
+    let Apache into the group.
 
         adduser --system --group --no-create-home clovervale
         adduser www-data clovervale
@@ -68,12 +79,15 @@ server and the client are installed.  As root, with `rsync` installed:
         tar -xzf /path/to/clovervale-*.tar.gz --strip-components=1 \
             --no-same-owner
 
- 3. Copy the game server and the client to `/srv/www/clovervale`.
+ 3. Copy the game server, the client and the bots to
+    `/srv/www/clovervale`.
 
         mkdir -p /srv/www/clovervale
         rsync -a --delete server/ /srv/www/clovervale/server/
         rsync -a --delete --exclude=/client.conf \
             client/ /srv/www/clovervale/client/
+        rsync -a --delete --exclude=/.env \
+            bots/ /srv/www/clovervale/bots/
 
  4. Copy the example settings file of the client to `/etc/node/`, and
     edit it.
@@ -102,8 +116,24 @@ server and the client are installed.  As root, with `rsync` installed:
         a2ensite clovervale.imacat.idv.tw
         systemctl restart apache2
 
+ 8. Copy the example settings file of the bots to `/etc/node/`, and
+    edit it.  The user of the bots must be able to read it.
+
+        cp support-files/.env.bots /etc/node/clovervale.bots.conf
+
+ 9. Link the settings file to where the bots look for it.
+
+        ln -s /etc/node/clovervale.bots.conf \
+            /srv/www/clovervale/bots/.env
+
+10. Copy `support-files/clovervale-bots.service` to
+    `/etc/systemd/system/`, edit it, and start the bots.
+
+        systemctl daemon-reload
+        systemctl enable --now clovervale-bots
+
 To upgrade, repeat steps 2 and 3 with the new release, and run
-`systemctl restart clovervale`.  Step 3 removes the files that the new
-release no longer has, and keeps the link.
+`systemctl restart clovervale clovervale-bots`.  Step 3 removes the
+files that the new release no longer has, and keeps the links.
 
 [Node.js]: https://nodejs.org/

@@ -1,0 +1,18 @@
+# The Systemd service unit for the headless bots of the Clovervale Project
+# File location： /etc/systemd/system/clovervale-bots.service
+[Unit]
+Description=The headless bots of the Clovervale Project
+After=network.target clovervale.service
+
+[Service]
+ExecStart=/usr/local/bin/node bots.cjs
+Restart=always
+WorkingDirectory=/srv/www/clovervale/bots
+PrivateTmp=true
+User=clovervale
+Group=clovervale
+StandardOutput=append:/var/log/clovervale-bots.log
+StandardError=append:/var/log/clovervale-bots.log
+
+[Install]
+WantedBy=multi-user.target

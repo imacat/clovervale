@@ -23,17 +23,25 @@
 
 import { startBot } from './bot.ts';
 import type { RunningBot } from './bot.ts';
-import { USAGE, parseBotsOptions } from './options.ts';
+import {
+  SETTINGS_FILE,
+  USAGE,
+  parseBotsOptions,
+  readBotsSettings,
+} from './options.ts';
 import type { BotsOptions } from './options.ts';
 
 /**
  * Runs the bots until the program is asked to stop.
  *
- * As many bots as the `--count` option tells, or else the default number,
- * connect one after another to the server of the `--server` option, or
- * else to the default server, and patrol the village.  They leave on
- * SIGTERM and SIGINT.  A bot the server disconnects says so, and makes the
- * program fail once every bot has left.  When the options are wrong, the
+ * As many bots as the `--count` option tells, or else the `BOT_COUNT`
+ * setting, or else the default number, connect one after another to the
+ * server of the `--server` option, or else of the `SERVER_URL` setting, or
+ * else to the default server, and patrol the village.  A setting is an
+ * environment variable, or else a line of the `.env` file in the working
+ * directory, if there is one.  The bots leave on SIGTERM and SIGINT.  A
+ * bot the server disconnects says so, and makes the program fail once
+ * every bot has left.  When the options or the settings are wrong, the
  * program says why and how to use it, and fails without connecting.  When
  * a bot cannot connect, the program says why, and fails, the bots that did
  * connect leaving at once.
@@ -46,7 +54,10 @@ import type { BotsOptions } from './options.ts';
 async function runBots(args: string[]): Promise<void> {
   let options: BotsOptions;
   try {
-    options = parseBotsOptions(args);
+    options = parseBotsOptions(
+      args,
+      readBotsSettings(SETTINGS_FILE, process.env),
+    );
   } catch (error: unknown) {
     console.error(error instanceof Error ? error.message : error);
     console.error(USAGE);
