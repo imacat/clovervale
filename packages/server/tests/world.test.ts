@@ -42,6 +42,9 @@ import {
   PLAYER_HEALTH,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
+  SAY_INTERVAL,
+  SAY_LENGTH_LIMIT,
+  SAY_RANGE,
   SIMULATION_RATE,
   SLASH_DAMAGE,
   SLASH_DURATION,
@@ -91,7 +94,7 @@ import type {
 import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
 import type { MonsterSpawn } from '../src/monster.ts';
 import { LAG_COMPENSATION_LIMIT, World } from '../src/world.ts';
-import type { Player } from '../src/world.ts';
+import type { Player, Saying } from '../src/world.ts';
 
 /** The numbers of the wild dog of the village. */
 const VILLAGE_DOG: MonsterKind = MONSTER_KINDS['village-dog'];
@@ -1636,6 +1639,8 @@ function admitTalker(
     turnCount: 0,
     isHunted: false,
     speeches: [],
+    sayings: [],
+    saidStep: null,
   };
   world.admitPlayer(player, { ...place, yaw });
   return player.id;
@@ -1884,6 +1889,8 @@ function admitShopper(
     turnCount: 0,
     isHunted: false,
     speeches: [],
+    sayings: [],
+    saidStep: null,
   };
   world.admitPlayer(player, { ...place, yaw });
   return player.id;
@@ -2197,6 +2204,8 @@ function admitCarrier(
     turnCount: 0,
     isHunted: false,
     speeches: [],
+    sayings: [],
+    saidStep: null,
   };
   world.admitPlayer(player, isInCave ? CAVE_LANDING : null);
   return player.id;
@@ -2514,6 +2523,8 @@ describe('a world of the cave', () => {
       turnCount: 0,
       isHunted: false,
       speeches: [],
+      sayings: [],
+      saidStep: null,
     };
     world.admitPlayer(player, CAVE_LANDING);
     return [world, player.id];
@@ -3206,6 +3217,8 @@ describe('Martha in the village', () => {
       turnCount: 0,
       isHunted: false,
       speeches: [],
+      sayings: [],
+      saidStep: null,
     };
     world.admitPlayer(player, WELL_STAND);
     return player;
@@ -3597,6 +3610,8 @@ describe('Martha in the village', () => {
       turnCount: 0,
       isHunted: false,
       speeches: [],
+      sayings: [],
+      saidStep: null,
     };
     world.admitPlayer(player, null);
     return player.id;
@@ -3749,5 +3764,172 @@ describe('Martha in the village', () => {
     expect(world.findDialogue(id)).toBeNull();
     waitForMartha(world, 'talk');
     expect(world.findDialogue(climber)?.line).toBe('dialogue.martha.ask');
+  });
+});
+
+/** The number of simulation steps between two lines of a player. */
+const SAY_INTERVAL_STEPS: number = SAY_INTERVAL * SIMULATION_RATE;
+
+/** Where the players who say something stand, on the open plaza. */
+const SPEAKER_SPOT: GroundVector = { x: -3, z: 4 };
+
+/**
+ * Brings a player into a world at a place, where Martha leaves it alone.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {GroundVector} place - Where it stands.
+ * @returns {number} The identifier of the player.
+ */
+function admitSpeaker(world: World, id: number, place: GroundVector): number {
+  const player: Player = {
+    id,
+    appearance: 1,
+    mover: new AuthoritativePlayer(createMotion(place, 0)),
+    health: PLAYER_HEALTH,
+    deathSteps: 0,
+    lastSlash: null,
+    inventory: ['spy-token'],
+    silver: 0,
+    acquaintances: [],
+    quests: {},
+    dialogue: null,
+    turnCount: 0,
+    isHunted: false,
+    speeches: [],
+    sayings: [],
+    saidStep: null,
+  };
+  world.admitPlayer(player, { ...place, yaw: 0 });
+  return id;
+}
+
+/**
+ * Brings a player into a world a distance east of where the players who
+ * say something stand.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @param {number} distance - The distance, in metres.
+ * @returns {number} The identifier of the player.
+ */
+function admitListener(world: World, id: number, distance: number): number {
+  const { x, z } = SPEAKER_SPOT;
+  return admitSpeaker(world, id, { x: x + distance, z });
+}
+
+describe('a player who says a line', () => {
+  it('is heard by itself and by the players within range', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const near: number = admitListener(world, 2, 1.5);
+    const edge: number = admitListener(world, 3, SAY_RANGE);
+    expect(world.say(speaker, 'Hello there!')).toBe(true);
+    const said: Saying[] = [{ player: speaker, text: 'Hello there!' }];
+    expect(world.takeSayings(speaker)).toEqual(said);
+    expect(world.takeSayings(near)).toEqual(said);
+    expect(world.takeSayings(edge)).toEqual(said);
+  });
+
+  it('is not heard by a player out of range', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const far: number = admitListener(world, 2, SAY_RANGE + 0.1);
+    expect(world.say(speaker, 'Hello there!')).toBe(true);
+    expect(world.takeSayings(far)).toEqual([]);
+    expect(world.takeSayings(speaker)).toHaveLength(1);
+  });
+
+  it('is heard from where it stands as it speaks', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const listener: number = admitListener(world, 2, SAY_RANGE + 2);
+    steerPlayer(world, speaker, { x: 1, z: 0 });
+    stepTimes(world, Math.ceil(2.5 / STEP_DISTANCE));
+    expect(world.say(speaker, 'Coming!')).toBe(true);
+    expect(world.takeSayings(listener)).toEqual([
+      { player: speaker, text: 'Coming!' },
+    ]);
+  });
+
+  it('is told to each player who heard it once', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    world.say(speaker, 'Hello there!');
+    expect(world.takeSayings(speaker)).toHaveLength(1);
+    expect(world.takeSayings(speaker)).toEqual([]);
+  });
+
+  it('says its line as plain text, trimmed, with its line breaks', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    world.say(speaker, '  <b>one</b>\r\n\ntwo\u0007three  \n');
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, text: '<b>one</b>\ntwo three' },
+    ]);
+  });
+
+  it('says a line of four rows at most, whatever its peer sent', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    world.say(speaker, 'a\n'.repeat(60));
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, text: `a\na\na\n${'a '.repeat(46)}a` },
+    ]);
+  });
+
+  it('says no more than a line may hold, whatever its peer sent', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    world.say(speaker, '葉'.repeat(SAY_LENGTH_LIMIT * 3));
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, text: '葉'.repeat(SAY_LENGTH_LIMIT) },
+    ]);
+  });
+
+  it('says nothing of an empty line', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    expect(world.say(speaker, ' \n ')).toBe(false);
+    expect(world.takeSayings(speaker)).toEqual([]);
+    // An empty line does not keep the next one from being said.
+    expect(world.say(speaker, 'Now then.')).toBe(true);
+  });
+
+  it('says one line at most in the time between two lines', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const listener: number = admitListener(world, 2, 1.5);
+    expect(world.say(speaker, 'One.')).toBe(true);
+    stepTimes(world, SAY_INTERVAL_STEPS - 1);
+    expect(world.say(speaker, 'Two.')).toBe(false);
+    world.step();
+    expect(world.say(speaker, 'Three.')).toBe(true);
+    const said: Saying[] = [
+      { player: speaker, text: 'One.' },
+      { player: speaker, text: 'Three.' },
+    ];
+    expect(world.takeSayings(listener)).toEqual(said);
+    expect(world.takeSayings(speaker)).toEqual(said);
+  });
+
+  it('does not keep another player from saying a line at once', () => {
+    const world = new World(createRandom());
+    const speaker: number = admitListener(world, 1, 0);
+    const other: number = admitListener(world, 2, 1.5);
+    expect(world.say(speaker, 'One.')).toBe(true);
+    expect(world.say(other, 'Two.')).toBe(true);
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, text: 'One.' },
+      { player: other, text: 'Two.' },
+    ]);
+  });
+
+  it('says nothing for a player who is not in the world', () => {
+    const world = new World(createRandom());
+    const listener: number = admitListener(world, 1, 0);
+    expect(world.say(99, 'Hello there!')).toBe(false);
+    expect(world.takeSayings(listener)).toEqual([]);
+    expect(world.takeSayings(99)).toEqual([]);
   });
 });

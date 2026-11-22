@@ -25,6 +25,7 @@
  */
 
 import { drawBag } from './bag-view.ts';
+import { drawChatIcon } from './chat-view.ts';
 import { drawCredits } from './credits-view.ts';
 import type { CreditsView } from './credits-view.ts';
 import type { HelpSheet } from './help-sheet.ts';
@@ -71,7 +72,7 @@ interface PadRow {
 /**
  * A touch control, as the sheet draws it: the stick, a finger dragged, two
  * fingers pinching, the action button, a finger tapping, or the buttons of
- * the bag and the help sheet.
+ * the bag, the help sheet and the chat.
  */
 type TouchBadge = 'stick' | 'drag' | 'pinch' | 'action' | 'tap' | 'buttons';
 
@@ -85,14 +86,15 @@ interface TouchRow {
 
 /**
  * The controls of the keyboard and the mouse the sheet lists, in the order
- * it lists them: first those of play, and then those of the bag, the
- * dialogues and the sheet itself.
+ * it lists them: first those of play, the chat among them, and then those
+ * of the bag, the dialogues and the sheet itself.
  */
 const CONTROL_ROWS: readonly ControlRow[] = [
   { caps: [[['W'], ['A', 'S', 'D']]], labelKey: 'help.walk' },
   { caps: [[['↑'], ['←', '↓', '→']]], labelKey: 'help.turn' },
   { caps: 'mouse', labelKey: 'help.mouse' },
   { caps: [[['Space']]], labelKey: 'help.interact' },
+  { caps: [[['Enter']]], labelKey: 'help.chat' },
   { caps: [[['I']]], labelKey: 'help.bag' },
   {
     caps: [[['↑'], ['←', '↓', '→']], [['Enter']]],
@@ -483,7 +485,7 @@ function drawTouchPicture(badge: TouchBadge): HTMLDivElement {
     );
   } else {
     picture.classList.add('is-wide');
-    for (const draw of [drawBag, drawParchment]) {
+    for (const draw of [drawBag, drawParchment, drawChatIcon]) {
       const button: HTMLDivElement = document.createElement('div');
       button.className = 'help-touch-button';
       button.append(draw());
@@ -598,6 +600,7 @@ export function createHelpView(
   const [keyboardPage, keyboardLabels] = drawPage(CONTROL_ROWS.map(drawCaps));
   const [padPage, padLabels] = drawPage(PAD_ROWS.map(drawBadges));
   const [touchPage, touchLabels] = drawPage(TOUCH_ROWS.map(drawTouchBadge));
+  keyboardPage.classList.add('is-keyboard-page');
   touchPage.classList.add('is-touch-page');
   const credits: CreditsView = drawCredits(translator);
   const creditsPage: HTMLDivElement = document.createElement('div');

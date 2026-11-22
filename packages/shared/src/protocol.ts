@@ -25,6 +25,7 @@ import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
 import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
 import { CAVE_CONTAINERS } from './cave.ts';
+import { isSayText } from './chat.ts';
 import { isMonsterKindId } from './combat.ts';
 import type { MonsterKindId } from './combat.ts';
 import type { DayCycle } from './day-cycle.ts';
@@ -56,7 +57,7 @@ import { isMapId } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 29;
+export const PROTOCOL_VERSION = 30;
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -349,13 +350,31 @@ export interface SpeechMessage {
   readonly line: string;
 }
 
+/**
+ * What a player nearby says, or the player of the peer itself, to be shown
+ * above its head for a while, which the server sends every peer whose
+ * player hears it, once.
+ */
+export interface SaidMessage {
+  /** The message discriminator. */
+  readonly type: 'said';
+  /** The identifier of the player who speaks. */
+  readonly player: number;
+  /**
+   * The line the player says, which {@link isSayText} takes: plain text
+   * in whatever language the player typed it in.
+   */
+  readonly text: string;
+}
+
 /** Any message the server can send to a peer. */
 export type ServerMessage =
   | WelcomeMessage
   | SnapshotMessage
   | EventsMessage
   | MapMessage
-  | SpeechMessage;
+  | SpeechMessage
+  | SaidMessage;
 
 /** What a peer sends whenever the way its player wants to move changes. */
 export type MoveMessage = MoveInput & InputStamp;
@@ -397,6 +416,18 @@ export type ReplyMessage = ReplyInput & InputStamp;
  */
 export type TravelMessage = TravelInput & InputStamp;
 
+/**
+ * What a peer sends whenever its player says a line to the players nearby.
+ * It is no input of the player, and is not numbered among them.  Who hears
+ * it, and what of it, is for the server to decide.
+ */
+export interface SayMessage {
+  /** The message discriminator. */
+  readonly type: 'say';
+  /** The text the player typed. */
+  readonly text: string;
+}
+
 /** Any message a peer can send to the server. */
 export type ClientMessage =
   | MoveMessage
@@ -405,7 +436,8 @@ export type ClientMessage =
   | DropMessage
   | UseMessage
   | ReplyMessage
-  | TravelMessage;
+  | TravelMessage
+  | SayMessage;
 
 /**
  * Creates the welcome message for the current protocol version.
@@ -523,6 +555,27 @@ export function createSpeechMessage(
   line: string,
 ): SpeechMessage {
   return { type: 'speech', villager, line };
+}
+
+/**
+ * Creates a said message.
+ *
+ * @param {number} player - The identifier of the player who speaks.
+ * @param {string} text - The line the player says.
+ * @returns {SaidMessage} The said message.
+ */
+export function createSaidMessage(player: number, text: string): SaidMessage {
+  return { type: 'said', player, text };
+}
+
+/**
+ * Creates a say message.
+ *
+ * @param {string} text - The text the player typed.
+ * @returns {SayMessage} The say message.
+ */
+export function createSayMessage(text: string): SayMessage {
+  return { type: 'say', text };
 }
 
 /**
@@ -714,6 +767,17 @@ export function decodeServerMessage(data: string): ServerMessage {
   ) {
     return { type: 'speech', villager: value.villager, line: value.line };
   }
+  if (
+    value.type === 'said' &&
+    Number.isInteger(value.player) &&
+    isSayText(value.text)
+  ) {
+    return {
+      type: 'said',
+      player: value.player as number,
+      text: value.text,
+    };
+  }
   if (value.type === 'events' && Array.isArray(value.events)) {
     const events: unknown[] = value.events;
     if (events.every(isGameEvent)) {
@@ -736,7 +800,8 @@ export function encodeClientMessage(message: ClientMessage): string {
 /**
  * Decodes a client message received from the wire.
  *
- * The time an interact message names is left out if it is `null`.
+ * The time an interact message names is left out if it is `null`.  The
+ * text of a say message is decoded as it was typed, whatever it holds.
  *
  * @param {string} data - The encoded message.
  * @returns {ClientMessage} The decoded message.
@@ -744,6 +809,9 @@ export function encodeClientMessage(message: ClientMessage): string {
  */
 export function decodeClientMessage(data: string): ClientMessage {
   const value: Record<string, unknown> = parseObject(data, 'client');
+  if (value.type === 'say' && typeof value.text === 'string') {
+    return { type: 'say', text: value.text };
+  }
   const { sequence, after } = value;
   if (isCount(sequence) && sequence > 0 && isCount(after)) {
     const { viewTime } = value;

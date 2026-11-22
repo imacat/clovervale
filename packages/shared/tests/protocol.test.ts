@@ -30,6 +30,8 @@ import {
   createInteractMessage,
   createMapMessage,
   createMoveMessage,
+  createSaidMessage,
+  createSayMessage,
   createSnapshotMessage,
   createSpeechMessage,
   createWelcomeMessage,
@@ -855,6 +857,34 @@ describe('the server message codec', () => {
     expect(() => decodeServerMessage(data)).toThrow();
   });
 
+  it('decodes the said message it encodes, in any language', () => {
+    for (const text of ['Hello there!', '大家好 🍀', 'one\ntwo']) {
+      const message = createSaidMessage(7, text);
+      expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
+        type: 'said',
+        player: 7,
+        text,
+      });
+    }
+  });
+
+  it.each([
+    ['names no player', { player: 'seven' }],
+    ['has no line', { text: undefined }],
+    ['has an empty line', { text: '' }],
+    ['has a tab in its line', { text: 'one\ttwo' }],
+    ['has line breaks running in its line', { text: 'one\n\ntwo' }],
+    ['has too long a line', { text: 'a'.repeat(101) }],
+  ])('rejects a said message that %s', (_, flaw) => {
+    const data = JSON.stringify({
+      type: 'said',
+      player: 7,
+      text: 'Hello there!',
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
   it.each([
     ['is missing', { inventory: undefined }],
     ['is not a list', { inventory: 'clover' }],
@@ -1058,6 +1088,21 @@ describe('the client message codec', () => {
 
   it('rejects data that is not JSON', () => {
     expect(() => decodeClientMessage('move')).toThrow();
+  });
+
+  it('decodes the say message it encodes, as it was typed', () => {
+    for (const text of ['Hello there!', '  大家好\n🍀 ', '']) {
+      const message = createSayMessage(text);
+      expect(decodeClientMessage(encodeClientMessage(message))).toEqual({
+        type: 'say',
+        text,
+      });
+    }
+  });
+
+  it('rejects a say message without a text', () => {
+    expect(() => decodeClientMessage('{"type":"say"}')).toThrow();
+    expect(() => decodeClientMessage('{"type":"say","text":7}')).toThrow();
   });
 
   it('rejects a message of an unknown type', () => {

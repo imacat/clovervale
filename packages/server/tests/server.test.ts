@@ -50,6 +50,7 @@ import {
   WALK_SPEED,
   createInteractMessage,
   createMoveMessage,
+  createSayMessage,
   decodeServerMessage,
   encodeClientMessage,
   findTimeOfDay,
@@ -62,6 +63,7 @@ import type {
   ItemKindId,
   MonsterState,
   PlayerState,
+  SaidMessage,
   ServerMessage,
   SlashJudgement,
   WelcomeMessage,
@@ -186,6 +188,20 @@ class Peer {
           inventory,
           time,
         };
+      }
+    }
+  }
+
+  /**
+   * Waits to be told what a player says.
+   *
+   * @returns {Promise<SaidMessage>} The next said message.
+   */
+  async receiveSaid(): Promise<SaidMessage> {
+    for (;;) {
+      const [message] = await this.#receive();
+      if (message.type === 'said') {
+        return message;
       }
     }
   }
@@ -593,6 +609,35 @@ describe('the game server', () => {
       (players: readonly PlayerState[]) => !isPair(players),
     );
     expect(listIds(snapshot)).toEqual([watcherId]);
+  });
+
+  it('tells the peers nearby what a player says, and who says it', async () => {
+    const [speaker, speakerId] = await connectPeer();
+    const [listener] = await connectPeer();
+    await speaker.receiveSnapshotWhere(isPair);
+    speaker.send(createSayMessage('  Hello\tthere!\n\n  '));
+    const said: SaidMessage = {
+      type: 'said',
+      player: speakerId,
+      text: 'Hello there!',
+    };
+    expect(await listener.receiveSaid()).toEqual(said);
+    expect(await speaker.receiveSaid()).toEqual(said);
+  });
+
+  it('keeps a peer whose player says more than it may', async () => {
+    const [speaker, speakerId] = await connectPeer();
+    speaker.send(createSayMessage('One.'));
+    speaker.send(createSayMessage('Two.'));
+    speaker.send(createSayMessage(''));
+    speaker.send(createMoveMessage({ sequence: 1, after: 0 }, { x: 1, z: 0 }));
+    expect((await speaker.receiveSaid()).text).toBe('One.');
+    const snapshot: TimedSnapshot = await speaker.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) =>
+        players.some((player: PlayerState) => player.action === 'Walk'),
+    );
+    expect(findPlayer(snapshot, speakerId).action).toBe('Walk');
+    expect(speaker.isClosed).toBe(false);
   });
 
   it('disconnects a peer that sends a malformed message', async () => {

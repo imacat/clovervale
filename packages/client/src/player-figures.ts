@@ -149,6 +149,17 @@ export class PlayerFigures {
   }
 
   /**
+   * Finds the model a player is shown with.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {Object3D | null} The root of the model, where the player
+   *   stands, or `null` if the player is not shown.
+   */
+  findFigure(id: number): Object3D | null {
+    return this.#shown.get(id)?.root ?? null;
+  }
+
+  /**
    * Describes the players as they are shown now.
    *
    * @returns {FigureView[]} The players, in the order they were first shown.

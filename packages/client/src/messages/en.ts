@@ -165,6 +165,10 @@ export const EN_MESSAGES = {
   'dialogue.touchHintEnd': 'Tap here to close',
   'touch.action': 'Action',
   'touch.stick': 'Walk',
+  'chat.icon': 'Chat (Enter)',
+  'chat.input': 'Say something to the players nearby',
+  'chat.send': 'Say it',
+  'chat.cancel': 'Cancel',
   'help.title': 'Controls',
   'help.icon': 'Controls (H)',
   'help.close': 'Close',
@@ -173,6 +177,7 @@ export const EN_MESSAGES = {
   'help.turn': 'Turn the view',
   'help.mouse': 'Drag to turn the view, scroll to zoom',
   'help.interact': 'Interact, talk, attack',
+  'help.chat': 'Say something to the players nearby',
   'help.bag': 'Open the inventory',
   'help.choose': 'Choose and confirm in the inventory and in dialogues',
   'help.escape': 'Close the inventory or this help',
@@ -194,7 +199,7 @@ export const EN_MESSAGES = {
     'Tap the action button at the bottom right to interact, talk, attack',
   'help.touchChoose': 'Tap to choose in the inventory and in dialogues',
   'help.touchButtons':
-    'The buttons at the top left open the inventory and this help',
+    'The buttons at the top left open the inventory, this help and the chat',
   'help.credits': 'Credits',
   'ending.text':
     'With the evidence and the intelligence in hand, you set off for the capital of the kingdom.',

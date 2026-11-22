@@ -23,6 +23,7 @@
  *   bottom right, and the fingers on the scene.
  */
 
+import { CHAT_INPUT_CLASS } from './chat-view.ts';
 import { noticePointerType } from './touch-controls.ts';
 import type { StickPlace, StickPush, TouchControls } from './touch-controls.ts';
 import type { Translator } from './translator.ts';
@@ -135,7 +136,9 @@ function isCoarsePointer(): boolean {
  * and two there zoom, as {@link TouchControls} tells; a finger on the scene
  * is kept from the mouse controls of the camera.  The action button is
  * carried out as it is pressed.  Turning the device round lets go of every
- * finger.  No long press opens a menu while the page is used by touch.
+ * finger.  No long press opens a menu while the page is used by touch, but
+ * on the line of the box of the chat, where the menu of the browser
+ * selects, copies, cuts and pastes as in any line of text.
  *
  * @param {HTMLElement} parent - What the controls are added to.
  * @param {Translator} translator - The translator of the text of the page.
@@ -171,11 +174,18 @@ export function createTouchView(
   root.append(stick, action);
   parent.append(root);
   // A long press opens no menu anywhere on the page used by touch, nor on
-  // the controls ever.
+  // the controls ever, but on the line of the box of the chat, which is
+  // left its menu to select, copy, cut and paste with.
   window.addEventListener(
     'contextmenu',
     (event: Event) => {
       const { target } = event;
+      if (
+        target instanceof Element &&
+        target.classList.contains(CHAT_INPUT_CLASS)
+      ) {
+        return;
+      }
       if (isTouch || (target instanceof Node && root.contains(target))) {
         event.preventDefault();
       }

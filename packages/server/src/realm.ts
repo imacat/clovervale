@@ -26,6 +26,7 @@
 import {
   createEventsMessage,
   createMapMessage,
+  createSaidMessage,
   createSnapshotMessage,
   createSpeechMessage,
 } from '@clovervale/shared';
@@ -42,7 +43,7 @@ import type {
 } from '@clovervale/shared';
 
 import { World } from './world.ts';
-import type { Departure, Speech } from './world.ts';
+import type { Departure, Saying, Speech } from './world.ts';
 
 /**
  * Every world the server holds: the village, which every player comes into
@@ -154,6 +155,17 @@ export class Realm {
   }
 
   /**
+   * Has a player say a line to the players nearby in the world it is in,
+   * as {@link World.say} tells, which no player of any other world hears.
+   *
+   * @param {number} id - The identifier of the player.
+   * @param {string} text - The text its peer sent.
+   */
+  receiveSay(id: number, text: string): void {
+    this.findWorld(id)?.say(id, text);
+  }
+
+  /**
    * Moves every world one step of the simulation forward, as
    * {@link World.step} tells, and then has every player who has left a
    * world arrive in the one it goes to.
@@ -199,7 +211,8 @@ export class Realm {
    * told of itself: what it carries, its silver coins, the dialogue it is
    * in, the villagers who have told it who they are, and how far it has
    * got with the quests; then what the villagers have
-   * said to it in passing since the last snapshots, each once; and then the
+   * said to it in passing since the last snapshots, each once; then what
+   * the players have said within its hearing since, each once; and then the
    * events that have happened in that world since the last snapshots, if
    * any have, so that each player hears of each event of the world it is
    * in once.  A player is told nothing of any other world.
@@ -245,6 +258,11 @@ export class Realm {
             .takeSpeeches(id)
             .map(({ villager, line }: Speech) =>
               createSpeechMessage(villager, line),
+            ),
+          ...world
+            .takeSayings(id)
+            .map(({ player, text }: Saying) =>
+              createSaidMessage(player, text),
             ),
         );
         if (eventsMessage !== null) {

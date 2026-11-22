@@ -19,7 +19,8 @@
 
 /**
  * @module client/speech-bubble The bubble above the head of a villager that
- *   shows what it says.
+ *   shows what it says, and the bubbles above the heads of the players
+ *   that show what they say.
  */
 
 import {
@@ -147,9 +148,12 @@ const WIDE_CHARACTERS_PATTERN = new RegExp(WIDE_PATTERN.source, 'gu');
 
 /** What a bubble is to show. */
 export interface SpeechWords {
-  /** The name of the villager who speaks. */
+  /**
+   * The name of the villager who speaks, or nothing for a player, who goes
+   * by no name.
+   */
   readonly name: string;
-  /** What the villager says. */
+  /** What the villager or the player says. */
   readonly line: string;
   /** The language of the words. */
   readonly language: LanguageCode;
@@ -217,6 +221,30 @@ export interface SpeechScreen {
   readonly footY: number;
 }
 
+/** What the bubble of a player shows, and where. */
+export interface SaidView {
+  /** The identifier of the player who speaks. */
+  readonly player: number;
+  /** What the player says. */
+  readonly line: string;
+  /** The position of the foot of the bubble along the X axis, in metres. */
+  readonly x: number;
+  /** The height of the foot of the bubble, in metres. */
+  readonly y: number;
+  /** The position of the foot of the bubble along the Z axis, in metres. */
+  readonly z: number;
+  /**
+   * Whether the bubble is to be seen, which it is not while the player is
+   * off the screen.
+   */
+  readonly isShown: boolean;
+  /**
+   * Where the bubble is on the screen as it was last drawn, or `null`
+   * before it is drawn in a view it was told, or while it is not seen.
+   */
+  readonly screen: SpeechScreen | null;
+}
+
 /** The view the bubbles are seen in. */
 interface ViewSize {
   /** The width of the view, in CSS pixels. */
@@ -229,8 +257,8 @@ interface ViewSize {
 
 /** A bubble being shown. */
 interface ShownSpeech {
-  /** The villager who speaks. */
-  readonly villager: Villager;
+  /** The villager who speaks, or `null` for a player. */
+  readonly villager: Villager | null;
   /** The position of the line the villager says among its lines. */
   readonly lineIndex: number;
   /**
@@ -252,6 +280,11 @@ interface ShownSpeech {
   readonly duration: number;
   /** How long it has been shown, in seconds. */
   age: number;
+  /**
+   * How far above the other bubbles it is drawn: 0 for the bubble of a
+   * villager, and a higher number for each later bubble of a player.
+   */
+  readonly layer: number;
 }
 
 /**
@@ -292,10 +325,10 @@ function cutText(text: string): TextPiece[] {
 }
 
 /**
- * Breaks a text into lines between its words, and between the characters
- * of Chinese and Japanese, which have no spaces between words, never
- * starting a line with closing punctuation or ending one with opening
- * punctuation.
+ * Breaks a text into lines at its line breaks, and each of the rows they
+ * make between its words, and between the characters of Chinese and
+ * Japanese, which have no spaces between words, never starting a line
+ * with closing punctuation or ending one with opening punctuation.
  *
  * @param {string} text - The text.
  * @param {number} width - The widest a line may be.
@@ -306,6 +339,26 @@ function cutText(text: string): TextPiece[] {
  *   wider.
  */
 export function wrapText(
+  text: string,
+  width: number,
+  measure: (text: string) => number,
+): string[] {
+  return text
+    .split('\n')
+    .flatMap((row: string) => wrapRow(row, width, measure));
+}
+
+/**
+ * Breaks a row of text without line breaks into lines, as {@link wrapText}
+ * tells.
+ *
+ * @param {string} text - The row.
+ * @param {number} width - The widest a line may be.
+ * @param {(text: string) => number} measure - Measures the width of a
+ *   text.
+ * @returns {string[]} The lines.
+ */
+function wrapRow(
   text: string,
   width: number,
   measure: (text: string) => number,
@@ -375,6 +428,24 @@ export function findHeadTop(
   const top: number =
     root === null ? NaN : new Box3().setFromObject(root).max.y;
   return new Vector3(x, Number.isFinite(top) ? top : DEFAULT_HEAD_TOP, z);
+}
+
+/**
+ * Finds the top of the head of a player as it is shown.
+ *
+ * @param {Object3D} root - The root of the model of the player, where it
+ *   stands.
+ * @returns {Vector3} The point above where the player stands at the height
+ *   of the top of its model, with whatever is shown above it, or at a
+ *   usual height if the model has no height.
+ */
+export function findFigureTop(root: Object3D): Vector3 {
+  const top: number = new Box3().setFromObject(root).max.y;
+  return new Vector3(
+    root.position.x,
+    Number.isFinite(top) ? top : DEFAULT_HEAD_TOP,
+    root.position.z,
+  );
 }
 
 /**
@@ -460,9 +531,11 @@ function paintTail(width: number, height: number): Sprite {
 }
 
 /**
- * Draws a bubble with the name of a villager and what it says, the same
- * size on the screen however far it is, over everything else, in the
- * fonts of their language.
+ * Draws a bubble with the name of a villager and what it says, or with
+ * what a player says alone under no name, the same size on the screen
+ * however far it is, over everything else, in the fonts of their language.
+ * The words are drawn as plain text, whatever they hold, a line break in
+ * them starting a new line.
  *
  * @param {SpeechWords} words - The name and what it says.
  * @param {number} widest - The widest the bubble may be, in pixels, its
@@ -490,8 +563,9 @@ function paintSpeech(words: SpeechWords, widest: number): Sprite {
     width = Math.max(linesWidth, measure(words.name));
   }
   width = Math.ceil(width) + PADDING * 2;
+  const nameLines: number = words.name === '' ? 0 : 1;
   const height: number =
-    PADDING * 2 + LINE_HEIGHT * (lines.length + 1) + TAIL_SIZE;
+    PADDING * 2 + LINE_HEIGHT * (lines.length + nameLines) + TAIL_SIZE;
   canvas.width = width * PIXEL_RATIO;
   canvas.height = height * PIXEL_RATIO;
   if (context !== null) {
@@ -509,7 +583,7 @@ function paintSpeech(words: SpeechWords, widest: number): Sprite {
     context.font = textFont;
     context.fillStyle = TEXT_COLOUR;
     lines.forEach((line: string, index: number) => {
-      const y: number = PADDING + LINE_HEIGHT * (index + 1.5);
+      const y: number = PADDING + LINE_HEIGHT * (index + nameLines + 0.5);
       context.fillText(line, PADDING, y);
     });
   }
@@ -557,13 +631,34 @@ function setOpacity(sprite: Sprite, opacity: number): void {
   });
 }
 
-/** The bubble that shows what the villager last talked to says. */
+/**
+ * Draws a bubble and its tail above the bubbles of the layers below.
+ *
+ * @param {Sprite} sprite - The bubble.
+ * @param {number} layer - How far above the other bubbles it is drawn,
+ *   from 0.
+ */
+function stackBubble(sprite: Sprite, layer: number): void {
+  sprite.renderOrder = BUBBLE_RENDER_ORDER + layer * 2;
+  for (const part of sprite.children) {
+    part.renderOrder = sprite.renderOrder + 1;
+  }
+}
+
+/**
+ * The bubble that shows what the villager last talked to says, and a
+ * bubble for each player that shows what it last said.
+ */
 export class SpeechBubble {
   readonly #parent: Object3D;
   readonly #translator: Translator;
   readonly #paint: (words: SpeechWords, widest: number) => Sprite;
   readonly #random: () => number;
   #shown: ShownSpeech | null = null;
+  /** The bubbles of the players, by the identifiers of the players. */
+  readonly #said = new Map<number, ShownSpeech>();
+  /** The number of bubbles of players shown so far. */
+  #saidCount = 0;
   /** The position of the line each villager said last, by villager. */
   readonly #lastLines = new Map<VillagerId, number>();
   /** The villagers who have told the player of the page who they are. */
@@ -600,7 +695,8 @@ export class SpeechBubble {
   /**
    * Shows what a villager says, in the language of the page, in a bubble
    * just above its head, for as long as {@link measureSpeechDuration}
-   * tells, in place of any bubble shown before.
+   * tells, in place of any bubble of a villager shown before.  The
+   * bubbles of the players stay as they are.
    *
    * A villager says the line it is given, or else, with several lines, one
    * of them, picked at random, but never the line it said the time before,
@@ -636,11 +732,97 @@ export class SpeechBubble {
       screen: null,
       duration: measureSpeechDuration(words.line),
       age: 0,
+      layer: 0,
     };
   }
 
   /**
-   * Takes in the view the bubbles are seen in, and draws the bubble shown,
+   * Shows what a player says, as it typed it, in a bubble of its own just
+   * above its head, for as long as {@link measureSpeechDuration} tells, in
+   * place of the bubble of that player shown before, if any.  The bubbles
+   * of the other players and that of a villager stay as they are, and a
+   * later bubble is drawn over the earlier ones where they overlap.
+   *
+   * @param {number} player - The identifier of the player.
+   * @param {string} line - What the player says, shown as plain text.
+   * @param {Vector3} head - The top of the head of the player.
+   */
+  sayAs(player: number, line: string, head: Vector3): void {
+    this.hushPlayer(player);
+    const words: SpeechWords = {
+      name: '',
+      line,
+      language: this.#translator.language,
+    };
+    const widest: number = this.#findWidest();
+    const layer: number = ++this.#saidCount;
+    const [sprite, painted] = this.#prepare(words, widest);
+    stackBubble(sprite, layer);
+    sprite.position.set(head.x, head.y + BUBBLE_MARGIN, head.z);
+    this.#parent.add(sprite);
+    this.#said.set(player, {
+      villager: null,
+      lineIndex: 0,
+      lineId: null,
+      words,
+      sprite,
+      painted,
+      widest,
+      screen: null,
+      duration: measureSpeechDuration(line),
+      age: 0,
+      layer,
+    });
+  }
+
+  /**
+   * Moves the bubble of a player, if it has one, to just above its head,
+   * where the head is now, as it goes on speaking while it goes about, or
+   * keeps the bubble from being seen while the player is off the screen.
+   * The bubble goes on ageing unseen.
+   *
+   * @param {number} player - The identifier of the player.
+   * @param {Vector3 | null} head - The top of the head of the player, or
+   *   `null` while the player is off the screen.
+   */
+  followPlayer(player: number, head: Vector3 | null): void {
+    const shown: ShownSpeech | undefined = this.#said.get(player);
+    if (shown === undefined) {
+      return;
+    }
+    shown.sprite.visible = head !== null;
+    if (head === null) {
+      shown.screen = null;
+    } else {
+      shown.sprite.position.set(head.x, head.y + BUBBLE_MARGIN, head.z);
+    }
+  }
+
+  /**
+   * Takes the bubble of a player away at once, if it has one.
+   *
+   * @param {number} player - The identifier of the player.
+   */
+  hushPlayer(player: number): void {
+    const shown: ShownSpeech | undefined = this.#said.get(player);
+    if (shown !== undefined) {
+      this.#dispose(shown.sprite);
+      this.#said.delete(player);
+    }
+  }
+
+  /**
+   * Lists the players who have a bubble now.
+   *
+   * @returns {number[]} The identifiers of the players, in the order they
+   *   spoke.
+   */
+  listSpeakers(): number[] {
+    return [...this.#said.keys()];
+  }
+
+  /**
+   * Takes in the view the bubbles are seen in, and draws the bubbles shown,
    * if any, and those to come, at the size for it: as painted in a view at
    * least 600 pixels tall, and as large as in a view that tall in a shorter
    * one, as on a phone held on its side.  In a narrow view, as on a phone
@@ -654,22 +836,20 @@ export class SpeechBubble {
    */
   fitView(width: number, height: number, fieldOfView: number): void {
     this.#view = { width, height, fieldOfView };
-    const shown: ShownSpeech | null = this.#shown;
-    if (shown === null) {
-      return;
-    }
-    if (shown.widest === this.#findWidest()) {
-      this.#enlarge(shown.sprite, shown.painted);
-    } else {
-      this.#repaint(shown, shown.words);
+    for (const shown of this.#listShown()) {
+      if (shown.widest === this.#findWidest()) {
+        this.#enlarge(shown.sprite, shown.painted);
+      } else {
+        this.#repaint(shown, shown.words);
+      }
     }
   }
 
   /**
-   * Places the bubble shown, if any, on the screen as a camera shows it,
-   * as the bubble does by itself each time it is drawn.
+   * Places the bubbles shown, if any, on the screen as a camera shows
+   * them, as each bubble does by itself each time it is drawn.
    *
-   * The bubble stands above the head of the one who speaks, but shifts
+   * A bubble stands above the head of the one who speaks, but shifts
    * inwards as far as it must to stay wholly within the view, at least 8
    * pixels from its edges, its top kept in view
    * before its foot in a view too short for it.  Its tail hangs from its
@@ -683,9 +863,21 @@ export class SpeechBubble {
    * @param {Camera} camera - The camera, its matrices up to date.
    */
   place(camera: Camera): void {
-    const shown: ShownSpeech | null = this.#shown;
+    for (const shown of this.#listShown()) {
+      this.#placeBubble(shown, camera);
+    }
+  }
+
+  /**
+   * Places a bubble on the screen as a camera shows it, as {@link place}
+   * tells.
+   *
+   * @param {ShownSpeech} shown - The bubble.
+   * @param {Camera} camera - The camera, its matrices up to date.
+   */
+  #placeBubble(shown: ShownSpeech, camera: Camera): void {
     const view: ViewSize | null = this.#view;
-    if (shown === null || view === null) {
+    if (view === null) {
       return;
     }
     shown.screen = null;
@@ -760,49 +952,62 @@ export class SpeechBubble {
    * @param {Vector3} head - The top of the head of the villager.
    */
   follow(villager: Villager, head: Vector3): void {
-    if (this.#shown?.villager.id !== villager.id) {
+    if (this.#shown?.villager?.id !== villager.id) {
       return;
     }
     this.#shown.sprite.position.set(head.x, head.y + BUBBLE_MARGIN, head.z);
   }
 
   /**
-   * Shows the bubble being shown, if any, in the language of the page now,
-   * in the same place, until the same end.
+   * Shows the bubble of a villager being shown, if any, in the language of
+   * the page now, in the same place, until the same end.  What the players
+   * say stays as they typed it, drawn in the fonts of that language.
    */
   relabel(): void {
-    const shown: ShownSpeech | null = this.#shown;
-    if (shown === null) {
-      return;
+    for (const shown of this.#listShown()) {
+      this.#repaint(
+        shown,
+        shown.villager === null
+          ? { ...shown.words, language: this.#translator.language }
+          : this.#describe(shown.villager, shown.lineIndex, shown.lineId),
+      );
     }
-    this.#repaint(
-      shown,
-      this.#describe(shown.villager, shown.lineIndex, shown.lineId),
-    );
   }
 
   /**
-   * Lets the bubble age, fading it away at its end and taking it away
+   * Lets the bubbles age, fading each away at its end and taking it away
    * once it is over.
    *
    * @param {number} seconds - The time that has passed, in seconds.
    */
   update(seconds: number): void {
     const shown: ShownSpeech | null = this.#shown;
-    if (shown === null) {
-      return;
-    }
-    shown.age += seconds;
-    const left: number = shown.duration - shown.age;
-    if (left <= 0) {
+    if (shown !== null && !this.#age(shown, seconds)) {
       this.#hide();
-      return;
     }
-    setOpacity(shown.sprite, Math.min(left / FADE_DURATION, 1));
+    for (const [player, said] of [...this.#said]) {
+      if (!this.#age(said, seconds)) {
+        this.hushPlayer(player);
+      }
+    }
   }
 
-  /** Takes the bubble away at once, if there is one. */
+  /**
+   * Takes every bubble away at once, that of a villager and those of the
+   * players.
+   */
   clear(): void {
+    this.#hide();
+    for (const player of this.listSpeakers()) {
+      this.hushPlayer(player);
+    }
+  }
+
+  /**
+   * Takes the bubble of a villager away at once, if there is one, and
+   * leaves those of the players.
+   */
+  hushVillagers(): void {
     this.#hide();
   }
 
@@ -813,13 +1018,13 @@ export class SpeechBubble {
    * @param {Villager} villager - The villager.
    */
   hush(villager: Villager): void {
-    if (this.#shown?.villager.id === villager.id) {
+    if (this.#shown?.villager?.id === villager.id) {
       this.#hide();
     }
   }
 
   /**
-   * Describes the bubble as it is shown now.
+   * Describes the bubble of a villager as it is shown now.
    *
    * @returns {SpeechView | null} What the bubble shows and where, or `null`
    *   while there is none.
@@ -833,6 +1038,54 @@ export class SpeechBubble {
     const textSize: number | null =
       this.#view === null ? null : FONT_SIZE * this.#findPixelSize();
     return { name: words.name, line: words.line, x, y, z, textSize, screen };
+  }
+
+  /**
+   * Describes the bubbles of the players as they are shown now.
+   *
+   * @returns {SaidView[]} What each bubble shows and where, in the order
+   *   the players spoke.
+   */
+  describeSaid(): SaidView[] {
+    return [...this.#said].map(
+      ([player, { words, sprite, screen }]: [number, ShownSpeech]) => ({
+        player,
+        line: words.line,
+        x: sprite.position.x,
+        y: sprite.position.y,
+        z: sprite.position.z,
+        isShown: sprite.visible,
+        screen,
+      }),
+    );
+  }
+
+  /**
+   * Lists every bubble shown now.
+   *
+   * @returns {ShownSpeech[]} The bubble of a villager, if any, and then
+   *   those of the players.
+   */
+  #listShown(): ShownSpeech[] {
+    const said: ShownSpeech[] = [...this.#said.values()];
+    return this.#shown === null ? said : [this.#shown, ...said];
+  }
+
+  /**
+   * Lets a bubble age, fading it away at its end.
+   *
+   * @param {ShownSpeech} shown - The bubble.
+   * @param {number} seconds - The time that has passed, in seconds.
+   * @returns {boolean} Whether the bubble is still to be shown.
+   */
+  #age(shown: ShownSpeech, seconds: number): boolean {
+    shown.age += seconds;
+    const left: number = shown.duration - shown.age;
+    if (left <= 0) {
+      return false;
+    }
+    setOpacity(shown.sprite, Math.min(left / FADE_DURATION, 1));
+    return true;
   }
 
   /**
@@ -889,7 +1142,12 @@ export class SpeechBubble {
     sprite.onBeforeRender = (
       ...args: Parameters<Sprite['onBeforeRender']>
     ): void => {
-      this.place(args[2]);
+      const shown: ShownSpeech | undefined = this.#listShown().find(
+        (candidate: ShownSpeech) => candidate.sprite === sprite,
+      );
+      if (shown !== undefined) {
+        this.#placeBubble(shown, args[2]);
+      }
     };
     return [sprite, painted];
   }
@@ -906,6 +1164,10 @@ export class SpeechBubble {
     const widest: number = this.#findWidest();
     const [sprite, painted] = this.#prepare(words, widest);
     sprite.position.copy(shown.sprite.position);
+    sprite.visible = shown.sprite.visible;
+    if (shown.layer > 0) {
+      stackBubble(sprite, shown.layer);
+    }
     setOpacity(sprite, shown.sprite.material.opacity);
     this.#dispose(shown.sprite);
     this.#parent.add(sprite);
@@ -940,7 +1202,7 @@ export class SpeechBubble {
     sprite.scale.set(painted[0] * enlargement, painted[1] * enlargement, 1);
   }
 
-  /** Takes the bubble away, if there is one. */
+  /** Takes the bubble of a villager away, if there is one. */
   #hide(): void {
     if (this.#shown === null) {
       return;

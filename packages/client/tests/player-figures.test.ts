@@ -197,6 +197,16 @@ describe('PlayerFigures', () => {
     expect(scene.children).toEqual([]);
   });
 
+  it('finds the model of a player that is shown, and of no other', () => {
+    const scene = new Object3D();
+    const figures = new PlayerFigures(scene, createFigure);
+    figures.showPlayers([PLAYER]);
+    expect(figures.findFigure(PLAYER.id)).toBe(scene.children[0]);
+    expect(figures.findFigure(6)).toBeNull();
+    figures.showPlayers([]);
+    expect(figures.findFigure(PLAYER.id)).toBeNull();
+  });
+
   it('plays the clip of the action the snapshot tells', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);

@@ -32,6 +32,8 @@ import {
   FOUNTAIN_HEALING,
   GROUND_ITEM_DURATION,
   PLAYER_HEALTH,
+  SAY_INTERVAL,
+  SAY_RANGE,
   SIMULATION_RATE,
   SLASH_DAMAGE,
   SLASH_REACH,
@@ -40,6 +42,7 @@ import {
   VILLAGERS,
   canInteract,
   canUseItem,
+  cleanSayText,
   createMotion,
   findItemKind,
   findPassage,
@@ -131,6 +134,9 @@ const GROUND_ITEM_STEPS: number = Math.round(
   GROUND_ITEM_DURATION * SIMULATION_RATE,
 );
 
+/** The least number of simulation steps between two lines of a player. */
+const SAY_INTERVAL_STEPS: number = Math.round(SAY_INTERVAL * SIMULATION_RATE);
+
 /** The number of decimal places the place of an item put down keeps. */
 const ITEM_PLACE_PRECISION = 2;
 
@@ -182,6 +188,16 @@ export interface Player {
    * taken, in the order they said it.
    */
   speeches: Speech[];
+  /**
+   * What the players nearby, and the player itself, have said within its
+   * hearing since it was last taken, in the order they said it.
+   */
+  sayings: Saying[];
+  /**
+   * The number of the step at which the player last said a line, or `null`
+   * if it has said none.
+   */
+  saidStep: number | null;
 }
 
 /** A dialogue a player is in. */
@@ -200,6 +216,14 @@ export interface Speech {
   readonly villager: VillagerId;
   /** The message of what the villager says. */
   readonly line: string;
+}
+
+/** What a player says to the players nearby. */
+export interface Saying {
+  /** The identifier of the player who speaks. */
+  readonly player: number;
+  /** The line the player says. */
+  readonly text: string;
 }
 
 /** An item that lies on the ground, and until when. */
@@ -386,6 +410,8 @@ export class World {
       turnCount: 0,
       isHunted: false,
       speeches: [],
+      sayings: [],
+      saidStep: null,
     };
     this.#players.set(player.id, player);
     return describePlayer(player);
@@ -406,7 +432,9 @@ export class World {
    * they are, how far it has got with the quests, whether Martha hunts it,
    * and the inputs of its peer still to come.  It stops
    * whatever it was doing and idles where it arrives, but still wants to
-   * move the way it did.  A player that arrives in the village somewhere
+   * move the way it did, and is told nothing more of what was said within
+   * its hearing in the world it left.  A player that arrives in the village
+   * somewhere
    * in particular, as one that climbs out of the well does, and that does
    * not carry {@link SPY_TOKEN}, Martha is to deal with.
    *
@@ -421,6 +449,7 @@ export class World {
     } else {
       player.mover.relocate(arrival, arrival.yaw);
     }
+    player.sayings = [];
     this.#players.set(player.id, player);
     if (arrival !== null && !player.inventory.includes(SPY_TOKEN)) {
       this.#martha?.summon(player.id);
@@ -884,6 +913,65 @@ export class World {
     const speeches: Speech[] = player.speeches;
     player.speeches = [];
     return speeches;
+  }
+
+  /**
+   * Has a player say a line to the players nearby, at once.
+   *
+   * The line is made of the text as {@link cleanSayText} tells, and is
+   * heard by every player of the world within {@link SAY_RANGE} metres of
+   * the player then, the player itself among them, and by nobody else.
+   * Nothing is said if the player is not in the world, if nothing is left
+   * of the text to say, or if the player said its last line less than
+   * {@link SAY_INTERVAL} seconds ago, in this world or another.
+   *
+   * @param {number} id - The identifier of the player.
+   * @param {string} text - The text its peer sent.
+   * @returns {boolean} Whether the player said a line.
+   */
+  say(id: number, text: string): boolean {
+    const speaker: Player | undefined = this.#players.get(id);
+    if (speaker === undefined) {
+      return false;
+    }
+    const { saidStep } = speaker;
+    if (
+      saidStep !== null &&
+      this.#stepCount - saidStep < SAY_INTERVAL_STEPS
+    ) {
+      return false;
+    }
+    const line: string | null = cleanSayText(text);
+    if (line === null) {
+      return false;
+    }
+    speaker.saidStep = this.#stepCount;
+    const { x, z } = speaker.mover.motion;
+    for (const player of this.#players.values()) {
+      const { motion } = player.mover;
+      if (Math.hypot(motion.x - x, motion.z - z) <= SAY_RANGE) {
+        player.sayings.push({ player: id, text: line });
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Takes what was said within the hearing of a player since it was last
+   * taken, which only the players who heard it are to be told.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {Saying[]} What was said, in the order it was said, each
+   *   taken only once, which is nothing if the player is not in the world.
+   */
+  takeSayings(id: number): Saying[] {
+    const player: Player | undefined = this.#players.get(id);
+    if (player === undefined) {
+      return [];
+    }
+    const sayings: Saying[] = player.sayings;
+    player.sayings = [];
+    return sayings;
   }
 
   /**

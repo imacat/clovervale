@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/tests/speech-bubble Tests for the bubble that shows what
- *   a villager says.
+ * @module client/tests/speech-bubble Tests for the bubbles that show what
+ *   a villager and the players say.
  */
 
 import {
@@ -38,11 +38,13 @@ import type { Placement, TobyPose, Villager } from '@clovervale/shared';
 import {
   CHARACTER_READING_SPEED,
   SpeechBubble,
+  findFigureTop,
   findHeadTop,
   measureSpeechDuration,
   wrapText,
 } from '../src/speech-bubble.ts';
 import type {
+  SaidView,
   SpeechScreen,
   SpeechView,
   SpeechWords,
@@ -236,6 +238,19 @@ describe('wrapText', () => {
       'a bb',
       'ccc',
       'dddd',
+    ]);
+  });
+
+  it('starts a new line at a line break, and wraps each row', () => {
+    expect(wrapText('one two\nthree', 20, measure)).toEqual([
+      'one two',
+      'three',
+    ]);
+    expect(wrapText('one two three\nfour five six', 9, measure)).toEqual([
+      'one two',
+      'three',
+      'four five',
+      'six',
     ]);
   });
 
@@ -912,5 +927,223 @@ describe('SpeechBubble on the screen', () => {
       }
       last = screen;
     }
+  });
+});
+
+describe('findFigureTop', () => {
+  it('finds the top of the model of a player where it stands', () => {
+    const root = new Object3D();
+    const body = new Mesh(new BoxGeometry(0.6, 1.7, 0.4));
+    body.position.y = 0.85;
+    root.add(body);
+    root.position.set(3, 0, -2);
+    const top: Vector3 = findFigureTop(root);
+    expect(top.x).toBe(3);
+    expect(top.y).toBeCloseTo(1.7);
+    expect(top.z).toBe(-2);
+  });
+
+  it('takes a usual height for a model without a height', () => {
+    const root = new Object3D();
+    root.position.set(3, 0, -2);
+    expect(findFigureTop(root).toArray()).toEqual([3, 1.8, -2]);
+  });
+});
+
+describe('SpeechBubble with players who speak', () => {
+  /** The top of the head of a player. */
+  const PLAYER_HEAD = new Vector3(2, 1.7, 3);
+  /** The top of the head of another player. */
+  const OTHER_HEAD = new Vector3(-4, 1.7, 1);
+
+  /**
+   * Lists what the bubbles of the players say.
+   *
+   * @param {SpeechBubble} bubble - The bubbles.
+   * @returns {[number, string][]} The player and the line of each.
+   */
+  const listLines = (bubble: SpeechBubble): [number, string][] =>
+    bubble
+      .describeSaid()
+      .map(({ player, line }: SaidView): [number, string] => [player, line]);
+
+  it('shows what a player says above its head, under no name', () => {
+    const { parent, bubble, painted } = createBubble();
+    bubble.sayAs(7, 'Hello there!', PLAYER_HEAD);
+    expect(parent.children).toHaveLength(1);
+    const y: number | undefined = parent.children[0]?.position.y;
+    expect(y).toBeGreaterThan(PLAYER_HEAD.y);
+    expect(bubble.describeSaid()).toEqual([
+      {
+        player: 7,
+        line: 'Hello there!',
+        x: PLAYER_HEAD.x,
+        y,
+        z: PLAYER_HEAD.z,
+        isShown: true,
+        screen: null,
+      },
+    ]);
+    expect(painted).toEqual([
+      { name: '', line: 'Hello there!', language: 'en' },
+    ]);
+  });
+
+  it('shows a line as it was typed, in whatever language', async () => {
+    const translator: Translator = await createTranslator('ja');
+    const { bubble, painted } = createBubble(translator);
+    bubble.sayAs(7, '<b>大家好</b> & hello', PLAYER_HEAD);
+    expect(listLines(bubble)).toEqual([[7, '<b>大家好</b> & hello']]);
+    await translator.choose('zh-TW');
+    bubble.relabel();
+    expect(listLines(bubble)).toEqual([[7, '<b>大家好</b> & hello']]);
+    expect(painted.at(-1)).toEqual({
+      name: '',
+      line: '<b>大家好</b> & hello',
+      language: 'zh-TW',
+    });
+  });
+
+  it('replaces the line of a player with its next one', () => {
+    const { parent, bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(7, 'Two.', PLAYER_HEAD);
+    expect(listLines(bubble)).toEqual([[7, 'Two.']]);
+    expect(parent.children).toHaveLength(1);
+  });
+
+  it('shows the lines of different players at the same time', () => {
+    const { parent, bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    expect(listLines(bubble)).toEqual([
+      [7, 'One.'],
+      [8, 'Two.'],
+    ]);
+    expect(bubble.listSpeakers()).toEqual([7, 8]);
+    expect(parent.children).toHaveLength(2);
+  });
+
+  it('draws a later bubble over the earlier ones', () => {
+    const { parent, bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(8, 'Two.', PLAYER_HEAD);
+    bubble.sayAs(7, 'Three.', PLAYER_HEAD);
+    const [second, third] = parent.children;
+    expect(second?.renderOrder).toBeLessThan(third?.renderOrder ?? NaN);
+  });
+
+  it('leaves the bubble of a villager as it is, and is left by it', () => {
+    const { parent, bubble } = createBubble();
+    bubble.say(NANCY, HEAD);
+    bubble.sayAs(7, 'Hello, Nancy!', PLAYER_HEAD);
+    expect(bubble.describe()?.line).toBe(NANCY_WELCOME);
+    bubble.say(NANCY, HEAD);
+    expect(listLines(bubble)).toEqual([[7, 'Hello, Nancy!']]);
+    expect(parent.children).toHaveLength(2);
+    bubble.hushVillagers();
+    expect(bubble.describe()).toBeNull();
+    expect(listLines(bubble)).toEqual([[7, 'Hello, Nancy!']]);
+  });
+
+  it('lasts as long as the bubble of a villager with the same line', () => {
+    const { parent, bubble } = createBubble();
+    const duration: number = measureSpeechDuration(NANCY_WELCOME);
+    bubble.sayAs(7, NANCY_WELCOME, PLAYER_HEAD);
+    bubble.sayAs(8, 'Hi.', OTHER_HEAD);
+    bubble.update(measureSpeechDuration('Hi.') + 0.1);
+    expect(bubble.listSpeakers()).toEqual([7]);
+    bubble.update(duration - measureSpeechDuration('Hi.') - 0.2);
+    expect(bubble.listSpeakers()).toEqual([7]);
+    bubble.update(0.2);
+    expect(bubble.listSpeakers()).toEqual([]);
+    expect(parent.children).toEqual([]);
+  });
+
+  it('follows its player as it goes about', () => {
+    const { bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    bubble.followPlayer(7, new Vector3(5, 1.7, 6));
+    const [first, second] = bubble.describeSaid();
+    expect([first?.x, first?.z]).toEqual([5, 6]);
+    expect(first?.y).toBeGreaterThan(1.7);
+    expect([second?.x, second?.z]).toEqual([OTHER_HEAD.x, OTHER_HEAD.z]);
+  });
+
+  it('is not seen while its player is off the screen, and again after', () => {
+    const { parent, bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.followPlayer(7, null);
+    expect(bubble.describeSaid()[0]?.isShown).toBe(false);
+    expect(parent.children[0]?.visible).toBe(false);
+    bubble.followPlayer(7, PLAYER_HEAD);
+    expect(bubble.describeSaid()[0]?.isShown).toBe(true);
+    expect(parent.children[0]?.visible).toBe(true);
+  });
+
+  it('goes on ageing while it is not seen', () => {
+    const { bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.followPlayer(7, null);
+    bubble.update(measureSpeechDuration('One.') + 0.1);
+    expect(bubble.listSpeakers()).toEqual([]);
+  });
+
+  it('takes the bubble of a player away, and only that', () => {
+    const { bubble } = createBubble();
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    bubble.hushPlayer(7);
+    expect(bubble.listSpeakers()).toEqual([8]);
+    bubble.followPlayer(7, PLAYER_HEAD);
+    expect(bubble.listSpeakers()).toEqual([8]);
+  });
+
+  it('takes every bubble away when cleared', () => {
+    const { parent, bubble } = createBubble();
+    bubble.say(NANCY, HEAD);
+    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    bubble.clear();
+    expect(bubble.describe()).toBeNull();
+    expect(bubble.describeSaid()).toEqual([]);
+    expect(parent.children).toEqual([]);
+  });
+
+  it('keeps each bubble within the view by the edge of the screen', () => {
+    const view = { width: 1280, height: 800 };
+    const bubble = new SpeechBubble(new Object3D(), new Translator(), () => {
+      const sprite = new Sprite();
+      sprite.scale.set(0.3, 0.15, 1);
+      return sprite;
+    });
+    const aspect: number = view.width / view.height;
+    const camera = new PerspectiveCamera(40, aspect, 0.5, 600);
+    camera.position.set(0, 8, 14);
+    camera.lookAt(0, 1, 0);
+    camera.updateMatrixWorld();
+    const findPoint = (x: number, y: number): Vector3 => {
+      const direction: Vector3 = new Vector3(
+        (x / view.width) * 2 - 1,
+        1 - (y / view.height) * 2,
+        0.5,
+      )
+        .unproject(camera)
+        .sub(camera.position)
+        .normalize();
+      return camera.position.clone().addScaledVector(direction, 10);
+    };
+    bubble.fitView(view.width, view.height, 40);
+    bubble.sayAs(7, 'One.', findPoint(5, 400));
+    bubble.sayAs(8, 'Two.', findPoint(view.width - 5, 10));
+    bubble.place(camera);
+    const [left, right] = bubble.describeSaid();
+    // Each bubble is shifted inwards from above the head of its player.
+    expect(left?.screen?.left).toBeGreaterThan(0);
+    expect(left?.screen?.footX).toBeLessThan(left?.screen?.left ?? NaN);
+    expect(right?.screen?.right).toBeLessThan(view.width);
+    expect(right?.screen?.top).toBeGreaterThan(0);
+    expect(right?.screen?.footX).toBeGreaterThan(right?.screen?.right ?? NaN);
   });
 });

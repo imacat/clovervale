@@ -193,7 +193,8 @@ canvas {
 }
 
 .bag-icon,
-.help-button {
+.help-button,
+.chat-button {
   position: relative;
   box-sizing: border-box;
   width: 48px;
@@ -208,6 +209,7 @@ canvas {
 .bag-icon svg,
 .bag-slot svg,
 .help-button svg,
+.chat-button svg,
 .help-mouse svg {
   display: block;
   width: 100%;
@@ -230,11 +232,13 @@ canvas {
 }
 
 /*
- * The key that opens the bag, on its icon, and the key that opens the help
- * sheet, on its button, drawn as key caps.
+ * The key that opens the bag, on its icon, the key that opens the help
+ * sheet, on its button, and the key that opens the chat, on its button,
+ * drawn as key caps.
  */
 .bag-key,
-.help-key {
+.help-key,
+.chat-key {
   position: absolute;
   right: -6px;
   bottom: -6px;
@@ -570,6 +574,131 @@ canvas {
 }
 
 /*
+ * The button of the chat, right of that of the help sheet, drawn like it:
+ * a speech bubble.
+ */
+.chat-button {
+  position: fixed;
+  bottom: 16px;
+  left: 136px;
+  user-select: none;
+}
+
+.chat-button[hidden],
+.chat-box[hidden] {
+  display: none;
+}
+
+.chat-icon-bubble {
+  fill: #fffdf4;
+  stroke: #4a3a28;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.chat-icon-dot {
+  fill: #4a3a28;
+}
+
+/*
+ * The box a line is typed in, above the buttons, styled like the bag: the
+ * line, the button that sends it, and the cross that closes the box.
+ */
+.chat-box {
+  position: fixed;
+  bottom: 76px;
+  left: 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  box-sizing: border-box;
+  width: min(440px, calc(100vw - 32px));
+  padding: 6px;
+  border: 1px solid rgb(240 244 232 / 40%);
+  border-radius: 6px;
+  background: rgb(0 0 0 / 60%);
+}
+
+/*
+ * Words no smaller than 16 pixels, at which a phone does not zoom in, to
+ * be selected, and to open the menu of the browser at a long press, as in
+ * any line of text, on a touch device too.
+ */
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgb(240 244 232 / 50%);
+  border-radius: 4px;
+  background: rgb(20 28 20 / 92%);
+  color: #f0f4e8;
+  font: 16px sans-serif;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  touch-action: auto;
+}
+
+.chat-input::placeholder {
+  color: rgb(240 244 232 / 55%);
+}
+
+.chat-send,
+.chat-cancel {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgb(240 244 232 / 40%);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chat-send {
+  background: #ffe14d;
+}
+
+/* An arrowhead that points right, on the button that sends the line. */
+.chat-send::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 8px solid transparent;
+  border-right-width: 0;
+  border-left: 13px solid #1a1a1a;
+  transform: translate(-45%, -50%);
+}
+
+.chat-cancel {
+  background: rgb(20 28 20 / 92%);
+}
+
+.chat-cancel::before,
+.chat-cancel::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: #f0f4e8;
+}
+
+.chat-cancel::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.chat-cancel::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/*
  * The help sheet: a clear veil over the whole page but the panel, which
  * keeps the pointer from the game, and a sheet of parchment in the middle,
  * over the panel too, that lists the controls in two columns.  The ending
@@ -664,6 +793,11 @@ canvas {
   grid-auto-flow: column;
   grid-template-rows: repeat(4, auto);
   gap: 14px 24px;
+}
+
+/* The page of the keyboard lists one control more than twice four. */
+.help-controls.is-keyboard-page {
+  grid-template-rows: repeat(5, auto);
 }
 
 .help-control {
@@ -1154,7 +1288,8 @@ canvas {
 
 /* One column of controls on a narrow page. */
 @media (width <= 560px) {
-  .help-controls {
+  .help-controls,
+  .help-controls.is-keyboard-page {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-flow: row;
     grid-template-rows: none;
@@ -1298,7 +1433,8 @@ canvas {
 }
 
 .is-touch .bag-key,
-.is-touch .help-key {
+.is-touch .help-key,
+.is-touch .chat-key {
   display: none;
 }
 
@@ -1316,8 +1452,41 @@ canvas {
   left: calc(12px + env(safe-area-inset-left, 0px));
 }
 
+/*
+ * The chat button below the row of the bag and help buttons, where the
+ * open bag would cover it, so it is hidden while the bag is open; and the
+ * chat box along the top of the page, over the buttons and the panel,
+ * clear of the device's keyboard.
+ */
+.is-touch .chat-button {
+  top: calc(72px + env(safe-area-inset-top, 0px));
+  bottom: auto;
+  left: calc(76px + env(safe-area-inset-left, 0px));
+}
+
+.is-touch .chat-box {
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: auto;
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  z-index: 1002;
+  width: auto;
+}
+
+.is-touch .chat-input,
+.is-touch .chat-send,
+.is-touch .chat-cancel {
+  height: 44px;
+}
+
+.is-touch .chat-send,
+.is-touch .chat-cancel {
+  width: 44px;
+}
+
 .is-touch .bag-icon,
-.is-touch .help-button {
+.is-touch .help-button,
+.is-touch .chat-button {
   width: 52px;
   height: 52px;
 }
@@ -1466,6 +1635,11 @@ canvas {
     left: calc(76px + env(safe-area-inset-left, 0px));
   }
 
+  .is-touch .chat-button {
+    top: calc(72px + env(safe-area-inset-top, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
+  }
+
   .is-touch .help-sheet {
     max-height: calc(100% - 24px);
   }
@@ -1544,6 +1718,13 @@ canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Three buttons side by side are drawn smaller, to fit where two do. */
+.help-touch-picture.is-wide .help-touch-button {
+  width: 31px;
+  height: 31px;
+  padding: 3px;
 }
 
 /* The panel narrower on a narrow screen, clear of the buttons at the left. */

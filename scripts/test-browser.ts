@@ -1048,8 +1048,10 @@ const HELP_PAGE_COUNT = 3;
 const TOUCH_PAGE = 2;
 /** The page of the credits of the help sheet, once the ending is shown. */
 const CREDITS_PAGE = 3;
-/** How many controls the help sheet lists. */
+/** How many controls the help sheet lists on the page of the gamepad. */
 const HELP_CONTROL_COUNT = 8;
+/** How many controls the help sheet lists on the page of the keyboard. */
+const KEYBOARD_CONTROL_COUNT = 9;
 /** The key values WebDriver gives the keys the help sheet takes. */
 const HELP_KEYS = {
   help: 'h',
@@ -5151,6 +5153,128 @@ async function checkBrowserKeys(
   }
 }
 
+/** The chat of a page, its own player, and what the players say there. */
+interface ChatLook {
+  /** Whether the box of the chat is open. */
+  readonly isOpen: boolean;
+  /** Whether the keyboard is with the line of the box. */
+  readonly isFocused: boolean;
+  /** What is typed in the box. */
+  readonly typed: string;
+  /** The bubbles of the players. */
+  readonly said: readonly {
+    readonly player: number;
+    readonly line: string;
+    readonly y: number;
+    readonly isShown: boolean;
+  }[];
+  /** The player of the page in the latest snapshot, if it is there. */
+  readonly own: { readonly x: number; readonly z: number } | null;
+}
+
+/** A line to say that is made of keys of the game. */
+const CHAT_LINE = 'wasd hi';
+
+/**
+ * Checks that a line typed in the box of the chat shows in a bubble above
+ * the player of the page: that Enter opens the box and gives it the
+ * keyboard, that the keys of the game typed in it are typed and do not
+ * walk the player, and that Enter closes the box and has the player say
+ * the line, in a bubble above its head, which is over before long.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player of the page.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the page does not do so.
+ */
+async function checkChat(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const look = async (): Promise<ChatLook> =>
+    JSON.parse(
+      await evaluateInPage(
+        session,
+        context,
+        `(() => {
+          const input = document.querySelector('.chat-input');
+          return JSON.stringify({
+            isOpen: window.clovervale.describeChat().isOpen,
+            isFocused: input !== null && document.activeElement === input,
+            typed: input?.value ?? '',
+            said: window.clovervale.listSaid(),
+            own: window.clovervale.listLatestPlayers()
+              .find((player) => player.id === ${String(id)}) ?? null,
+          });
+        })()`,
+      ),
+    ) as ChatLook;
+  const press = async (key: string): Promise<void> => {
+    await sendKey(session, context, 'keyDown', key);
+    await sendKey(session, context, 'keyUp', key);
+  };
+  const expectLook = (
+    isAwaited: (seen: ChatLook) => boolean,
+    what: string,
+    timeout: number = ACTION_TIMEOUT,
+  ): Promise<ChatLook> =>
+    waitFor(
+      look,
+      isAwaited,
+      timeout,
+      (seen: ChatLook) =>
+        `With ${what}, the first page tells ${JSON.stringify(seen)}.`,
+    );
+  const hasWalked = (seen: ChatLook, from: ChatLook): boolean =>
+    seen.own === null ||
+    from.own === null ||
+    Math.hypot(seen.own.x - from.own.x, seen.own.z - from.own.z) >
+      STANDING_DRIFT;
+
+  const before: ChatLook = await look();
+  await press(BAG_KEYS.enter);
+  await expectLook(
+    (seen: ChatLook) => seen.isOpen && seen.isFocused && seen.typed === '',
+    'Enter pressed in play',
+  );
+  for (const key of CHAT_LINE) {
+    await press(key);
+  }
+  const typed: ChatLook = await expectLook(
+    (seen: ChatLook) => seen.isOpen && seen.typed === CHAT_LINE,
+    `"${CHAT_LINE}" typed in the box of the chat`,
+  );
+  await press(BAG_KEYS.enter);
+  const said: ChatLook = await expectLook(
+    (seen: ChatLook) =>
+      !seen.isOpen &&
+      seen.said.length === 1 &&
+      seen.said.every(
+        (bubble) =>
+          bubble.player === id &&
+          bubble.line === CHAT_LINE &&
+          bubble.isShown &&
+          bubble.y > SPEECH_LEAST_HEIGHT,
+      ),
+    `Enter pressed with "${CHAT_LINE}" typed`,
+  );
+  if (hasWalked(typed, before) || hasWalked(said, before)) {
+    throw new Error(
+      `With "${CHAT_LINE}" typed in the box of the chat, the player of the ` +
+        `first page went from ${JSON.stringify(before.own)} to ` +
+        `${JSON.stringify(typed.own)} and ${JSON.stringify(said.own)}.`,
+    );
+  }
+  // The bubble is over before the checks that look at the view go on.
+  await expectLook(
+    (seen: ChatLook) => seen.said.length === 0,
+    'the line said a while ago',
+    SPEECH_TIMEOUT,
+  );
+}
+
 /** Reads how the panel of a page shows itself, as JSON. */
 const PANEL_LOOK_EXPRESSION = `(() => {
   const root = document.querySelector('.lil-gui.lil-root');
@@ -5301,7 +5425,7 @@ async function checkHelp(
     !first.isOpen ||
     first.title !== HELP_WORDS.title ||
     first.ok !== HELP_WORDS.ok ||
-    first.labels.length !== HELP_CONTROL_COUNT ||
+    first.labels.length !== KEYBOARD_CONTROL_COUNT ||
     first.page !== 0 ||
     first.subtitle !== HELP_WORDS.keyboard ||
     first.buttonKey !== 'H' ||
@@ -5518,7 +5642,8 @@ async function checkGamepad(
       (seen: HelpLook) =>
         seen.isOpen &&
         seen.page === page &&
-        seen.labels.length === HELP_CONTROL_COUNT,
+        seen.labels.length ===
+          (page === 0 ? KEYBOARD_CONTROL_COUNT : HELP_CONTROL_COUNT),
       what,
     );
 
@@ -9678,8 +9803,10 @@ interface TouchLook {
   readonly isHeld: boolean;
   /** Whether the panel is folded up. */
   readonly isPanelClosed: boolean;
-  /** Whether a key cap is shown on the bag or the help button. */
+  /** Whether a key cap is shown on the bag, the help or the chat button. */
   readonly isKeyShown: boolean;
+  /** Whether the keyboard is with the line of the box of the chat. */
+  readonly isChatFocused: boolean;
   /** The boxes of what is shown, by their names; the hidden are left out. */
   readonly boxes: Readonly<Record<string, BoxView>>;
   /** The least width and height of the targets to tap shown. */
@@ -9710,6 +9837,8 @@ const TOUCH_EXPRESSION = `(() => {
     action: '.touch-action',
     bagIcon: '.bag-icon',
     helpButton: '.help-button',
+    chatButton: '.chat-button',
+    chatBox: '.chat-box',
     panel: '.lil-gui.lil-root',
     prompt: '.interaction-prompt',
     bag: '.bag-window',
@@ -9728,6 +9857,7 @@ const TOUCH_EXPRESSION = `(() => {
   let leastTarget = Infinity;
   let leastTargetName = '';
   const targets = '.touch-action, .bag-icon, .help-button, .bag-slot, ' +
+    '.chat-button, .chat-send, .chat-cancel, ' +
     '.bag-action, .dialogue-reply, .help-previous, .help-next, ' +
     '.help-close, .help-ok';
   for (const element of document.querySelectorAll(targets)) {
@@ -9749,8 +9879,11 @@ const TOUCH_EXPRESSION = `(() => {
       ?.classList.contains('is-held') ?? false,
     isPanelClosed: document.querySelector('.lil-gui.lil-root')
       ?.classList.contains('lil-closed') ?? false,
-    isKeyShown: [...document.querySelectorAll('.bag-key, .help-key')]
-      .some(isShown),
+    isKeyShown: [
+      ...document.querySelectorAll('.bag-key, .help-key, .chat-key'),
+    ].some(isShown),
+    isChatFocused: document.activeElement !== null &&
+      document.activeElement === document.querySelector('.chat-input'),
     boxes,
     leastTarget: Number.isFinite(leastTarget) ? leastTarget : 0,
     leastTargetName,
@@ -9855,8 +9988,10 @@ function findLayoutProblems(
  * and stops once lifted; that a finger on the scene turns the view while
  * another walks; that two fingers spreading zoom in; that the action
  * button slashes; that the button of the help sheet opens it at the page
- * of touch, whose arrows and cross work by tapping, and the bag opens and
- * closes by tapping, each laid out well, holding the controls while open;
+ * of touch, whose arrows and cross work by tapping, the bag opens and
+ * closes by tapping, and the box of the chat opens with the keyboard on
+ * its line, which alone is left the menu of a long press, and closes by
+ * tapping, each laid out well, holding the controls while open;
  * and that turning the phone round lays the page out again at once and
  * lets go of a finger held on the stick.  Each layout is saved, if the
  * environment names a directory to.
@@ -9966,6 +10101,10 @@ async function checkTouch(session: BidiSession, url: string): Promise<void> {
     ['stick', 'panel'],
     ['action', 'panel'],
     ['bagIcon', 'helpButton'],
+    ['chatButton', 'bagIcon'],
+    ['chatButton', 'helpButton'],
+    ['chatButton', 'stick'],
+    ['chatButton', 'panel'],
     ['bagIcon', 'panel'],
     ['helpButton', 'panel'],
     ['prompt', 'panel'],
@@ -10056,6 +10195,42 @@ async function checkTouch(session: BidiSession, url: string): Promise<void> {
     await expectLook(
       (seen: TouchLook) => !seen.help.isBagOpen && !seen.isHeld,
       `its bag icon tapped again, held ${name}`,
+    );
+
+    await tapOn('chatButton');
+    const chat: TouchLook = await expectLook(
+      (seen: TouchLook) =>
+        seen.boxes.chatBox !== undefined && seen.isChatFocused && seen.isHeld,
+      `its chat button tapped, held ${name}`,
+    );
+    await saveView(session, context, `touch-chat-${name}.png`);
+    expectLaidOut(chat, `the box of the chat open, held ${name}`, []);
+    // A long press opens the menu of the browser on the line of the box,
+    // to select, copy, cut and paste with, and nowhere else.
+    const kept: string[] = JSON.parse(
+      await evaluateInPage(
+        session,
+        context,
+        `JSON.stringify(['.chat-input', 'canvas'].filter((selector) => {
+          const event = new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+          });
+          document.querySelector(selector).dispatchEvent(event);
+          return event.defaultPrevented;
+        }))`,
+      ),
+    ) as string[];
+    if (kept.join() !== 'canvas') {
+      throw new Error(
+        `Held ${name}, the page used by touch keeps the menu of a long ` +
+          `press from "${kept.join(', ')}", rather than from the scene alone.`,
+      );
+    }
+    await tapElement('.chat-cancel');
+    await expectLook(
+      (seen: TouchLook) => seen.boxes.chatBox === undefined && !seen.isHeld,
+      `the cross of the box of the chat tapped, held ${name}`,
     );
   }
 
@@ -10320,6 +10495,7 @@ async function checkClient(): Promise<void> {
 
     await checkPanelFolded(session, first);
     await checkHelp(session, first, second, id);
+    await checkChat(session, first, id);
     await checkToby(session, first, second);
     await checkTobyFind(session, first, second);
     await checkNight(session, first, second);
@@ -10393,7 +10569,7 @@ try {
       'slashes judged on what they showed, stop them at obstacles, hurt ' +
       'the monster, show each hit once, heal at the fountain, show Toby ' +
       'alike, finding a clover, hear what Nancy says, speak the language ' +
-      'chosen, show the controls, pick, ' +
+      'chosen, show the controls, say a line typed in a bubble, pick, ' +
       'carry and put down a clover, go down into a cave of their own, kill ' +
       'its two wild dogs, talk ' +
       'to the prisoner through his bars, loot the store rooms, count ' +

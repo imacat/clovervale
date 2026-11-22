@@ -56,6 +56,7 @@ import type {
   MonsterState,
   PlayerInput,
   PlayerState,
+  SaidMessage,
   ServerMessage,
   SnapshotMessage,
   WorldItems,
@@ -880,5 +881,73 @@ describe('what the realm has sent to each player', () => {
     const { id }: PlayerState = realm.addPlayer();
     realm.removePlayer(id);
     expect(realm.composeMessages().has(id)).toBe(false);
+  });
+});
+
+/**
+ * Lists what the messages for a player tell it the players have said, as
+ * the realm composes them.
+ *
+ * @param {(readonly ServerMessage[]) | undefined} messages - The
+ *   messages.
+ * @returns {SaidMessage[]} The said messages among them.
+ */
+function listSaid(
+  messages: readonly ServerMessage[] | undefined,
+): SaidMessage[] {
+  return (messages ?? []).filter(
+    (message: ServerMessage): message is SaidMessage =>
+      message.type === 'said',
+  );
+}
+
+describe('what a player of the realm says', () => {
+  it('is sent to it and to a player beside it in the village, once', () => {
+    const realm = new Realm(createRandom());
+    const [first, second] = addDiggers(realm);
+    realm.receiveSay(first, 'Hello there!');
+    const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+    const said: SaidMessage[] = [
+      { type: 'said', player: first, text: 'Hello there!' },
+    ];
+    expect(listSaid(composed.get(first))).toEqual(said);
+    expect(listSaid(composed.get(second))).toEqual(said);
+    realm.step();
+    const later: Map<number, ServerMessage[]> = realm.composeMessages();
+    expect(listSaid(later.get(first))).toEqual([]);
+    expect(listSaid(later.get(second))).toEqual([]);
+  });
+
+  it('is not heard down in a cave when said in the village above', () => {
+    const realm = new Realm(createRandom());
+    const [first, second] = addDiggers(realm);
+    goDown(realm, first);
+    realm.receiveSay(second, 'Anybody there?');
+    const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+    expect(listSaid(composed.get(first))).toEqual([]);
+    expect(listSaid(composed.get(second))).toHaveLength(1);
+  });
+
+  it('is heard in its own cave alone when said in a cave', () => {
+    const realm = new Realm(createRandom());
+    const [first, second] = addDiggers(realm);
+    goDown(realm, first);
+    goDown(realm, second);
+    realm.receiveSay(first, 'It is dark in here.');
+    const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+    expect(listSaid(composed.get(first))).toEqual([
+      { type: 'said', player: first, text: 'It is dark in here.' },
+    ]);
+    expect(listSaid(composed.get(second))).toEqual([]);
+  });
+
+  it('is held to one line in the time between two, from map to map', () => {
+    const realm = new Realm(createRandom());
+    const id: number = addDigger(realm);
+    realm.receiveSay(id, 'Down I go.');
+    goDown(realm, id);
+    realm.composeMessages();
+    realm.receiveSay(id, 'Made it.');
+    expect(listSaid(realm.composeMessages().get(id))).toEqual([]);
   });
 });

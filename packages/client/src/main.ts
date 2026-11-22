@@ -38,6 +38,7 @@ import {
   VILLAGERS,
   VILLAGE_TERRAIN,
   createInteractMessage,
+  createSayMessage,
   decodeServerMessage,
   encodeClientMessage,
   findSpawnPoint,
@@ -81,6 +82,9 @@ import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
 import { CameraKeys } from './camera-keys.ts';
 import { createCaveScene } from './cave-scene.ts';
 import type { CaveScene } from './cave-scene.ts';
+import { ChatBox } from './chat-box.ts';
+import { createChatView } from './chat-view.ts';
+import type { ChatView } from './chat-view.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
 import {
@@ -178,8 +182,13 @@ import {
 } from './player-readout.ts';
 import { PlayerPrediction, placeOwnPlayer } from './prediction.ts';
 import { PushForecast } from './push-forecast.ts';
+import { SayQueue } from './say-queue.ts';
 import { resolveServerUrl } from './server-url.ts';
-import { SpeechBubble, findHeadTop } from './speech-bubble.ts';
+import {
+  SpeechBubble,
+  findFigureTop,
+  findHeadTop,
+} from './speech-bubble.ts';
 import './style.css';
 import { TalkWatch } from './talk-watch.ts';
 import { TobyFigure } from './toby-figure.ts';
@@ -355,7 +364,7 @@ const touchView: TouchView = createTouchView(
   touchControls,
   () => {
     // The action button is the space bar, held with the rest of play.
-    if (findPadScreen() === 'play') {
+    if (!isPlayHeld()) {
       pressGameKey('Space', false);
     }
   },
@@ -379,6 +388,24 @@ const bagView: BagView = createBagView(
     clickBagIcon();
   },
   touchView.isTouch,
+);
+/** The box a line is typed in for the player of the page to say. */
+const chatBox = new ChatBox();
+/** The lines the player of the page is yet to say, each in its turn. */
+const sayQueue = new SayQueue();
+// The button of the chat goes under the open bag on a touch device, so it
+// is shown only while the bag is closed.
+const chatView: ChatView = createChatView(
+  document.body,
+  translator,
+  chatBox,
+  () => {
+    clickChatButton();
+  },
+  (line: string) => {
+    sayLine(line);
+  },
+  () => !bag.isOpen,
 );
 /** The sheet of the ending and the credits of the game. */
 const endingSheet = new EndingSheet();
@@ -479,6 +506,7 @@ const viewport: Viewport = showScene(
     readGamepads(seconds);
     readTouch();
     sendMove();
+    sendDueSay();
     showPlayers();
     showEnding();
     showTimeOfDay();
@@ -533,6 +561,8 @@ Object.defineProperty(window, 'clovervale', {
     listShownHits: () => [...shownHits],
     listShownHeals: () => [...shownHeals],
     describeSpeech: () => speech.describe(),
+    listSaid: () => speech.describeSaid(),
+    describeChat: () => ({ isOpen: chatBox.isOpen }),
     describeDialogue: () => dialogueView.describe(),
     describeToby: () => toby?.describe() ?? null,
     describePitchfork: () => ({
@@ -700,13 +730,16 @@ function carryOutItemAction(request: ItemRequest): void {
 
 /**
  * Holds the controls of play while the bag, the help sheet, the ending
- * sheet or a dialogue opens: the keys held down walk the player and turn
- * the camera no more,
+ * sheet, a dialogue or the box of the chat opens: the keys held down walk
+ * the player and turn the camera no more,
  * the fingers on the screen are let go of, and the gamepads walk, turn and
  * zoom no more while it stays open; a left stick pushed then chooses
- * nothing until it has come back to the centre.
+ * nothing until it has come back to the centre.  The box of the chat
+ * closes without sending, if it was open.
  */
 function holdPlay(): void {
+  chatBox.close();
+  chatView.render();
   moveKeys.releaseAllKeys();
   cameraKeys.releaseAllKeys();
   touchControls.releaseAll();
@@ -728,6 +761,124 @@ function findPadScreen(): PadScreen {
     return 'choice';
   }
   return helpSheet.isOpen ? 'help' : 'play';
+}
+
+/**
+ * Tells whether the controls of play are held now: while anything is open
+ * on the page, the box of the chat included.
+ *
+ * @returns {boolean} Whether they are.
+ */
+function isPlayHeld(): boolean {
+  return chatBox.isOpen || findPadScreen() !== 'play';
+}
+
+/**
+ * Tells whether the box of the chat can be opened now: while the page has
+ * a player, and neither a dialogue, the bag, the help sheet nor the ending
+ * sheet is open.
+ *
+ * @returns {boolean} Whether it can.
+ */
+function canChat(): boolean {
+  return (
+    ownId !== null &&
+    !dialogueBox.isOpen &&
+    !bag.isOpen &&
+    !helpSheet.isOpen &&
+    !endingSheet.isOpen
+  );
+}
+
+/**
+ * Opens the box of the chat, if it can be opened, and holds the controls
+ * of play, so that the player stands still while a line is typed.
+ */
+function openChat(): void {
+  if (!canChat()) {
+    return;
+  }
+  holdPlay();
+  chatBox.open();
+  chatView.render();
+}
+
+/**
+ * Opens the box of the chat if it is closed, and closes it without sending
+ * if open, as a click on its button does.
+ */
+function clickChatButton(): void {
+  if (chatBox.isOpen) {
+    chatBox.close();
+    chatView.render();
+  } else {
+    openChat();
+  }
+}
+
+/**
+ * Has the player of the page say a line to the players nearby, if the
+ * connection is open: at once, or, sent too soon after the line before it
+ * for the server to take it, as soon as it can be, after any lines still
+ * waiting, as {@link SayQueue} tells.  Who hears it is for the server to
+ * decide, and it shows above the player once the server tells of it.
+ *
+ * @param {string} line - The line.
+ */
+function sayLine(line: string): void {
+  if (ownId !== null && socket?.readyState === WebSocket.OPEN) {
+    sayQueue.add(line);
+    sendDueSay();
+  }
+}
+
+/**
+ * Sends the server the next line the player of the page is yet to say, if
+ * its turn has come.
+ */
+function sendDueSay(): void {
+  const line: string | null = sayQueue.takeDue(performance.now());
+  if (line !== null) {
+    outgoing.send(
+      encodeClientMessage(createSayMessage(line)),
+      panel.network.delay,
+    );
+  }
+}
+
+/**
+ * Shows what a player says in a bubble above its head, if the player is
+ * shown and on the screen; what a player off the screen says is not shown.
+ *
+ * @param {number} player - The identifier of the player.
+ * @param {string} line - What the player says.
+ */
+function showSaid(player: number, line: string): void {
+  const figure: Object3D | null = figures.findFigure(player);
+  if (figure !== null && isOnScreen(viewport.getCamera(), figure, null)) {
+    speech.sayAs(player, line, findFigureTop(figure));
+  }
+}
+
+/**
+ * Keeps the bubbles of the players above their heads as they go about:
+ * a bubble is not seen while its player is off the screen, and is taken
+ * away once its player is shown no more.
+ */
+function followSaid(): void {
+  for (const player of speech.listSpeakers()) {
+    const figure: Object3D | null = figures.findFigure(player);
+    if (figure === null) {
+      speech.hushPlayer(player);
+    } else {
+      speech.followPlayer(
+        player,
+        isOnScreen(viewport.getCamera(), figure, null)
+          ? findFigureTop(figure)
+          : null,
+      );
+    }
+  }
 }
 
 /**
@@ -761,27 +912,32 @@ function readGamepads(seconds: number): void {
   if (gamepads.isNudged) {
     music.allow(panel.music);
   }
-  gamepads.isPaused = findPadScreen() !== 'play';
+  gamepads.isPaused = isPlayHeld();
   viewport.zoom(gamepads.resolveZoom(seconds));
 }
 
 /**
  * Reads the fingers on the screen of a touch device, which walk, turn and
  * zoom only while nothing is open on the page, as the gamepads do, and
- * shows the touch controls so.
+ * shows the touch controls and the button of the chat so.
  */
 function readTouch(): void {
-  touchControls.isPaused = findPadScreen() !== 'play';
+  touchControls.isPaused = isPlayHeld();
   viewport.zoom(touchControls.takeZoom());
   touchView.render();
+  chatView.render();
 }
 
 /**
- * Carries out a button pressed on a gamepad, as the key it acts as.
+ * Carries out a button pressed on a gamepad, as the key it acts as, unless
+ * the box of the chat is open, which no gamepad types in.
  *
  * @param {PadButton} button - The button.
  */
 function pressPadButton(button: PadButton): void {
+  if (chatBox.isOpen) {
+    return;
+  }
   const screen: PadScreen = findPadScreen();
   if (
     button === 'start' &&
@@ -990,7 +1146,8 @@ function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
  * one whose lines the server chooses, always or while the player is on a
  * quest the villager takes part in, which says what the server tells,
  * and follows the head of Toby as he goes on and squats, and that of
- * Martha as she goes about.  Martha's pitchfork is shown where it is, as
+ * Martha as she goes about.  What the players say follows them, as
+ * {@link followSaid} tells.  Martha's pitchfork is shown where it is, as
  * {@link showPitchfork} tells.  The prompt is hidden while the player is in
  * a dialogue.
  */
@@ -1031,6 +1188,7 @@ function showPlayers(): void {
     toby?.show(shownStep);
   }
   figures.showPlayers(view.players);
+  followSaid();
   monsterFigures.showMonsters(view.monsters);
   shownMonsters = view.monsters;
   showPitchfork(view.monsters);
@@ -1341,6 +1499,12 @@ function receiveMessage(data: string): void {
     }
     return;
   }
+  if (message.type === 'said') {
+    if (ownId !== null) {
+      showSaid(message.player, message.text);
+    }
+    return;
+  }
   if (message.type === 'events') {
     if (ownId !== null) {
       schedule.receive(message.events);
@@ -1362,8 +1526,9 @@ function receiveMessage(data: string): void {
  * Shows the dialogue the player of the page is in, as the server tells,
  * with the villagers called by the names they go by once they have told the
  * player who they are.  As a dialogue opens, the bag, the help sheet and
- * the ending sheet close, the bubble of any villager is taken away, and the keys held down
- * walk the player and turn the camera no more.
+ * the ending sheet close, the bubble of any villager is taken away, though
+ * not those of the players, and the keys held down walk the player and
+ * turn the camera no more.
  *
  * @param {DialogueView | null} dialogue - The dialogue, or `null` while
  *   the player is in none.
@@ -1381,7 +1546,7 @@ function showDialogue(
   if (!dialogueBox.isOpen || wasOpen) {
     return;
   }
-  speech.clear();
+  speech.hushVillagers();
   if (bag.isOpen) {
     bag.clickIcon();
     bagView.render();
@@ -1401,7 +1566,8 @@ function showDialogue(
  * left, before it is shown the first snapshot of the map it is in now: the
  * snapshots, and with them the players and the monsters seen, the items on
  * the ground, the events yet to be shown, those shown, the numbers of the
- * hits and the heals still floating, and what a villager there was saying.  The items, the monsters and the
+ * hits and the heals still floating, and what a villager or a player there
+ * was saying.  The items, the monsters and the
  * events of each map are numbered on their own, so that nothing of one map
  * is taken for something of another.
  */
@@ -1539,6 +1705,9 @@ async function connectToServer(): Promise<void> {
       );
     }
     prediction = null;
+    chatBox.close();
+    chatView.render();
+    sayQueue.clear();
     dayClock.reset();
     showServer(() => translator.translate('server.disconnected'));
     timeline.clear();
@@ -1677,14 +1846,32 @@ function pressGameKey(code: string, isRepeat: boolean): boolean {
 }
 
 window.addEventListener('keydown', (event: KeyboardEvent) => {
+  // While a line is typed, every key is for the box, the browser and the
+  // input method alone: the game neither acts on it nor keeps it from them.
+  if (chatBox.isOpen) {
+    return;
+  }
   if (event.altKey || event.ctrlKey || event.metaKey) {
     return;
   }
   if (pressGameKey(event.code, event.repeat)) {
     event.preventDefault();
+    return;
+  }
+  // A plain Enter that nothing else took opens the box of the chat.
+  const isEnter: boolean =
+    event.code === 'Enter' || event.code === 'NumpadEnter';
+  if (isEnter && !event.shiftKey && !event.isComposing && canChat()) {
+    event.preventDefault();
+    if (!event.repeat) {
+      openChat();
+    }
   }
 });
 window.addEventListener('keyup', (event: KeyboardEvent) => {
+  if (chatBox.isOpen) {
+    return;
+  }
   moveKeys.releaseKey(event.code);
   cameraKeys.releaseKey(event.code);
   sendMove();
