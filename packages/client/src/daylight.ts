@@ -35,7 +35,7 @@ import type { Fog, Object3D, Scene } from 'three';
 import { NOON, findPhaseTime } from '@clovervale/shared';
 import type { DayPhase } from '@clovervale/shared';
 
-import { MOUNTAINS_NAME, tintMountains } from './mountains.ts';
+import { tintMountains } from './mountains.ts';
 import { Sky } from './sky.ts';
 
 /** Which body lights the village and casts its shadows. */
@@ -496,25 +496,26 @@ function createBodyLight(): DirectionalLight {
  * and the mountains melting into the sky.
  */
 export class Daylight {
-  readonly #scene: Scene;
+  readonly #fog: Fog;
   readonly #sky: Color = new Color();
   readonly #ambient: HemisphereLight = new HemisphereLight();
   readonly #light: DirectionalLight = createBodyLight();
   readonly #heavens: Sky;
-  readonly #mountains: Object3D | null;
+  readonly #mountains: Object3D;
 
   /**
    * Lights a scene, and gives it a sky, as at noon until told the time.
    *
-   * @param {Scene} scene - The scene, with its fog and its mountains, if it
-   *   has them.
+   * @param {Scene} scene - The scene.
+   * @param {Fog} fog - The fog of the scene.
+   * @param {Object3D} mountains - The mountains of the scene.
    */
-  constructor(scene: Scene) {
-    this.#scene = scene;
+  constructor(scene: Scene, fog: Fog, mountains: Object3D) {
+    this.#fog = fog;
+    this.#mountains = mountains;
     scene.background = this.#sky;
     scene.add(this.#ambient, this.#light, this.#light.target);
     this.#heavens = new Sky(scene);
-    this.#mountains = scene.getObjectByName(MOUNTAINS_NAME) ?? null;
     this.show(NOON);
   }
 
@@ -527,8 +528,7 @@ export class Daylight {
   show(time: number): DaylightLook {
     const look: DaylightLook = findDaylight(time);
     this.#sky.copy(look.sky);
-    const fog: Fog | null = this.#scene.fog as Fog | null;
-    fog?.color.copy(look.sky);
+    this.#fog.color.copy(look.sky);
     this.#ambient.color.copy(look.skyLight);
     this.#ambient.groundColor.copy(look.groundLight);
     this.#ambient.intensity = look.ambient;
@@ -540,9 +540,7 @@ export class Daylight {
     this.#light.shadow.radius = SHADOW_BLUR[look.body];
     this.#light.shadow.intensity = SHADOW_DARKNESS[look.body];
     this.#heavens.show(look);
-    if (this.#mountains !== null) {
-      tintMountains(this.#mountains, look.sky, look.mountainTint);
-    }
+    tintMountains(this.#mountains, look.sky, look.mountainTint);
     return look;
   }
 }

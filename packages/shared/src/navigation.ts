@@ -24,7 +24,6 @@
 import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS, placePoint } from './terrain.ts';
 import type { Shape, Terrain } from './terrain.ts';
-import { VILLAGE_TERRAIN } from './village-layout.ts';
 import { findMapTerrain } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
@@ -104,7 +103,7 @@ function placeShapeWaypoints(shape: Shape): GroundVector[] {
  * @returns {GroundVector[]} The waypoints, each where a player has room to
  *   spare.
  */
-export function placeWaypoints(terrain: Terrain): GroundVector[] {
+function placeWaypoints(terrain: Terrain): GroundVector[] {
   return terrain.shapes
     .flatMap(placeShapeWaypoints)
     .filter((point: GroundVector) =>
@@ -125,18 +124,12 @@ export class NavigationGraph {
    * Links the waypoints of a piece of ground.
    *
    * @param {Terrain} terrain - The ground.
-   * @param {readonly GroundVector[]} [waypoints] - The waypoints, or ones
-   *   placed around the obstacles by default.
    */
-  constructor(
-    terrain: Terrain,
-    waypoints: readonly GroundVector[] = placeWaypoints(terrain),
-  ) {
+  constructor(terrain: Terrain) {
     this.#terrain = terrain;
-    const nodes: Node[] = waypoints.map((point: GroundVector) => ({
-      point,
-      links: [],
-    }));
+    const nodes: Node[] = placeWaypoints(terrain).map(
+      (point: GroundVector) => ({ point, links: [] }),
+    );
     nodes.forEach((node: Node, index: number) => {
       nodes.slice(index + 1).forEach((next: Node, offset: number) => {
         if (terrain.isPathClear(node.point, next.point, WAYPOINT_CLEARANCE)) {
@@ -147,15 +140,6 @@ export class NavigationGraph {
       });
     });
     this.#nodes = nodes;
-  }
-
-  /**
-   * The waypoints of the graph.
-   *
-   * @returns {GroundVector[]} The waypoints.
-   */
-  get waypoints(): GroundVector[] {
-    return this.#nodes.map((node: Node) => node.point);
   }
 
   /**
@@ -229,27 +213,6 @@ export class NavigationGraph {
   }
 }
 
-/** The graph of the village, once it is needed. */
-let villageGraph: NavigationGraph | null = null;
-
-/**
- * Finds the shortest way from one point of the village to another, around
- * its obstacles.
- *
- * @param {GroundVector} from - Where the way starts.
- * @param {GroundVector} to - Where the way is to end.
- * @returns {GroundVector[] | null} The points to walk to, one straight walk
- *   after another, the last of which is the end, or `null` if there is no
- *   such way.  A player that walks it touches nothing.
- */
-export function findVillagePath(
-  from: GroundVector,
-  to: GroundVector,
-): GroundVector[] | null {
-  villageGraph ??= new NavigationGraph(VILLAGE_TERRAIN);
-  return villageGraph.findPath(from, to);
-}
-
 /** The graph of each map, once it is needed. */
 const mapGraphs = new Map<MapId, NavigationGraph>();
 
@@ -269,9 +232,6 @@ export function findMapPath(
   from: GroundVector,
   to: GroundVector,
 ): GroundVector[] | null {
-  if (map === 'village') {
-    return findVillagePath(from, to);
-  }
   let graph: NavigationGraph | undefined = mapGraphs.get(map);
   if (graph === undefined) {
     graph = new NavigationGraph(findMapTerrain(map));

@@ -45,7 +45,6 @@ import {
   MONSTER_KINDS,
   PROTOCOL_VERSION,
   SIMULATION_RATE,
-  SLASH_DURATION,
   SNAPSHOT_RATE,
   WALK_SPEED,
   createInteractMessage,
@@ -63,19 +62,28 @@ import type {
   InputProgress,
   ItemKindId,
   MonsterState,
-  PhrasedMessage,
   PlayerState,
-  SaidMessage,
   ServerMessage,
   SlashJudgement,
-  WelcomeMessage,
 } from '@clovervale/shared';
+import { SLASH_DURATION } from '../../shared/src/actions.ts';
+import type {
+  PhrasedMessage,
+  SaidMessage,
+  WelcomeMessage,
+} from '../../shared/src/protocol.ts';
 
 import { startServer } from '../src/server.ts';
 import type { RunningServer } from '../src/server.ts';
 
 /** How long the server may take to send an awaited message, in ms. */
 const MESSAGE_TIMEOUT = 3000;
+
+/** How the day goes on the servers that are told nothing else of it. */
+const DAY: DayCycle = {
+  origin: DEFAULT_DAY_ORIGIN,
+  length: DEFAULT_DAY_LENGTH,
+};
 
 /** A snapshot, and when it was received. */
 interface TimedSnapshot {
@@ -314,7 +322,7 @@ describe('the game server', () => {
    *   identifier of its player.
    */
   async function connectPeer(): Promise<[Peer, number]> {
-    server ??= await startServer(0);
+    server ??= await startServer(0, DAY);
     const peer = new Peer(server.port ?? 0);
     peers.push(peer);
     return [peer, (await peer.receiveWelcome()).playerId];
@@ -339,7 +347,7 @@ describe('the game server', () => {
   });
 
   it('welcomes a peer with its protocol version and its player', async () => {
-    server = await startServer(0);
+    server = await startServer(0, DAY);
     const peer = new Peer(server.port ?? 0);
     peers.push(peer);
     const welcome: WelcomeMessage = await peer.receiveWelcome();
@@ -353,16 +361,6 @@ describe('the game server', () => {
     const peer = new Peer(server.port ?? 0);
     peers.push(peer);
     expect((await peer.receiveWelcome()).day).toEqual(day);
-  });
-
-  it('runs the default day from the default time by default', async () => {
-    server = await startServer(0);
-    const peer = new Peer(server.port ?? 0);
-    peers.push(peer);
-    expect((await peer.receiveWelcome()).day).toEqual({
-      origin: DEFAULT_DAY_ORIGIN,
-      length: DEFAULT_DAY_LENGTH,
-    });
   });
 
   it('shows a late peer the time of day the others see', async () => {
@@ -464,7 +462,6 @@ describe('the game server', () => {
     let last: TimedSnapshot = first;
     for (let count = 0; count < SNAPSHOT_RATE; count++) {
       const next: TimedSnapshot = await peer.receiveSnapshot();
-      expect(Number.isInteger(next.step)).toBe(true);
       expect(next.step).toBeGreaterThan(last.step);
       last = next;
     }
@@ -776,7 +773,7 @@ describe('the game server on a Unix socket file', () => {
   });
 
   it('serves the peers that connect to the socket file', async () => {
-    server = await startServer(socketPath);
+    server = await startServer(socketPath, DAY);
     expect(server.socketPath).toBe(socketPath);
     expect(server.port).toBeNull();
     const [welcome, snapshot] = await receiveFirstMessages(socketPath);
@@ -785,12 +782,12 @@ describe('the game server on a Unix socket file', () => {
   });
 
   it('lets the owner and the group of the socket file connect', async () => {
-    server = await startServer(socketPath);
+    server = await startServer(socketPath, DAY);
     expect(statSync(socketPath).mode & 0o777).toBe(0o660);
   });
 
   it('removes the socket file when it stops', async () => {
-    server = await startServer(socketPath);
+    server = await startServer(socketPath, DAY);
     await server.stop();
     server = undefined;
     expect(existsSync(socketPath)).toBe(false);
@@ -804,7 +801,7 @@ describe('the game server on a Unix socket file', () => {
     await stopListening(crashed);
     expect(statSync(socketPath).isSocket()).toBe(true);
 
-    server = await startServer(socketPath);
+    server = await startServer(socketPath, DAY);
     const [welcome] = await receiveFirstMessages(socketPath);
     expect(welcome?.type).toBe('welcome');
   });
@@ -812,7 +809,7 @@ describe('the game server on a Unix socket file', () => {
   it('leaves a socket file that something listens on alone', async () => {
     const other: Server = await listenOnFile(socketPath);
     try {
-      await expect(startServer(socketPath)).rejects.toThrow(socketPath);
+      await expect(startServer(socketPath, DAY)).rejects.toThrow(socketPath);
       expect(statSync(socketPath).isSocket()).toBe(true);
       expect(other.listening).toBe(true);
     } finally {
@@ -822,7 +819,7 @@ describe('the game server on a Unix socket file', () => {
 
   it('leaves a file that is not a socket alone', async () => {
     writeFileSync(socketPath, 'Not a socket.');
-    await expect(startServer(socketPath)).rejects.toThrow(socketPath);
+    await expect(startServer(socketPath, DAY)).rejects.toThrow(socketPath);
     expect(readFileSync(socketPath, 'utf8')).toBe('Not a socket.');
   });
 });

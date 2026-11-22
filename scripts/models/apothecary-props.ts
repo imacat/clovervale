@@ -33,6 +33,7 @@ import {
   place,
 } from './geometry.ts';
 import type { Pair, Triple } from './geometry.ts';
+import { getItem } from './items.ts';
 import { Model } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
@@ -124,7 +125,7 @@ function setHerbMaterials(model: Model): void {
  * @returns {string} The name of the material.
  */
 function findHerbMaterial(index: number): string {
-  return HERB_MATERIALS[index % HERB_MATERIALS.length] ?? 'herbA';
+  return getItem(HERB_MATERIALS, index % HERB_MATERIALS.length);
 }
 
 /**

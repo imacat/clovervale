@@ -33,7 +33,7 @@ export const PLAZA_CENTRE: GroundVector = { x: 0, z: -8.5 };
 export const SPAWN_YAW = 180;
 
 /** The distance between two neighbouring spawn points, in metres. */
-export const SPAWN_SPACING = 1.6;
+const SPAWN_SPACING = 1.6;
 
 /** The number of spawn points in a row. */
 const SPAWN_ROW_LENGTH = 8;

@@ -86,9 +86,9 @@ function makeDog(mode: MonsterState['mode']): MonsterState {
     x: 0,
     z: 0,
     yaw: 0,
-    action: mode === 'dead' ? 'Die' : 'Idle',
+    action: 'Idle',
     actionCount: 1,
-    health: mode === 'dead' ? 0 : 80,
+    health: 80,
     mode,
   };
 }

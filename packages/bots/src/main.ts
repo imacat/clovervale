@@ -66,9 +66,10 @@ async function runBots(args: string[]): Promise<void> {
   }
   const { count, serverUrl } = options;
   const bots: RunningBot[] = [];
-  const stopping = new AbortController();
+  // Whether the bots are told to stop, which they can be at any time.
+  const stopping = { isAsked: false };
   const stop = (): void => {
-    stopping.abort();
+    stopping.isAsked = true;
     for (const bot of bots) {
       bot.stop();
     }
@@ -83,7 +84,7 @@ async function runBots(args: string[]): Promise<void> {
         console.error(error instanceof Error ? error.message : error);
         process.exitCode = 1;
       });
-      if (stopping.signal.aborted) {
+      if (stopping.isAsked) {
         bot.stop();
         break;
       }
@@ -94,7 +95,7 @@ async function runBots(args: string[]): Promise<void> {
     stop();
     return;
   }
-  if (!stopping.signal.aborted) {
+  if (!stopping.isAsked) {
     const ids: string = bots
       .map((bot: RunningBot) => `#${String(bot.playerId)}`)
       .join(', ');

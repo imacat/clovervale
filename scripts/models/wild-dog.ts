@@ -130,10 +130,10 @@ const LEGS: readonly Leg[] = SIDES.flatMap(
  * @param {number} yaw - The angle from the front towards the left, in
  *   degrees.
  * @param {number} down - The angle below the equator, in degrees.
- * @param {number} [factor] - The distance from the centre, in head radii.
+ * @param {number} factor - The distance from the centre, in head radii.
  * @returns {Triple} The point in model space.
  */
-function findHeadPoint(yaw: number, down: number, factor = 1): Triple {
+function findHeadPoint(yaw: number, down: number, factor: number): Triple {
   const direction: Triple = [
     Math.sin(yaw * DEG) * Math.cos(down * DEG),
     -Math.sin(down * DEG),
@@ -517,7 +517,7 @@ function animateBody(model: Model): ReadonlyMap<string, ClipReport> {
     }
     return pose;
   };
-  const wagTail = (angle: number, size: number, lift = 0): PoseSpec => ({
+  const wagTail = (angle: number, size: number, lift: number): PoseSpec => ({
     Tail1: [lift, size * Math.sin(angle), 0],
     Tail2: [lift / 2, size * 1.4 * Math.sin(angle - 0.8), 0],
   });

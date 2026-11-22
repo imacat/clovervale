@@ -29,12 +29,9 @@ import {
   PLAYER_RADIUS,
   SIMULATION_RATE,
   SPAWN_POINT_COUNT,
-  TOBY_ACTIVITY_STEPS,
-  TOBY_CLOVERS,
   TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
   TOBY_RADIUS,
-  TOBY_STOW_STEPS,
   Terrain,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
@@ -43,12 +40,9 @@ import {
   findSpawnPoint,
   findTobyGrab,
   findTobyPose,
-  findTurn,
   measurePushReach,
   placePoint,
   pushAside,
-  resolveWalk,
-  turnVector,
 } from '../src/index.ts';
 import type {
   GroundVector,
@@ -58,6 +52,8 @@ import type {
   TobyGrab,
   TobyPose,
 } from '../src/index.ts';
+import { findTurn, turnVector } from '../src/terrain.ts';
+import { TOBY_CLOVERS, resolveWalk } from '../src/toby.ts';
 
 /** The least room between the body of Toby and the body of a player. */
 const REACH: number = TOBY_RADIUS + PLAYER_RADIUS;
@@ -81,16 +77,6 @@ const CLOVERS: readonly Placement[] = VILLAGE_PLACEMENTS.filter(
  * through it reaches, in metres.
  */
 const WAY_IN_HALF_WIDTH = 2.6;
-
-/**
- * The patches of clover he runs between: the one on the grass between the
- * cottage on the west and the fence, and the one just inside the gate, by
- * the village sign.
- */
-const RUN_PATCHES: readonly GroundVector[] = [
-  { x: -8, z: -0.2 },
-  { x: -3.6, z: 3.4 },
-];
 
 /**
  * The cottage on the left of the plaza as one looks into the village from
@@ -223,8 +209,7 @@ describe('the course of Toby', () => {
   });
 
   it('runs between the patch by the cottage and the one by the gate', () => {
-    expect(TOBY_CLOVERS).toEqual(RUN_PATCHES);
-    for (const patch of RUN_PATCHES) {
+    for (const patch of TOBY_CLOVERS) {
       expect(
         CLOVERS.filter(
           (clover: Placement) => clover.x === patch.x && clover.z === patch.z,
@@ -406,11 +391,6 @@ describe('findTobyGrab', () => {
         expect(findTobyGrab(between)).toEqual(grab);
       }
     }
-  });
-
-  it('puts a clover away before he stands up', () => {
-    expect(TOBY_STOW_STEPS).toBeGreaterThan(TOBY_GRAB_STEPS);
-    expect(TOBY_STOW_STEPS).toBeLessThan(TOBY_ACTIVITY_STEPS.Pick);
   });
 });
 

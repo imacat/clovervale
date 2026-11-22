@@ -43,11 +43,10 @@ export class TalkWatch {
    *   `null` while there is none.
    * @param {number} step - The number of the step of the server the motion
    *   is after.
-   * @param {MapId} [map] - The map the player is in, the village by
-   *   default.
-   * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
-   *   as the server last told, which tell where a villager who fights as a
-   *   monster stands and whether it is free, none by default.
+   * @param {MapId} map - The map the player is in.
+   * @param {readonly MonsterState[]} monsters - The monsters in the map, as
+   *   the server last told, which tell where a villager who fights as a
+   *   monster stands and whether it is free.
    * @returns {Villager | null} The villager the player talks to, where it
    *   was at the step the talk started, if the motion shows a talk not
    *   noticed before, or `null` otherwise.
@@ -55,8 +54,8 @@ export class TalkWatch {
   noticeTalk(
     motion: PlayerMotion | null,
     step: number,
-    map: MapId = 'village',
-    monsters: readonly MonsterState[] = [],
+    map: MapId,
+    monsters: readonly MonsterState[],
   ): Villager | null {
     if (motion?.action !== 'Talk' || motion.actionCount === this.#talkCount) {
       return null;

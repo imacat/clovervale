@@ -44,7 +44,7 @@ export type QuestStage = (typeof QUEST_STAGES)[number];
 export type QuestLog = Readonly<Partial<Record<QuestId, QuestStage>>>;
 
 /** A quest. */
-export interface Quest {
+interface Quest {
   /** The identifier of the quest. */
   readonly id: QuestId;
   /**
@@ -59,7 +59,7 @@ export interface Quest {
  * hurt himself, sends the player to the village chief, who gives it her
  * ointment to take to him.
  */
-export const QUESTS: readonly Quest[] = [
+const QUESTS: readonly Quest[] = [
   { id: 'toby-hurt', villagers: ['toby', 'martha'] },
 ];
 

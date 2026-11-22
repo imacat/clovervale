@@ -165,7 +165,7 @@ export class BackgroundMusic {
    *   music played.
    */
   update(settings: Readonly<MusicSettings>): void {
-    this.#player.volume = Math.min(Math.max(settings.volume, 0), 1);
+    this.#player.volume = settings.volume;
     if (this.#isHidden) {
       return;
     }

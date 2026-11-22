@@ -24,6 +24,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  NO_WORLD_ITEMS,
   SIMULATION_RATE,
   TOBY_ENDS,
   TOBY_LOOP_STEPS,
@@ -37,13 +38,10 @@ import type {
   MonsterState,
   PlayerMotion,
   PlayerState,
+  SnapshotMessage,
 } from '@clovervale/shared';
 
-import {
-  HISTORY_LIMIT,
-  ServerClock,
-  SnapshotTimeline,
-} from '../src/interpolation.ts';
+import { ServerClock, SnapshotTimeline } from '../src/interpolation.ts';
 import type { PlayersView } from '../src/interpolation.ts';
 
 /** How long one step of the simulation lasts, in milliseconds. */
@@ -69,6 +67,40 @@ const OWN: InputProgress = {
 };
 
 /**
+ * Creates a snapshot message that tells of the players, the monsters and
+ * the inputs alone: with no slash judged, nothing to pick, nothing carried,
+ * no silver coins, no dialogue, no acquaintances and no quests.
+ *
+ * @param {number} step - The number of simulation steps the world has
+ *   taken.
+ * @param {readonly PlayerState[]} players - The players.
+ * @param {readonly MonsterState[]} monsters - The monsters.
+ * @param {InputProgress} own - How far the player of the peer has got with
+ *   the inputs of the peer.
+ * @returns {SnapshotMessage} The snapshot message.
+ */
+function createPlainSnapshot(
+  step: number,
+  players: readonly PlayerState[],
+  monsters: readonly MonsterState[],
+  own: InputProgress,
+): SnapshotMessage {
+  return createSnapshotMessage(
+    step,
+    players,
+    monsters,
+    own,
+    null,
+    NO_WORLD_ITEMS,
+    [],
+    null,
+    [],
+    {},
+    0,
+  );
+}
+
+/**
  * Receives a snapshot the moment the server takes it, as if the server and
  * the page shared a clock.
  *
@@ -82,7 +114,7 @@ function receiveAtOnce(
   players: readonly PlayerState[],
 ): void {
   timeline.addSnapshot(
-    createSnapshotMessage(step, players, [], OWN),
+    createPlainSnapshot(step, players, [], OWN),
     step * STEP,
   );
 }
@@ -262,7 +294,7 @@ describe('SnapshotTimeline', () => {
     for (const [step, arrival] of arrivals) {
       const player: PlayerState = { ...PLAYER, x: step * 0.05 };
       timeline.addSnapshot(
-        createSnapshotMessage(step, [player], [], OWN),
+        createPlainSnapshot(step, [player], [], OWN),
         arrival,
       );
     }
@@ -350,7 +382,7 @@ describe('SnapshotTimeline', () => {
     receiveAtOnce(timeline, 2, [PLAYER]);
     receiveAtOnce(timeline, 4, [{ ...PLAYER, x: 1.2 }]);
     expect(findOnly(timeline.readPast(440, 200)).x).toBe(1.2);
-    const late = createSnapshotMessage(6, [{ ...PLAYER, x: 1.4 }], [], OWN);
+    const late = createPlainSnapshot(6, [{ ...PLAYER, x: 1.4 }], [], OWN);
     timeline.addSnapshot(late, 445);
     expect(findOnly(timeline.readPast(450, 200)).x).toBeCloseTo(1.3);
   });
@@ -373,7 +405,7 @@ describe('SnapshotTimeline', () => {
     );
     const places: PlayerState[] = [];
     for (let step = 1; step <= TOBY_LOOP_STEPS; step++) {
-      motion = stepMotion(motion, step);
+      motion = stepMotion(motion, step, 'village', []);
       places.push({ ...PLAYER, x: motion.x, z: motion.z, yaw: motion.yaw });
     }
     // The step after which the player has been pushed furthest since the
@@ -414,11 +446,10 @@ describe('SnapshotTimeline', () => {
     const timeline = new SnapshotTimeline();
     for (let step = 0; step < 2000; step += 2) {
       receiveAtOnce(timeline, step, [{ ...PLAYER, x: step * 0.05 }]);
-      expect(timeline.size).toBeLessThanOrEqual(HISTORY_LIMIT);
     }
-    expect(timeline.size).toBe(HISTORY_LIMIT);
     const past: PlayersView = timeline.readPast(1998 * STEP, 1000);
     expect(findOnly(past).x).toBeCloseTo(1978 * 0.05);
+    expect(timeline.readPast(1998 * STEP, 1997 * STEP).players).toEqual([]);
   });
 
   it('leaves out a snapshot that is no newer than the latest', () => {
@@ -426,7 +457,6 @@ describe('SnapshotTimeline', () => {
     receiveAtOnce(timeline, 4, [PLAYER]);
     receiveAtOnce(timeline, 4, [{ ...PLAYER, x: 7 }]);
     receiveAtOnce(timeline, 2, [{ ...PLAYER, x: 8 }]);
-    expect(timeline.size).toBe(1);
     expect(timeline.latest).toEqual([PLAYER]);
   });
 
@@ -459,7 +489,6 @@ describe('SnapshotTimeline', () => {
     const timeline = new SnapshotTimeline();
     receiveAtOnce(timeline, 4, [PLAYER]);
     timeline.clear();
-    expect(timeline.size).toBe(0);
     expect(timeline.latest).toBeNull();
     expect(timeline.readPast(400, 200)).toEqual({
       players: [],
@@ -485,11 +514,11 @@ describe('SnapshotTimeline', () => {
     };
     const later: MonsterState = { ...monster, x: 10.1, yaw: 90, health: 20 };
     timeline.addSnapshot(
-      createSnapshotMessage(2, [PLAYER], [monster], OWN),
+      createPlainSnapshot(2, [PLAYER], [monster], OWN),
       2 * STEP,
     );
     timeline.addSnapshot(
-      createSnapshotMessage(4, [PLAYER], [later], OWN),
+      createPlainSnapshot(4, [PLAYER], [later], OWN),
       4 * STEP,
     );
     expect(timeline.latestMonsters).toEqual([later]);
@@ -516,7 +545,7 @@ describe('SnapshotTimeline', () => {
     };
     receiveAtOnce(timeline, 2, [PLAYER]);
     timeline.addSnapshot(
-      createSnapshotMessage(4, [PLAYER], [monster], OWN),
+      createPlainSnapshot(4, [PLAYER], [monster], OWN),
       4 * STEP,
     );
     expect(timeline.readPast(350, 200).monsters).toEqual([]);

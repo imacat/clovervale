@@ -29,7 +29,6 @@ import {
   DataTexture,
   Fog,
   HemisphereLight,
-  MathUtils,
   Mesh,
   MeshBasicMaterial,
   PointLight,
@@ -58,7 +57,6 @@ import {
   CAVE_PLACEMENTS,
   CAVE_TORCH_FILE,
   NOON,
-  isEmptyContainer,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
@@ -241,11 +239,10 @@ export function findMouthLight(time: number): MouthLight {
   const strength: number =
     look.body === 'sun'
       ? TWILIGHT_STRENGTH +
-        (1 - TWILIGHT_STRENGTH) *
-          MathUtils.clamp(look.lightIntensity / NOON_STRENGTH, 0, 1)
+        ((1 - TWILIGHT_STRENGTH) * look.lightIntensity) / NOON_STRENGTH
       : MOONLIGHT_STRENGTH;
   const colour: Color = look.skyLight.clone();
-  const brightest: number = Math.max(colour.r, colour.g, colour.b, 1e-6);
+  const brightest: number = Math.max(colour.r, colour.g, colour.b);
   colour.multiplyScalar((MOUTH_BRIGHTNESS * strength) / brightest);
   return { colour, strength };
 }
@@ -370,10 +367,7 @@ export function createCaveScene(): CaveScene {
   let looted = new Set<number>();
   const showContainers = (): void => {
     figures.forEach((figure: ContainerFigure, id: number) => {
-      const container: CaveContainer | undefined = CAVE_CONTAINERS[id];
-      const isOpen: boolean =
-        looted.has(id) ||
-        (container !== undefined && isEmptyContainer(container));
+      const isOpen: boolean = looted.has(id);
       if (figure.closed !== null) {
         figure.closed.visible = !isOpen;
       }
@@ -435,10 +429,7 @@ export function createCaveScene(): CaveScene {
       showContainers();
     },
     describeContainers: (): boolean[] =>
-      CAVE_CONTAINERS.map(
-        (container: CaveContainer, id: number) =>
-          looted.has(id) || isEmptyContainer(container),
-      ),
+      CAVE_CONTAINERS.map((_: CaveContainer, id: number) => looted.has(id)),
     update: (seconds: number): void => {
       elapsed += seconds;
       for (const actor of actors) {

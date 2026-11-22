@@ -137,7 +137,7 @@ export interface DialogueNode {
 }
 
 /** Everything a villager can say in its dialogues. */
-export interface DialogueScript {
+interface DialogueScript {
   /** The lines, by the names of their nodes. */
   readonly nodes: Readonly<Record<string, DialogueNode>>;
   /**
@@ -320,10 +320,6 @@ const MARTHA_SCRIPT: DialogueScript = {
       replies: [{ text: 'dialogue.martha.askMedicine', next: 'ointment' }],
     },
     ointment: {
-      condition: {
-        quest: { id: TOBY_HURT, stages: ['started'] },
-        lacks: MARTHA_OINTMENT,
-      },
       line: 'dialogue.martha.ointment',
       replies: [],
       outcome: {
@@ -340,10 +336,6 @@ const MARTHA_SCRIPT: DialogueScript = {
       replies: [{ text: 'dialogue.martha.tellLost', next: 'replace' }],
     },
     replace: {
-      condition: {
-        quest: { id: TOBY_HURT, stages: ['supplied'] },
-        lacks: MARTHA_OINTMENT,
-      },
       line: 'dialogue.martha.replace',
       replies: [],
       outcome: { gives: MARTHA_OINTMENT },
@@ -436,7 +428,7 @@ const BASIL_SCRIPT: DialogueScript = {
  * which the peers word themselves, but for Toby, whose chatter the server
  * chooses.
  */
-export const DIALOGUE_SCRIPTS: Readonly<
+const DIALOGUE_SCRIPTS: Readonly<
   Partial<Record<VillagerId, DialogueScript>>
 > = {
   toby: TOBY_SCRIPT,
@@ -446,22 +438,23 @@ export const DIALOGUE_SCRIPTS: Readonly<
 };
 
 /**
- * Finds a line of a villager.
+ * Gets a line of a villager.
  *
  * @param {VillagerId} villager - The villager.
  * @param {string} name - The name of the node of the line.
- * @returns {DialogueNode | null} The line, or `null` if the villager has no
- *   such line.
+ * @returns {DialogueNode} The line.
+ * @throws {Error} If the villager has no such line.
  */
-export function findDialogueNode(
+export function getDialogueNode(
   villager: VillagerId,
   name: string,
-): DialogueNode | null {
-  const nodes: Readonly<Record<string, DialogueNode>> | undefined =
-    DIALOGUE_SCRIPTS[villager]?.nodes;
-  return nodes !== undefined && Object.hasOwn(nodes, name)
-    ? (nodes[name] ?? null)
-    : null;
+): DialogueNode {
+  const node: DialogueNode | undefined =
+    DIALOGUE_SCRIPTS[villager]?.nodes[name];
+  if (node === undefined) {
+    throw new Error(`${villager} has no line ${name}.`);
+  }
+  return node;
 }
 
 /**
@@ -480,10 +473,9 @@ export function findOpening(
   const openings: readonly string[] =
     DIALOGUE_SCRIPTS[villager]?.openings ?? [];
   return (
-    openings.find((name: string) => {
-      const node: DialogueNode | null = findDialogueNode(villager, name);
-      return node !== null && meetsCondition(node, villager, listener);
-    }) ?? null
+    openings.find((name: string) =>
+      meetsCondition(getDialogueNode(villager, name), villager, listener),
+    ) ?? null
   );
 }
 
@@ -504,10 +496,9 @@ export function findApproach(
   const approaches: readonly string[] =
     DIALOGUE_SCRIPTS[villager]?.approaches ?? [];
   return (
-    approaches.find((name: string) => {
-      const node: DialogueNode | null = findDialogueNode(villager, name);
-      return node !== null && meetsCondition(node, villager, listener);
-    }) ?? null
+    approaches.find((name: string) =>
+      meetsCondition(getDialogueNode(villager, name), villager, listener),
+    ) ?? null
   );
 }
 

@@ -181,7 +181,7 @@ export class CorrectionSmoothing {
     if (this.#offsetX === 0 && this.#offsetZ === 0) {
       return 0;
     }
-    const elapsed: number = Math.max(time - this.#startTime, 0);
+    const elapsed: number = time - this.#startTime;
     return Math.max(1 - elapsed / SMOOTHING_DURATION, 0);
   }
 }

@@ -36,11 +36,6 @@ export const KEYBOARD_PAGE = 0;
 export const GAMEPAD_PAGE = 1;
 /** The page of the help sheet that tells the touch controls. */
 export const TOUCH_PAGE = 2;
-/**
- * The page of the help sheet that tells the credits of the game, the last,
- * while the sheet offers them.
- */
-export const CREDITS_PAGE = 3;
 
 /** The keys that close the help sheet. */
 const CLOSE_KEYS: ReadonlySet<string> = new Set([
@@ -97,14 +92,13 @@ export class HelpSheet {
   }
 
   /**
-   * Opens the sheet, at a page, though never at the page of the credits.
+   * Opens the sheet, at a page.
    *
-   * @param {number} [page] - The page, the page of the keyboard by default.
+   * @param {number} page - The page.
    */
-  open(page: number = KEYBOARD_PAGE): void {
+  open(page: number): void {
     this.#isOpen = true;
-    this.#page = KEYBOARD_PAGE;
-    this.turnToPage(Math.min(page, HELP_PAGE_COUNT - 1));
+    this.turnToPage(page);
   }
 
   /**
@@ -125,20 +119,13 @@ export class HelpSheet {
   }
 
   /**
-   * Takes a key pressed, if it is one for the sheet.
+   * Takes a key pressed while the sheet is open, if it is one for it.
    *
    * @param {string} code - The code of the key, as in a keyboard event.
    * @returns {boolean} Whether the sheet took the key, which is then for
    *   nothing else on the page; a key the game does not use is not taken.
    */
   pressKey(code: string): boolean {
-    if (!this.#isOpen) {
-      if (code !== 'KeyH') {
-        return false;
-      }
-      this.open();
-      return true;
-    }
     if (CLOSE_KEYS.has(code)) {
       this.#isOpen = false;
     } else if (code === 'ArrowLeft') {
@@ -158,13 +145,12 @@ export class HelpSheet {
  * @param {HelpSheet} sheet - The help sheet.
  * @param {LanguageStorage | null} storage - Where the visit is remembered,
  *   or `null` if nowhere.
- * @param {number} [page] - The page to open it at, the page of the
- *   keyboard by default.
+ * @param {number} page - The page to open it at.
  */
 export function openHelpOnFirstVisit(
   sheet: HelpSheet,
   storage: LanguageStorage | null,
-  page: number = KEYBOARD_PAGE,
+  page: number,
 ): void {
   let isSeen = false;
   try {

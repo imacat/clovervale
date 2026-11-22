@@ -31,8 +31,6 @@ const BAR_WIDTH = 0.8;
 const BAR_HEIGHT = 0.09;
 /** The room between the top of a model and its bar, in metres. */
 const BAR_MARGIN = 0.25;
-/** The height of the bar of a model whose size cannot be told, in metres. */
-const DEFAULT_TOP = 1.8;
 /** The colour of the part of a bar for the health lost. */
 const BACK_COLOUR = '#3a1414';
 /** The order the bars are drawn in, after the models. */
@@ -69,9 +67,8 @@ export class HealthBar {
    *   health that is left.
    */
   constructor(root: Object3D, colour: string) {
-    const top: number = new Box3().setFromObject(root).max.y;
     this.#group.position.y =
-      (Number.isFinite(top) ? top : DEFAULT_TOP) + BAR_MARGIN;
+      new Box3().setFromObject(root).max.y + BAR_MARGIN;
     this.#fill = createPart(colour);
     this.#fill.renderOrder = BAR_RENDER_ORDER + 1;
     this.#group.add(createPart(BACK_COLOUR), this.#fill);

@@ -29,7 +29,7 @@ import { SAY_INTERVAL } from '@clovervale/shared';
  * next, in milliseconds, so that a line that travels faster than the one
  * before it is not dropped.
  */
-export const SAY_MARGIN = 250;
+const SAY_MARGIN = 250;
 
 /** The least time from one line the page sends to the next, in ms. */
 export const SAY_SPACING: number = SAY_INTERVAL * 1000 + SAY_MARGIN;
@@ -46,15 +46,6 @@ export class SayQueue {
   readonly #lines: string[] = [];
   /** When the last line was said, or `null` if none has been. */
   #saidTime: number | null = null;
-
-  /**
-   * The number of lines yet to be said.
-   *
-   * @returns {number} The number of lines.
-   */
-  get length(): number {
-    return this.#lines.length;
-  }
 
   /**
    * Adds a line to say, after those added before it.

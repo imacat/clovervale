@@ -24,7 +24,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { ITEM_KINDS } from '@clovervale/shared';
+import { ITEM_KINDS } from '../../shared/src/items.ts';
 import type { ItemKindId } from '@clovervale/shared';
 
 import {

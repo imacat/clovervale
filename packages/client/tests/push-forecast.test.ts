@@ -231,7 +231,7 @@ interface Toggle {
   /** When the owner flips it, in whole milliseconds. */
   readonly time: number;
   /** Which switch. */
-  readonly name: 'forecast' | 'smoothing' | 'prediction';
+  readonly name: 'forecast' | 'smoothing';
   /** Whether it is switched on. */
   readonly isEnabled: boolean;
 }
@@ -257,9 +257,9 @@ interface Scenario {
   readonly toggles?: readonly Toggle[];
   /**
    * When the server kills the player, in whole milliseconds, a multiple of
-   * a step, and where it comes back to life.
+   * a step.
    */
-  readonly death?: { readonly time: number; readonly respawn: GroundVector };
+  readonly death?: number;
   /**
    * The span in which every snapshot the server sends is lost, or held back
    * and sent together at its end, if it is held.
@@ -467,19 +467,11 @@ function play(
   const { latency } = scenario;
   const start: PlayerMotion = createMotion(scenario.start, SPAWN_YAW);
   const server = new AuthoritativePlayer(start);
-  const predicted = new PlayerPrediction(start, 0, 0);
+  const predicted = new PlayerPrediction(start, 0, 0, 'village');
   const smoothingSettings: SmoothingSettings = { isEnabled: true };
-  const predictionSettings: PredictionSettings = { ...prediction };
   const settings: PushForecastSettings = { isEnabled: scenario.isForeseen };
-  const smoothing = new CorrectionSmoothing(
-    smoothingSettings,
-    predictionSettings,
-  );
-  const forecast = new PushForecast(
-    settings,
-    smoothingSettings,
-    predictionSettings,
-  );
+  const smoothing = new CorrectionSmoothing(smoothingSettings, prediction);
+  const forecast = new PushForecast(settings, smoothingSettings, prediction);
   const upward = new Map<number, StampedInput[]>();
   const downward = new Map<number, [number, InputProgress][]>();
   const pending: TimedInput[] = [...scenario.inputs];
@@ -500,10 +492,8 @@ function play(
       toggles.shift();
       if (next.name === 'forecast') {
         settings.isEnabled = next.isEnabled;
-      } else if (next.name === 'smoothing') {
-        smoothingSettings.isEnabled = next.isEnabled;
       } else {
-        predictionSettings.isEnabled = next.isEnabled;
+        smoothingSettings.isEnabled = next.isEnabled;
       }
     }
     for (
@@ -522,13 +512,13 @@ function play(
     }
     if (time % STEP === 0 && time > 0) {
       step++;
-      server.step(step);
-      if (scenario.death?.time === time) {
+      server.step(step, 'village', false, []);
+      if (scenario.death === time) {
         server.kill();
         deathStep = step;
       }
       if (deathStep !== null && step === deathStep + DEATH_STEPS) {
-        server.relocate(scenario.death?.respawn ?? scenario.start, SPAWN_YAW);
+        server.relocate(SPAWN_ON_RUN, SPAWN_YAW);
       }
       motions.push(server.motion);
       const { silence } = scenario;
@@ -783,20 +773,19 @@ function measureFromServer(
  * @param {Run} run - What came of it.
  * @param {number} side - The side of his run the player is pushed to: 1
  *   away from the fence, -1 towards it.
- * @param {number} from - When the span starts, in milliseconds.
- * @param {number} to - When it ends, in milliseconds.
+ * @param {number} from - When the span starts, in milliseconds; it ends
+ *   with the run.
  * @param {string} told - The name of the run, for the messages.
  */
 function expectOnlyWhereServerHasIt(
   run: Run,
   side: number,
   from: number,
-  to: number,
   told: string,
 ): void {
   let previous: Frame | null = null;
   for (const frame of run.frames) {
-    if (frame.time < from || frame.time > to || !isResting(frame.truth)) {
+    if (frame.time < from || !isResting(frame.truth)) {
       previous = null;
       continue;
     }
@@ -871,7 +860,7 @@ describe('the forecast of the pushes of Toby', () => {
         const told: string = nameRun(latency, place);
         const run: Run = playResting(latency, place, true);
         const side: number = place[1] < 0 ? -1 : 1;
-        expectOnlyWhereServerHasIt(run, side, 3000, 16_000, told);
+        expectOnlyWhereServerHasIt(run, side, 3000, told);
       }
     }
   });
@@ -1048,7 +1037,7 @@ describe('the forecast of the pushes of Toby', () => {
             silence,
           });
           const side: number = place[1] < 0 ? -1 : 1;
-          expectOnlyWhereServerHasIt(on, side, 3000, 12_000, told);
+          expectOnlyWhereServerHasIt(on, side, 3000, told);
           expectNoJump(on, without, told);
           const last: Frame | undefined = on.frames.at(-1);
           expect(last?.drawn, told).toBe(last?.truth);
@@ -1076,7 +1065,7 @@ describe('the forecast of the pushes of Toby', () => {
             inputs: SETTLING,
             isForeseen: true,
             duration: death + 5000,
-            death: { time: death, respawn: SPAWN_ON_RUN },
+            death,
           });
           expectNoJump(on, without, told);
           const dead: Frame | undefined = on.frames.find(
@@ -1128,7 +1117,7 @@ describe('the forecast of the pushes of Toby', () => {
           inputs: [],
           isForeseen: true,
           duration: silence.to + 2000,
-          death: { time: death, respawn: SPAWN_ON_RUN },
+          death,
           silence,
         });
         const arrival: number = silence.to + latency;
@@ -1306,14 +1295,7 @@ describe('the forecast of the pushes of Toby', () => {
                 `${told}, ${String(frame.time)} ms`,
               ).toBe(true);
             });
-            const side: number = place[1] < 0 ? -1 : 1;
-            expectOnlyWhereServerHasIt(
-              run,
-              side,
-              on + SMOOTHING_DURATION,
-              12_000,
-              told,
-            );
+            expectOnlyWhereServerHasIt(run, 1, on + SMOOTHING_DURATION, told);
           }
         }
       }

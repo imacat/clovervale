@@ -33,7 +33,7 @@ import {
   decodeServerMessage,
   encodeClientMessage,
   findInteraction,
-  findVillagePath,
+  findMapPath,
   isResting,
 } from '@clovervale/shared';
 import type {
@@ -65,7 +65,7 @@ export interface PatrolPoint extends GroundVector {
 
 /** How a bot patrols. */
 export interface PatrolSettings {
-  /** The points the bot walks between, at least one. */
+  /** The points the bot walks between, at least two. */
   readonly points: readonly PatrolPoint[];
   /** The shortest time the bot stays at a point, in milliseconds. */
   readonly minPause: number;
@@ -87,11 +87,6 @@ export interface PatrolSettings {
    * before it patrols on.  {@link THIRSTY_HEALTH} by default.
    */
   readonly thirstyHealth?: number;
-  /**
-   * The chance that the bot speaks on arriving at a point where it has
-   * something to say.  {@link SPEAK_CHANCE} by default.
-   */
-  readonly speakChance?: number;
 }
 
 /**
@@ -105,7 +100,7 @@ export const THIRSTY_HEALTH: number = PLAYER_HEALTH / 2;
  * of the village, around the obstacles, staying at each for one to three
  * seconds, and saying what a bot says there now and then.
  */
-export const DEFAULT_PATROL: PatrolSettings = {
+const DEFAULT_PATROL: PatrolSettings = {
   points: POINTS_OF_INTEREST.map(
     ({ position, lines }: PointOfInterest): PatrolPoint => ({
       ...position,
@@ -203,17 +198,19 @@ export function startBot(
 
     let sequence = 0;
     let point: number | null = null;
-    let target: GroundVector | null = null;
+    let target: PatrolPoint | null = null;
     let attempts = 0;
     let isStaying = false;
     let readyTime = 0;
     let speechTimer: NodeJS.Timeout | null = null;
-    const speechCounts = new Map<number, number>();
+    const speechCounts = new Map<PatrolPoint, number>();
     let visit: FountainVisit = 'none';
     const timers = new Set<NodeJS.Timeout>();
-    const findPath = patrol.findPath ?? findVillagePath;
+    const findPath =
+      patrol.findPath ??
+      ((from: GroundVector, to: GroundVector): GroundVector[] | null =>
+        findMapPath('village', from, to));
     const thirstyHealth: number = patrol.thirstyHealth ?? THIRSTY_HEALTH;
-    const speakChance: number = patrol.speakChance ?? SPEAK_CHANCE;
     const sendMove = (after: number, direction: GroundVector): void => {
       if (socket.readyState === WebSocket.OPEN) {
         const stamp = { sequence: ++sequence, after };
@@ -286,28 +283,17 @@ export function startBot(
      * Has the player of the bot speak at the point it has just got to, if
      * it has something to say there and chances to.
      *
+     * @param {PatrolPoint} place - The point.
      * @returns {number} How long the player stands there before it has
      *   spoken, in milliseconds, which is no time if it does not speak.
      */
-    const speak = (): number => {
-      const place: number | null = point;
-      const lines: PlaceLines = patrol.points[place ?? 0]?.lines ?? [];
-      if (
-        place === null ||
-        lines.length === 0 ||
-        patrol.drawRandom() >= speakChance
-      ) {
+    const speak = (place: PatrolPoint): number => {
+      const lines: PlaceLines = place.lines ?? [];
+      if (lines.length === 0 || patrol.drawRandom() >= SPEAK_CHANCE) {
         return 0;
       }
       const turn: number = speechCounts.get(place) ?? 0;
-      const code: PhraseCode | null = choosePhrase(
-        lines,
-        turn,
-        patrol.drawRandom,
-      );
-      if (code === null) {
-        return 0;
-      }
+      const code: PhraseCode = choosePhrase(lines, turn, patrol.drawRandom);
       speechCounts.set(place, turn + 1);
       speechTimer = setTimeout(() => {
         speechTimer = null;
@@ -388,7 +374,7 @@ export function startBot(
         isStaying = true;
         readyTime =
           now +
-          (hasArrived ? speak() : 0) +
+          (hasArrived ? speak(target) : 0) +
           patrol.minPause +
           patrol.drawRandom() * (patrol.maxPause - patrol.minPause);
         return;

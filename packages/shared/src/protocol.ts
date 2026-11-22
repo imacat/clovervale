@@ -32,12 +32,7 @@ import type { MonsterKindId } from './combat.ts';
 import type { DayCycle } from './day-cycle.ts';
 import { DIALOGUE_REPLY_LIMIT, isDialogueText } from './dialogue.ts';
 import type { DialogueView } from './dialogue.ts';
-import {
-  CLOVER_PATCHES,
-  INVENTORY_SIZE,
-  NO_WORLD_ITEMS,
-  isItemKindId,
-} from './items.ts';
+import { CLOVER_PATCHES, INVENTORY_SIZE, isItemKindId } from './items.ts';
 import type { GroundItem, ItemKindId, WorldItems } from './items.ts';
 import type { GroundVector } from './movement.ts';
 import { isQuestLog } from './quests.ts';
@@ -501,23 +496,21 @@ export function createWelcomeMessage(
  *   that is to be seen.
  * @param {InputProgress} own - How far the player of the peer has got with
  *   the inputs of the peer.
- * @param {SlashJudgement | null} [slash] - The latest slash of the player
- *   of the peer, as the server judged it, or `null` before its first,
- *   which it is by default.
- * @param {WorldItems} [world] - What there is to pick in the world, which
+ * @param {SlashJudgement | null} slash - The latest slash of the player
+ *   of the peer, as the server judged it, or `null` before its first.
+ * @param {WorldItems} world - What there is to pick in the world, which
  *   containers have been looted there, and when Toby last took a
- *   four-leaved clover there, which is nothing and never by default.
- * @param {readonly ItemKindId[]} [inventory] - The items the player of the
- *   peer carries, in the order of its slots, which are none by default.
- * @param {DialogueView | null} [dialogue] - The dialogue the player of the
- *   peer is in, or `null` while it is in none, which it is by default.
- * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
- *   told the player of the peer who they are, in the order they did, which
- *   are none by default.
- * @param {QuestLog} [quests] - How far the player of the peer has got with
- *   each quest it has taken on, which are none by default.
- * @param {number} [silver] - The number of silver coins the player of the
- *   peer has, which is none by default.
+ *   four-leaved clover there.
+ * @param {readonly ItemKindId[]} inventory - The items the player of the
+ *   peer carries, in the order of its slots.
+ * @param {DialogueView | null} dialogue - The dialogue the player of the
+ *   peer is in, or `null` while it is in none.
+ * @param {readonly VillagerId[]} acquaintances - The villagers who have
+ *   told the player of the peer who they are, in the order they did.
+ * @param {QuestLog} quests - How far the player of the peer has got with
+ *   each quest it has taken on.
+ * @param {number} silver - The number of silver coins the player of the
+ *   peer has.
  * @returns {SnapshotMessage} The snapshot message.
  */
 export function createSnapshotMessage(
@@ -525,13 +518,13 @@ export function createSnapshotMessage(
   players: readonly PlayerState[],
   monsters: readonly MonsterState[],
   own: InputProgress,
-  slash: SlashJudgement | null = null,
-  world: WorldItems = NO_WORLD_ITEMS,
-  inventory: readonly ItemKindId[] = [],
-  dialogue: DialogueView | null = null,
-  acquaintances: readonly VillagerId[] = [],
-  quests: QuestLog = {},
-  silver = 0,
+  slash: SlashJudgement | null,
+  world: WorldItems,
+  inventory: readonly ItemKindId[],
+  dialogue: DialogueView | null,
+  acquaintances: readonly VillagerId[],
+  quests: QuestLog,
+  silver: number,
 ): SnapshotMessage {
   const { clovers, items, looted = [], tobyFind = null } = world;
   return {
@@ -868,8 +861,7 @@ export function encodeClientMessage(message: ClientMessage): string {
 /**
  * Decodes a client message received from the wire.
  *
- * The time an interact message names is left out if it is `null`.  The
- * text of a say message is decoded as it was typed, and the code of a
+ * The text of a say message is decoded as it was typed, and the code of a
  * phrase message as it was sent, whatever they hold.
  *
  * @param {string} data - The encoded message.
@@ -887,10 +879,7 @@ export function decodeClientMessage(data: string): ClientMessage {
   const { sequence, after } = value;
   if (isCount(sequence) && sequence > 0 && isCount(after)) {
     const { viewTime } = value;
-    if (
-      value.type === 'interact' &&
-      (viewTime === undefined || viewTime === null)
-    ) {
+    if (value.type === 'interact' && viewTime === undefined) {
       return { type: 'interact', sequence, after };
     }
     if (value.type === 'interact' && Number.isFinite(viewTime)) {

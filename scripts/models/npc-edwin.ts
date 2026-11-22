@@ -22,7 +22,7 @@
  *   cave, a courier of a kingdom, who waits at the bars of his cell.
  */
 
-import { CAVE_EDWIN_BEHIND_BARS } from '@clovervale/shared';
+import { CAVE_EDWIN_BEHIND_BARS } from '../../packages/shared/src/cave.ts';
 
 import {
   SIDES,
@@ -204,7 +204,7 @@ export function buildNpcEdwin(): BuiltModel {
 
   // The head: short, unkempt hair, heavy lids, brows drawn up in the
   // middle, dark rings under the eyes, and a stubbled chin.
-  addHead(model, 'Head');
+  addHead(model);
   const hair: Hair = createHair('tufts');
   model.add('hair', hair.hair, 'Head');
   model.add('hair', hair.accent, 'Head');

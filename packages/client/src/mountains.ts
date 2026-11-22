@@ -64,9 +64,6 @@ type RidgePoint = readonly [turn: number, distance: number, height: number];
 /** A peak: where round it stands, how high, and how wide it spreads. */
 type Peak = readonly [turn: number, height: number, spread: number];
 
-/** The name of the mountains in the scene. */
-export const MOUNTAINS_NAME = 'Mountains';
-
 /**
  * The ridges, nearest first: each farther one paler and more blue-grey,
  * and higher, so that it shows above the nearer ones, and closer to the
@@ -282,12 +279,10 @@ function createRidge(ridge: Ridge): Mesh {
  * and the camera can go, each farther one paler, more blue-grey and
  * higher.  They are the same every time.
  *
- * @returns {Group} The mountains, named {@link MOUNTAINS_NAME}, with a
- *   ridge a child, nearest first.
+ * @returns {Group} The mountains, with a ridge a child, nearest first.
  */
 export function createMountains(): Group {
   const mountains = new Group();
-  mountains.name = MOUNTAINS_NAME;
   for (const ridge of RIDGES) {
     mountains.add(createRidge(ridge));
   }

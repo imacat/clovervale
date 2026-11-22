@@ -45,8 +45,6 @@ export type PlaceLines = readonly (readonly PhraseCode[])[];
 
 /** A place in the village worth walking to. */
 export interface PointOfInterest {
-  /** What stands there. */
-  readonly name: string;
   /** Where a player stands to visit it. */
   readonly position: GroundVector;
   /** What a bot says there, which is nothing where it has no lines. */
@@ -68,12 +66,11 @@ const TOBY_RUN: Pose = {
 };
 
 /**
- * What a bot visits: the name, where what stands there is and which way it
- * faces, where a player stands to visit it, as what stands there has it
- * before it is placed, and what a bot says there.
+ * What a bot visits: where what stands there is and which way it faces,
+ * where a player stands to visit it, as what stands there has it before it
+ * is placed, and what a bot says there.
  */
 type Visit = readonly [
-  name: string,
   anchor: Pose,
   local: GroundVector,
   lines: PlaceLines,
@@ -96,39 +93,30 @@ type Visit = readonly [
  */
 const VISITS: readonly Visit[] = [
   [
-    'weapon shop',
     findPlacement('weapon-shop.glb'),
     { x: 0.1644, z: 3.6 },
     [['swordPrice'], ['lighterSword']],
   ],
-  ['fountain', findPlacement('fountain.glb'), { x: 0, z: 2.6 }, []],
+  [findPlacement('fountain.glb'), { x: 0, z: 2.6 }, []],
   [
-    'apothecary',
     findPlacement('prop-herb-rack.glb'),
     { x: 0, z: 1.3 },
     [['herbScent'], ['headacheHerb']],
   ],
-  ['Toby', TOBY_RUN, { x: 1.2, z: 0 }, [['slowDown'], ['stayInside']]],
+  [TOBY_RUN, { x: 1.2, z: 0 }, [['slowDown'], ['stayInside']]],
   [
-    'village chief',
     findPlacement('npc-martha.glb'),
     { x: 0, z: 1.5 },
     [['askInn'], ['askApothecary', 'askEmma', 'askBasil', 'askNancy']],
   ],
-  [
-    'spawn point',
-    findPlacement('prop-spawn-stones.glb'),
-    { x: -1.5, z: -2.1 },
-    [],
-  ],
+  [findPlacement('prop-spawn-stones.glb'), { x: -1.5, z: -2.1 }, []],
 ];
 
 /**
  * The places a bot patrols between, where the models of the village stand.
  */
 export const POINTS_OF_INTEREST: readonly PointOfInterest[] = VISITS.map(
-  ([name, anchor, local, lines]: Visit): PointOfInterest => ({
-    name,
+  ([anchor, local, lines]: Visit): PointOfInterest => ({
     position: placePoint(anchor, local),
     lines,
   }),
@@ -149,22 +137,28 @@ export const SPEAK_DELAY = 1000;
 /**
  * Chooses what a bot says at a place.
  *
- * @param {PlaceLines} lines - What a bot says there.
+ * @param {PlaceLines} lines - What a bot says there, a line at least.
  * @param {number} turn - The number of times the bot has spoken there
  *   before.
  * @param {() => number} drawRandom - Gives a random number from 0 up to but
  *   not including 1.
- * @returns {PhraseCode | null} The phrase: of the line whose turn it is,
- *   the lines taking turns in their order, over and over, any phrase of
- *   that line as likely as the others; or `null` where there are no lines.
+ * @returns {PhraseCode} The phrase: of the line whose turn it is, the
+ *   lines taking turns in their order, over and over, any phrase of that
+ *   line as likely as the others.
+ * @throws {RangeError} If there is no line, or the line has no phrase.
  */
 export function choosePhrase(
   lines: PlaceLines,
   turn: number,
   drawRandom: () => number,
-): PhraseCode | null {
+): PhraseCode {
   const line: readonly PhraseCode[] = lines[turn % lines.length] ?? [];
-  return line[Math.floor(drawRandom() * line.length)] ?? null;
+  const code: PhraseCode | undefined =
+    line[Math.floor(drawRandom() * line.length)];
+  if (code === undefined) {
+    throw new RangeError('There is no phrase to say.');
+  }
+  return code;
 }
 
 /** How far a walking player goes in one simulation step, in metres. */
@@ -295,21 +289,20 @@ export function planEscape(drawRandom: () => number): Leg {
 /**
  * Chooses the next point to walk to, at random.
  *
- * @param {number} count - The number of points, from 1.
+ * @param {number} count - The number of points, from 2.
  * @param {number | null} current - The index of the point last walked to,
  *   or `null` before the first.
  * @param {() => number} drawRandom - Gives a random number from 0 up to but not
  *   including 1.
  * @returns {number} The index of the point, which is any point but the
- *   current one, each as likely as the others, or the only point if there is
- *   just one.
+ *   current one, each as likely as the others.
  */
 export function chooseNextPoint(
   count: number,
   current: number | null,
   drawRandom: () => number,
 ): number {
-  if (current === null || count < 2) {
+  if (current === null) {
     return Math.floor(drawRandom() * count);
   }
   const index: number = Math.floor(drawRandom() * (count - 1));

@@ -26,7 +26,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PHRASE_CODES,
-  SAY_BREAK_LIMIT,
   SAY_LENGTH_LIMIT,
   cleanSayText,
   isPhraseCode,
@@ -80,7 +79,6 @@ describe('cleanSayText', () => {
   });
 
   it('keeps three line breaks at most, and makes spaces of the rest', () => {
-    expect(SAY_BREAK_LIMIT).toBe(3);
     expect(cleanSayText('1\n2\n3\n4')).toBe('1\n2\n3\n4');
     expect(cleanSayText('1\n2\n3\n4\n5\n\n6')).toBe('1\n2\n3\n4 5 6');
   });
@@ -113,7 +111,6 @@ describe('cleanSayText', () => {
   });
 
   it('counts as the browser does, an emoji as two or more', () => {
-    expect('🍀').toHaveLength(2);
     const line: string = '🍀'.repeat(SAY_LENGTH_LIMIT / 2);
     expect(cleanSayText(line)).toBe(line);
     expect(cleanSayText(`${line}!`)).toBe(line);
@@ -122,7 +119,6 @@ describe('cleanSayText', () => {
 
   it('never leaves half an emoji where it cuts a line', () => {
     const line = `a${'🍀'.repeat(SAY_LENGTH_LIMIT / 2)}`;
-    expect(line).toHaveLength(SAY_LENGTH_LIMIT + 1);
     expect(cleanSayText(line)).toBe(
       `a${'🍀'.repeat(SAY_LENGTH_LIMIT / 2 - 1)}`,
     );

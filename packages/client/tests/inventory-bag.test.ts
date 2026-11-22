@@ -29,7 +29,6 @@ import type { ItemKindId } from '@clovervale/shared';
 
 import {
   BAG_COLUMNS,
-  ITEM_ACTIONS,
   InventoryBag,
   describeSlots,
 } from '../src/inventory-bag.ts';
@@ -169,10 +168,6 @@ describe('the bag', () => {
     bag.pressKey('ArrowLeft');
     bag.pressKey('Enter');
     expect(bag.menuCursor).toBe(0);
-  });
-
-  it('knows using an item, and then dropping it', () => {
-    expect(ITEM_ACTIONS.map((action) => action.id)).toEqual(['use', 'drop']);
   });
 
   it('offers to use an item that can be used before dropping it', () => {
@@ -329,8 +324,6 @@ describe('the bag under the mouse', () => {
     bag.clickSlot(1);
     expect(bag.cursor).toBe(1);
     expect(bag.menuCursor).toBe(0);
-    bag.clickSlot(INVENTORY_SIZE);
-    expect(bag.cursor).toBe(1);
   });
 
   it('asks to drop the item of the slot with a click on the action', () => {

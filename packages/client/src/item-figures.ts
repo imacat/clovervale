@@ -217,9 +217,7 @@ function createLyingClover(parts: CloverParts): Group {
 export function createHeldClover(): Group {
   const clover: Group = createStandingClover(buildCloverParts());
   clover.scale.setScalar(HELD_SCALE);
-  const held = new Group();
-  held.add(clover);
-  return held;
+  return clover;
 }
 
 /**

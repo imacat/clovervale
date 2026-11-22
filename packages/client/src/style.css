@@ -128,11 +128,6 @@ canvas {
   user-select: none;
 }
 
-.dialogue[hidden],
-.dialogue-replies[hidden] {
-  display: none;
-}
-
 .dialogue-name {
   margin-bottom: 6px;
   color: #ffe14d;
@@ -259,11 +254,6 @@ canvas {
   border: 1px solid rgb(240 244 232 / 40%);
   border-radius: 6px;
   background: rgb(0 0 0 / 60%);
-}
-
-.bag-window[hidden],
-.bag-menu[hidden] {
-  display: none;
 }
 
 /* The title of the bag, with the silver coins of the player beside it. */
@@ -584,7 +574,6 @@ canvas {
   user-select: none;
 }
 
-.chat-button[hidden],
 .chat-box[hidden] {
   display: none;
 }
@@ -710,9 +699,6 @@ canvas {
   inset: 0;
 }
 
-.help[hidden],
-.help-sheet[hidden],
-.ending[hidden],
 .ending-scroll[hidden] {
   display: none;
 }
@@ -953,10 +939,6 @@ canvas {
   color: #f0443a;
 }
 
-.help-pad-face.is-x {
-  color: #3f8cf0;
-}
-
 .help-pad-face.is-y {
   color: #f5c518;
 }
@@ -1073,7 +1055,6 @@ canvas {
   text-align: center;
 }
 
-.help-credits-page[hidden],
 .help-credits-page .credits-title {
   display: none;
 }
@@ -1636,7 +1617,6 @@ canvas {
   }
 
   .is-touch .chat-button {
-    top: calc(72px + env(safe-area-inset-top, 0px));
     left: calc(12px + env(safe-area-inset-left, 0px));
   }
 

@@ -304,7 +304,7 @@ export const JA_MESSAGES: MessageTable = {
     'じっとしてて。薬、塗ってあげるね。はい、できた。これからは気をつけて遊ぶんだよ！',
   'dialogue.toby.thanks': 'うん。ありがとう！これ、あげる！',
   'dialogue.basil.offer':
-    'こんにちは、こんにちは！回復薬、いかがですか？一本たったの銀貨{price}枚ですよ！',
+    'こんにちは、こんにちは！回復薬、いかがですか？一本たったの銀貨3枚ですよ！',
   'dialogue.basil.buy': '一本ください。',
   'dialogue.basil.decline': 'いえ、けっこうです。',
   'dialogue.basil.sold':

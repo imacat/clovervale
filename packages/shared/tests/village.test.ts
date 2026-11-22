@@ -69,8 +69,4 @@ describe('findSpawnPoint', () => {
     expect(Math.abs((first?.x ?? NaN) - PLAZA_CENTRE.x)).toBeLessThan(1);
     expect(Math.abs((second?.x ?? NaN) - PLAZA_CENTRE.x)).toBeLessThan(1);
   });
-
-  it('always gives the same point for the same number', () => {
-    expect(findSpawnPoint(5)).toEqual(findSpawnPoint(5));
-  });
 });

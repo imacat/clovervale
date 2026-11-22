@@ -36,29 +36,27 @@ import type {
 /** The text of the page in English, by message. */
 const EN_TABLE: MessageTable = { ...EN_MESSAGES, ...EN_OPTIONAL_MESSAGES };
 
+/** A language whose text is loaded: any but the default one. */
+export type LoadedLanguageCode = Exclude<LanguageCode, typeof DEFAULT_LANGUAGE>;
+
 /**
  * Loads the text of the page in a language.
  *
- * @param {LanguageCode} code - The language.
- * @returns {Promise<Partial<MessageTable>>} The text, by message.
+ * @param {LoadedLanguageCode} code - The language.
+ * @returns {Promise<MessageTable>} The text, by message.
  */
-export type MessageLoader = (
-  code: LanguageCode,
-) => Promise<Partial<MessageTable>>;
+export type MessageLoader = (code: LoadedLanguageCode) => Promise<MessageTable>;
 
 /**
- * Loads the text of the page in a language, each language but English
- * only when it is asked for.
+ * Loads the text of the page in a language, when it is asked for.
  *
- * @param {LanguageCode} code - The language.
- * @returns {Promise<Partial<MessageTable>>} The text, by message.
+ * @param {LoadedLanguageCode} code - The language.
+ * @returns {Promise<MessageTable>} The text, by message.
  */
 export async function loadMessages(
-  code: LanguageCode,
-): Promise<Partial<MessageTable>> {
+  code: LoadedLanguageCode,
+): Promise<MessageTable> {
   switch (code) {
-    case 'en':
-      return EN_TABLE;
     case 'zh-TW':
       return (await import('./messages/zh-tw.ts')).ZH_TW_MESSAGES;
     case 'zh-CN':
@@ -89,8 +87,7 @@ export class Translator {
   readonly #load: MessageLoader;
   readonly #listeners: (() => void)[] = [];
   #language: LanguageCode = DEFAULT_LANGUAGE;
-  // A table may lack a message, if it is not checked as it is built.
-  #messages: Partial<MessageTable> = EN_TABLE;
+  #messages: MessageTable = EN_TABLE;
   /** How many languages have been chosen so far. */
   #choiceCount = 0;
 
@@ -114,8 +111,7 @@ export class Translator {
   }
 
   /**
-   * Words a message in the language the page speaks now, or in English if
-   * the language lacks it.
+   * Words a message in the language the page speaks now.
    *
    * @param {Id} id - The message.
    * @param {MessageValues<Id>} values - The values the message takes, by
@@ -127,7 +123,7 @@ export class Translator {
     id: Id,
     ...values: MessageValues<Id>
   ): string {
-    const message: string = this.#messages[id] ?? EN_MESSAGES[id];
+    const message: string = this.#messages[id];
     const [named] = values;
     if (named === undefined) {
       return message;
@@ -163,7 +159,7 @@ export class Translator {
    */
   async choose(code: LanguageCode): Promise<boolean> {
     const choice: number = ++this.#choiceCount;
-    let messages: Partial<MessageTable>;
+    let messages: MessageTable;
     if (code === DEFAULT_LANGUAGE) {
       messages = EN_TABLE;
     } else {

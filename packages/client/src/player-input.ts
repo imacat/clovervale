@@ -90,9 +90,6 @@ export function isGameKey(code: string): boolean {
  *   `null` if the game does not use the key.
  */
 export function findKeyCommand(code: string): KeyCommand | null {
-  if (!Object.hasOwn(KEY_COMMANDS, code)) {
-    return null;
-  }
   return KEY_COMMANDS[code] ?? null;
 }
 
@@ -110,17 +107,17 @@ export function findKeyCommand(code: string): KeyCommand | null {
  *   would come into effect at, which tells where Toby would be then.
  * @param {WorldItems} world - What there is to pick in the map, as the
  *   server last told.
- * @param {MapId} [map] - The map the player is in, the village by default.
- * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
- *   as the server last told, none by default.
+ * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map, as
+ *   the server last told.
  * @returns {PlayerInput} The input.
  */
 export function chooseSpaceInput(
   motion: PlayerMotion,
   step: number,
   world: WorldItems,
-  map: MapId = 'village',
-  monsters: readonly MonsterState[] = [],
+  map: MapId,
+  monsters: readonly MonsterState[],
 ): PlayerInput {
   if (!canInteract(motion)) {
     return { type: 'interact' };
@@ -138,16 +135,12 @@ export class MoveKeys {
   readonly #held = new Set<string>();
 
   /**
-   * Notes that a key is held down.  Keys that do not move the player do not
-   * count.
+   * Notes that a key that moves the player is held down.
    *
    * @param {string} code - The code of the key.
    */
   pressKey(code: string): void {
-    const command: KeyCommand | null = findKeyCommand(code);
-    if (command !== null && command !== 'interact') {
-      this.#held.add(code);
-    }
+    this.#held.add(code);
   }
 
   /**

@@ -247,17 +247,16 @@ export function applyInput(
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {number} step - The number of the step, as the server counts
  *   them, which tells where Toby is.
- * @param {MapId} [map] - The map the player is in, the village by default.
- * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
- *   which tell whether the player slashes rather than talks to a villager,
- *   none by default.
+ * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map,
+ *   which tell whether the player slashes rather than talks to a villager.
  * @returns {PlayerMotion} The motion after the step.
  */
 export function stepMotion(
   motion: PlayerMotion,
   step: number,
-  map: MapId = 'village',
-  monsters: readonly MonsterState[] = [],
+  map: MapId,
+  monsters: readonly MonsterState[],
 ): PlayerMotion {
   if (motion.action === 'Die') {
     return motion;

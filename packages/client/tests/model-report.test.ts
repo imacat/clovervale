@@ -40,11 +40,11 @@ const MISSING: ModelProblem = { file: 'npc-nancy.glb', reason: 'missing' };
 /**
  * Makes a translator of the text into a language.
  *
- * @param {'zh-TW' | 'zh-CN' | 'ja' | 'es'} code - The language.
+ * @param {'zh-TW' | 'ja' | 'es'} code - The language.
  * @returns {Promise<Translator>} The translator.
  */
 async function createTranslator(
-  code: 'zh-TW' | 'zh-CN' | 'ja' | 'es',
+  code: 'zh-TW' | 'ja' | 'es',
 ): Promise<Translator> {
   const translator = new Translator();
   await translator.choose(code);

@@ -223,7 +223,7 @@ describe('describeMonster', () => {
 
 describe('describeDisplay', () => {
   it('tells nothing before the first snapshot', () => {
-    expect(describeDisplay(12, null, { ...EMPTY, lag: 0 })).toEqual({
+    expect(describeDisplay(12, null, EMPTY)).toEqual({
       drawnAt: '–',
       behind: '–',
     });
@@ -231,7 +231,7 @@ describe('describeDisplay', () => {
 
   it('tells a player shown as the latest snapshot tells is not behind', () => {
     expect(
-      describeDisplay(12, PLAYERS, { ...EMPTY, players: PLAYERS, lag: 0 }),
+      describeDisplay(12, PLAYERS, { ...EMPTY, players: PLAYERS }),
     ).toEqual({
       drawnAt: '-4.26, 0.00',
       behind: '0 ms, 0.00 m',

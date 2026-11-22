@@ -43,21 +43,18 @@ const SNAPSHOT_STEPS: number = SIMULATION_RATE / SNAPSHOT_RATE;
 /** A day lasting a minute, starting at six in the morning. */
 const SHORT_DAY: DayCycle = { origin: 0.25, length: 60_000 };
 
-/** How a page receives the snapshots of a server. */
-interface Link {
-  /**
-   * When the snapshot of a time on the clock of the server reaches the
-   * page, on the clock of the page, in milliseconds.
-   */
-  readonly arrive: (serverTime: number, index: number) => number;
-}
+/**
+ * Tells when the snapshot of a time on the clock of the server reaches the
+ * page, on the clock of the page, in milliseconds.
+ */
+type Arrive = (serverTime: number, index: number) => number;
 
 /**
  * Feeds a clock the snapshots a server sends over a stretch of its time,
  * reading the clock after each.
  *
  * @param {DayClock} clock - The clock.
- * @param {Link} link - How the snapshots reach the page.
+ * @param {Arrive} arrive - When each snapshot reaches the page.
  * @param {number} from - The time on the clock of the server to start
  *   sending from, in milliseconds.
  * @param {number} to - The time on the clock of the server to stop sending
@@ -68,7 +65,7 @@ interface Link {
  */
 function feedSnapshots(
   clock: DayClock,
-  link: Link,
+  arrive: Arrive,
   from: number,
   to: number,
   isRead = true,
@@ -77,7 +74,7 @@ function feedSnapshots(
   const first: number = Math.ceil(from / (SNAPSHOT_STEPS * STEP));
   for (let index = first; index * SNAPSHOT_STEPS * STEP < to; index++) {
     const step: number = index * SNAPSHOT_STEPS;
-    const arrival: number = link.arrive(step * STEP, index);
+    const arrival: number = arrive(step * STEP, index);
     clock.observe(step, arrival);
     if (isRead) {
       readings.push(clock.read(arrival) ?? NaN);
@@ -111,7 +108,6 @@ function findDelay(index: number): number {
 describe('DayClock', () => {
   it('tells nothing before the server has told how the day goes', () => {
     const clock = new DayClock();
-    clock.observe(10, 1000);
     expect(clock.read(1000)).toBeNull();
   });
 
@@ -151,10 +147,8 @@ describe('DayClock', () => {
     const early = new DayClock();
     const late = new DayClock();
     // The clock of the late page started 95 seconds after the other.
-    const earlyLink: Link = { arrive: (time, i) => time + 25 + findDelay(i) };
-    const lateLink: Link = {
-      arrive: (time, i) => time + 40 + findDelay(i + 3) - 95_000,
-    };
+    const earlyLink: Arrive = (time, i) => time + 25 + findDelay(i);
+    const lateLink: Arrive = (time, i) => time + 40 + findDelay(i + 3) - 95_000;
     early.start(day);
     late.start(day);
     feedSnapshots(early, earlyLink, 0, 100_000);
@@ -173,9 +167,7 @@ describe('DayClock', () => {
     const clock = new DayClock();
     clock.start(day);
     // The clock of the page runs half a percent fast.
-    const link: Link = {
-      arrive: (time, i) => (time + 20 + findDelay(i)) * 1.005,
-    };
+    const link: Arrive = (time, i) => (time + 20 + findDelay(i)) * 1.005;
     const hours = 2;
     const readings: number[] = feedSnapshots(clock, link, 0, hours * 3.6e6);
     const last: number = readings.at(-1) ?? NaN;
@@ -192,11 +184,11 @@ describe('DayClock', () => {
     const clock = new DayClock();
     clock.start(SHORT_DAY);
     // The clock of the page runs a fifth of a percent fast.
-    const link: Link = { arrive: (time, i) => time * 1.002 + findDelay(i) };
+    const link: Arrive = (time, i) => time * 1.002 + findDelay(i);
     feedSnapshots(clock, link, 0, 10_000);
     // While hidden, the page draws nothing and so does not read its clock.
     feedSnapshots(clock, link, 10_000, 610_000, false);
-    const shown: number = link.arrive(610_000, 0);
+    const shown: number = link(610_000, 0);
     expect(
       measureGap(clock.read(shown) ?? NaN, (0.25 + 610_000 / 60_000) % 1),
     ).toBeLessThan(1e-3);

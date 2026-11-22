@@ -70,8 +70,8 @@ export class DayClock {
   }
 
   /**
-   * Takes note of the step of a snapshot and of when it arrived, if the
-   * page is telling the time of day of a server.
+   * Takes note of the step of a snapshot of the server whose time of day
+   * the page is telling, and of when it arrived.
    *
    * @param {number} step - The number of simulation steps the world had
    *   taken when the snapshot was taken.
@@ -79,9 +79,7 @@ export class DayClock {
    *   in milliseconds.
    */
   observe(step: number, localTime: number): void {
-    if (this.#cycle !== null) {
-      this.#clock.observe(step * STEP_MILLISECONDS, localTime);
-    }
+    this.#clock.observe(step * STEP_MILLISECONDS, localTime);
   }
 
   /**

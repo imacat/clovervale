@@ -28,11 +28,11 @@ import {
   AuthoritativePlayer,
   INPUT_WAIT_LIMIT,
   SIMULATION_RATE,
-  WAITING_INPUT_LIMIT,
   WALK_SPEED,
   createMotion,
 } from '../src/index.ts';
 import type { StampedInput } from '../src/index.ts';
+import { WAITING_INPUT_LIMIT } from '../src/authoritative-player.ts';
 
 /** How far a player walks in one step, in metres. */
 const STEP_LENGTH: number = WALK_SPEED / SIMULATION_RATE;
@@ -58,7 +58,7 @@ function steer(sequence: number, after: number, x: number): StampedInput {
  */
 function stepTimes(player: AuthoritativePlayer, count: number): void {
   for (let step = 0; step < count; step++) {
-    player.step(0);
+    player.step(0, 'village', false, []);
   }
 }
 
@@ -78,7 +78,7 @@ describe('an input of a player', () => {
     expect(player.receiveInput(steer(1, 0, 1))).toBe(true);
     expect(player.motion.action).toBe('Idle');
     expect(player.progress).toMatchObject({ sequence: 0, steps: 3 });
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.motion.action).toBe('Walk');
     expect(player.motion.x).toBeCloseTo(STEP_LENGTH);
     expect(player.progress).toEqual({
@@ -95,7 +95,7 @@ describe('an input of a player', () => {
     stepTimes(player, 4);
     expect(player.progress).toMatchObject({ sequence: 1, steps: 4 });
     expect(player.motion.action).toBe('Walk');
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.progress).toMatchObject({ sequence: 2, steps: 1 });
     expect(player.motion.action).toBe('Idle');
     expect(player.motion.x).toBeCloseTo(STEP_LENGTH * 4);
@@ -106,7 +106,7 @@ describe('an input of a player', () => {
     player.receiveInput(steer(1, 0, 1));
     stepTimes(player, 6);
     player.receiveInput(steer(2, 4, 0));
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.progress).toMatchObject({ sequence: 2, steps: 1 });
     expect(player.motion.x).toBeCloseTo(STEP_LENGTH * 6);
   });
@@ -115,7 +115,7 @@ describe('an input of a player', () => {
     const player: AuthoritativePlayer = createPlayer();
     player.receiveInput(steer(1, 0, 1));
     player.receiveInput(steer(2, 0, -1));
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.progress).toMatchObject({ sequence: 2, steps: 1 });
     expect(player.motion.x).toBeCloseTo(-STEP_LENGTH);
   });
@@ -134,11 +134,11 @@ describe('an input of a player', () => {
   it('does not wait longer than the limit', () => {
     const player: AuthoritativePlayer = createPlayer();
     player.receiveInput(steer(1, 0, 1));
-    player.step(0);
+    player.step(0, 'village', false, []);
     player.receiveInput(steer(2, 1_000_000, 0));
     stepTimes(player, INPUT_WAIT_LIMIT);
     expect(player.progress.sequence).toBe(1);
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.progress).toMatchObject({ sequence: 2, steps: 1 });
     expect(player.motion.x).toBeCloseTo(STEP_LENGTH * (INPUT_WAIT_LIMIT + 1));
   });
@@ -180,7 +180,7 @@ describe('a player moved elsewhere', () => {
       action: 'Idle',
       actionCount: actionCount + 1,
     });
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.motion).toMatchObject({ z: 2, yaw: 90, action: 'Walk' });
     expect(player.motion.x).toBeCloseTo(STEP_LENGTH);
   });
@@ -191,7 +191,7 @@ describe('a player moved elsewhere', () => {
     stepTimes(player, 2);
     expect(player.motion.action).toBe('Slash');
     player.relocate({ x: 0, z: 2 }, 0);
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.motion.action).toBe('Idle');
   });
 
@@ -211,7 +211,7 @@ describe('a player who dies', () => {
     player.kill();
     player.receiveInput({ type: 'interact', sequence: 1, after: 0 });
     player.receiveInput(steer(2, 0, 1));
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.progress).toMatchObject({ sequence: 2, steps: 1 });
     expect(player.motion).toMatchObject({
       x: 0,
@@ -228,7 +228,7 @@ describe('a player who dies', () => {
     player.receiveInput(steer(2, 0, 1));
     stepTimes(player, SIMULATION_RATE);
     player.relocate({ x: 0, z: 2 }, 0);
-    player.step(0);
+    player.step(0, 'village', false, []);
     expect(player.motion).toMatchObject({ z: 2, action: 'Walk' });
     expect(player.motion.x).toBeCloseTo(STEP_LENGTH);
   });

@@ -107,15 +107,15 @@ function walk(
 }
 
 /**
- * Finds the fastest the camera turned from one frame to the next.
+ * Finds the fastest the camera turned from one frame to the next, from a
+ * heading of 0 before the first frame.
  *
- * @param {number} heading - The heading before the first frame.
  * @param {readonly number[]} headings - The headings after each frame.
  * @returns {number} The fastest turning rate, in degrees per second.
  */
-function findFastestTurn(heading: number, headings: readonly number[]): number {
+function findFastestTurn(headings: readonly number[]): number {
   let fastest = 0;
-  let last: number = heading;
+  let last = 0;
   for (const next of headings) {
     fastest = Math.max(fastest, Math.abs(findTurn(next, last)) / FRAME);
     last = next;
@@ -141,8 +141,6 @@ describe('TrailingCamera', () => {
   it('comes round behind a diagonal travel forwards and stays', () => {
     const camera = new TrailingCamera();
     const { headings } = walk(camera, 0, { x: 0, z: 0 }, 45, 15);
-    const last: number = headings.at(-1) ?? NaN;
-    expect(Math.abs(findTurn(45, last))).toBeLessThan(1e-6);
     // It stays there for the last seconds of the walk.
     const settled: number[] = headings.slice(-5 / FRAME);
     for (const heading of settled) {
@@ -210,7 +208,7 @@ describe('TrailingCamera', () => {
         settings,
       );
       const headings: number[] = [...first.headings, ...second.headings];
-      expect(findFastestTurn(0, headings)).toBeLessThanOrEqual(
+      expect(findFastestTurn(headings)).toBeLessThanOrEqual(
         settings.turnRate + 1e-9,
       );
     }

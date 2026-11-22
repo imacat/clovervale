@@ -41,8 +41,7 @@ export const DEFAULT_DELAY: number = (2 * 1000) / SNAPSHOT_RATE;
 export const MAX_DELAY = 1000;
 
 /** The most snapshots that are kept to show the past from. */
-export const HISTORY_LIMIT: number =
-  Math.ceil((MAX_DELAY * SNAPSHOT_RATE) / 1000) + 6;
+const HISTORY_LIMIT: number = Math.ceil((MAX_DELAY * SNAPSHOT_RATE) / 1000) + 6;
 
 /** How long one step of the simulation lasts, in milliseconds. */
 const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
@@ -215,16 +214,6 @@ export class SnapshotTimeline {
    */
   get latestMonsters(): readonly MonsterState[] | null {
     return this.#snapshots.at(-1)?.monsters ?? null;
-  }
-
-  /**
-   * The number of snapshots that are kept, which never exceeds
-   * {@link HISTORY_LIMIT}.
-   *
-   * @returns {number} The number of snapshots.
-   */
-  get size(): number {
-    return this.#snapshots.length;
   }
 
   /**

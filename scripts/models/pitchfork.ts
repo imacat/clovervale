@@ -31,7 +31,7 @@ import type { BuiltModel } from './rig.ts';
  * How far below where it is gripped the butt of the shaft of the pitchfork
  * ends, in metres: it is gripped near its butt, so that it reaches far.
  */
-export const PITCHFORK_BUTT = 0.2;
+const PITCHFORK_BUTT = 0.2;
 
 /** The length of the wooden shaft of the pitchfork, in metres. */
 const SHAFT_LENGTH = 1.6;

@@ -22,8 +22,6 @@
  *   four-leaved clover west of the village gate.
  */
 
-import type { Quaternion } from 'three';
-
 import {
   SIMULATION_RATE,
   TOBY_ACTIVITY_STEPS,
@@ -51,6 +49,7 @@ import {
   place,
 } from './geometry.ts';
 import type { Placement, Shape, Triple } from './geometry.ts';
+import { getItem } from './items.ts';
 import { Model } from './model.ts';
 import { Rig, easeProgress } from './rig.ts';
 import type {
@@ -167,26 +166,19 @@ const ARMS: Readonly<Record<'L' | 'R', ArmBones>> = {
   R: ['UpperArmR', 'ForeArmR', 'HandR'],
 };
 
-/** How he stands at ease, his arms hanging loose. */
+/** How he bends his elbows as he stands at ease. */
 const STANDING: PoseSpec = {
-  Chest: [1, 0, 0],
-  Head: [0, 0, 0],
-  UpperArmL: [3, 0, 9],
   ForeArmL: [-14, 0, 0],
-  UpperArmR: [3, 0, -9],
   ForeArmR: [-14, 0, 0],
 };
 
 /**
- * How he squats at the edge of the clover: flat-footed, sitting low on his
- * heels with his knees wide apart, his back bent over between them and his
- * head bowed to the leaves in front of him.
+ * How he squats at the edge of the clover: sitting low on his heels, his
+ * back bent over between his knees.
  */
 const SQUATTING: PoseSpec = {
   offset: [0, -0.2, -0.085],
-  Hips: [34, 0, 0],
   Chest: [24, 0, 0],
-  Head: [-22, 0, 0],
 };
 
 /** Where a foot is to be, and how it meets the ground. */
@@ -289,7 +281,7 @@ function buildBody(): Model {
 
   // The big round head of a child, with freckles across the nose and the
   // cheeks, and short, tousled hair.
-  addHead(model, 'Head', HEAD);
+  addHead(model, HEAD);
   for (const side of [1, -1]) {
     for (const [yaw, down] of [
       [15, 12],
@@ -610,8 +602,8 @@ function animateBody(model: Model): Rig {
     );
     return pose;
   };
-  const standFoot = (x: number, z = 0): FootPlace => ({
-    ankle: [STANCE.x * x, ANKLE_HEIGHT, z],
+  const standFoot = (x: number): FootPlace => ({
+    ankle: [STANCE.x * x, ANKLE_HEIGHT, 0],
     pitch: 0,
     yaw: STANCE.yaw * x,
   });
@@ -736,7 +728,7 @@ function animateBody(model: Model): Rig {
       a[2] + (b[2] - a[2]) * w,
     ];
     const span = (from: number, to: number): number =>
-      easeProgress(Math.min(Math.max((s - from) / (to - from), 0), 1));
+      easeProgress((s - from) / (to - from));
     const stow: number = STOW_TIME - GRAB_TIME;
     const up: number = span(0.1, 0.5);
     const look: number = up * (1 - span(stow - 0.45, stow - 0.1));
@@ -780,32 +772,38 @@ function animateBody(model: Model): Rig {
       [0.09 + 0.1 * (1 - down), 0.42 - 0.27 * down, 0.2 - 0.04 * down],
       [-0.09 - 0.1 * (1 - down), 0.42 - 0.27 * down, 0.2 - 0.04 * down],
     );
-    const hold: number = easeProgress(Math.min(share / 0.4, 1));
+    const hold: number = easeProgress(share / 0.4);
     for (const bone of [...ARMS.L, ...ARMS.R]) {
       const index: number = model.findBone(bone);
-      const target: Quaternion | undefined = reaching.rotations[index];
-      if (target !== undefined) {
-        body.rotations[index]?.slerp(target, hold);
-      }
+      getItem(body.rotations, index).slerp(
+        getItem(reaching.rotations, index),
+        hold,
+      );
     }
-    const from: [FootPlace, FootPlace] = [runFoot(1, 0), runFoot(-1, 0.5)];
-    const to: [FootPlace, FootPlace] = [squatFoot(1), squatFoot(-1)];
-    const feet: FootPlace[] = from.map((start: FootPlace, index: number) => {
-      const end: FootPlace = to[index] ?? start;
-      const weight: number = easeProgress(Math.min(share / 0.7, 1));
-      const raise: number = index === 1 ? 0.05 * Math.sin(Math.PI * weight) : 0;
-      return {
-        ankle: [
-          start.ankle[0] + (end.ankle[0] - start.ankle[0]) * weight,
-          start.ankle[1] + (end.ankle[1] - start.ankle[1]) * weight + raise,
-          start.ankle[2] + (end.ankle[2] - start.ankle[2]) * weight,
-        ],
-        pitch: start.pitch + (end.pitch - start.pitch) * weight,
-        yaw: start.yaw + (end.yaw - start.yaw) * weight,
-      };
+    const weight: number = easeProgress(share / 0.7);
+    const moveFoot = (
+      start: FootPlace,
+      end: FootPlace,
+      raise: number,
+    ): FootPlace => ({
+      ankle: [
+        start.ankle[0] + (end.ankle[0] - start.ankle[0]) * weight,
+        start.ankle[1] + (end.ankle[1] - start.ankle[1]) * weight + raise,
+        start.ankle[2] + (end.ankle[2] - start.ankle[2]) * weight,
+      ],
+      pitch: start.pitch + (end.pitch - start.pitch) * weight,
+      yaw: start.yaw + (end.yaw - start.yaw) * weight,
     });
     return {
-      pose: placeFeet(body, feet[0] ?? to[0], feet[1] ?? to[1]),
+      pose: placeFeet(
+        body,
+        moveFoot(runFoot(1, 0), squatFoot(1), 0),
+        moveFoot(
+          runFoot(-1, 0.5),
+          squatFoot(-1),
+          0.05 * Math.sin(Math.PI * weight),
+        ),
+      ),
     };
   });
 
@@ -870,8 +868,7 @@ function animateBody(model: Model): Rig {
     ): FootPlace => {
       const start: FootPlace = standFoot(x);
       const weight: number = easeProgress((share - from) / (to - from));
-      const raise: number =
-        0.045 * Math.sin(Math.PI * Math.min(Math.max(weight, 0), 1));
+      const raise: number = 0.045 * Math.sin(Math.PI * weight);
       return {
         ankle: [
           start.ankle[0] + (end.ankle[0] - start.ankle[0]) * weight,

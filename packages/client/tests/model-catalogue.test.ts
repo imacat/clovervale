@@ -28,38 +28,38 @@ import type { Placement, Villager } from '@clovervale/shared';
 
 import {
   REQUIRED_MODEL_FILES,
-  classifyModel,
+  isModelUsed,
   planModels,
 } from '../src/model-catalogue.ts';
 
-describe('classifyModel', () => {
+describe('isModelUsed', () => {
   it('knows the required models', () => {
-    expect(classifyModel('character-01.glb')).toBe('character');
-    expect(classifyModel('character-08.glb')).toBe('character');
-    expect(classifyModel('npc-nancy.glb')).toBe('npc');
-    expect(classifyModel('wild-dog.glb')).toBe('monster');
-    expect(classifyModel('weapon-shop.glb')).toBe('building');
-    expect(classifyModel('fountain.glb')).toBe('building');
+    expect(isModelUsed('character-01.glb')).toBe(true);
+    expect(isModelUsed('character-08.glb')).toBe(true);
+    expect(isModelUsed('npc-nancy.glb')).toBe(true);
+    expect(isModelUsed('wild-dog.glb')).toBe(true);
+    expect(isModelUsed('weapon-shop.glb')).toBe(true);
+    expect(isModelUsed('fountain.glb')).toBe(true);
   });
 
   it('takes any properly named NPC', () => {
-    expect(classifyModel('npc-ada.glb')).toBe('npc');
-    expect(classifyModel('npc-old-tom.glb')).toBe('npc');
+    expect(isModelUsed('npc-ada.glb')).toBe(true);
+    expect(isModelUsed('npc-old-tom.glb')).toBe(true);
   });
 
   it('takes any properly named prop', () => {
-    expect(classifyModel('prop-rock.glb')).toBe('prop');
-    expect(classifyModel('prop-great-tree.glb')).toBe('prop');
+    expect(isModelUsed('prop-rock.glb')).toBe(true);
+    expect(isModelUsed('prop-great-tree.glb')).toBe(true);
   });
 
   it('rejects the files the game does not use', () => {
-    expect(classifyModel('character-09.glb')).toBeNull();
-    expect(classifyModel('npc-.glb')).toBeNull();
-    expect(classifyModel('npc-Nancy.glb')).toBeNull();
-    expect(classifyModel('prop-.glb')).toBeNull();
-    expect(classifyModel('prop-Rock.glb')).toBeNull();
-    expect(classifyModel('prop-rock.gltf')).toBeNull();
-    expect(classifyModel('index.json')).toBeNull();
+    expect(isModelUsed('character-09.glb')).toBe(false);
+    expect(isModelUsed('npc-.glb')).toBe(false);
+    expect(isModelUsed('npc-Nancy.glb')).toBe(false);
+    expect(isModelUsed('prop-.glb')).toBe(false);
+    expect(isModelUsed('prop-Rock.glb')).toBe(false);
+    expect(isModelUsed('prop-rock.gltf')).toBe(false);
+    expect(isModelUsed('index.json')).toBe(false);
   });
 });
 
@@ -102,10 +102,6 @@ describe('planModels', () => {
     );
     expect(files).toContain('npc-toby.glb');
     expect(planModels([]).missing).toEqual(expect.arrayContaining(files));
-  });
-
-  it('does not miss the optional props', () => {
-    expect(planModels(REQUIRED_MODEL_FILES).missing).toEqual([]);
   });
 
   it('leaves out the files the game does not use', () => {

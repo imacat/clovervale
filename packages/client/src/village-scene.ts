@@ -121,7 +121,8 @@ function createDisc(colour: string, height: number): Mesh {
  */
 export function createVillageScene(): VillageScene {
   const scene = new Scene();
-  scene.fog = new Fog(0, FOG_NEAR, FOG_FAR);
+  const fog = new Fog(0, FOG_NEAR, FOG_FAR);
+  scene.fog = fog;
 
   const ground: Mesh = createDisc(GRASS_COLOUR, 0);
   ground.scale.setScalar(GROUND_RADIUS);
@@ -135,8 +136,9 @@ export function createVillageScene(): VillageScene {
     patch.rotation.z = (yaw * Math.PI) / 180;
     scene.add(patch);
   });
-  scene.add(createMountains());
-  return { scene, daylight: new Daylight(scene) };
+  const mountains: Object3D = createMountains();
+  scene.add(mountains);
+  return { scene, daylight: new Daylight(scene, fog, mountains) };
 }
 
 /**

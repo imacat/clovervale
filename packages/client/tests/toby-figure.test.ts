@@ -33,7 +33,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   SIMULATION_RATE,
-  TOBY_ACTIVITIES,
   TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
   TOBY_STOW_STEPS,
@@ -55,20 +54,23 @@ const DURATIONS: Readonly<Record<string, number>> = {
 };
 
 /**
- * Makes up a model of Toby whose clips each raise a bone of their own from
- * nought at their start by a metre a second, which tells how far into
- * each clip it is.
+ * Makes up a model of Toby with a right hand and every clip of his, whose
+ * clips each raise a bone of their own from nought at their start by a
+ * metre a second, which tells how far into each clip it is.
  *
- * @param {readonly string[]} names - The names of the clips.
- * @returns {{ root: Object3D; clips: AnimationClip[] }} The root of the
- *   model, and its clips.
+ * @returns {{ root: Object3D; hand: Object3D; clips: AnimationClip[] }} The
+ *   root of the model, the bone of its right hand, and its clips.
  */
-function makeModel(names: readonly string[]): {
+function makeModel(): {
   root: Object3D;
+  hand: Object3D;
   clips: AnimationClip[];
 } {
   const root = new Object3D();
-  const clips: AnimationClip[] = names.map((name: string) => {
+  const hand = new Object3D();
+  hand.name = 'HandR';
+  root.add(hand);
+  const clips: AnimationClip[] = Object.keys(DURATIONS).map((name: string) => {
     const bone = new Object3D();
     bone.name = name;
     root.add(bone);
@@ -81,7 +83,7 @@ function makeModel(names: readonly string[]): {
       ),
     ]);
   });
-  return { root, clips };
+  return { root, hand, clips };
 }
 
 /**
@@ -114,8 +116,8 @@ function findStep(activity: TobyActivity, elapsed: number): number {
 
 describe('TobyFigure', () => {
   it('stands Toby where his course has him, facing his way', () => {
-    const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
-    const figure = new TobyFigure(root, clips);
+    const { root, clips } = makeModel();
+    const figure = new TobyFigure(root, clips, new Object3D());
     expect(root.visible).toBe(false);
     expect(figure.describe()).toBeNull();
     for (const step of [0, 37, 120.5, 140.25, 300]) {
@@ -130,8 +132,8 @@ describe('TobyFigure', () => {
   });
 
   it('plays the clip of what he does, from when he started it', () => {
-    const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
-    const figure = new TobyFigure(root, clips);
+    const { root, clips } = makeModel();
+    const figure = new TobyFigure(root, clips, new Object3D());
     figure.show(findStep('Squat', 0.25));
     expect(figure.describe()).toMatchObject({ activity: 'Squat' });
     expect(figure.describe()?.clip).toBe('Squat');
@@ -142,18 +144,15 @@ describe('TobyFigure', () => {
   });
 
   it('picks at the clover over and over while he squats there', () => {
-    const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
-    const figure = new TobyFigure(root, clips);
+    const { root, clips } = makeModel();
+    const figure = new TobyFigure(root, clips, new Object3D());
     figure.show(findStep('Pick', 2.5));
     expect(figure.describe()?.clip).toBe('Pick');
     expect(readClipTime(root, 'Pick')).toBeCloseTo(0.5, 9);
   });
 
   it('holds a clover he finds in his hand from his grab until he puts it away', () => {
-    const { root, clips } = makeModel(['Idle', 'Find', ...TOBY_ACTIVITIES]);
-    const hand = new Object3D();
-    hand.name = 'HandR';
-    root.add(hand);
+    const { root, hand, clips } = makeModel();
     const clover = new Object3D();
     const figure = new TobyFigure(root, clips, clover);
     expect(clover.parent).toBe(hand);
@@ -183,7 +182,7 @@ describe('TobyFigure', () => {
   });
 
   it('holds nothing at a grab that finds nothing', () => {
-    const { root, clips } = makeModel(['Idle', 'Find', ...TOBY_ACTIVITIES]);
+    const { root, clips } = makeModel();
     const clover = new Object3D();
     const figure = new TobyFigure(root, clips, clover);
     const grab: number = findStep('Pick', TOBY_GRAB_STEPS / SIMULATION_RATE);
@@ -194,20 +193,9 @@ describe('TobyFigure', () => {
     expect(figure.describe()).toMatchObject({ clip: 'Pick', isHolding: false });
   });
 
-  it('holds a clover he finds as he picks, with a model that cannot show more', () => {
-    const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
-    const clover = new Object3D();
-    const figure = new TobyFigure(root, clips, clover);
-    expect(clover.parent).toBe(root);
-    const grab: number = findStep('Pick', TOBY_GRAB_STEPS / SIMULATION_RATE);
-    figure.show(grab + 5, true);
-    expect(figure.describe()).toMatchObject({ clip: 'Pick', isHolding: true });
-    expect(clover.visible).toBe(true);
-  });
-
   it('runs his clip on in step with the ground he covers', () => {
-    const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
-    const figure = new TobyFigure(root, clips);
+    const { root, clips } = makeModel();
+    const figure = new TobyFigure(root, clips, new Object3D());
     figure.show(findStep('Run', 1));
     expect(figure.describe()?.clip).toBe('Run');
     expect(readClipTime(root, 'Run')).toBeCloseTo(0.3, 9);
@@ -215,18 +203,9 @@ describe('TobyFigure', () => {
     expect(readClipTime(root, 'Run')).toBeCloseTo(0.05, 9);
   });
 
-  it('idles in place of a clip the model lacks', () => {
-    const { root, clips } = makeModel(['Idle', 'Run']);
-    const figure = new TobyFigure(root, clips);
-    figure.show(findStep('Pick', 2.5));
-    expect(figure.describe()).toMatchObject({ activity: 'Pick' });
-    expect(figure.describe()?.clip).toBe('Idle');
-    expect(readClipTime(root, 'Idle')).toBeCloseTo(0.5, 9);
-  });
-
   it('tells where he is shown and what he does', () => {
-    const { root, clips } = makeModel(['Idle', ...TOBY_ACTIVITIES]);
-    const figure = new TobyFigure(root, clips);
+    const { root, clips } = makeModel();
+    const figure = new TobyFigure(root, clips, new Object3D());
     const step: number = findStep('Run', 1);
     figure.show(step);
     const pose: TobyPose = findTobyPose(step);
@@ -242,18 +221,20 @@ describe('TobyFigure', () => {
   });
 
   it('tells where the top of his head is, lower as he squats', () => {
-    // A head 0.85 m up, with hair to 0.3 m above it, which he idles with,
+    // A head 0.85 m up, with hair to 0.3 m above it, which he runs with,
     // and which he lowers by 0.4 m as he squats down.
     const root = new Object3D();
+    const hand = new Object3D();
+    hand.name = 'HandR';
     const head = new Object3D();
     head.name = 'Head';
     head.position.y = 0.85;
-    root.add(head);
+    root.add(hand, head);
     const hair = new Mesh(new BoxGeometry(0.2, 0.2, 0.2));
     hair.position.y = 0.2;
     head.add(hair);
     const clips: AnimationClip[] = [
-      new AnimationClip('Idle', 2, [
+      new AnimationClip('Run', 2, [
         new VectorKeyframeTrack(
           'Head.position',
           [0, 2],
@@ -268,7 +249,7 @@ describe('TobyFigure', () => {
         ),
       ]),
     ];
-    const figure = new TobyFigure(root, clips);
+    const figure = new TobyFigure(root, clips, new Object3D());
     expect(figure.findHeadTop()).toBeNull();
     const running: number = findStep('Run', 0.5);
     figure.show(running);

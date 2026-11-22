@@ -34,15 +34,6 @@ export class EventSchedule {
   #waiting: GameEvent[] = [];
 
   /**
-   * The number of events waiting for their moment.
-   *
-   * @returns {number} The number of events.
-   */
-  get size(): number {
-    return this.#waiting.length;
-  }
-
-  /**
    * Takes in events that have arrived, to wait for their moment.
    *
    * An event whose number is no higher than that of an event taken in

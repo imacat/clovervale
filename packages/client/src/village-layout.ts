@@ -21,63 +21,10 @@
  * @module client/village-layout Arranging the models into a village.
  */
 
-import {
-  CAVE_CONTAINER_FILES,
-  CAVE_PLACEMENTS,
-  VILLAGERS,
-  VILLAGE_PLACEMENTS,
-} from '@clovervale/shared';
-import type {
-  CaveContainerFiles,
-  Placement,
-  Villager,
-} from '@clovervale/shared';
-
-import {
-  LYING_ITEM_FILES,
-  LYING_PITCHFORK_FILE,
-  classifyModel,
-} from './model-catalogue.ts';
+import { VILLAGERS, VILLAGE_PLACEMENTS } from '@clovervale/shared';
+import type { Placement, Villager } from '@clovervale/shared';
 
 export type { Placement } from '@clovervale/shared';
-
-/** A spot on the ground: its X and Z positions, and its yaw. */
-type Spot = readonly [x: number, z: number, yaw: number];
-
-/** The distance between two neighbouring unknown props, in metres. */
-const SPARE_SPACING = 6;
-/** The number of unknown props in a row. */
-const SPARE_ROW_LENGTH = 3;
-/** The spot of the first unknown prop. */
-const FIRST_SPARE_SPOT: Spot = [-12, 18, 0];
-
-/**
- * Finds the spots of a prop the village has no place for.
- *
- * @param {number} index - The position of the prop among such props, from
- *   zero.
- * @returns {Spot[]} The one spot of the prop.
- */
-function findSpareSpots(index: number): Spot[] {
-  const [x, z, yaw] = FIRST_SPARE_SPOT;
-  const column: number = index % SPARE_ROW_LENGTH;
-  const row: number = Math.floor(index / SPARE_ROW_LENGTH);
-  return [[x + column * SPARE_SPACING, z + row * SPARE_SPACING, yaw]];
-}
-
-/**
- * The file names of the models that stand elsewhere than in the village:
- * those of the cave and of what stands in it, those of the items, and
- * that of Martha's pitchfork as it lies wherever she has dropped it.
- */
-const ELSEWHERE_FILES: ReadonlySet<string> = new Set<string>([
-  ...CAVE_PLACEMENTS.map((placement: Placement) => placement.file),
-  ...Object.values(CAVE_CONTAINER_FILES).flatMap(
-    ({ closed, open }: CaveContainerFiles) => [closed, open],
-  ),
-  ...Object.values(LYING_ITEM_FILES),
-  LYING_PITCHFORK_FILE,
-]);
 
 /**
  * The file names of the models of the villagers who fight as monsters,
@@ -105,9 +52,7 @@ const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
  * has Martha the village chief, who fights as a monster, nor Toby, who
  * runs about between the cottage and the gate.  The models of the cave,
  * and of what stands in it, stand in the cave, not in the village, and the
- * models of the items lie wherever the items do.  Any other prop the
- * village has no place for stands by itself to one side, where it stands in
- * nobody's way.
+ * models of the items lie wherever the items do.
  *
  * @param {readonly string[]} files - The file names of the models to
  *   arrange.
@@ -118,24 +63,14 @@ const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
  */
 export function layoutVillage(files: readonly string[]): Placement[] {
   const placements: Placement[] = [];
-  let spareCount = 0;
   for (const file of files) {
-    const placed: Placement[] = FIGHTER_FILES.has(file)
-      ? []
-      : VILLAGE_PLACEMENTS.filter(
+    if (!FIGHTER_FILES.has(file)) {
+      placements.push(
+        ...VILLAGE_PLACEMENTS.filter(
           (placement: Placement) => placement.file === file,
-        );
-    const isElsewhere: boolean = ELSEWHERE_FILES.has(file);
-    if (
-      placed.length === 0 &&
-      !isElsewhere &&
-      classifyModel(file) === 'prop'
-    ) {
-      for (const [x, z, yaw] of findSpareSpots(spareCount++)) {
-        placed.push({ file, x, z, yaw });
-      }
+        ),
+      );
     }
-    placements.push(...placed);
   }
   return placements;
 }

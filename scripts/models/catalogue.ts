@@ -75,7 +75,7 @@ import { buildItemSpyToken } from './token.ts';
 import { buildWildDog } from './wild-dog.ts';
 
 /** A model to generate. */
-export interface ModelEntry {
+interface ModelEntry {
   /** The file name of the model, without its extension. */
   readonly name: string;
   /** Builds the model. */

@@ -25,16 +25,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  NavigationGraph,
   PLAZA_CENTRE,
   Terrain,
   VILLAGE_TERRAIN,
-  WAYPOINT_CLEARANCE,
   findSpawnPoint,
-  findVillagePath,
-  placeWaypoints,
+  findMapPath,
 } from '../src/index.ts';
 import type { GroundVector, Shape } from '../src/index.ts';
+import { NavigationGraph } from '../src/navigation.ts';
 
 /** A wall six metres wide across the Z axis, at the origin. */
 const WALL: Shape = {
@@ -67,16 +65,6 @@ function expectWalkable(
     start = point;
   }
 }
-
-describe('placeWaypoints', () => {
-  it('places the waypoints where a player has room to spare', () => {
-    const waypoints: GroundVector[] = placeWaypoints(VILLAGE_TERRAIN);
-    expect(waypoints.length).toBeGreaterThan(0);
-    for (const point of waypoints) {
-      expect(VILLAGE_TERRAIN.isClear(point, WAYPOINT_CLEARANCE)).toBe(true);
-    }
-  });
-});
 
 describe('NavigationGraph.findPath', () => {
   const graph = new NavigationGraph(WALLED);
@@ -126,12 +114,12 @@ describe('NavigationGraph.findPath', () => {
   });
 });
 
-describe('findVillagePath', () => {
+describe('findMapPath in the village', () => {
   it('goes around the fountain, from the spawn points to behind it', () => {
     const behind: GroundVector = { x: PLAZA_CENTRE.x, z: PLAZA_CENTRE.z - 2.7 };
     for (let index = 0; index < 8; index++) {
       const from: GroundVector = findSpawnPoint(index);
-      const path: GroundVector[] | null = findVillagePath(from, behind);
+      const path: GroundVector[] | null = findMapPath('village', from, behind);
       expect(path).not.toBeNull();
       expect(path?.at(-1)).toEqual(behind);
       expectWalkable(VILLAGE_TERRAIN, from, path ?? []);

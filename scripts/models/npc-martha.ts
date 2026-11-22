@@ -295,7 +295,7 @@ export function buildNpcMartha(): BuiltModel {
 
   // The head, with level brows and lids lowered a little over the eyes, and
   // the hair swept back into a low knot, silver at the temples.
-  addHead(model, 'Head');
+  addHead(model);
   const hair: Hair = createHair('chignon');
   model.add('hair', hair.hair, 'Head');
   model.add('silver', hair.accent, 'Head');
@@ -760,7 +760,7 @@ export function buildNpcMartha(): BuiltModel {
   };
   overreach = 0;
   rig.bake('Sit', SIT_DURATION, (t: number): PoseSample => {
-    const down: number = easeProgress(Math.min(t / (SIT_DURATION - 0.2), 1));
+    const down: number = easeProgress(t / (SIT_DURATION - 0.2));
     const pose: Pose = rig.createPose({ offset: [0, -SIT_DROP * down, 0] });
     turnBone(pose, hips, guardHips, sitHips, down);
     turnBone(pose, chest, guardChest, sitChest, down);

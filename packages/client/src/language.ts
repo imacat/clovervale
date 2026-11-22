@@ -86,7 +86,7 @@ export const LANGUAGES: readonly Language[] = [
 ];
 
 /** The language the page speaks without anything else to go by. */
-export const DEFAULT_LANGUAGE: LanguageCode = 'en';
+export const DEFAULT_LANGUAGE = 'en' satisfies LanguageCode;
 
 /** The key the choice of a language is remembered by. */
 const STORAGE_KEY = 'clovervale.language';
@@ -155,23 +155,20 @@ export function matchLanguage(tag: string): LanguageCode | null {
 /**
  * Chooses the language the page speaks.
  *
- * @param {string | null} saved - The language the person chose before, if
- *   any.
+ * @param {LanguageCode | null} saved - The language the person chose
+ *   before, if any.
  * @param {readonly string[]} preferred - The language tags the browser
  *   prefers, the most preferred first.
- * @returns {LanguageCode} The language chosen before, if the page speaks
- *   it, or else the first preferred that the page speaks, as
+ * @returns {LanguageCode} The language chosen before, if any, or else the
+ *   first preferred that the page speaks, as
  *   {@link matchLanguage} finds, or else English.
  */
 export function chooseLanguage(
-  saved: string | null,
+  saved: LanguageCode | null,
   preferred: readonly string[],
 ): LanguageCode {
-  const savedLanguage: Language | undefined = LANGUAGES.find(
-    (language: Language) => language.code === saved,
-  );
-  if (savedLanguage !== undefined) {
-    return savedLanguage.code;
+  if (saved !== null) {
+    return saved;
   }
   for (const tag of preferred) {
     const matched: LanguageCode | null = matchLanguage(tag);

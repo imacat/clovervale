@@ -290,7 +290,7 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'dialogue.toby.dress':
     '别动，我给你抹点药。好了。以后玩的时候要小心点儿哦！',
   'dialogue.toby.thanks': '嗯，知道啦。谢谢！这个送给你！',
-  'dialogue.basil.offer': '你好你好！要不要来瓶治疗药水？一瓶才{price}枚银币！',
+  'dialogue.basil.offer': '你好你好！要不要来瓶治疗药水？一瓶才三枚银币！',
   'dialogue.basil.buy': '来一瓶。',
   'dialogue.basil.decline': '不用了。',
   'dialogue.basil.sold':

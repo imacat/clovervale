@@ -452,9 +452,9 @@ function createClickable(
  * @param {(request: ItemRequest) => void} carryOut - Carries out an action
  *   chosen in the menu of an item.
  * @param {() => void} clickIcon - Called when the icon is clicked.
- * @param {() => boolean} [isTouch] - Tells whether the page is used by
+ * @param {() => boolean} isTouch - Tells whether the page is used by
  *   touch, so that the line under the slots tells what to tap rather than
- *   the keys; it never is by default.
+ *   the keys.
  * @returns {BagView} The bag as shown.
  */
 export function createBagView(
@@ -463,12 +463,11 @@ export function createBagView(
   bag: InventoryBag,
   carryOut: (request: ItemRequest) => void,
   clickIcon: () => void,
-  isTouch: () => boolean = () => false,
+  isTouch: () => boolean,
 ): BagView {
   let shown: readonly ItemKindId[] | null = null;
   let shownHealth: number | null = null;
   let shownSilver = 0;
-  let render: () => void = () => undefined;
   const root: HTMLDivElement = document.createElement('div');
   root.className = 'bag';
   root.addEventListener('wheel', (event: WheelEvent) => {
@@ -541,7 +540,7 @@ export function createBagView(
   root.append(frame, icon);
   parent.append(root);
 
-  render = (): void => {
+  const render = (): void => {
     const name: string = translator.translate('inventory.title');
     const label: string = translator.translate('inventory.icon');
     icon.title = label;
@@ -626,8 +625,6 @@ export function createBagView(
       bag.noticeInventory(shown ?? []);
       render();
     },
-    render: () => {
-      render();
-    },
+    render,
   };
 }

@@ -24,20 +24,22 @@
  */
 
 import {
-  CAVE_CELLS,
-  CAVE_CHAMBER_DEPTH,
-  CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
-  CAVE_MODEL_CENTRE,
   CAVE_MOUTH,
   CAVE_MOUTH_OUTLINE,
   CAVE_PASSAGE,
+} from '@clovervale/shared';
+import {
+  CAVE_CELLS,
+  CAVE_CHAMBER_DEPTH,
+  CAVE_FLAME_AHEAD,
+  CAVE_MODEL_CENTRE,
   CAVE_PASSAGE_HALF_WIDTH,
   CAVE_ROPE,
   CAVE_SHAFT_RADIUS,
   CAVE_STORE_ROOMS,
   CAVE_TORCH_DEPTH,
-} from '@clovervale/shared';
+} from '../../packages/shared/src/cave.ts';
 
 import {
   createBlob,
@@ -49,6 +51,7 @@ import {
   createRandom,
   place,
 } from './geometry.ts';
+import { getItem } from './items.ts';
 import { Model } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
@@ -135,7 +138,7 @@ function addRock(model: Model, rect: Rect, random: () => number): void {
   const [west, east, north, south] = rect;
   const isLong: boolean = east - west >= south - north;
   const length: number = isLong ? east - west : south - north;
-  const count: number = Math.max(Math.ceil(length / WALL_PIECE), 1);
+  const count: number = Math.ceil(length / WALL_PIECE);
   for (let index = 0; index < count; index++) {
     const from: number = (isLong ? west : north) + (length * index) / count;
     const to: number = (isLong ? west : north) + (length * (index + 1)) / count;
@@ -177,9 +180,6 @@ function addShaft(model: Model): void {
     const shift: number = row % 2 === 0 ? 0 : span / 2;
     for (let index = 0; index <= SHAFT_STONES; index++) {
       const yaw: number = 180 + shift + index * span - span / 2;
-      if (yaw < 180 - span / 2 || yaw > 360 + span / 2) {
-        continue;
-      }
       const angle: number = (yaw * Math.PI) / 180;
       const out: number = CAVE_SHAFT_RADIUS + SHAFT_DEPTH / 2;
       model.add(
@@ -284,12 +284,11 @@ function addMouth(model: Model): void {
       ([across]) => across * side >= 0,
     ).map(([across, height]): [number, number] => [across * side, height]);
     edge.sort((a, b) => a[1] - b[1]);
-    const [lowest] = edge;
     const outline: [number, number][] = [
       [0, MOUTH_ROCK_TOP],
       [reach, MOUTH_ROCK_TOP],
       [reach, foot],
-      [lowest?.[0] ?? 0, foot],
+      [getItem(edge, 0)[0], foot],
       ...edge,
       [0, Math.max(...edge.map(([, height]) => height))],
     ];

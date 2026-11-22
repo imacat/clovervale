@@ -27,41 +27,40 @@ import { describe, expect, it } from 'vitest';
 import {
   CAVE_CONTAINERS,
   CAVE_DOG_HOMES,
-  CAVE_LANDING,
-  CAVE_ROPE,
   CAVE_TERRAIN,
   CLOVER_PATCHES,
   DEATH_DURATION,
   MONSTER_KINDS,
   PLAYER_HEALTH,
   SIMULATION_RATE,
-  SLASH_DURATION,
-  NavigationGraph,
   SLASH_DAMAGE,
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   WALK_SPEED,
-  WELL_STAND,
   createInteractMessage,
   createMoveMessage,
   findPlacement,
   findSpawnPoint,
-  findVillagePath,
+  findMapPath,
   isWithinStrike,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
   GameEvent,
   GroundVector,
+  MapId,
   MonsterState,
-  PhrasedMessage,
   PlayerInput,
   PlayerState,
-  SaidMessage,
   ServerMessage,
   SnapshotMessage,
   WorldItems,
 } from '@clovervale/shared';
+import { SLASH_DURATION } from '../../shared/src/actions.ts';
+import { CAVE_LANDING, CAVE_ROPE } from '../../shared/src/cave.ts';
+import { NavigationGraph } from '../../shared/src/navigation.ts';
+import { WELL_STAND } from '../../shared/src/village-layout.ts';
+import type { PhrasedMessage, SaidMessage } from '../../shared/src/protocol.ts';
 
 import { Realm } from '../src/realm.ts';
 import type { World } from '../src/world.ts';
@@ -290,7 +289,7 @@ function walkTogether(
  * @throws {Error} If the player finds no way there.
  */
 function walkInVillage(realm: Realm, id: number, to: GroundVector): void {
-  const path: GroundVector[] | null = findVillagePath(
+  const path: GroundVector[] | null = findMapPath('village', 
     findPlayer(realm, id),
     to,
   );
@@ -357,7 +356,7 @@ function addDiggers(realm: Realm): [number, number] {
     realm,
     ids.map((id: number): [number, GroundVector[]] => [
       id,
-      findVillagePath(findPlayer(realm, id), BURROW) ?? [],
+      findMapPath('village', findPlayer(realm, id), BURROW) ?? [],
     ]),
   );
   const [first = NaN, second = NaN] = ids;
@@ -434,15 +433,25 @@ function listSnapshots(messages: readonly ServerMessage[]): SnapshotMessage[] {
   );
 }
 
+/**
+ * Finds the map a player is in.
+ *
+ * @param {Realm} realm - The realm.
+ * @param {number} id - The identifier of the player.
+ * @returns {MapId | null} The map, or `null` if the player is in none.
+ */
+function findMap(realm: Realm, id: number): MapId | null {
+  return realm.findWorld(id)?.map ?? null;
+}
+
 describe('a player who comes into the realm', () => {
   it('is in the village, which holds every newcomer', () => {
     const realm = new Realm(createRandom());
     const { id: first }: PlayerState = realm.addPlayer();
     const { id: second }: PlayerState = realm.addPlayer();
-    expect(realm.findMap(first)).toBe('village');
+    expect(findMap(realm, first)).toBe('village');
     expect(realm.findWorld(first)).toBe(realm.findWorld(second));
     expect(listCompany(realm, first)).toEqual([first, second]);
-    expect(realm.caveCount).toBe(0);
   });
 });
 
@@ -452,8 +461,7 @@ describe('a player at the burrow of the wild dog', () => {
     const id: number = addDigger(realm);
     const { id: other }: PlayerState = realm.addPlayer();
     goDown(realm, id);
-    expect(realm.findMap(id)).toBe('cave');
-    expect(realm.caveCount).toBe(1);
+    expect(findMap(realm, id)).toBe('cave');
     expect(findPlayer(realm, id)).toMatchObject({
       x: CAVE_LANDING.x,
       z: CAVE_LANDING.z,
@@ -462,7 +470,7 @@ describe('a player at the burrow of the wild dog', () => {
     });
     expect(listCompany(realm, id)).toEqual([id]);
     expect(listCompany(realm, other)).toEqual([other]);
-    expect(realm.findMap(other)).toBe('village');
+    expect(findMap(realm, other)).toBe('village');
   });
 
   it('goes down with the dog alive, close behind it', () => {
@@ -478,7 +486,7 @@ describe('a player at the burrow of the wild dog', () => {
     const dog: MonsterState | undefined = findDog(realm, id);
     expect(dog?.mode).toBe('chase');
     goDown(realm, id);
-    expect(realm.findMap(id)).toBe('cave');
+    expect(findMap(realm, id)).toBe('cave');
   });
 
   it('goes down with the dog alive and drawn away by another', () => {
@@ -489,7 +497,7 @@ describe('a player at the burrow of the wild dog', () => {
     walkInVillage(realm, lure, NEAR_DOG);
     walkTogether(realm, [
       [lure, [WEST_OF_DOG]],
-      [id, findVillagePath(findPlayer(realm, id), BURROW) ?? []],
+      [id, findMapPath('village', findPlayer(realm, id), BURROW) ?? []],
     ]);
     const dog: MonsterState | undefined = findDog(realm, id);
     const here: PlayerState = findPlayer(realm, id);
@@ -499,8 +507,8 @@ describe('a player at the burrow of the wild dog', () => {
     ).toBeGreaterThan(SLASH_REACH * 2);
     turnPlayer(realm, id, dog ?? BURROW);
     travel(realm, id);
-    expect(realm.findMap(id)).toBe('cave');
-    expect(realm.findMap(lure)).toBe('village');
+    expect(findMap(realm, id)).toBe('cave');
+    expect(findMap(realm, lure)).toBe('village');
   });
 
   it('slashes rather than goes down with the living dog in reach in front', () => {
@@ -525,8 +533,7 @@ describe('a player at the burrow of the wild dog', () => {
         isWithinStrike(findPlayer(realm, id), near, SLASH_REACH),
     ).toBe(true);
     travel(realm, id);
-    expect(realm.findMap(id)).toBe('village');
-    expect(realm.caveCount).toBe(0);
+    expect(findMap(realm, id)).toBe('village');
   });
 
   it('goes down with the dog dead', () => {
@@ -544,15 +551,14 @@ describe('a player at the burrow of the wild dog', () => {
     expect(findDog(realm, id)?.mode ?? 'dead').toBe('dead');
     walkInVillage(realm, id, BURROW);
     travel(realm, id);
-    expect(realm.findMap(id)).toBe('cave');
+    expect(findMap(realm, id)).toBe('cave');
   });
 
   it('stays in the village away from the burrow', () => {
     const realm = new Realm(createRandom());
     const { id }: PlayerState = realm.addPlayer();
     travel(realm, id);
-    expect(realm.findMap(id)).toBe('village');
-    expect(realm.caveCount).toBe(0);
+    expect(findMap(realm, id)).toBe('village');
   });
 
   it('leaves the dog of the village where it is when it goes down', () => {
@@ -575,7 +581,8 @@ describe('the caves of the realm', () => {
     const [first, second] = addDiggers(realm);
     goDown(realm, first);
     goDown(realm, second);
-    expect(realm.caveCount).toBe(2);
+    expect(findMap(realm, first)).toBe('cave');
+    expect(findMap(realm, second)).toBe('cave');
     expect(realm.findWorld(first)).not.toBe(realm.findWorld(second));
     expect(listCompany(realm, first)).toEqual([first]);
     expect(listCompany(realm, second)).toEqual([second]);
@@ -652,8 +659,7 @@ describe('a player at the rope in the cave', () => {
     walkToRope(realm, id);
     const below: PlayerState = findPlayer(realm, id);
     travel(realm, id);
-    expect(realm.findMap(id)).toBe('village');
-    expect(realm.caveCount).toBe(0);
+    expect(findMap(realm, id)).toBe('village');
     expect(findPlayer(realm, id)).toMatchObject({
       x: WELL_STAND.x,
       z: WELL_STAND.z,
@@ -700,7 +706,7 @@ describe('a player at the rope in the cave', () => {
     walkAlong(realm, id, back ?? []);
     walkToRope(realm, id);
     travel(realm, id);
-    expect(realm.findMap(id)).toBe('village');
+    expect(findMap(realm, id)).toBe('village');
     expect(realm.findWorld(id)?.findSilver(id)).toBe(5);
     const [snapshot] = listSnapshots(realm.composeMessages().get(id) ?? []);
     expect(snapshot?.silver).toBe(5);
@@ -712,7 +718,7 @@ describe('a player at the rope in the cave', () => {
     const id: number = addDigger(realm);
     goDown(realm, id);
     travel(realm, id);
-    expect(realm.findMap(id)).toBe('cave');
+    expect(findMap(realm, id)).toBe('cave');
   });
 });
 
@@ -751,10 +757,9 @@ describe('a player who dies in the cave', () => {
         (hits.length - 1) * MONSTER_KINDS['cave-dog'].biteDamage,
     ]);
     stepTimes(realm, DEATH_STEPS - 1);
-    expect(realm.findMap(id)).toBe('cave');
+    expect(findMap(realm, id)).toBe('cave');
     realm.step();
-    expect(realm.findMap(id)).toBe('village');
-    expect(realm.caveCount).toBe(0);
+    expect(findMap(realm, id)).toBe('village');
     const player: PlayerState = findPlayer(realm, id);
     expect(player).toMatchObject({ action: 'Idle', health: PLAYER_HEALTH });
     const spawnPoints: GroundVector[] = Array.from(
@@ -784,8 +789,7 @@ describe('a player who leaves from the cave', () => {
     const id: number = addDigger(realm);
     goDown(realm, id);
     realm.removePlayer(id);
-    expect(realm.caveCount).toBe(0);
-    expect(realm.findMap(id)).toBeNull();
+    expect(findMap(realm, id)).toBeNull();
   });
 });
 

@@ -31,13 +31,13 @@ import {
   SPAWN_YAW,
   TOBY_ENDS,
   createMotion,
-  killMotion,
 } from '@clovervale/shared';
 import type {
   GroundVector,
   InputProgress,
   PlayerMotion,
 } from '@clovervale/shared';
+import { killMotion } from '../../shared/src/player-motion.ts';
 
 import {
   CorrectionSmoothing,
@@ -138,7 +138,7 @@ function playResting(latency: number, offRun: number): RestingRun {
     SPAWN_YAW,
   );
   const server = new AuthoritativePlayer(start);
-  const prediction = new PlayerPrediction(start, 0, 0);
+  const prediction = new PlayerPrediction(start, 0, 0, 'village');
   const smoothing = new CorrectionSmoothing({ isEnabled: true }, PREDICTED);
   const snapshots = new Map<number, [number, InputProgress]>();
   const drawn: GroundVector[] = [];
@@ -151,7 +151,7 @@ function playResting(latency: number, offRun: number): RestingRun {
   for (let time = 0; time <= 20_000; time++) {
     if (time % STEP === 0 && time > 0) {
       step++;
-      server.step(step);
+      server.step(step, 'village', false, []);
       if (step % SNAPSHOT_STEPS === 0) {
         snapshots.set(time + latency, [step, server.progress]);
       }
@@ -242,7 +242,7 @@ describe('the smoothing of corrections', () => {
         smoothing.noticeCorrection(truth, pushed, time);
         truth = pushed;
       }
-      if (time % FRAME === 0 && time > 1000) {
+      if (time % FRAME === 0) {
         const drawn: number = smoothing.readDrawn(truth, time).x;
         expect(drawn).toBeGreaterThan(last);
         expect(drawn - last).toBeLessThan(FRAME_STEP_BOUND);

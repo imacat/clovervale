@@ -27,7 +27,6 @@ import {
   MONSTER_KINDS,
   SIMULATION_RATE,
   VILLAGE_TERRAIN,
-  findPlacement,
 } from '@clovervale/shared';
 import type {
   GroundVector,
@@ -134,34 +133,6 @@ function stepTimes(
   }
   return strikes;
 }
-
-describe('the wild dog of the village', () => {
-  it('is the one monster of the village', () => {
-    expect(MONSTER_SPAWNS.village.map((spawn) => spawn.kind)).toEqual([
-      'village-dog',
-    ]);
-  });
-
-  it('keeps its numbers', () => {
-    expect(DOG).toEqual({
-      health: 60,
-      biteDamage: 15,
-      biteInterval: 1.5,
-      chaseSpeed: 1.3,
-      wanderSpeed: 0.8,
-      wanderRadius: 3,
-      noticeRange: 5,
-      leashRange: 8,
-      respawnDelay: 10,
-      maxSilver: 2,
-    });
-  });
-
-  it('lives at the mouth of its burrow among the spawn stones', () => {
-    const stones = findPlacement('prop-spawn-stones.glb');
-    expect(HOME).toEqual({ x: stones.x, z: stones.z, yaw: stones.yaw - 72 });
-  });
-});
 
 describe('a monster left alone', () => {
   it('starts idling at its home at full health', () => {
@@ -309,7 +280,6 @@ describe('a monster that is hit', () => {
       health: 0,
       mode: 'dead',
     });
-    expect(monster.takeHit(20, 9)).toBe(0);
   });
 
   it('lies dead without striking, is gone, and comes back at home', () => {

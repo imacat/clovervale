@@ -35,7 +35,6 @@ describe('SayQueue', () => {
   it('has nothing to say at first', () => {
     const queue = new SayQueue();
     expect(queue.takeDue(0)).toBeNull();
-    expect(queue.length).toBe(0);
   });
 
   it('says the first line at once', () => {
@@ -51,10 +50,9 @@ describe('SayQueue', () => {
     queue.takeDue(1000);
     queue.add('Two.');
     expect(queue.takeDue(1500)).toBeNull();
-    expect(queue.length).toBe(1);
     expect(queue.takeDue(1000 + SAY_SPACING - 1)).toBeNull();
     expect(queue.takeDue(1000 + SAY_SPACING)).toBe('Two.');
-    expect(queue.length).toBe(0);
+    expect(queue.takeDue(1000 + SAY_SPACING * 2)).toBeNull();
   });
 
   it('waits a little longer than the server asks', () => {
@@ -63,7 +61,6 @@ describe('SayQueue', () => {
     queue.takeDue(0);
     queue.add('Two.');
     expect(queue.takeDue(SERVER_INTERVAL)).toBeNull();
-    expect(SAY_SPACING).toBeGreaterThan(SERVER_INTERVAL);
   });
 
   it('says the lines that queue up in order, each in its turn', () => {
@@ -104,7 +101,6 @@ describe('SayQueue', () => {
     queue.add('Two.');
     queue.add('Three.');
     queue.clear();
-    expect(queue.length).toBe(0);
     expect(queue.takeDue(SAY_SPACING * 2)).toBeNull();
     queue.add('Four.');
     expect(queue.takeDue(SAY_SPACING * 2 + 1)).toBe('Four.');

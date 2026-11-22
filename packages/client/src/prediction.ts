@@ -146,7 +146,7 @@ export class PlayerPrediction {
   #waiting: StampedInput[] = [];
   #correctionCount = 0;
   #lastCorrection: number | null = null;
-  #inputStepTime: number | null = null;
+  #inputStepTime: number = Number.NEGATIVE_INFINITY;
   #sent: SentInput[] = [];
   #lastEffect: InputEffect | null = null;
   #leastOffset: number;
@@ -162,15 +162,9 @@ export class PlayerPrediction {
    *   told that.
    * @param {number} time - The time on the clock of the page, in
    *   milliseconds.
-   * @param {MapId} [map] - The map the player is in, the village by
-   *   default.
+   * @param {MapId} map - The map the player is in.
    */
-  constructor(
-    motion: PlayerMotion,
-    step: number,
-    time: number,
-    map: MapId = 'village',
-  ) {
+  constructor(motion: PlayerMotion, step: number, time: number, map: MapId) {
     this.#map = map;
     this.#motion = motion;
     this.#previous = motion;
@@ -178,15 +172,6 @@ export class PlayerPrediction {
     this.#step = step;
     this.#toldStep = step;
     this.#leastOffset = step - time / STEP_MILLISECONDS;
-  }
-
-  /**
-   * The map the player is in, as the page last learnt.
-   *
-   * @returns {MapId} The map.
-   */
-  get map(): MapId {
-    return this.#map;
   }
 
   /**
@@ -243,12 +228,13 @@ export class PlayerPrediction {
 
   /**
    * The time on the clock of the page of the step that takes the latest
-   * input in, from which the input shows, or `null` before the first input.
-   * While the input waits for that step, it is the time the step is due.
+   * input in, from which the input shows, to be read once an input has
+   * been issued.  While the input waits for that step, it is the time the
+   * step is due.
    *
-   * @returns {number | null} The time, in milliseconds.
+   * @returns {number} The time, in milliseconds.
    */
-  get inputStepTime(): number | null {
+  get inputStepTime(): number {
     return this.#inputStepTime;
   }
 

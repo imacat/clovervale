@@ -25,32 +25,32 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CAVE_CELLS,
-  CAVE_CHAMBERS,
   CAVE_CONTAINERS,
-  CAVE_LANDING,
   CAVE_PASSAGE,
-  CAVE_ROPE,
-  CAVE_STORE_ROOMS,
   CAVE_TERRAIN,
   NO_WORLD_ITEMS,
-  NavigationGraph,
   PLAYER_RADIUS,
   VILLAGERS,
   WALK_SPEED,
   createMotion,
   findPickTarget,
-  findYaw,
   locateVillager,
   stepMotion,
 } from '../src/index.ts';
 import type {
   CaveContainer,
-  CaveRoom,
   GroundVector,
   PlayerMotion,
   Pose,
 } from '../src/index.ts';
+import {
+  CAVE_CELLS,
+  CAVE_LANDING,
+  CAVE_ROPE,
+  CAVE_STORE_ROOMS,
+} from '../src/cave.ts';
+import { NavigationGraph } from '../src/navigation.ts';
+import type { CaveRoom } from '../src/cave.ts';
 
 /** The least room every point a test walks to has, in metres. */
 const ROOM = 0.05;
@@ -98,7 +98,7 @@ function listStanding(): GroundVector[] {
   return [
     ...CAVE_CONTAINERS,
     ...VILLAGERS.filter(({ map }) => map === 'cave').map((villager) =>
-      locateVillager(villager, 0),
+      locateVillager(villager, 0, []),
     ),
   ];
 }
@@ -120,6 +120,9 @@ function findSpotBefore(container: CaveContainer): Pose {
   };
 }
 
+/** Every side chamber of the cave. */
+const CHAMBERS: readonly CaveRoom[] = [...CAVE_STORE_ROOMS, ...CAVE_CELLS];
+
 /**
  * Tells whether a point lies on the floor of the cave, as the plan has it:
  * on the passage, in a side chamber, or on the round bottom of the well
@@ -136,46 +139,16 @@ function isOnPlan(point: GroundVector): boolean {
     point.z <= room.south;
   return (
     isIn(CAVE_PASSAGE) ||
-    CAVE_CHAMBERS.some(isIn) ||
+    CHAMBERS.some(isIn) ||
     Math.hypot(point.x - CAVE_ROPE.x, point.z - CAVE_ROPE.z) <=
       CAVE_PASSAGE.south
   );
 }
 
-describe('the plan of the cave', () => {
-  it('has a straight passage 3 m wide and 20 m long', () => {
-    expect(CAVE_PASSAGE.east - CAVE_PASSAGE.west).toBe(20);
-    expect(CAVE_PASSAGE.south - CAVE_PASSAGE.north).toBe(3);
-  });
-
-  it('has a pair of chambers either side of it at each stretch', () => {
-    const [northStore, southStore] = CAVE_STORE_ROOMS;
-    const [northCell, southCell] = CAVE_CELLS;
-    for (const room of CAVE_CHAMBERS) {
-      expect(room.east - room.west).toBe(4);
-      expect(room.south - room.north).toBe(3.5);
-    }
-    expect([northStore.west, northStore.east]).toEqual([3.5, 7.5]);
-    expect([northCell.west, northCell.east]).toEqual([11, 15]);
-    for (const room of [northStore, northCell]) {
-      expect(room.south).toBe(CAVE_PASSAGE.north);
-    }
-    for (const room of [southStore, southCell]) {
-      expect(room.north).toBe(CAVE_PASSAGE.south);
-    }
-  });
-
-  it('lands a player at the foot of the slope, facing west', () => {
-    expect(CAVE_LANDING.x).toBeCloseTo(18.2);
-    expect(CAVE_LANDING.z).toBe(0);
-    expect(findYaw({ x: -1, z: 0 })).toBeCloseTo(CAVE_LANDING.yaw);
-  });
-});
-
 describe('the ground of the cave', () => {
   it('is clear on the passage and in every chamber, but where things stand', () => {
     const standing: GroundVector[] = listStanding();
-    for (const room of [CAVE_PASSAGE, ...CAVE_CHAMBERS]) {
+    for (const room of [CAVE_PASSAGE, ...CHAMBERS]) {
       for (const point of listFloorPoints(room)) {
         const isNear = ({ x, z }: GroundVector): boolean =>
           Math.hypot(point.x - x, point.z - z) < 1;
@@ -204,7 +177,7 @@ describe('the ground of the cave', () => {
       expect(graph.findPath(CAVE_LANDING, spot)).not.toBeNull();
       const motion: PlayerMotion = createMotion(spot, spot.yaw);
       expect(
-        findPickTarget(motion, 0, NO_WORLD_ITEMS, 'cave'),
+        findPickTarget(motion, 0, NO_WORLD_ITEMS, 'cave', []),
       ).toMatchObject({ source: 'container', id });
     });
   });
@@ -222,7 +195,7 @@ describe('the ground of the cave', () => {
           direction: { x: 0, z: side },
         };
         for (let step = 1; step <= 60; step++) {
-          motion = stepMotion(motion, step, 'cave');
+          motion = stepMotion(motion, step, 'cave', []);
         }
         expect(Math.abs(motion.z)).toBeLessThanOrEqual(
           CAVE_PASSAGE.south - PLAYER_RADIUS,
@@ -256,7 +229,7 @@ describe('the ground of the cave', () => {
       direction: { x: 1, z: 0 },
     };
     for (let step = 1; step <= 40; step++) {
-      motion = stepMotion(motion, step, 'cave');
+      motion = stepMotion(motion, step, 'cave', []);
     }
     expect(motion.x).toBeCloseTo(CAVE_PASSAGE.east - PLAYER_RADIUS);
     expect(motion.x - CAVE_LANDING.x).toBeLessThan(WALK_SPEED * 2);

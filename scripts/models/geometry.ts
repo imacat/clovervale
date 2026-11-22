@@ -48,7 +48,7 @@ export interface Placement {
 }
 
 /** Which part of a solid of revolution to create. */
-export interface LatheOptions {
+interface LatheOptions {
   /** The rotation of the ring, in sides. */
   readonly phase?: number;
   /** The first side to create. */
@@ -104,15 +104,15 @@ export function createRotation(degrees: Triple): Quaternion {
 /**
  * Creates the transform that scales, rotates, then translates.
  *
- * @param {Placement} [placement] - The scale, the rotation and the
+ * @param {Placement} placement - The scale, the rotation and the
  *   translation.
  * @returns {Matrix4} The transform.
  */
-export function createTransform({
+function createTransform({
   pos = [0, 0, 0],
   rot = [0, 0, 0],
   scale = 1,
-}: Placement = {}): Matrix4 {
+}: Placement): Matrix4 {
   const s: Triple = typeof scale === 'number' ? [scale, scale, scale] : scale;
   return new Matrix4().compose(
     new Vector3(...pos),
@@ -128,7 +128,7 @@ export function createTransform({
  * @param {Matrix4} matrix - The transform.
  * @returns {Shape} The transformed copy.
  */
-export function transformShape(shape: Shape, matrix: Matrix4): Shape {
+function transformShape(shape: Shape, matrix: Matrix4): Shape {
   const flip: boolean = matrix.determinant() < 0;
   return shape.map((tri: Triangle): Triangle => {
     const a: Vector3 = tri[0].clone().applyMatrix4(matrix);
@@ -317,10 +317,10 @@ export function createLathe(
 /**
  * Creates a sphere of radius one by subdividing an icosahedron.
  *
- * @param {number} [detail] - The number of subdivisions.
+ * @param {number} detail - The number of subdivisions.
  * @returns {Shape} The sphere.
  */
-export function createIcosphere(detail = 1): Shape {
+function createIcosphere(detail: number): Shape {
   const t: number = (1 + Math.sqrt(5)) / 2;
   const points: Triple[] = [
     [-1, t, 0],
@@ -391,10 +391,14 @@ export function createIcosphere(detail = 1): Shape {
  *
  * @param {number} detail - The number of subdivisions.
  * @param {number} seed - The random seed.
- * @param {number} [jitter] - The largest radial displacement.
+ * @param {number} jitter - The largest radial displacement.
  * @returns {Shape} The lump.
  */
-export function createBlob(detail: number, seed: number, jitter = 0.18): Shape {
+export function createBlob(
+  detail: number,
+  seed: number,
+  jitter: number,
+): Shape {
   const random: () => number = createRandom(seed);
   const scales = new Map<string, number>();
   const displace = (p: Vector3): Vector3 => {
@@ -441,8 +445,7 @@ function triangulatePolygon(points: readonly Pair[]): Triple[] {
     (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
   const indices: number[] = points.map((_: Pair, i: number) => i);
   const out: Triple[] = [];
-  let guard = 0;
-  while (indices.length > 3 && guard++ < 10000) {
+  while (indices.length > 3) {
     for (let i = 0; i < indices.length; i++) {
       const ia: number = getItem(
         indices,
@@ -645,9 +648,9 @@ export function createCone(
  * Creates an ellipsoid centred on the origin.
  *
  * @param {Triple} radii - The X, Y and Z radii.
- * @param {number} [detail] - The number of subdivisions.
+ * @param {number} detail - The number of subdivisions.
  * @returns {Shape} The ellipsoid.
  */
-export function createEllipsoid(radii: Triple, detail = 1): Shape {
+export function createEllipsoid(radii: Triple, detail: number): Shape {
   return place(createIcosphere(detail), { scale: radii });
 }

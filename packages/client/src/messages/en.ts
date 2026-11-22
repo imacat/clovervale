@@ -316,7 +316,7 @@ export const EN_MESSAGES = {
     "Hold still, I'll put some ointment on it. There, all done. Be careful when you're playing from now on, OK?",
   'dialogue.toby.thanks': "Okay. Thank you! This one's for you!",
   'dialogue.basil.offer':
-    'Hi, hi! Want a healing potion? Just {price} silver coins a bottle!',
+    'Hi, hi! Want a healing potion? Just three silver coins a bottle!',
   'dialogue.basil.buy': "I'll take one.",
   'dialogue.basil.decline': 'No, thanks.',
   'dialogue.basil.sold':

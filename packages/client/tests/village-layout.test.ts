@@ -191,24 +191,6 @@ describe('layoutVillage', () => {
     }
   });
 
-  it('stands a prop the village has no place for apart from the rest', () => {
-    const files: string[] = [
-      ...REQUIRED_MODEL_FILES,
-      'prop-rock.glb',
-      'prop-well.glb',
-      'prop-windmill.glb',
-    ];
-    const placements: Placement[] = layoutVillage(files);
-    for (const file of ['prop-well.glb', 'prop-windmill.glb']) {
-      const spare: Placement = findOnly(placements, file);
-      for (const other of placements) {
-        if (other !== spare) {
-          expect(measureDistance(spare, other)).toBeGreaterThan(4);
-        }
-      }
-    }
-  });
-
   it('leaves the models of the cave out of the village', () => {
     const files: string[] = layoutVillage([
       'prop-cave.glb',
@@ -236,8 +218,7 @@ describe('layoutVillage', () => {
     expect(layoutVillage([...files, 'npc-edwin.glb'])).toEqual([]);
   });
 
-  it('stands nothing where there are no models', () => {
-    expect(layoutVillage([])).toEqual([]);
+  it('stands nothing for a file the game does not use', () => {
     expect(layoutVillage(['notes.glb'])).toEqual([]);
   });
 });

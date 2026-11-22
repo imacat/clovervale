@@ -34,7 +34,6 @@ import type { BuiltModel } from './rig.ts';
  * gives them.
  */
 const SWORD_MATERIALS: Readonly<Record<string, string>> = {
-  steel: 'steel',
   gold: 'brass',
   door: 'grip',
 };

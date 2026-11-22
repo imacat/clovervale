@@ -24,18 +24,9 @@
 
 import type { Villager, VillagerId } from '@clovervale/shared';
 
-import { EN_MESSAGES } from './messages/en.ts';
-import type { MessageId } from './messages/en.ts';
+import type { PlainMessageId } from './messages/en.ts';
+import { isMessageId } from './translator.ts';
 import type { Translator } from './translator.ts';
-
-/** A message of a line a villager says. */
-type LineId = Extract<MessageId, `villager.${string}.line.${string}`>;
-
-/**
- * A message of the name a villager is called by once it has told a player
- * who it is.
- */
-type KnownNameId = Extract<MessageId, `villager.${string}.knownName`>;
 
 /** What a villager is called, and what it says. */
 export interface VillagerWords {
@@ -57,38 +48,16 @@ export interface VillagerWords {
 }
 
 /**
- * Tells whether a message is a line a villager says.
- *
- * @param {string} id - The name of the message.
- * @returns {boolean} Whether the page has the message, and it is a line.
- */
-function isLineId(id: string): id is LineId {
-  return /^villager\.[a-z]+\.line\.\d+$/u.test(id) && id in EN_MESSAGES;
-}
-
-/**
- * Tells whether a message is the name a villager is called by once it has
- * told a player who it is.
- *
- * @param {string} id - The name of the message.
- * @returns {boolean} Whether the page has the message, and it is such a
- *   name.
- */
-function isKnownNameId(id: string): id is KnownNameId {
-  return /^villager\.[a-z]+\.knownName$/u.test(id) && id in EN_MESSAGES;
-}
-
-/**
  * Lists the messages of the lines a villager says.
  *
  * @param {Villager} villager - The villager.
- * @returns {LineId[]} The messages of its lines, from the first on.
+ * @returns {PlainMessageId[]} The messages of its lines, from the first on.
  */
-function listLineIds(villager: Villager): LineId[] {
-  const ids: LineId[] = [];
+function listLineIds(villager: Villager): PlainMessageId[] {
+  const ids: PlainMessageId[] = [];
   for (let number = 1; ; number++) {
     const id = `villager.${villager.id}.line.${String(number)}`;
-    if (!isLineId(id)) {
+    if (!isMessageId(id)) {
       return ids;
     }
     ids.push(id);
@@ -115,13 +84,15 @@ export function describeVillager(
   let sentenceName: string =
     translator.translateOptional(`villager.${villager.id}.name.inSentence`) ??
     name;
-  if (acquaintances.includes(villager.id) && isKnownNameId(knownName)) {
+  if (acquaintances.includes(villager.id) && isMessageId(knownName)) {
     name = translator.translate(knownName);
     sentenceName = name;
   }
   return {
     name,
     sentenceName,
-    lines: listLineIds(villager).map((id: LineId) => translator.translate(id)),
+    lines: listLineIds(villager).map((id: PlainMessageId) =>
+      translator.translate(id),
+    ),
   };
 }

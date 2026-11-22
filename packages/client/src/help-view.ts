@@ -56,7 +56,7 @@ interface ControlRow {
  * coloured as on a Logitech F310, a shoulder button, Start, or a stick.
  */
 type PadBadge =
-  | { readonly kind: 'face'; readonly label: 'A' | 'B' | 'X' | 'Y' }
+  | { readonly kind: 'face'; readonly label: 'A' | 'B' | 'Y' }
   | { readonly kind: 'shoulder'; readonly label: 'LB' | 'RB' }
   | { readonly kind: 'start' }
   | { readonly kind: 'stick'; readonly label: 'L' | 'R' };
@@ -282,9 +282,7 @@ function createClickable(
   });
   element.addEventListener('click', (event: MouseEvent) => {
     event.stopPropagation();
-    if (event.button === 0) {
-      onClick();
-    }
+    onClick();
   });
   return element;
 }

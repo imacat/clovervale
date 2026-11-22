@@ -90,13 +90,10 @@ export class ChatBox {
    *
    * @param {string} text - What was typed.
    * @returns {string | null} The line for the player to say, as
-   *   {@link cleanSayText} makes it, or `null` if the box is closed or
-   *   nothing is left of the text to say.
+   *   {@link cleanSayText} makes it, or `null` if nothing is left of the
+   *   text to say.
    */
   send(text: string): string | null {
-    if (!this.#isOpen) {
-      return null;
-    }
     this.#isOpen = false;
     return cleanSayText(text);
   }

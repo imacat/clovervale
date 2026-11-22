@@ -41,13 +41,13 @@ export interface ClipPlan {
  * clip for what it is doing, and while it stands in the village if it has
  * no clip of work.
  */
-export const IDLE_CLIP = 'Idle';
+const IDLE_CLIP = 'Idle';
 
 /**
  * The name of the clip of a model at work, which it plays in place of
  * idling while it stands in the village.
  */
-export const WORK_CLIP = 'Work';
+const WORK_CLIP = 'Work';
 
 /**
  * How the clip of each action of a player or the monster is played.  The

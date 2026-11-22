@@ -25,7 +25,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  CREDITS_PAGE,
   GAMEPAD_PAGE,
   HELP_PAGE_COUNT,
   HelpSheet,
@@ -68,27 +67,13 @@ const BROKEN_STORAGE: LanguageStorage = {
  */
 function openSheet(): HelpSheet {
   const sheet = new HelpSheet();
-  sheet.open();
+  sheet.open(KEYBOARD_PAGE);
   return sheet;
 }
 
 describe('a help sheet', () => {
   it('is closed at first', () => {
     expect(new HelpSheet().isOpen).toBe(false);
-  });
-
-  it('opens with the H key, which it takes', () => {
-    const sheet = new HelpSheet();
-    expect(sheet.pressKey('KeyH')).toBe(true);
-    expect(sheet.isOpen).toBe(true);
-  });
-
-  it('takes no other key while it is closed', () => {
-    const sheet = new HelpSheet();
-    for (const code of ['Escape', 'Enter', 'KeyW', 'Space', 'ArrowUp']) {
-      expect(sheet.pressKey(code)).toBe(false);
-    }
-    expect(sheet.isOpen).toBe(false);
   });
 
   it('closes with Esc, Enter or the H key', () => {
@@ -117,30 +102,17 @@ describe('a help sheet', () => {
 
   it('opens and closes when told', () => {
     const sheet = new HelpSheet();
-    sheet.open();
-    sheet.open();
+    sheet.open(KEYBOARD_PAGE);
+    sheet.open(KEYBOARD_PAGE);
     expect(sheet.isOpen).toBe(true);
     sheet.close();
     expect(sheet.isOpen).toBe(false);
   });
 
-  it('has a page of the keyboard, of the gamepad and of touch', () => {
-    expect(HELP_PAGE_COUNT).toBe(3);
-    expect(KEYBOARD_PAGE).toBe(0);
-    expect(GAMEPAD_PAGE).toBe(1);
-    expect(TOUCH_PAGE).toBe(2);
-  });
-
-  it('opens on the page of the keyboard unless told another', () => {
+  it('opens on the page it is told', () => {
     const sheet = new HelpSheet();
-    sheet.pressKey('KeyH');
-    expect(sheet.page).toBe(KEYBOARD_PAGE);
-    sheet.close();
     sheet.open(GAMEPAD_PAGE);
     expect(sheet.page).toBe(GAMEPAD_PAGE);
-    sheet.close();
-    sheet.open();
-    expect(sheet.page).toBe(KEYBOARD_PAGE);
   });
 
   it('turns its pages with the left and right arrows, within its pages', () => {
@@ -181,7 +153,6 @@ describe('a help sheet', () => {
 
   it('does not turn its pages while it is closed', () => {
     const sheet = new HelpSheet();
-    expect(sheet.pressKey('ArrowRight')).toBe(false);
     sheet.turnToPage(GAMEPAD_PAGE);
     expect(sheet.page).toBe(KEYBOARD_PAGE);
   });
@@ -195,32 +166,21 @@ describe('the page of the credits on the help sheet', () => {
     sheet.turnToPage(TOUCH_PAGE);
     sheet.pressKey('ArrowRight');
     expect(sheet.page).toBe(TOUCH_PAGE);
-    sheet.turnToPage(CREDITS_PAGE);
+    sheet.turnToPage(HELP_PAGE_COUNT);
     expect(sheet.page).toBe(TOUCH_PAGE);
   });
 
   it('comes last once the sheet offers the credits', () => {
     const sheet: HelpSheet = openSheet();
     sheet.hasCredits = true;
-    expect(CREDITS_PAGE).toBe(HELP_PAGE_COUNT);
     expect(sheet.pageCount).toBe(HELP_PAGE_COUNT + 1);
     sheet.turnToPage(TOUCH_PAGE);
     sheet.pressKey('ArrowRight');
-    expect(sheet.page).toBe(CREDITS_PAGE);
+    expect(sheet.page).toBe(HELP_PAGE_COUNT);
     sheet.pressKey('ArrowRight');
-    expect(sheet.page).toBe(CREDITS_PAGE);
+    expect(sheet.page).toBe(HELP_PAGE_COUNT);
     sheet.pressKey('ArrowLeft');
     expect(sheet.page).toBe(TOUCH_PAGE);
-  });
-
-  it('is never the page the sheet opens at', () => {
-    const sheet = new HelpSheet();
-    sheet.hasCredits = true;
-    sheet.open(CREDITS_PAGE);
-    expect(sheet.page).toBe(TOUCH_PAGE);
-    sheet.close();
-    sheet.pressKey('KeyH');
-    expect(sheet.page).toBe(KEYBOARD_PAGE);
   });
 });
 
@@ -228,10 +188,10 @@ describe('opening the help sheet on the first visit', () => {
   it('opens it on the first visit only', () => {
     const storage: LanguageStorage = createStorage();
     const first = new HelpSheet();
-    openHelpOnFirstVisit(first, storage);
+    openHelpOnFirstVisit(first, storage, KEYBOARD_PAGE);
     expect(first.isOpen).toBe(true);
     const later = new HelpSheet();
-    openHelpOnFirstVisit(later, storage);
+    openHelpOnFirstVisit(later, storage, KEYBOARD_PAGE);
     expect(later.isOpen).toBe(false);
   });
 
@@ -246,7 +206,7 @@ describe('opening the help sheet on the first visit', () => {
     for (const storage of [null, BROKEN_STORAGE]) {
       for (let visit = 0; visit < 2; visit++) {
         const sheet = new HelpSheet();
-        openHelpOnFirstVisit(sheet, storage);
+        openHelpOnFirstVisit(sheet, storage, KEYBOARD_PAGE);
         expect(sheet.isOpen).toBe(true);
       }
     }

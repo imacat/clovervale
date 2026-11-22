@@ -130,8 +130,10 @@ function composeThirdPartyNotices(): string {
     'Clovervale is distributed bundled with the following third-party' +
       ' software.\n',
   ];
-  for (const name of [...bundled.keys()].sort()) {
-    const dir: string = bundled.get(name) ?? '';
+  const packages: [string, string][] = [...bundled].sort(
+    ([a]: [string, string], [b]: [string, string]) => (a < b ? -1 : 1),
+  );
+  for (const [name, dir] of packages) {
     const manifest: Manifest = readManifest(dir);
     const licenceFile: string | undefined = readdirSync(dir).find((file) =>
       /^(licen[cs]e|copying)/i.test(file),
@@ -160,11 +162,7 @@ function composeThirdPartyNotices(): string {
  * @throws {Error} If the source is missing, as when it has not been built.
  */
 function copyBuilt(source: string, target: string): void {
-  const sourcePath: string = path.join(rootDir, source);
-  if (!existsSync(sourcePath)) {
-    throw new Error(`${source} is missing.  Run "npm run build" first.`);
-  }
-  cpSync(sourcePath, target, { recursive: true });
+  cpSync(path.join(rootDir, source), target, { recursive: true });
 }
 
 /**

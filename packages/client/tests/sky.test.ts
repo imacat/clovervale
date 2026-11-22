@@ -75,7 +75,6 @@ function createCamera(): PerspectiveCamera {
   const camera = new PerspectiveCamera(40, 1, 0.5, CAMERA_FAR);
   camera.position.copy(CAMERA_POSITION);
   camera.lookAt(CAMERA_POSITION.x + 10, 40, CAMERA_POSITION.z - 30);
-  camera.updateMatrixWorld();
   return camera;
 }
 
@@ -115,7 +114,6 @@ describe('Sky', () => {
   it('keeps the sky round the camera, without turning with it', () => {
     const scene = new Scene();
     const sky = new Sky(scene);
-    sky.show(findDaylight(0));
     const camera: PerspectiveCamera = createCamera();
     const stars: Points = findStars(scene);
     sky.centreOn(camera);

@@ -192,21 +192,20 @@ export class AuthoritativePlayer {
    *
    * @param {number} step - The number of the step, as the server counts
    *   them, which tells where Toby is.
-   * @param {MapId} [map] - The map the player is in, the village by
-   *   default.
-   * @param {boolean} [isHeld] - Whether the player is held in place at the
-   *   step, which it is not by default.
-   * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
+   * @param {MapId} map - The map the player is in.
+   * @param {boolean} isHeld - Whether the player is held in place at the
+   *   step.
+   * @param {readonly MonsterState[]} monsters - The monsters in the map,
    *   which tell whether the player slashes rather than talks to a
-   *   villager, none by default.
+   *   villager.
    * @returns {StampedInput[]} The inputs that came into effect at the step,
    *   in the order they did.
    */
   step(
     step: number,
-    map: MapId = 'village',
-    isHeld = false,
-    monsters: readonly MonsterState[] = [],
+    map: MapId,
+    isHeld: boolean,
+    monsters: readonly MonsterState[],
   ): StampedInput[] {
     const applied: StampedInput[] = [];
     for (

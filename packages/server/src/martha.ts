@@ -52,7 +52,7 @@ import {
  * Where Martha stands on the porch of her house, and which way she faces
  * there, which she comes back to whenever she has nobody to deal with.
  */
-export const MARTHA_HOME: Pose = (() => {
+const MARTHA_HOME: Pose = (() => {
   const { x, z, yaw } = findPlacement('npc-martha.glb');
   return { x, z, yaw };
 })();
@@ -71,13 +71,13 @@ export const MARTHA_STRIKE_REACH = 2;
  * and well short of her own reach, so that a player that steps back as
  * she thrusts is still hit.
  */
-export const MARTHA_ATTACK_DISTANCE = 1.4;
+const MARTHA_ATTACK_DISTANCE = 1.4;
 
 /**
  * How near Martha comes to a player she walks up to before she talks with
  * it, from centre to centre, in metres.
  */
-export const MARTHA_GREETING_DISTANCE = 1.2;
+const MARTHA_GREETING_DISTANCE = 1.2;
 
 /** The numbers of Martha. */
 const KIND: MonsterKind = MONSTER_KINDS.martha;
@@ -355,8 +355,6 @@ export class Martha {
           this.#serveNext(players);
         } else if (this.#mode === 'return') {
           this.#goHome();
-        } else {
-          this.#startAction('Idle');
         }
     }
     return deeds;
@@ -367,14 +365,9 @@ export class Martha {
    * health left, she sits on the ground, beaten.
    *
    * @param {number} damage - The health the hit takes.
-   * @param {number} attackerId - The identifier of the player that hit her.
-   * @returns {number} The health she lost, which is none from anyone but
-   *   the player she fights, and no more than she had.
+   * @returns {number} The health she lost, which is no more than she had.
    */
-  takeHit(damage: number, attackerId: number): number {
-    if (!this.isFightingWith(attackerId)) {
-      return 0;
-    }
+  takeHit(damage: number): number {
     const lost: number = Math.min(damage, this.#health);
     this.#health -= lost;
     if (this.#health === 0) {
@@ -521,16 +514,11 @@ export class Martha {
     this.#health = KIND.health;
     this.#path = null;
     this.#repathSteps = 0;
-    for (;;) {
-      const id: number | undefined = this.#queue.shift();
-      if (id === undefined) {
-        break;
-      }
-      const next: Suspect | undefined = findSuspect(players, id);
-      if (next === undefined) {
-        continue;
-      }
-      this.#targetId = id;
+    const id: number | undefined = this.#queue.shift();
+    const next: Suspect | undefined =
+      id === undefined ? undefined : findSuspect(players, id);
+    if (next !== undefined) {
+      this.#targetId = next.id;
       this.#mode = next.isHunted ? 'chase' : 'approach';
       return;
     }
@@ -544,7 +532,7 @@ export class Martha {
    * once there, or once she finds no way there.
    */
   #fetchPitchfork(): void {
-    if (this.#walkTo(PITCHFORK_STAND) !== 'walking') {
+    if (!this.#walkTo(PITCHFORK_STAND)) {
       this.#isArmed = true;
       this.#path = null;
       this.#repathSteps = 0;
@@ -558,13 +546,13 @@ export class Martha {
    */
   #goHome(): void {
     if (this.#isArmed) {
-      if (this.#walkTo(PITCHFORK_STAND) !== 'walking') {
+      if (!this.#walkTo(PITCHFORK_STAND)) {
         this.#isArmed = false;
         this.#path = null;
       }
       return;
     }
-    if (this.#walkTo(MARTHA_HOME) !== 'walking') {
+    if (!this.#walkTo(MARTHA_HOME)) {
       this.#settle();
     }
   }
@@ -574,22 +562,22 @@ export class Martha {
    * there whenever she has none, or is stopped.
    *
    * @param {GroundVector} point - The point.
-   * @returns {'walking' | 'arrived' | 'lost'} Whether she walks on, is
-   *   there, or finds no way there.
+   * @returns {boolean} Whether she walks on, rather than being there or
+   *   finding no way there.
    */
-  #walkTo(point: GroundVector): 'walking' | 'arrived' | 'lost' {
+  #walkTo(point: GroundVector): boolean {
     if (measureDistance(point, this.#position) === 0) {
-      return 'arrived';
+      return false;
     }
     this.#path ??= findMapPath('village', this.#position, point);
     if (this.#path === null) {
-      return 'lost';
+      return false;
     }
     const outcome: string = this.#walk();
     if (outcome === 'stopped') {
       this.#path = null;
     }
-    return outcome === 'arrived' ? 'arrived' : 'walking';
+    return outcome !== 'arrived';
   }
 
   /** Stands idling where she is, facing as she does at home if there. */

@@ -26,6 +26,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startServer } from '@clovervale/server';
 import type { RunningServer } from '@clovervale/server';
 import {
+  DEFAULT_DAY_LENGTH,
+  DEFAULT_DAY_ORIGIN,
   PLAYER_HEALTH,
   decodeServerMessage,
   findSpawnPoint,
@@ -200,7 +202,10 @@ describe('startBot', () => {
   const cleanups: (() => void)[] = [];
 
   beforeEach(async () => {
-    server = await startServer(0);
+    server = await startServer(0, {
+      origin: DEFAULT_DAY_ORIGIN,
+      length: DEFAULT_DAY_LENGTH,
+    });
     url = `ws://localhost:${String(server.port)}`;
   });
 

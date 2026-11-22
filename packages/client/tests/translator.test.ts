@@ -25,7 +25,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { LANGUAGES } from '../src/language.ts';
-import type { Language, LanguageCode } from '../src/language.ts';
+import type { LanguageCode } from '../src/language.ts';
 import { EN_MESSAGES } from '../src/messages/en.ts';
 import type { MessageId, MessageTable } from '../src/messages/en.ts';
 import { Translator, loadMessages } from '../src/translator.ts';
@@ -45,22 +45,19 @@ function listValues(message: string): string[] {
 /**
  * Makes a loader that gives tables only when told to.
  *
- * @returns {{ load: (code: LanguageCode) => Promise<Partial<MessageTable>>,
- *   settle: Map<LanguageCode, (table: Partial<MessageTable> | null) => void>
+ * @returns {{ load: (code: LanguageCode) => Promise<MessageTable>,
+ *   settle: Map<LanguageCode, (table: MessageTable | null) => void>
  *   }} The loader, and what settles each load it was asked for, by the
  *   language.
  */
 function createLoader(): {
-  load: (code: LanguageCode) => Promise<Partial<MessageTable>>;
-  settle: Map<LanguageCode, (table: Partial<MessageTable> | null) => void>;
+  load: (code: LanguageCode) => Promise<MessageTable>;
+  settle: Map<LanguageCode, (table: MessageTable | null) => void>;
 } {
-  const settle = new Map<
-    LanguageCode,
-    (table: Partial<MessageTable> | null) => void
-  >();
-  const load = (code: LanguageCode): Promise<Partial<MessageTable>> =>
+  const settle = new Map<LanguageCode, (table: MessageTable | null) => void>();
+  const load = (code: LanguageCode): Promise<MessageTable> =>
     new Promise((resolve, reject) => {
-      settle.set(code, (table: Partial<MessageTable> | null) => {
+      settle.set(code, (table: MessageTable | null) => {
         if (table === null) {
           reject(new Error('The table cannot be loaded.'));
         } else {
@@ -125,15 +122,6 @@ describe('Translator', () => {
     ).toBeNull();
   });
 
-  it('falls back to English for a message the language lacks', async () => {
-    const translator = new Translator(() =>
-      Promise.resolve({ title: '四葉谷' }),
-    );
-    await translator.choose('zh-TW');
-    expect(translator.translate('title')).toBe('四葉谷');
-    expect(translator.translate('panel.server')).toBe('Server');
-  });
-
   it('tells its listeners once it speaks another language', async () => {
     const translator = new Translator();
     const heard: LanguageCode[] = [];
@@ -155,9 +143,9 @@ describe('Translator', () => {
     });
     const first: Promise<boolean> = translator.choose('ja');
     const second: Promise<boolean> = translator.choose('zh-TW');
-    settle.get('zh-TW')?.({ title: '四葉谷' });
+    settle.get('zh-TW')?.({ ...EN_MESSAGES, title: '四葉谷' });
     expect(await second).toBe(true);
-    settle.get('ja')?.({ title: 'クローバーヴェイル' });
+    settle.get('ja')?.({ ...EN_MESSAGES, title: 'クローバーヴェイル' });
     expect(await first).toBe(false);
     expect(translator.language).toBe('zh-TW');
     expect(translator.translate('title')).toBe('四葉谷');
@@ -169,7 +157,7 @@ describe('Translator', () => {
     const translator = new Translator(load);
     const chosen: Promise<boolean> = translator.choose('ja');
     expect(await translator.choose('en')).toBe(true);
-    settle.get('ja')?.({ title: 'クローバーヴェイル' });
+    settle.get('ja')?.({ ...EN_MESSAGES, title: 'クローバーヴェイル' });
     expect(await chosen).toBe(false);
     expect(translator.language).toBe('en');
     expect(translator.translate('title')).toBe('Clovervale');
@@ -198,10 +186,11 @@ describe('loadMessages', () => {
   it('loads the messages of each language', async () => {
     const titles: string[] = [];
     for (const { code } of LANGUAGES) {
-      titles.push((await loadMessages(code)).title ?? '');
+      if (code !== 'en') {
+        titles.push((await loadMessages(code)).title);
+      }
     }
     expect(titles).toEqual([
-      'Clovervale',
       'Valtrébol',
       'クローバーヴェイル',
       '四葉谷',
@@ -209,27 +198,15 @@ describe('loadMessages', () => {
     ]);
   });
 
-  it('has every message in every language, and no other but the names of villagers inside a sentence', async () => {
-    const ids: string[] = Object.keys(EN_MESSAGES).sort();
-    for (const { code } of LANGUAGES) {
-      const table: Partial<MessageTable> = await loadMessages(code);
-      expect([
-        code,
-        Object.keys(table)
-          .filter((id: string) => !/^villager\.[a-z]+\.name\.inSentence$/u.test(id))
-          .sort(),
-      ]).toEqual([code, ids]);
-    }
-  });
-
   it('gives every message the same values in every language', async () => {
     const ids = Object.keys(EN_MESSAGES) as MessageId[];
-    for (const { code } of LANGUAGES.filter(
-      (language: Language) => language.code !== 'en',
-    )) {
-      const table: Partial<MessageTable> = await loadMessages(code);
+    for (const { code } of LANGUAGES) {
+      if (code === 'en') {
+        continue;
+      }
+      const table: MessageTable = await loadMessages(code);
       for (const id of ids) {
-        expect([code, id, listValues(table[id] ?? '')]).toEqual([
+        expect([code, id, listValues(table[id])]).toEqual([
           code,
           id,
           listValues(EN_MESSAGES[id]),

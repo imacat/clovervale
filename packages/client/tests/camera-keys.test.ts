@@ -32,19 +32,18 @@ import {
 import type { CameraTurn } from '../src/camera-keys.ts';
 
 /**
- * Finds how far the keys turn the camera over some time, with the keys
+ * Finds how far the keys turn the camera over a second, with the keys
  * pressed held down.
  *
  * @param {string[]} codes - The codes of the keys held down.
- * @param {number} seconds - The time, in seconds.
  * @returns {CameraTurn} The turn.
  */
-function resolveKeys(codes: string[], seconds: number): CameraTurn {
+function resolveKeys(codes: string[]): CameraTurn {
   const keys = new CameraKeys();
   for (const code of codes) {
     keys.pressKey(code);
   }
-  return keys.resolveTurn(seconds);
+  return keys.resolveTurn(1);
 }
 
 describe('CameraKeys', () => {
@@ -59,27 +58,27 @@ describe('CameraKeys', () => {
   });
 
   it('does not turn the camera without keys', () => {
-    expect(resolveKeys([], 1)).toEqual({ orbit: 0, tilt: 0 });
-    expect(resolveKeys(['KeyW', 'KeyD'], 1)).toEqual({ orbit: 0, tilt: 0 });
+    expect(resolveKeys([])).toEqual({ orbit: 0, tilt: 0 });
+    expect(resolveKeys(['KeyW', 'KeyD'])).toEqual({ orbit: 0, tilt: 0 });
   });
 
   it('turns the view left and right with the side arrows', () => {
-    expect(resolveKeys(['ArrowLeft'], 1)).toEqual({
+    expect(resolveKeys(['ArrowLeft'])).toEqual({
       orbit: -CAMERA_ORBIT_RATE,
       tilt: 0,
     });
-    expect(resolveKeys(['ArrowRight'], 1)).toEqual({
+    expect(resolveKeys(['ArrowRight'])).toEqual({
       orbit: CAMERA_ORBIT_RATE,
       tilt: 0,
     });
   });
 
   it('tilts the view up and down with the up and down arrows', () => {
-    expect(resolveKeys(['ArrowUp'], 1)).toEqual({
+    expect(resolveKeys(['ArrowUp'])).toEqual({
       orbit: 0,
       tilt: -CAMERA_TILT_RATE,
     });
-    expect(resolveKeys(['ArrowDown'], 1)).toEqual({
+    expect(resolveKeys(['ArrowDown'])).toEqual({
       orbit: 0,
       tilt: CAMERA_TILT_RATE,
     });
@@ -102,11 +101,11 @@ describe('CameraKeys', () => {
   });
 
   it('cancels opposite keys out', () => {
-    expect(resolveKeys(['ArrowLeft', 'ArrowRight'], 1)).toEqual({
+    expect(resolveKeys(['ArrowLeft', 'ArrowRight'])).toEqual({
       orbit: 0,
       tilt: 0,
     });
-    expect(resolveKeys(['ArrowUp', 'ArrowDown', 'ArrowLeft'], 1)).toEqual({
+    expect(resolveKeys(['ArrowUp', 'ArrowDown', 'ArrowLeft'])).toEqual({
       orbit: -CAMERA_ORBIT_RATE,
       tilt: 0,
     });

@@ -210,19 +210,18 @@ export function describeSpaceKey(
  *   predicted, or `null` while there is none.
  * @param {number} step - The number of the step of the server an
  *   interaction would start at, which tells where Toby would be then.
- * @param {WorldItems} [world] - What there is to pick in the map, as the
- *   server last told, which is nothing by default.
- * @param {readonly ItemKindId[]} [inventory] - What the player carries, as
- *   the server last told, which is nothing by default.
- * @param {MapId} [map] - The map the player is in, the village by default.
- * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
- *   as the server last told, none by default.
- * @param {readonly VillagerId[]} [acquaintances] - The villagers who have
- *   told the player who they are, as the server last told, none by default,
- *   which tells what a villager is called.
- * @param {boolean} [isTouch] - Whether the page is used by touch, so that
- *   the prompt tells of the action button rather than the space bar, which
- *   it does not by default.
+ * @param {WorldItems} world - What there is to pick in the map, as the
+ *   server last told.
+ * @param {readonly ItemKindId[]} inventory - What the player carries, as
+ *   the server last told.
+ * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map, as
+ *   the server last told.
+ * @param {readonly VillagerId[]} acquaintances - The villagers who have
+ *   told the player who they are, as the server last told, which tells what
+ *   a villager is called.
+ * @param {boolean} isTouch - Whether the page is used by touch, so that
+ *   the prompt tells of the action button rather than the space bar.
  * @returns {string | null} The prompt, in the language of the page, or
  *   `null` while the space bar makes the player slash, while the player
  *   cannot start to interact with the world, or while there is no player.
@@ -231,12 +230,12 @@ export function describePrompt(
   translator: Translator,
   motion: PlayerMotion | null,
   step: number,
-  world: WorldItems = NO_WORLD_ITEMS,
-  inventory: readonly ItemKindId[] = [],
-  map: MapId = 'village',
-  monsters: readonly MonsterState[] = [],
-  acquaintances: readonly VillagerId[] = [],
-  isTouch = false,
+  world: WorldItems,
+  inventory: readonly ItemKindId[],
+  map: MapId,
+  monsters: readonly MonsterState[],
+  acquaintances: readonly VillagerId[],
+  isTouch: boolean,
 ): string | null {
   if (motion === null || !canInteract(motion)) {
     return null;

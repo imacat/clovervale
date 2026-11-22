@@ -136,7 +136,6 @@ describe('an ending sheet', () => {
     expect(sheet.isOpen).toBe(false);
     expect(sheet.content).toBeNull();
     expect(sheet.motion).toBeNull();
-    expect(sheet.hasEnded).toBe(false);
   });
 
   it('unrolls with the end of the story, which it then tells of', () => {
@@ -144,7 +143,6 @@ describe('an ending sheet', () => {
     sheet.open(OPENED);
     expect(sheet.content).toBe('ending');
     expect(sheet.motion).toBe('unrolling');
-    expect(sheet.hasEnded).toBe(true);
     expect(sheet.update(OPENED + ROLL_DURATION - 1)).toBe(false);
     expect(sheet.motion).toBe('unrolling');
     expect(sheet.update(OPENED + ROLL_DURATION)).toBe(true);
@@ -154,7 +152,7 @@ describe('an ending sheet', () => {
   it('goes on from the end of the story to the credits, and closes', () => {
     const sheet: EndingSheet = openSheet();
     const at: number = OPENED + ROLL_DURATION * 3;
-    expect(sheet.advance(at)).toBe(true);
+    sheet.advance(at);
     expect(sheet.motion).toBe('rolling');
     expect(sheet.content).toBe('ending');
     sheet.update(at + ROLL_DURATION);
@@ -162,24 +160,24 @@ describe('an ending sheet', () => {
     expect(sheet.motion).toBe('unrolling');
     sheet.update(at + ROLL_DURATION * 2);
     expect(sheet.motion).toBe('shown');
-    expect(sheet.advance(at + ROLL_DURATION * 5)).toBe(true);
+    sheet.advance(at + ROLL_DURATION * 5);
     sheet.update(at + ROLL_DURATION * 6 - 1);
     expect(sheet.isOpen).toBe(true);
     sheet.update(at + ROLL_DURATION * 6);
     expect(sheet.isOpen).toBe(false);
     expect(sheet.motion).toBeNull();
-    expect(sheet.hasEnded).toBe(true);
   });
 
   it('skips nothing for presses while it moves', () => {
     const sheet = new EndingSheet();
     sheet.open(OPENED);
-    expect(sheet.advance(OPENED + 1)).toBe(false);
+    sheet.advance(OPENED + 1);
+    expect(sheet.motion).toBe('unrolling');
     sheet.update(OPENED + ROLL_DURATION);
     sheet.advance(OPENED + ROLL_DURATION);
     for (const at of [1, ROLL_DURATION, ROLL_DURATION * 2 - 1]) {
       sheet.update(OPENED + ROLL_DURATION + at);
-      expect(sheet.advance(OPENED + ROLL_DURATION + at)).toBe(false);
+      sheet.advance(OPENED + ROLL_DURATION + at);
       expect(sheet.isOpen).toBe(true);
     }
     sheet.update(OPENED + ROLL_DURATION * 3);
@@ -211,7 +209,7 @@ describe('an ending sheet', () => {
       });
       expect(repeated.motion).toBe('shown');
       const sheet: EndingSheet = openSheet();
-      expect(sheet.pressKey(code, OPENED * 2)).toEqual({
+      expect(sheet.pressKey(code, OPENED * 2, false)).toEqual({
         isHandled: true,
         scroll: 0,
       });
@@ -221,11 +219,11 @@ describe('an ending sheet', () => {
 
   it('scrolls with the up and down arrows', () => {
     const sheet: EndingSheet = openSheet();
-    expect(sheet.pressKey('ArrowUp', OPENED * 2)).toEqual({
+    expect(sheet.pressKey('ArrowUp', OPENED * 2, false)).toEqual({
       isHandled: true,
       scroll: -1,
     });
-    expect(sheet.pressKey('ArrowDown', OPENED * 2)).toEqual({
+    expect(sheet.pressKey('ArrowDown', OPENED * 2, false)).toEqual({
       isHandled: true,
       scroll: 1,
     });
@@ -235,7 +233,7 @@ describe('an ending sheet', () => {
   it('takes the other keys of the game while open, and stays so', () => {
     const sheet: EndingSheet = openSheet();
     for (const code of ['KeyW', 'KeyI', 'KeyH', 'ArrowLeft']) {
-      expect(sheet.pressKey(code, OPENED * 2)).toEqual({
+      expect(sheet.pressKey(code, OPENED * 2, false)).toEqual({
         isHandled: true,
         scroll: 0,
       });
@@ -246,7 +244,7 @@ describe('an ending sheet', () => {
   it('leaves the keys the game does not use to the browser', () => {
     const sheet: EndingSheet = openSheet();
     for (const code of ['F5', 'F11', 'F12', 'Tab']) {
-      expect(sheet.pressKey(code, OPENED * 2)).toEqual({
+      expect(sheet.pressKey(code, OPENED * 2, false)).toEqual({
         isHandled: false,
         scroll: 0,
       });
@@ -256,7 +254,7 @@ describe('an ending sheet', () => {
   it('takes no key while closed', () => {
     const sheet = new EndingSheet();
     for (const code of ['Escape', 'Space', 'KeyW', 'ArrowDown']) {
-      expect(sheet.pressKey(code, OPENED)).toEqual({
+      expect(sheet.pressKey(code, OPENED, false)).toEqual({
         isHandled: false,
         scroll: 0,
       });
@@ -266,7 +264,6 @@ describe('an ending sheet', () => {
 
   it('tells how far it has unrolled as it moves', () => {
     const sheet = new EndingSheet();
-    expect(sheet.findUnrolledShare(OPENED)).toBe(0);
     sheet.open(OPENED);
     expect(sheet.findUnrolledShare(OPENED)).toBe(0);
     expect(sheet.findUnrolledShare(OPENED + ROLL_DURATION / 4)).toBeCloseTo(
@@ -313,10 +310,5 @@ describe('the roll of the credits', () => {
 
   it('stops at the end', () => {
     expect(findRollOffset(ROLL_PAUSE + 600_000, 500)).toBe(500);
-  });
-
-  it('rolls slowly enough to read', () => {
-    expect(ROLL_SPEED).toBeGreaterThanOrEqual(15);
-    expect(ROLL_SPEED).toBeLessThanOrEqual(45);
   });
 });

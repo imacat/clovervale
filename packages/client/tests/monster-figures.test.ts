@@ -25,7 +25,7 @@ import { AnimationClip, NumberKeyframeTrack, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { MONSTER_KINDS } from '@clovervale/shared';
-import type { MonsterKindId, MonsterState } from '@clovervale/shared';
+import type { MonsterState } from '@clovervale/shared';
 
 import { MonsterFigures, PITCHFORK_BONE } from '../src/monster-figures.ts';
 import type { MonsterView } from '../src/monster-figures.ts';
@@ -54,7 +54,7 @@ function createFigure(): Figure {
   const jaw = new Object3D();
   jaw.name = 'jaw';
   root.add(jaw);
-  const clips: AnimationClip[] = ['Idle', 'Walk', 'Attack', 'Die'].map(
+  const clips: AnimationClip[] = ['Idle', 'Attack', 'Die'].map(
     (name: string) =>
       new AnimationClip(name, -1, [
         new NumberKeyframeTrack('jaw.position[y]', [0, 0.6], [0, 1]),
@@ -142,13 +142,11 @@ describe('MonsterFigures', () => {
 
   it('shows Martha with her pitchfork as told, and her health as she fights', () => {
     const scene = new Object3D();
-    const figures = new MonsterFigures(scene, (kind: MonsterKindId) => {
+    const figures = new MonsterFigures(scene, () => {
       const figure: Figure = createFigure();
-      if (kind === 'martha') {
-        const pitchfork = new Object3D();
-        pitchfork.name = PITCHFORK_BONE;
-        figure.root.add(pitchfork);
-      }
+      const pitchfork = new Object3D();
+      pitchfork.name = PITCHFORK_BONE;
+      figure.root.add(pitchfork);
       return figure;
     });
     const martha: MonsterState = {

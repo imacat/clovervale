@@ -89,7 +89,7 @@ function measureLight(look: DaylightLook): number {
     2;
   const direct: number =
     look.lightIntensity *
-    Math.max(look.lightDirection.y, 0) *
+    look.lightDirection.y *
     measureLuminance(look.lightColour);
   return ambient + direct;
 }
@@ -109,9 +109,7 @@ function lightGround(look: DaylightLook, hex: string): Color {
     .add(
       look.lightColour
         .clone()
-        .multiplyScalar(
-          look.lightIntensity * Math.max(look.lightDirection.y, 0),
-        ),
+        .multiplyScalar(look.lightIntensity * look.lightDirection.y),
     );
   return new Color(hex).multiply(light);
 }
@@ -143,7 +141,7 @@ function findBearing(direction: Vector3): Vector3 {
  * @returns {number} The red of the colour over its blue.
  */
 function measureWarmth(colour: Color): number {
-  return colour.r / Math.max(colour.b, 1e-6);
+  return colour.r / colour.b;
 }
 
 describe('findDaylight', () => {

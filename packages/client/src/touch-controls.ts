@@ -24,14 +24,9 @@
 
 import { CAMERA_ORBIT_RATE, CAMERA_TILT_RATE } from './camera-keys.ts';
 import type { CameraHold, CameraTurn } from './camera-keys.ts';
-import { WALK_DEAD_ZONE, resolveStickWalk, scaleStick } from './gamepad.ts';
+import { resolveStickWalk, scaleStick } from './gamepad.ts';
 import type { PadWalk } from './gamepad.ts';
 
-/**
- * How far the stick is to be pushed before it walks the player, as a share
- * of the radius of its base, as for the left stick of a gamepad.
- */
-export const STICK_DEAD_ZONE: number = WALK_DEAD_ZONE;
 /**
  * How far a finger is to be dragged on the scene to turn the view at its
  * fastest, as fast as the arrow keys, in CSS pixels.

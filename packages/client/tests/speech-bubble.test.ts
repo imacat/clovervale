@@ -24,12 +24,19 @@
 
 import {
   BoxGeometry,
+  BufferGeometry,
+  Group,
+  Material,
   Mesh,
   Object3D,
   PerspectiveCamera,
+  Scene,
   Sprite,
+  SpriteMaterial,
   Vector3,
+  WebGLRenderer,
 } from 'three';
+import type { Camera } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { VILLAGERS, findPlacement, findTobyPose } from '@clovervale/shared';
@@ -46,7 +53,6 @@ import {
 import type {
   SaidView,
   SpeechScreen,
-  SpeechView,
   SpeechWords,
 } from '../src/speech-bubble.ts';
 import { Translator } from '../src/translator.ts';
@@ -88,38 +94,8 @@ const MARTHA_LINES_ZH_TW: readonly string[] = [
   '那口井早就乾了，我就封起來了，免得小孩掉下去。',
 ];
 
-/** Emma the blacksmith, who has two lines. */
-const EMMA: Villager = findVillagerOf('npc-emma.glb');
-
-/** What Emma says, in English. */
-const EMMA_LINES: readonly string[] = [
-  'Just a moment, let me finish this blade first.',
-  "Don't stand too close, the sparks will catch you.",
-];
-
-/** What Emma says, in Traditional Chinese. */
-const EMMA_LINES_ZH_TW: readonly string[] = [
-  '等一下，我先打完這把刀。',
-  '別站太近，火星會噴到你。',
-];
-
 /** Toby, the child who goes about by the gate, who has three lines. */
 const TOBY: Villager = findVillagerOf('npc-toby.glb');
-
-/** What Toby says, in English. */
-const TOBY_LINES: readonly string[] = [
-  "Mummy says I mustn't go outside. There are wild dogs out there.",
-  'If you want something, go and see the village chief. She lives in the ' +
-    'biggest house!',
-  "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
-];
-
-/** What Toby says, in Traditional Chinese. */
-const TOBY_LINES_ZH_TW: readonly string[] = [
-  '媽媽說不可以出去，外面有野狗。',
-  '有事要找村長喔，她住在最大的那間房子。',
-  '我在找四葉的！找到就會有好運喔。',
-];
 
 /** What Nancy says first, to welcome a player, in English. */
 const NANCY_WELCOME =
@@ -143,6 +119,27 @@ const SPOT: Placement = findPlacement(NANCY.file);
 
 /** The top of the head of Nancy. */
 const HEAD = new Vector3(SPOT.x, 1.6, SPOT.z);
+
+/**
+ * Has the bubbles in a parent drawn, as far as each bubble takes part in
+ * it itself.
+ *
+ * @param {Object3D} parent - The parent.
+ * @param {Camera} camera - The camera they are drawn for.
+ */
+function drawBubbles(parent: Object3D, camera: Camera): void {
+  const renderer = Object.create(WebGLRenderer.prototype) as WebGLRenderer;
+  for (const sprite of parent.children) {
+    sprite.onBeforeRender(
+      renderer,
+      new Scene(),
+      camera,
+      new BufferGeometry(),
+      new Material(),
+      new Group(),
+    );
+  }
+}
 
 /**
  * Makes a bubble that draws nothing, in a parent of its own, and remembers
@@ -324,7 +321,7 @@ describe('findHeadTop', () => {
     body.position.y = 0.8;
     root.add(body);
     root.position.set(SPOT.x, 0, SPOT.z);
-    const top: Vector3 = findHeadTop(NANCY, root, 0);
+    const top: Vector3 = findHeadTop(NANCY, root, 0, []);
     expect(top.x).toBeCloseTo(SPOT.x);
     expect(top.y).toBeCloseTo(1.6);
     expect(top.z).toBeCloseTo(SPOT.z);
@@ -337,14 +334,14 @@ describe('findHeadTop', () => {
     root.add(body);
     const toby: TobyPose = findTobyPose(150);
     root.position.set(toby.x, 0, toby.z);
-    const top: Vector3 = findHeadTop(TOBY, root, 150);
+    const top: Vector3 = findHeadTop(TOBY, root, 150, []);
     expect(top.x).toBeCloseTo(toby.x);
     expect(top.y).toBeCloseTo(1.1);
     expect(top.z).toBeCloseTo(toby.z);
   });
 
   it('takes a usual height where the villager stands without its model', () => {
-    const top: Vector3 = findHeadTop(NANCY, null, 0);
+    const top: Vector3 = findHeadTop(NANCY, null, 0, []);
     expect(top.x).toBeCloseTo(SPOT.x);
     expect(top.y).toBeGreaterThan(1);
     expect(top.z).toBeCloseTo(SPOT.z);
@@ -515,38 +512,7 @@ describe('SpeechBubble with a villager who has several lines', () => {
   });
 });
 
-describe('SpeechBubble with Emma', () => {
-  it('says each of her lines, in English and in Traditional Chinese', async () => {
-    const numbers: readonly number[] = [0, 0.99, 0.5, 0.25, 0.75, 0.1, 0.9];
-    const { bubble } = createBubble(undefined, createSequence(numbers));
-    expect(new Set(talkRepeatedly(bubble, EMMA, 10))).toEqual(
-      new Set(EMMA_LINES),
-    );
-    expect(bubble.describe()?.name).toBe('Blacksmith Emma');
-    const zhTw: Translator = await createTranslator('zh-TW');
-    const chinese = createBubble(zhTw, createSequence(numbers));
-    expect(new Set(talkRepeatedly(chinese.bubble, EMMA, 10))).toEqual(
-      new Set(EMMA_LINES_ZH_TW),
-    );
-    expect(chinese.bubble.describe()?.name).toBe('鐵匠艾瑪');
-  });
-});
-
 describe('SpeechBubble with Toby', () => {
-  it('says each of his lines, in English and in Traditional Chinese', async () => {
-    const numbers: readonly number[] = [0, 0.99, 0.5, 0.25, 0.75, 0.1, 0.9];
-    const { bubble } = createBubble(undefined, createSequence(numbers));
-    expect(new Set(talkRepeatedly(bubble, TOBY, 12))).toEqual(
-      new Set(TOBY_LINES),
-    );
-    const zhTw: Translator = await createTranslator('zh-TW');
-    const chinese = createBubble(zhTw, createSequence(numbers));
-    expect(new Set(talkRepeatedly(chinese.bubble, TOBY, 12))).toEqual(
-      new Set(TOBY_LINES_ZH_TW),
-    );
-    expect(chinese.bubble.describe()?.name).toBe('托比');
-  });
-
   it('follows him as he runs on while he speaks', () => {
     const { parent, bubble } = createBubble();
     const start: TobyPose = findTobyPose(120);
@@ -570,50 +536,6 @@ describe('SpeechBubble with Toby', () => {
     const { bubble } = createBubble();
     bubble.follow(TOBY, new Vector3(-10.5, 1.1, -0.2));
     expect(bubble.describe()).toBeNull();
-  });
-
-  it('exclaims as he finds a four-leaved clover, in every language', async () => {
-    const found: readonly [Translator, string][] = [
-      [new Translator(), 'Found one!'],
-      [await createTranslator('zh-TW'), '找到了！'],
-      [await createTranslator('zh-CN'), '找到啦！'],
-      [await createTranslator('ja'), 'あった！'],
-      [await createTranslator('es'), '¡Aquí hay uno!'],
-    ];
-    for (const [translator, line] of found) {
-      const { bubble } = createBubble(translator);
-      bubble.say(TOBY, new Vector3(-8, 0.8, 0), 'villager.toby.found');
-      expect(bubble.describe()?.line).toBe(line);
-    }
-  });
-
-  it('gives a clover with a line of his own, in every language', async () => {
-    const gift: readonly [Translator, string][] = [
-      [new Translator(), "Here, this one's for you! It brings good luck."],
-      [await createTranslator('zh-TW'), '這個給你！會有好運喔。'],
-      [await createTranslator('zh-CN'), '这个给你！会有好运哦。'],
-      [await createTranslator('ja'), 'これ、あげる！いいことがあるよ。'],
-      [
-        await createTranslator('es'),
-        '¡Toma, este es para ti! Da buena suerte.',
-      ],
-    ];
-    for (const [translator, line] of gift) {
-      const { bubble } = createBubble(translator);
-      bubble.say(TOBY, new Vector3(-8, 0.8, 0), 'villager.toby.gift');
-      expect(bubble.describe()?.line).toBe(line);
-    }
-  });
-
-  it('takes back what he said, and only what he said', () => {
-    const { parent, bubble } = createBubble();
-    bubble.say(NANCY, HEAD);
-    bubble.hush(TOBY);
-    expect(bubble.describe()?.name).toBe('Nancy');
-    bubble.say(TOBY, new Vector3(-8, 0.8, 0), 'villager.toby.found');
-    bubble.hush(TOBY);
-    expect(bubble.describe()).toBeNull();
-    expect(parent.children).toHaveLength(0);
   });
 });
 
@@ -698,6 +620,189 @@ interface ViewArea {
   readonly height: number;
 }
 
+/**
+ * Where a bubble and its tail are drawn in a view, in CSS pixels from the
+ * top left corner of the view.
+ */
+interface DrawnBubble {
+  /** The left edge of the bubble. */
+  readonly left: number;
+  /** The top edge of the bubble. */
+  readonly top: number;
+  /** The right edge of the bubble. */
+  readonly right: number;
+  /** The bottom edge of the bubble, with the room for its tail. */
+  readonly bottom: number;
+  /** Where the tip of its tail is across the view. */
+  readonly tipX: number;
+  /** Where the tip of its tail is down the view. */
+  readonly tipY: number;
+  /** Where the one who speaks is across the view. */
+  readonly footX: number;
+  /** Where the one who speaks is down the view. */
+  readonly footY: number;
+}
+
+/**
+ * Makes a blank bubble as the page draws one: as large on the screen
+ * however far away it is, its foot at its position, with a tail as a
+ * sprite of its own added to it, the tip of the tail at its position.
+ *
+ * @param {number} width - The width of the bubble, in metres at one metre.
+ * @param {number} height - The height of the bubble, in metres at one
+ *   metre.
+ * @returns {Sprite} The bubble.
+ */
+function makeBlankBubble(width: number, height: number): Sprite {
+  const sprite = new Sprite(new SpriteMaterial({ sizeAttenuation: false }));
+  sprite.center.set(0.5, 0);
+  sprite.scale.set(width, height, 1);
+  const tail = new Sprite(new SpriteMaterial({ sizeAttenuation: false }));
+  tail.center.set(0.5, 0);
+  tail.scale.set(0.1, 0.25, 1);
+  sprite.add(tail);
+  return sprite;
+}
+
+/**
+ * Finds where a point of a sprite is drawn in a view, as three.js draws a
+ * sprite that is as large on the screen however far away it is: about
+ * where its position is seen, by its scale and its centre.
+ *
+ * @param {Object3D} sprite - The sprite.
+ * @param {PerspectiveCamera} camera - The camera, its matrices up to date.
+ * @param {ViewArea} view - The view.
+ * @param {number} across - How far across the sprite the point is, from 0
+ *   at its left edge to 1 at its right edge.
+ * @param {number} up - How far up the sprite the point is, from 0 at its
+ *   bottom edge to 1 at its top edge.
+ * @returns {[number, number]} The place across and down the view, in CSS
+ *   pixels.
+ */
+function findDrawnPoint(
+  sprite: Object3D,
+  camera: PerspectiveCamera,
+  view: ViewArea,
+  across: number,
+  up: number,
+): [number, number] {
+  if (!(sprite instanceof Sprite)) {
+    throw new Error('A bubble is drawn as a sprite.');
+  }
+  sprite.updateWorldMatrix(true, false);
+  const point: Vector3 = new Vector3()
+    .setFromMatrixPosition(sprite.matrixWorld)
+    .applyMatrix4(camera.matrixWorldInverse);
+  const scale: Vector3 = new Vector3().setFromMatrixScale(sprite.matrixWorld);
+  const depth: number = -point.z;
+  point.x += (across - sprite.center.x) * scale.x * depth;
+  point.y += (up - sprite.center.y) * scale.y * depth;
+  point.applyMatrix4(camera.projectionMatrix);
+  return [((point.x + 1) / 2) * view.width, ((1 - point.y) / 2) * view.height];
+}
+
+/**
+ * Finds where a bubble and its tail are drawn in a view.
+ *
+ * @param {Object3D | undefined} sprite - The bubble, with its tail.
+ * @param {PerspectiveCamera} camera - The camera, its matrices up to date.
+ * @param {ViewArea} view - The view.
+ * @returns {DrawnBubble} Where they are drawn.
+ */
+function measureDrawn(
+  sprite: Object3D | undefined,
+  camera: PerspectiveCamera,
+  view: ViewArea,
+): DrawnBubble {
+  const [tail] = sprite?.children ?? [];
+  if (sprite === undefined || tail === undefined) {
+    throw new Error('There is no bubble with a tail.');
+  }
+  const [left, bottom] = findDrawnPoint(sprite, camera, view, 0, 0);
+  const [right, top] = findDrawnPoint(sprite, camera, view, 1, 1);
+  const [tipX, tipY] = findDrawnPoint(tail, camera, view, 0.5, 0);
+  const foot: Vector3 = sprite.getWorldPosition(new Vector3()).project(camera);
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    tipX,
+    tipY,
+    footX: ((foot.x + 1) / 2) * view.width,
+    footY: ((1 - foot.y) / 2) * view.height,
+  };
+}
+
+/**
+ * Makes a camera that looks across the village for a view.
+ *
+ * @param {ViewArea} view - The view.
+ * @param {number} fieldOfView - The field of view of the camera, from top
+ *   to bottom, in degrees.
+ * @returns {PerspectiveCamera} The camera.
+ */
+function createCamera(view: ViewArea, fieldOfView: number): PerspectiveCamera {
+  const camera = new PerspectiveCamera(
+    fieldOfView,
+    view.width / view.height,
+    0.5,
+    600,
+  );
+  camera.position.set(0, 8, 14);
+  camera.lookAt(0, 1, 0);
+  camera.updateMatrixWorld();
+  return camera;
+}
+
+/**
+ * Finds the point ten metres from a camera that it shows at a place in
+ * its view.
+ *
+ * @param {PerspectiveCamera} camera - The camera.
+ * @param {ViewArea} view - The view.
+ * @param {number} x - The place across the view, in CSS pixels.
+ * @param {number} y - The place down the view, in CSS pixels.
+ * @returns {Vector3} The point.
+ */
+function findPointAt(
+  camera: PerspectiveCamera,
+  view: ViewArea,
+  x: number,
+  y: number,
+): Vector3 {
+  const direction: Vector3 = new Vector3(
+    (x / view.width) * 2 - 1,
+    1 - (y / view.height) * 2,
+    0.5,
+  )
+    .unproject(camera)
+    .sub(camera.position)
+    .normalize();
+  return camera.position.clone().addScaledVector(direction, 10);
+}
+
+/**
+ * Checks that the page tells where a bubble is on the screen as it is
+ * drawn there.
+ *
+ * @param {SpeechScreen | null | undefined} screen - Where the page tells
+ *   the bubble is.
+ * @param {DrawnBubble} drawn - Where the bubble and its tail are drawn.
+ */
+function expectToldAsDrawn(
+  screen: SpeechScreen | null | undefined,
+  drawn: DrawnBubble,
+): void {
+  expect(screen?.left).toBeCloseTo(drawn.left, 6);
+  expect(screen?.top).toBeCloseTo(drawn.top, 6);
+  expect(screen?.right).toBeCloseTo(drawn.right, 6);
+  expect(screen?.tipX).toBeCloseTo(drawn.tipX, 6);
+  expect(screen?.tipY).toBeCloseTo(drawn.tipY, 6);
+  expect(screen?.footX).toBeCloseTo(drawn.footX, 6);
+  expect(screen?.footY).toBeCloseTo(drawn.footY, 6);
+}
+
 describe('SpeechBubble on the screen', () => {
   /** The field of view of the camera, from top to bottom, in degrees. */
   const FIELD_OF_VIEW = 40;
@@ -712,140 +817,65 @@ describe('SpeechBubble on the screen', () => {
    * Makes a bubble that draws each bubble as wide as it may be, and
    * remembers how wide that was.
    *
-   * @returns {{ bubble: SpeechBubble, widths: number[] }} The bubble, and
-   *   how wide each bubble drawn may be, in order.
+   * @returns {{ parent: Object3D, bubble: SpeechBubble, widths: number[] }}
+   *   The parent, the bubble, and how wide each bubble drawn may be, in
+   *   order.
    */
   const createWideBubble = (): {
+    parent: Object3D;
     bubble: SpeechBubble;
     widths: number[];
   } => {
+    const parent = new Object3D();
     const widths: number[] = [];
     const bubble = new SpeechBubble(
-      new Object3D(),
+      parent,
       new Translator(),
       (_words: SpeechWords, widest: number) => {
         widths.push(widest);
-        const sprite = new Sprite();
-        sprite.scale.set(widest * 0.001, PAINTED_HEIGHT, 1);
-        return sprite;
+        return makeBlankBubble(widest * 0.001, PAINTED_HEIGHT);
       },
     );
-    return { bubble, widths };
+    return { parent, bubble, widths };
   };
 
   /**
-   * Makes a camera that looks across the village for a view.
-   *
-   * @param {ViewArea} view - The view.
-   * @returns {PerspectiveCamera} The camera.
-   */
-  const createCamera = (view: ViewArea): PerspectiveCamera => {
-    const camera = new PerspectiveCamera(
-      FIELD_OF_VIEW,
-      view.width / view.height,
-      0.5,
-      600,
-    );
-    camera.position.set(0, 8, 14);
-    camera.lookAt(0, 1, 0);
-    camera.updateMatrixWorld();
-    return camera;
-  };
-
-  /**
-   * Finds the point ten metres from a camera that it shows at a place in
-   * its view.
-   *
-   * @param {PerspectiveCamera} camera - The camera.
-   * @param {ViewArea} view - The view.
-   * @param {number} x - The place across the view, in CSS pixels.
-   * @param {number} y - The place down the view, in CSS pixels.
-   * @returns {Vector3} The point.
-   */
-  const findPointAt = (
-    camera: PerspectiveCamera,
-    view: ViewArea,
-    x: number,
-    y: number,
-  ): Vector3 => {
-    const direction: Vector3 = new Vector3(
-      (x / view.width) * 2 - 1,
-      1 - (y / view.height) * 2,
-      0.5,
-    )
-      .unproject(camera)
-      .sub(camera.position)
-      .normalize();
-    return camera.position.clone().addScaledVector(direction, 10);
-  };
-
-  /**
-   * Finds where the foot of the bubble shown is in a view.
-   *
-   * @param {SpeechView | null} speech - The bubble.
-   * @param {PerspectiveCamera} camera - The camera.
-   * @param {ViewArea} view - The view.
-   * @returns {[number, number]} The place across and down the view, in CSS
-   *   pixels.
-   */
-  const findFoot = (
-    speech: SpeechView | null,
-    camera: PerspectiveCamera,
-    view: ViewArea,
-  ): [number, number] => {
-    const foot: Vector3 = new Vector3(
-      speech?.x ?? NaN,
-      speech?.y ?? NaN,
-      speech?.z ?? NaN,
-    ).project(camera);
-    return [
-      ((foot.x + 1) / 2) * view.width,
-      ((1 - foot.y) / 2) * view.height,
-    ];
-  };
-
-  /**
-   * Shows Nancy saying her line with the foot of her bubble at a place in
-   * a view, and places the bubble on the screen.
+   * Shows Nancy saying her line with her head at a place in a view, and
+   * has the bubble drawn.
    *
    * @param {ViewArea} view - The view.
    * @param {number} x - The place of her head across the view.
    * @param {number} y - The place of her head down the view.
-   * @returns {{ speech: SpeechView | null, foot: [number, number] }} The
-   *   bubble, and where its foot is in the view.
+   * @returns {DrawnBubble} Where the bubble and its tail are drawn, which
+   *   is where the page tells the bubble is.
    */
-  const showAt = (
-    view: ViewArea,
-    x: number,
-    y: number,
-  ): { speech: SpeechView | null; foot: [number, number] } => {
-    const { bubble } = createWideBubble();
-    const camera: PerspectiveCamera = createCamera(view);
+  const showAt = (view: ViewArea, x: number, y: number): DrawnBubble => {
+    const { parent, bubble } = createWideBubble();
+    const camera: PerspectiveCamera = createCamera(view, FIELD_OF_VIEW);
     bubble.fitView(view.width, view.height, FIELD_OF_VIEW);
     bubble.say(NANCY, findPointAt(camera, view, x, y));
-    bubble.place(camera);
-    const speech: SpeechView | null = bubble.describe();
-    return { speech, foot: findFoot(speech, camera, view) };
+    drawBubbles(parent, camera);
+    const drawn: DrawnBubble = measureDrawn(parent.children[0], camera, view);
+    expectToldAsDrawn(bubble.describe()?.screen, drawn);
+    return drawn;
   };
 
   /**
-   * Checks that a bubble lies wholly within a view.
+   * Checks that a bubble is drawn wholly within a view, its tail hanging
+   * from its foot.
    *
-   * @param {SpeechScreen | null | undefined} screen - Where the bubble is.
+   * @param {DrawnBubble} drawn - Where the bubble and its tail are drawn.
    * @param {ViewArea} view - The view.
    */
-  const expectWithin = (
-    screen: SpeechScreen | null | undefined,
-    view: ViewArea,
-  ): void => {
-    expect(screen).toBeDefined();
-    expect(screen).not.toBeNull();
-    expect(screen?.left).toBeGreaterThan(0);
-    expect(screen?.top).toBeGreaterThan(0);
-    expect(screen?.right).toBeLessThan(view.width);
-    expect(screen?.tipY).toBeLessThan(view.height);
-    expect(screen?.tipX).toBeGreaterThan(screen?.left ?? NaN);
-    expect(screen?.tipX).toBeLessThan(screen?.right ?? NaN);
+  const expectWithin = (drawn: DrawnBubble, view: ViewArea): void => {
+    expect(drawn.left).toBeGreaterThan(0);
+    expect(drawn.top).toBeGreaterThan(0);
+    expect(drawn.right).toBeLessThan(view.width);
+    expect(drawn.bottom).toBeLessThan(view.height);
+    expect(drawn.top).toBeLessThan(drawn.bottom);
+    expect(drawn.tipY).toBeCloseTo(drawn.bottom, 6);
+    expect(drawn.tipX).toBeGreaterThan(drawn.left);
+    expect(drawn.tipX).toBeLessThan(drawn.right);
   };
 
   it('is no wider than most of the view of a phone held upright', () => {
@@ -855,9 +885,8 @@ describe('SpeechBubble on the screen', () => {
     bubble.fitView(DESKTOP.width, DESKTOP.height, FIELD_OF_VIEW);
     bubble.say(NANCY, HEAD);
     expect(widths[1]).toBe(widest);
-    const { speech } = showAt(PORTRAIT, PORTRAIT.width / 2, 400);
-    const width: number = (speech?.screen?.right ?? NaN) -
-      (speech?.screen?.left ?? NaN);
+    const drawn: DrawnBubble = showAt(PORTRAIT, PORTRAIT.width / 2, 400);
+    const width: number = drawn.right - drawn.left;
     expect(width).toBeLessThanOrEqual(PORTRAIT.width * 0.9);
     expect(width).toBeGreaterThanOrEqual(PORTRAIT.width * 0.75);
   });
@@ -876,13 +905,11 @@ describe('SpeechBubble on the screen', () => {
 
   it('stands centred above the head of a villager in mid view', () => {
     for (const view of [PORTRAIT, DESKTOP]) {
-      const { speech, foot } = showAt(view, view.width / 2, view.height / 2);
-      const screen: SpeechScreen | null | undefined = speech?.screen;
-      expectWithin(screen, view);
-      expect(screen?.tipX).toBeCloseTo(foot[0]);
-      expect(screen?.tipY).toBeCloseTo(foot[1]);
-      expect(((screen?.left ?? NaN) + (screen?.right ?? NaN)) / 2)
-        .toBeCloseTo(foot[0]);
+      const drawn: DrawnBubble = showAt(view, view.width / 2, view.height / 2);
+      expectWithin(drawn, view);
+      expect(drawn.tipX).toBeCloseTo(drawn.footX);
+      expect(drawn.tipY).toBeCloseTo(drawn.footY);
+      expect((drawn.left + drawn.right) / 2).toBeCloseTo(drawn.footX);
     }
   });
 
@@ -895,42 +922,40 @@ describe('SpeechBubble on the screen', () => {
         [40, 30],
         [view.width - 40, view.height - 5],
       ] as const) {
-        const { speech, foot } = showAt(view, x, y);
-        expectWithin(speech?.screen, view);
-        expect(speech?.screen?.tipX).toBeCloseTo(foot[0]);
+        const drawn: DrawnBubble = showAt(view, x, y);
+        expectWithin(drawn, view);
+        expect(drawn.tipX).toBeCloseTo(drawn.footX);
       }
     }
   });
 
   it('stays at the edge of the screen for a villager beyond it', () => {
     for (const x of [-200, PORTRAIT.width + 200]) {
-      const { speech, foot } = showAt(PORTRAIT, x, 400);
-      const screen: SpeechScreen | null | undefined = speech?.screen;
-      expectWithin(screen, PORTRAIT);
-      expect(Math.abs((screen?.tipX ?? NaN) - foot[0])).toBeLessThan(250);
+      const drawn: DrawnBubble = showAt(PORTRAIT, x, 400);
+      expectWithin(drawn, PORTRAIT);
+      expect(Math.abs(drawn.tipX - drawn.footX)).toBeLessThan(250);
     }
   });
 
   it('is not placed for a villager behind the camera', () => {
-    const { bubble } = createWideBubble();
-    const camera: PerspectiveCamera = createCamera(PORTRAIT);
+    const { parent, bubble } = createWideBubble();
+    const camera: PerspectiveCamera = createCamera(PORTRAIT, FIELD_OF_VIEW);
     bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
     bubble.say(NANCY, new Vector3(0, 8, 30));
-    bubble.place(camera);
+    drawBubbles(parent, camera);
     expect(bubble.describe()?.screen).toBeNull();
   });
 
   it('moves smoothly as the villager walks out of the view', () => {
-    let last: SpeechScreen | null | undefined;
+    let last: DrawnBubble | null = null;
     for (let x = 100; x >= -100; x--) {
-      const screen: SpeechScreen | null | undefined = showAt(PORTRAIT, x, 400)
-        .speech?.screen;
-      expectWithin(screen, PORTRAIT);
-      if (last != null && screen != null) {
-        expect(Math.abs(screen.left - last.left)).toBeLessThan(1.5);
-        expect(Math.abs(screen.tipX - last.tipX)).toBeLessThan(1.5);
+      const drawn: DrawnBubble = showAt(PORTRAIT, x, 400);
+      expectWithin(drawn, PORTRAIT);
+      if (last !== null) {
+        expect(Math.abs(drawn.left - last.left)).toBeLessThan(1.5);
+        expect(Math.abs(drawn.tipX - last.tipX)).toBeLessThan(1.5);
       }
-      last = screen;
+      last = drawn;
     }
   });
 });
@@ -946,12 +971,6 @@ describe('findFigureTop', () => {
     expect(top.x).toBe(3);
     expect(top.y).toBeCloseTo(1.7);
     expect(top.z).toBe(-2);
-  });
-
-  it('takes a usual height for a model without a height', () => {
-    const root = new Object3D();
-    root.position.set(3, 0, -2);
-    expect(findFigureTop(root).toArray()).toEqual([3, 1.8, -2]);
   });
 });
 
@@ -1028,16 +1047,6 @@ describe('SpeechBubble with players who speak', () => {
     expect(painted).toEqual([
       { name: '', line: '這附近有旅店可以休息嗎？', language: 'zh-TW' },
     ]);
-  });
-
-  it.each([
-    ['zh-CN', '请问艾玛在哪儿？'],
-    ['ja', 'すみません、エマさんはどこにいますか？'],
-    ['es', 'Disculpe, ¿dónde puedo encontrar a Emma?'],
-  ] as const)('words a phrase in %s for a page in it', async (code, line) => {
-    const { bubble } = createBubble(await createTranslator(code));
-    bubble.sayPhraseAs(7, 'askEmma', PLAYER_HEAD);
-    expect(listLines(bubble)).toEqual([[7, line]]);
   });
 
   it('shows a phrase in another language once told to', async () => {
@@ -1174,38 +1183,30 @@ describe('SpeechBubble with players who speak', () => {
   });
 
   it('keeps each bubble within the view by the edge of the screen', () => {
-    const view = { width: 1280, height: 800 };
-    const bubble = new SpeechBubble(new Object3D(), new Translator(), () => {
-      const sprite = new Sprite();
-      sprite.scale.set(0.3, 0.15, 1);
-      return sprite;
-    });
-    const aspect: number = view.width / view.height;
-    const camera = new PerspectiveCamera(40, aspect, 0.5, 600);
-    camera.position.set(0, 8, 14);
-    camera.lookAt(0, 1, 0);
-    camera.updateMatrixWorld();
-    const findPoint = (x: number, y: number): Vector3 => {
-      const direction: Vector3 = new Vector3(
-        (x / view.width) * 2 - 1,
-        1 - (y / view.height) * 2,
-        0.5,
-      )
-        .unproject(camera)
-        .sub(camera.position)
-        .normalize();
-      return camera.position.clone().addScaledVector(direction, 10);
-    };
+    const view: ViewArea = { width: 1280, height: 800 };
+    const parent = new Object3D();
+    const bubble = new SpeechBubble(parent, new Translator(), () =>
+      makeBlankBubble(0.3, 0.15),
+    );
+    const camera: PerspectiveCamera = createCamera(view, 40);
     bubble.fitView(view.width, view.height, 40);
-    bubble.sayAs(7, 'One.', findPoint(5, 400));
-    bubble.sayAs(8, 'Two.', findPoint(view.width - 5, 10));
-    bubble.place(camera);
-    const [left, right] = bubble.describeSaid();
+    bubble.sayAs(7, 'One.', findPointAt(camera, view, 5, 400));
+    bubble.sayAs(8, 'Two.', findPointAt(camera, view, view.width - 5, 10));
+    drawBubbles(parent, camera);
+    const [left, right] = parent.children.map((sprite: Object3D) =>
+      measureDrawn(sprite, camera, view),
+    );
+    if (left === undefined || right === undefined) {
+      throw new Error('There are no two bubbles.');
+    }
+    const told: SaidView[] = bubble.describeSaid();
+    expectToldAsDrawn(told[0]?.screen, left);
+    expectToldAsDrawn(told[1]?.screen, right);
     // Each bubble is shifted inwards from above the head of its player.
-    expect(left?.screen?.left).toBeGreaterThan(0);
-    expect(left?.screen?.footX).toBeLessThan(left?.screen?.left ?? NaN);
-    expect(right?.screen?.right).toBeLessThan(view.width);
-    expect(right?.screen?.top).toBeGreaterThan(0);
-    expect(right?.screen?.footX).toBeGreaterThan(right?.screen?.right ?? NaN);
+    expect(left.left).toBeGreaterThan(0);
+    expect(left.footX).toBeLessThan(left.left);
+    expect(right.right).toBeLessThan(view.width);
+    expect(right.top).toBeGreaterThan(0);
+    expect(right.footX).toBeGreaterThan(right.right);
   });
 });

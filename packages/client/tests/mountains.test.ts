@@ -23,6 +23,7 @@
 
 import {
   Color,
+  Group,
   Fog,
   Mesh,
   MeshStandardMaterial,
@@ -35,7 +36,7 @@ import { describe, expect, it } from 'vitest';
 import { VILLAGE_TERRAIN } from '@clovervale/shared';
 import type { Boundary } from '@clovervale/shared';
 
-import { MOUNTAINS_NAME, tintMountains } from '../src/mountains.ts';
+import { tintMountains } from '../src/mountains.ts';
 import { createVillageScene } from '../src/village-scene.ts';
 import { CAMERA_FAR, CAMERA_MAX_DISTANCE } from '../src/viewport.ts';
 
@@ -62,16 +63,34 @@ const LEAST_PEAKS = 5;
 const PEAK_WINDOW = 8;
 
 /**
+ * Finds the mountains of a scene: the one group of the village without its
+ * models.
+ *
+ * @param {Scene} scene - The scene.
+ * @returns {Object3D} The mountains.
+ * @throws {Error} If the scene has no one group.
+ */
+function findMountains(scene: Scene): Object3D {
+  const groups: Object3D[] = scene.children.filter(
+    (child: Object3D) => child instanceof Group,
+  );
+  const [mountains] = groups;
+  if (mountains === undefined || groups.length !== 1) {
+    throw new Error('The scene has no one group for its mountains.');
+  }
+  return mountains;
+}
+
+/**
  * Finds the ridges of the mountains of a scene, nearest first.
  *
  * @param {Scene} scene - The scene.
  * @returns {Mesh[]} The ridges.
  */
 function findRidges(scene: Scene): Mesh[] {
-  const mountains: Object3D | undefined = scene.getObjectByName(MOUNTAINS_NAME);
-  expect(mountains).toBeDefined();
+  const mountains: Object3D = findMountains(scene);
   scene.updateMatrixWorld(true);
-  const ridges: Mesh[] = (mountains?.children ?? []).filter(
+  const ridges: Mesh[] = mountains.children.filter(
     (child: Object3D): child is Mesh => child instanceof Mesh,
   );
   expect(ridges.length).toBeGreaterThanOrEqual(2);
@@ -281,8 +300,9 @@ describe('the mountains around the valley', () => {
 
   it('stand on the ground, reaching down into it', () => {
     const ridges: Mesh[] = findRidges(scene);
+    const mountains: Object3D = findMountains(scene);
     const ground: Object3D[] = scene.children.filter(
-      (child: Object3D) => child.name !== MOUNTAINS_NAME,
+      (child: Object3D) => child !== mountains,
     );
     for (const ridge of ridges) {
       const corners: Vector3[] = listCorners(ridge);
@@ -320,12 +340,7 @@ describe('tintMountains', () => {
       (ridge: Mesh) => ridge.material as MeshStandardMaterial,
     );
     const own: Color[] = materials.map((material) => material.color.clone());
-    const mountains: Object3D | undefined =
-      scene.getObjectByName(MOUNTAINS_NAME);
-    if (mountains === undefined) {
-      throw new Error('There are no mountains.');
-    }
-    tintMountains(mountains, sky, share);
+    tintMountains(findMountains(scene), sky, share);
     return [
       own,
       materials.map((material) => material.color.clone()),

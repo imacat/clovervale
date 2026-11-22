@@ -29,7 +29,7 @@ import { getItem } from './items.ts';
 import type { Bone, Model, Track } from './model.ts';
 
 /** How a move speeds up and slows down. */
-export type Ease = 'linear' | 'smooth' | 'in' | 'out';
+type Ease = 'linear' | 'smooth' | 'in' | 'out';
 
 /**
  * The X, Y and Z angles in degrees by bone name; the `offset` key holds the
@@ -62,7 +62,7 @@ export type LegBones = readonly [string, string, string];
 export type ArmBones = readonly [string, string, string];
 
 /** How a foot meets the target of its leg. */
-export interface LegOptions {
+interface LegOptions {
   /** The pitch of the foot in degrees, positive with the toes down. */
   readonly pitch?: number;
   /** The heading of the foot and the knee in degrees. */
@@ -82,7 +82,7 @@ export interface BakeOptions {
 }
 
 /** How a hand meets the target of its arm. */
-export interface ArmOptions {
+interface ArmOptions {
   /** The pitch of the hand in degrees, positive with the fingers down. */
   readonly pitch?: number;
   /** The heading of the hand and the elbow in degrees. */
@@ -226,12 +226,12 @@ export class Rig {
   /**
    * Creates a pose from Euler angles.
    *
-   * @param {PoseSpec} [spec] - The angles of the bones that are not at
+   * @param {PoseSpec} spec - The angles of the bones that are not at
    *   rest, and the offset of the root bone.
    * @returns {Pose} The pose.
    * @throws {Error} If there is no such bone.
    */
-  createPose(spec: PoseSpec = {}): Pose {
+  createPose(spec: PoseSpec): Pose {
     const pose = new Pose(this.#bones.length);
     for (const [name, value] of Object.entries(spec)) {
       if (name === 'offset') {
@@ -274,7 +274,7 @@ export class Rig {
    * @param {Pose} pose - The pose to change.
    * @param {LegBones} names - The upper leg, lower leg and foot bones.
    * @param {Triple} target - The ankle position in model space.
-   * @param {LegOptions} [options] - How the foot meets the target.
+   * @param {LegOptions} options - How the foot meets the target.
    * @returns {number} How far the target is beyond the reach of the leg.
    * @throws {Error} If there is no such bone.
    */
@@ -282,7 +282,7 @@ export class Rig {
     pose: Pose,
     names: LegBones,
     target: Triple,
-    { pitch = 0, yaw = 0, isKneeBackward = false }: LegOptions = {},
+    { pitch = 0, yaw = 0, isKneeBackward = false }: LegOptions,
   ): number {
     return this.#reachLimb(pose, names, target, pitch, yaw, isKneeBackward);
   }
@@ -294,7 +294,7 @@ export class Rig {
    * @param {Pose} pose - The pose to change.
    * @param {ArmBones} names - The upper arm, forearm and hand bones.
    * @param {Triple} target - The wrist position in model space.
-   * @param {ArmOptions} [options] - How the hand meets the target.
+   * @param {ArmOptions} options - How the hand meets the target.
    * @returns {number} How far the target is beyond the reach of the arm.
    * @throws {Error} If there is no such bone.
    */
@@ -302,7 +302,7 @@ export class Rig {
     pose: Pose,
     names: ArmBones,
     target: Triple,
-    { pitch = 0, yaw = 0 }: ArmOptions = {},
+    { pitch = 0, yaw = 0 }: ArmOptions,
   ): number {
     return this.#reachLimb(pose, names, target, pitch, yaw, true);
   }

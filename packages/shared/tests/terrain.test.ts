@@ -24,14 +24,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  PLAYER_RADIUS,
-  Terrain,
-  findTurn,
-  placePoint,
-  placeShape,
-} from '../src/index.ts';
+import { PLAYER_RADIUS, Terrain, placePoint } from '../src/index.ts';
 import type { Boundary, GroundVector, Shape } from '../src/index.ts';
+import { findTurn, placeShape } from '../src/terrain.ts';
 
 /** A boundary far enough out not to matter. */
 const WIDE: Boundary = { x: 0, z: 0, radius: 1000 };

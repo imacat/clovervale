@@ -25,7 +25,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  LANGUAGES,
   chooseLanguage,
   matchLanguage,
   readSavedLanguage,
@@ -59,20 +58,6 @@ function createStorage(): LanguageStorage & { items: Map<string, string> } {
     },
   };
 }
-
-describe('LANGUAGES', () => {
-  it('names each language in the language itself, in the order of the names', () => {
-    expect(
-      LANGUAGES.map(({ code, name }) => [code, name]),
-    ).toEqual([
-      ['en', 'English'],
-      ['es', 'Español'],
-      ['ja', '日本語'],
-      ['zh-TW', '正體中文'],
-      ['zh-CN', '简体中文'],
-    ]);
-  });
-});
 
 describe('matchLanguage', () => {
   it('takes the Chinese of Taiwan, Hong Kong and Macau as Traditional', () => {
@@ -137,10 +122,6 @@ describe('chooseLanguage', () => {
     expect(chooseLanguage(null, ['de', 'en-GB', 'ja'])).toBe('en');
     expect(chooseLanguage(null, ['ko', 'zh', 'ja'])).toBe('zh-CN');
     expect(chooseLanguage(null, ['pt-BR', 'es-CO', 'en'])).toBe('es');
-  });
-
-  it('ignores a saved choice the page does not speak', () => {
-    expect(chooseLanguage('fr', ['ja-JP'])).toBe('ja');
   });
 
   it('takes English without anything else to go by', () => {

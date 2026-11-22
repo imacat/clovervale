@@ -47,7 +47,7 @@ export interface CaveRoom {
 }
 
 /** The length of the passage, from the foot of the well shaft, in metres. */
-export const CAVE_PASSAGE_LENGTH = 20;
+const CAVE_PASSAGE_LENGTH = 20;
 
 /** Half the width of the passage, in metres. */
 export const CAVE_PASSAGE_HALF_WIDTH = 1.5;
@@ -108,12 +108,6 @@ export const CAVE_CELLS: readonly [CaveRoom, CaveRoom] = makeChamberPair(
   11,
   15,
 );
-
-/** Every side chamber of the cave. */
-export const CAVE_CHAMBERS: readonly CaveRoom[] = [
-  ...CAVE_STORE_ROOMS,
-  ...CAVE_CELLS,
-];
 
 /**
  * Where a player arrives in the cave, and which way it faces: at the foot
@@ -214,7 +208,7 @@ export const CAVE_SKELETON_FILE = 'prop-cave-skeleton.glb';
  * How far the bars of a cell reach to either side of the edge of the
  * passage they stand on, in metres.
  */
-export const CAVE_BARS_HALF_DEPTH = 0.05;
+const CAVE_BARS_HALF_DEPTH = 0.05;
 
 /**
  * How far behind the bars of his cell the prisoner stands, from their
@@ -341,17 +335,6 @@ export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
     { kind: 'barrel', x: westX, z: nearZ, yaw: 90, item: 'clover' },
   ];
 })();
-
-/**
- * Tells whether a container in a store room holds nothing, before anybody
- * has looted it: neither an item nor any silver coins.
- *
- * @param {CaveContainer} container - The container.
- * @returns {boolean} Whether it does.
- */
-export function isEmptyContainer(container: CaveContainer): boolean {
-  return container.item === null && (container.silver ?? 0) === 0;
-}
 
 /**
  * The middle of the ground the model of the cave covers, which it stands
@@ -510,7 +493,8 @@ const CAVE_SHAPES: readonly Shape[] = (() => {
 /**
  * The ground each model that stands in the cave besides the rock takes up
  * where nobody can walk, as the model has it before it is placed: the bars
- * of a cell, the prisoner, and the chests and the barrels, open or not.
+ * of a cell, the prisoner, and the chests and the barrels, which take up
+ * the same ground open as shut.
  * The torches hang above the heads of the players, and the bones of the
  * dead prisoner lie where nobody can come.
  */
@@ -537,9 +521,7 @@ export const CAVE_FIXTURE_FOOTPRINTS: Readonly<
     ],
     [CAVE_EDWIN_FILE]: [{ shape: 'circle', x: 0, z: 0, radius: 0.3 }],
     [chest.closed]: [chestShape],
-    [chest.open]: [chestShape],
     [barrel.closed]: [barrelShape],
-    [barrel.open]: [barrelShape],
   };
 })();
 
@@ -562,7 +544,7 @@ const FIXTURE_SHAPES: readonly Shape[] = [
 );
 
 /** The circle on the ground around the cave that players cannot leave. */
-export const CAVE_BOUNDARY: Boundary = { x: 9.25, z: 0, radius: 12 };
+const CAVE_BOUNDARY: Boundary = { x: 9.25, z: 0, radius: 12 };
 
 /**
  * The ground of the cave: the rock, the stonework, the slope and the rope;
@@ -574,16 +556,4 @@ export const CAVE_BOUNDARY: Boundary = { x: 9.25, z: 0, radius: 12 };
 export const CAVE_TERRAIN: Terrain = new Terrain(
   [...CAVE_SHAPES, ...FIXTURE_SHAPES],
   CAVE_BOUNDARY,
-);
-
-/**
- * The ground the model of the cave takes up where nobody can walk, as the
- * model has it before it is placed.
- */
-export const CAVE_FOOTPRINT: readonly Shape[] = CAVE_SHAPES.map(
-  (shape: Shape) =>
-    placeShape(
-      { x: -CAVE_MODEL_CENTRE.x, z: -CAVE_MODEL_CENTRE.z, yaw: 0 },
-      shape,
-    ),
 );

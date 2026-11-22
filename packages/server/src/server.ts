@@ -32,8 +32,6 @@ import { WebSocket, WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 
 import {
-  DEFAULT_DAY_LENGTH,
-  DEFAULT_DAY_ORIGIN,
   SIMULATION_RATE,
   SNAPSHOT_RATE,
   createWelcomeMessage,
@@ -109,9 +107,8 @@ const SOCKET_FILE_MODE = 0o660;
  *
  * @param {number | string} target - The TCP port to listen on, or 0 for any
  *   free port, or the path of the Unix socket file to listen on.
- * @param {DayCycle} [day] - How the time of day goes, counted from step 0
- *   of the simulation.  By default, a day lasts the default length and
- *   starts at the default time of day.
+ * @param {DayCycle} day - How the time of day goes, counted from step 0
+ *   of the simulation.
  * @returns {Promise<RunningServer>} The running server.
  * @throws {Error} If the server cannot listen there: the port is taken,
  *   another server is listening on the socket file, or the path of the
@@ -119,7 +116,7 @@ const SOCKET_FILE_MODE = 0o660;
  */
 export async function startServer(
   target: number | string,
-  day: DayCycle = { origin: DEFAULT_DAY_ORIGIN, length: DEFAULT_DAY_LENGTH },
+  day: DayCycle,
 ): Promise<RunningServer> {
   if (typeof target === 'string') {
     await removeStaleSocket(target);
@@ -270,10 +267,8 @@ function listen(listener: Server, target: number | string): Promise<void> {
  * @returns {string} The text of the message.
  */
 function readText(data: RawData): string {
-  if (Array.isArray(data)) {
-    return Buffer.concat(data).toString('utf8');
-  }
-  return new TextDecoder().decode(data);
+  // A socket hands a message over in fragments only if it is set to.
+  return new TextDecoder().decode(data as Buffer | ArrayBuffer);
 }
 
 /**

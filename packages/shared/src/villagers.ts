@@ -128,8 +128,7 @@ function findFighterState(
  * its map as they are.
  *
  * @param {Villager} villager - The villager.
- * @param {readonly MonsterState[]} [monsters] - The monsters of its map,
- *   none by default.
+ * @param {readonly MonsterState[]} monsters - The monsters of its map.
  * @returns {boolean} Whether it is: always, but for a villager who fights
  *   as a monster and is among them, who is free only while she idles or
  *   walks back home, not while she walks up to a player, talks with one,
@@ -137,7 +136,7 @@ function findFighterState(
  */
 export function isVillagerFree(
   villager: Villager,
-  monsters: readonly MonsterState[] = [],
+  monsters: readonly MonsterState[],
 ): boolean {
   const mode: string | undefined = findFighterState(villager, monsters)?.mode;
   return mode === undefined || mode === 'idle' || mode === 'return';
@@ -150,8 +149,7 @@ export function isVillagerFree(
  * @param {Villager} villager - The villager.
  * @param {number} step - The number of the step, which may fall between
  *   two steps.
- * @param {readonly MonsterState[]} [monsters] - The monsters of its map,
- *   none by default.
+ * @param {readonly MonsterState[]} monsters - The monsters of its map.
  * @returns {GroundVector} Where Toby is at the step, as he runs his course,
  *   where a villager who fights as a monster is among the monsters, if she
  *   is among them, or where its map has a place for any other villager.
@@ -160,7 +158,7 @@ export function isVillagerFree(
 export function locateVillager(
   villager: Villager,
   step: number,
-  monsters: readonly MonsterState[] = [],
+  monsters: readonly MonsterState[],
 ): GroundVector {
   const fighter: MonsterState | undefined = findFighterState(
     villager,

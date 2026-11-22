@@ -91,10 +91,10 @@ export interface DialogueShown {
  * @param {DialogueBox} box - The dialogue box.
  * @param {(request: DialogueRequest) => void} answer - Sends what the
  *   player answers.
- * @param {() => boolean} [isTouch] - Tells whether the page is used by
+ * @param {() => boolean} isTouch - Tells whether the page is used by
  *   touch, so that the line at the foot of the box tells what to tap
  *   rather than the keys, and a tap on the box ends a dialogue that offers
- *   no reply; it never is by default.
+ *   no reply.
  * @returns {DialogueBoxView} The box as shown.
  */
 export function createDialogueView(
@@ -102,10 +102,9 @@ export function createDialogueView(
   translator: Translator,
   box: DialogueBox,
   answer: (request: DialogueRequest) => void,
-  isTouch: () => boolean = () => false,
+  isTouch: () => boolean,
 ): DialogueBoxView {
   let acquaintances: readonly VillagerId[] = [];
-  let render: () => void = () => undefined;
   const root: HTMLDivElement = document.createElement('div');
   root.className = 'dialogue';
   root.hidden = true;
@@ -180,7 +179,7 @@ export function createDialogueView(
     };
   };
 
-  render = (): void => {
+  const render = (): void => {
     const shown: DialogueShown | null = describe();
     root.hidden = shown === null;
     if (shown === null) {
@@ -232,9 +231,7 @@ export function createDialogueView(
       box.noticeDialogue(dialogue);
       render();
     },
-    render: () => {
-      render();
-    },
+    render,
     describe,
   };
 }

@@ -244,12 +244,7 @@ export class Gamepads implements CameraHold {
     const pads = new Map<number, ReadPad>();
     let isNudged = false;
     for (const state of states) {
-      if (
-        state === null ||
-        !state.connected ||
-        state.mapping !== 'standard' ||
-        pads.has(state.index)
-      ) {
+      if (state === null || !state.connected || state.mapping !== 'standard') {
         continue;
       }
       const last: ReadPad | undefined = this.#pads.get(state.index);
@@ -371,8 +366,8 @@ export class Gamepads implements CameraHold {
       y += pad.turnY;
     }
     return {
-      orbit: clampUnit(x) * CAMERA_ORBIT_RATE * seconds + 0,
-      tilt: clampUnit(y) * CAMERA_TILT_RATE * seconds + 0,
+      orbit: clampUnit(x) * CAMERA_ORBIT_RATE * seconds,
+      tilt: clampUnit(y) * CAMERA_TILT_RATE * seconds,
     };
   }
 
@@ -463,7 +458,7 @@ function countRepeats(time: number): number {
  */
 function readAxis(state: PadState, place: number): number {
   const value: number | undefined = state.axes[place];
-  return value === undefined || Number.isNaN(value) ? 0 : clampUnit(value);
+  return value ?? 0;
 }
 
 /**
@@ -514,9 +509,8 @@ export function resolveStickWalk(x: number, y: number): PadWalk {
   }
   const eighth: number = Math.PI / 4;
   const angle: number = Math.round(Math.atan2(-y, x) / eighth) * eighth;
-  // Adding zero turns a negative zero into a plain one.
   return {
-    ahead: Math.round(Math.sin(angle)) + 0,
-    aside: Math.round(Math.cos(angle)) + 0,
+    ahead: Math.round(Math.sin(angle)),
+    aside: Math.round(Math.cos(angle)),
   };
 }

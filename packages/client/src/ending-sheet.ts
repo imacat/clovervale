@@ -161,7 +161,6 @@ export class EndingSheet {
   #content: EndingContent | null = null;
   #motion: EndingMotion = 'shown';
   #since = 0;
-  #hasEnded = false;
 
   /**
    * Whether the sheet is open, as it is while it unrolls and rolls up.
@@ -193,16 +192,6 @@ export class EndingSheet {
   }
 
   /**
-   * Whether the sheet has shown the end of the story since the page was
-   * loaded.
-   *
-   * @returns {boolean} Whether it has.
-   */
-  get hasEnded(): boolean {
-    return this.#hasEnded;
-  }
-
-  /**
    * Opens the sheet with the end of the story, unrolling.
    *
    * @param {number} now - The moment, in milliseconds.
@@ -211,7 +200,6 @@ export class EndingSheet {
     this.#content = 'ending';
     this.#motion = 'unrolling';
     this.#since = now;
-    this.#hasEnded = true;
   }
 
   /** Closes the sheet at once, if it is open. */
@@ -220,19 +208,16 @@ export class EndingSheet {
   }
 
   /**
-   * Advances the sheet, as the player does: rolls it up, if it is open and
-   * has unrolled.
+   * Advances the open sheet, as the player does: rolls it up, if it has
+   * unrolled.
    *
    * @param {number} now - The moment, in milliseconds.
-   * @returns {boolean} Whether it rolls up.
    */
-  advance(now: number): boolean {
-    if (this.#content === null || this.#motion !== 'shown') {
-      return false;
+  advance(now: number): void {
+    if (this.#motion === 'shown') {
+      this.#motion = 'rolling';
+      this.#since = now;
     }
-    this.#motion = 'rolling';
-    this.#since = now;
-    return true;
   }
 
   /**
@@ -266,16 +251,13 @@ export class EndingSheet {
   }
 
   /**
-   * Tells how far the sheet has unrolled at a moment, as it unrolls and
-   * rolls up over {@link rollDuration}.
+   * Tells how far the open sheet has unrolled at a moment, as it unrolls
+   * and rolls up over {@link rollDuration}.
    *
    * @param {number} now - The moment, in milliseconds.
-   * @returns {number} How far: 0 rolled up or closed, and 1 unrolled.
+   * @returns {number} How far: 0 rolled up, and 1 unrolled.
    */
   findUnrolledShare(now: number): number {
-    if (this.#content === null) {
-      return 0;
-    }
     if (this.#motion === 'shown') {
       return 1;
     }
@@ -291,12 +273,12 @@ export class EndingSheet {
    *
    * @param {string} code - The code of the key, as in a keyboard event.
    * @param {number} now - The moment, in milliseconds.
-   * @param {boolean} [isRepeat] - Whether the key is held down and
-   *   repeats, which advances nothing.
+   * @param {boolean} isRepeat - Whether the key is held down and repeats,
+   *   which advances nothing.
    * @returns {EndingResponse} Whether the sheet took the key, and which way
    *   the key scrolls it.
    */
-  pressKey(code: string, now: number, isRepeat = false): EndingResponse {
+  pressKey(code: string, now: number, isRepeat: boolean): EndingResponse {
     if (this.#content === null) {
       return NOT_HANDLED;
     }
@@ -307,7 +289,7 @@ export class EndingSheet {
       return { isHandled: true, scroll: 0 };
     }
     const scroll: number = SCROLL_KEYS[code] ?? 0;
-    return isGameKey(code) || scroll !== 0
+    return isGameKey(code)
       ? { isHandled: true, scroll }
       : NOT_HANDLED;
   }

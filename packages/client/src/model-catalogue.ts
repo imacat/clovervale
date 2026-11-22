@@ -28,9 +28,6 @@ import {
 } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
-/** What a model stands for in the game. */
-export type ModelKind = 'character' | 'npc' | 'monster' | 'building' | 'prop';
-
 /** The models to show, and the required ones that cannot be shown. */
 export interface ModelPlan {
   /** The file names of the models to show, in alphabetical order. */
@@ -87,25 +84,23 @@ export const FOUNTAIN_FILE = 'fountain.glb';
 /** The file name of the weapon shop, with the forge beside it. */
 export const WEAPON_SHOP_FILE = 'weapon-shop.glb';
 
-/** The kinds of the required models other than the characters. */
-const FIXED_KINDS: ReadonlyMap<string, ModelKind> = new Map<string, ModelKind>(
-  [
-    ['npc-nancy.glb', 'npc'],
-    ['npc-emma.glb', 'npc'],
-    [MARTHA_FILE, 'npc'],
-    [TOBY_FILE, 'npc'],
-    ['npc-basil.glb', 'npc'],
-    [CAVE_EDWIN_FILE, 'npc'],
-    [MONSTER_FILE, 'monster'],
-    [WEAPON_SHOP_FILE, 'building'],
-    [FOUNTAIN_FILE, 'building'],
-  ],
-);
+/** The file names of the required models other than the characters. */
+const FIXED_FILES: readonly string[] = [
+  'npc-nancy.glb',
+  'npc-emma.glb',
+  MARTHA_FILE,
+  TOBY_FILE,
+  'npc-basil.glb',
+  CAVE_EDWIN_FILE,
+  MONSTER_FILE,
+  WEAPON_SHOP_FILE,
+  FOUNTAIN_FILE,
+];
 
 /** The file names of the models the game cannot do without. */
 export const REQUIRED_MODEL_FILES: readonly string[] = [
   ...CHARACTER_FILES,
-  ...FIXED_KINDS.keys(),
+  ...FIXED_FILES,
 ];
 
 /** The file names of the NPCs. */
@@ -115,23 +110,19 @@ const NPC_PATTERN = /^npc-[a-z0-9]+(?:-[a-z0-9]+)*\.glb$/;
 const PROP_PATTERN = /^prop-[a-z0-9]+(?:-[a-z0-9]+)*\.glb$/;
 
 /**
- * Tells what a model file stands for in the game.
+ * Tells whether the game uses a model file.
  *
  * @param {string} file - The file name of the model.
- * @returns {ModelKind | null} The kind of the model, or `null` if the game
- *   does not use a file of that name.
+ * @returns {boolean} Whether it does: a character, an NPC or a prop by its
+ *   name, or one of the other required models.
  */
-export function classifyModel(file: string): ModelKind | null {
-  if (CHARACTER_FILES.includes(file)) {
-    return 'character';
-  }
-  if (NPC_PATTERN.test(file)) {
-    return 'npc';
-  }
-  if (PROP_PATTERN.test(file)) {
-    return 'prop';
-  }
-  return FIXED_KINDS.get(file) ?? null;
+export function isModelUsed(file: string): boolean {
+  return (
+    CHARACTER_FILES.includes(file) ||
+    NPC_PATTERN.test(file) ||
+    PROP_PATTERN.test(file) ||
+    FIXED_FILES.includes(file)
+  );
 }
 
 /**
@@ -143,9 +134,7 @@ export function classifyModel(file: string): ModelKind | null {
  *   not available.
  */
 export function planModels(available: readonly string[]): ModelPlan {
-  const shown: string[] = [...new Set(available)]
-    .filter((file: string) => classifyModel(file) !== null)
-    .sort();
+  const shown: string[] = [...new Set(available)].filter(isModelUsed).sort();
   const missing: string[] = REQUIRED_MODEL_FILES.filter(
     (file: string) => !shown.includes(file),
   );

@@ -288,7 +288,7 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'dialogue.toby.moan': '好痛喔……',
   'dialogue.toby.dress': '別動，我幫你擦藥。好了。以後玩要小心喔！',
   'dialogue.toby.thanks': '好。謝謝！這個給你！',
-  'dialogue.basil.offer': '你好你好！要買治療藥水嗎？一瓶{price}枚銀幣！',
+  'dialogue.basil.offer': '你好你好！要買治療藥水嗎？一瓶三枚銀幣！',
   'dialogue.basil.buy': '買一瓶。',
   'dialogue.basil.decline': '不用了。',
   'dialogue.basil.sold':

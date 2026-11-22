@@ -91,7 +91,7 @@ import {
   TOBY_GIFT_LINE,
   TOBY_LINES,
   findApproach,
-  findDialogueNode,
+  getDialogueNode,
   findOpening,
   meetsCondition,
 } from './dialogue.ts';
@@ -359,14 +359,13 @@ export class World {
    * on her porch at full health, numbered among the monsters after them,
    * and in a cave, with every chest and barrel holding what it holds.
    *
-   * @param {() => number} [drawRandom] - Gives a random number from 0 up to
+   * @param {() => number} drawRandom - Gives a random number from 0 up to
    *   but not including 1, for what the monsters do and what Toby says.
-   *   `Math.random` by default.
    * @param {WorldOptions} [options] - The map of the world, the step it
    *   starts at, and its monsters.
    */
   constructor(
-    drawRandom: () => number = Math.random,
+    drawRandom: () => number,
     { map = 'village', step = 0, monsters }: WorldOptions = {},
   ) {
     this.#map = map;
@@ -403,11 +402,11 @@ export class World {
    * dialogue, told by no villager who it is, on no quest, and not hunted
    * by Martha.
    *
-   * @param {readonly number[]} [elsewhere] - The appearances of the players
-   *   in other worlds, none by default.
+   * @param {readonly number[]} elsewhere - The appearances of the players
+   *   in other worlds.
    * @returns {PlayerState} The new player.
    */
-  addPlayer(elsewhere: readonly number[] = []): PlayerState {
+  addPlayer(elsewhere: readonly number[]): PlayerState {
     const player: Player = {
       id: ++this.#lastId,
       appearance: this.#chooseAppearance(elsewhere),
@@ -817,9 +816,6 @@ export class World {
    */
   recordSnapshot(): void {
     const time: number = this.#stepCount * STEP_MILLISECONDS;
-    if (this.#history.at(-1)?.time === time) {
-      this.#history.pop();
-    }
     this.#history.push({ time, monsters: this.listMonsters() });
     const earliest: number = time - LAG_COMPENSATION_LIMIT;
     while ((this.#history[1]?.time ?? Infinity) <= earliest) {
@@ -877,16 +873,14 @@ export class World {
     if (dialogue === undefined || dialogue === null) {
       return null;
     }
-    const node: DialogueNode | null = findDialogueNode(
+    const node: DialogueNode = getDialogueNode(
       dialogue.villager,
       dialogue.node,
     );
     return {
       villager: dialogue.villager,
-      line: node?.line ?? '',
-      replies: (node?.replies ?? []).map(
-        (reply: DialogueReply) => reply.text,
-      ),
+      line: node.line,
+      replies: node.replies.map((reply: DialogueReply) => reply.text),
       turn: dialogue.turn,
     };
   }
@@ -946,16 +940,13 @@ export class World {
    *
    * @param {number} id - The identifier of the player.
    * @param {string} text - The text its peer sent.
-   * @returns {boolean} Whether the player said a line.
    */
-  say(id: number, text: string): boolean {
+  say(id: number, text: string): void {
     const speaker: Player | null = this.#findSpeaker(id);
     const line: string | null = cleanSayText(text);
-    if (speaker === null || line === null) {
-      return false;
+    if (speaker !== null && line !== null) {
+      this.#tellNearby(speaker, { player: id, text: line });
     }
-    this.#tellNearby(speaker, { player: id, text: line });
-    return true;
   }
 
   /**
@@ -971,15 +962,12 @@ export class World {
    *
    * @param {number} id - The identifier of the player.
    * @param {string} code - The code its peer sent.
-   * @returns {boolean} Whether the player said a phrase.
    */
-  sayPhrase(id: number, code: string): boolean {
+  sayPhrase(id: number, code: string): void {
     const speaker: Player | null = this.#findSpeaker(id);
-    if (speaker === null || !isPhraseCode(code)) {
-      return false;
+    if (speaker !== null && isPhraseCode(code)) {
+      this.#tellNearby(speaker, { player: id, phrase: code });
     }
-    this.#tellNearby(speaker, { player: id, phrase: code });
-    return true;
   }
 
   /**
@@ -1115,7 +1103,7 @@ export class World {
   #judgeSlash({ player, viewTime }: Slasher): void {
     const now: number = this.#stepCount * STEP_MILLISECONDS;
     const time: number =
-      viewTime === undefined || !Number.isFinite(viewTime)
+      viewTime === undefined
         ? now
         : Math.min(Math.max(viewTime, now - LAG_COMPENSATION_LIMIT), now);
     const seen: readonly MonsterState[] = this.#findMonstersAt(time, now);
@@ -1160,7 +1148,7 @@ export class World {
       }
     }
     if (martha !== null && isMarthaHit) {
-      const damage: number = martha.takeHit(SLASH_DAMAGE, player.id);
+      const damage: number = martha.takeHit(SLASH_DAMAGE);
       this.#recordHit(
         { kind: 'player', id: player.id },
         referToMonster(martha),
@@ -1251,7 +1239,7 @@ export class World {
    */
   #findMonstersAt(time: number, now: number): readonly MonsterState[] {
     const records: MonstersRecord[] = [
-      ...this.#history.filter((record: MonstersRecord) => record.time < now),
+      ...this.#history,
       { time: now, monsters: this.listMonsters() },
     ];
     const index: number = records.findLastIndex(
@@ -1349,9 +1337,6 @@ export class World {
    * @param {number} slot - The number of the slot, from 0.
    */
   #dropItem(player: Player, slot: number): void {
-    if (!Number.isInteger(slot) || slot < 0) {
-      return;
-    }
     const [kind] = player.inventory.splice(slot, 1);
     if (kind === undefined) {
       return;
@@ -1405,14 +1390,13 @@ export class World {
       return;
     }
     const opening: string | null = findOpening(villager.id, player);
-    const node: DialogueNode | null =
-      opening === null ? null : findDialogueNode(villager.id, opening);
-    if (opening === null || node === null) {
+    if (opening === null) {
       if (villager.id === 'toby') {
         this.#chatterToby(player);
       }
       return;
     }
+    const node: DialogueNode = getDialogueNode(villager.id, opening);
     if (node.isRemark === true) {
       player.speeches.push({ villager: villager.id, line: node.line });
       this.#bringAbout(player, villager.id, node);
@@ -1433,10 +1417,7 @@ export class World {
     const lines: readonly string[] = hasRoom(player.inventory)
       ? [...TOBY_LINES, TOBY_GIFT_LINE]
       : TOBY_LINES;
-    const index: number = Math.min(
-      Math.floor(this.#drawRandom() * lines.length),
-      lines.length - 1,
-    );
+    const index: number = Math.floor(this.#drawRandom() * lines.length);
     const line: string = lines[index] ?? TOBY_LINES[0] ?? '';
     player.speeches.push({ villager: 'toby', line });
     if (line === TOBY_GIFT_LINE) {
@@ -1460,15 +1441,12 @@ export class World {
     if (dialogue === null) {
       return;
     }
-    const replies: readonly DialogueReply[] =
-      findDialogueNode(dialogue.villager, dialogue.node)?.replies ?? [];
+    const { replies } = getDialogueNode(dialogue.villager, dialogue.node);
     if (replies.length === 0) {
       player.dialogue = null;
       return;
     }
-    const reply: DialogueReply | undefined = Number.isInteger(choice)
-      ? replies[choice]
-      : undefined;
+    const reply: DialogueReply | undefined = replies[choice];
     if (reply === undefined) {
       return;
     }
@@ -1478,13 +1456,13 @@ export class World {
     }
     const choices: readonly string[] =
       typeof reply.next === 'string' ? [reply.next] : reply.next;
-    const next: string | undefined = choices.find((name: string) => {
-      const node: DialogueNode | null = findDialogueNode(
+    const next: string | undefined = choices.find((name: string) =>
+      meetsCondition(
+        getDialogueNode(dialogue.villager, name),
         dialogue.villager,
-        name,
-      );
-      return node !== null && meetsCondition(node, dialogue.villager, player);
-    });
+        player,
+      ),
+    );
     if (next === undefined) {
       player.dialogue = null;
       return;
@@ -1494,19 +1472,15 @@ export class World {
 
   /**
    * Has a villager say a line of a dialogue to a player, and has what comes
-   * of it come, if its condition holds of the player; ends the dialogue
-   * otherwise.
+   * of it come.
    *
    * @param {Player} player - The player.
    * @param {VillagerId} villager - The villager.
-   * @param {string} name - The name of the node of the line.
+   * @param {string} name - The name of the node of the line, whose condition
+   *   holds of the player.
    */
   #reachNode(player: Player, villager: VillagerId, name: string): void {
-    const node: DialogueNode | null = findDialogueNode(villager, name);
-    if (node === null || !meetsCondition(node, villager, player)) {
-      player.dialogue = null;
-      return;
-    }
+    const node: DialogueNode = getDialogueNode(villager, name);
     player.dialogue = { villager, node: name, turn: ++player.turnCount };
     this.#bringAbout(player, villager, node);
   }
@@ -1567,9 +1541,7 @@ export class World {
    * @param {number} slot - The number of the slot, from 0.
    */
   #useItem(player: Player, slot: number): void {
-    const kind: ItemKindId | undefined = Number.isInteger(slot)
-      ? player.inventory[slot]
-      : undefined;
+    const kind: ItemKindId | undefined = player.inventory[slot];
     if (kind === undefined || !canUseItem(kind, player.health)) {
       return;
     }

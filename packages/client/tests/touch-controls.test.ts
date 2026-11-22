@@ -26,9 +26,9 @@ import { describe, expect, it } from 'vitest';
 
 import { CAMERA_ORBIT_RATE, CAMERA_TILT_RATE } from '../src/camera-keys.ts';
 import type { CameraTurn } from '../src/camera-keys.ts';
+import { WALK_DEAD_ZONE } from '../src/gamepad.ts';
 import type { PadWalk } from '../src/gamepad.ts';
 import {
-  STICK_DEAD_ZONE,
   TURN_DEAD_DISTANCE,
   TURN_REACH,
   TouchControls,
@@ -92,6 +92,9 @@ describe('telling a touch device by its pointers', () => {
   });
 });
 
+/** No walk along an axis, which either zero tells. */
+const NONE: number = expect.closeTo(0) as number;
+
 describe('the stick of the touch controls', () => {
   const radius: number = STICK.radius;
 
@@ -99,8 +102,8 @@ describe('the stick of the touch controls', () => {
     const cases: readonly (readonly [number, number, PadWalk])[] = [
       [0, -radius, { ahead: 1, aside: 0 }],
       [0, radius, { ahead: -1, aside: 0 }],
-      [radius, 0, { ahead: 0, aside: 1 }],
-      [-radius, 0, { ahead: 0, aside: -1 }],
+      [radius, 0, { ahead: NONE, aside: 1 }],
+      [-radius, 0, { ahead: NONE, aside: -1 }],
       [radius, -radius, { ahead: 1, aside: 1 }],
       [-radius, radius, { ahead: -1, aside: -1 }],
     ];
@@ -110,10 +113,10 @@ describe('the stick of the touch controls', () => {
   });
 
   it('stands within its dead zone', () => {
-    const near: number = radius * STICK_DEAD_ZONE * 0.9;
+    const near: number = radius * WALK_DEAD_ZONE * 0.9;
     expect(pushStick(near, 0).resolveWalk()).toEqual({ ahead: 0, aside: 0 });
-    const far: number = radius * STICK_DEAD_ZONE * 1.1;
-    expect(pushStick(far, 0).resolveWalk()).toEqual({ ahead: 0, aside: 1 });
+    const far: number = radius * WALK_DEAD_ZONE * 1.1;
+    expect(pushStick(far, 0).resolveWalk()).toEqual({ ahead: NONE, aside: 1 });
   });
 
   it('keeps its knob within its base', () => {
@@ -136,7 +139,7 @@ describe('the stick of the touch controls', () => {
       false,
     );
     controls.movePointer(OTHER_FINGER, STICK.x - radius, STICK.y);
-    expect(controls.resolveWalk()).toEqual({ ahead: 0, aside: 1 });
+    expect(controls.resolveWalk()).toEqual({ ahead: NONE, aside: 1 });
   });
 
   it('does not turn the view', () => {
@@ -188,7 +191,7 @@ describe('dragging on the scene with the touch controls', () => {
     const controls: TouchControls = pushStick(STICK.radius, 0);
     controls.pressView(VIEW_FINGER, 400, 200);
     controls.movePointer(VIEW_FINGER, 400 - TURN_REACH, 200);
-    expect(controls.resolveWalk()).toEqual({ ahead: 0, aside: 1 });
+    expect(controls.resolveWalk()).toEqual({ ahead: NONE, aside: 1 });
     expect(controls.resolveTurn(1)).toEqual({
       orbit: -CAMERA_ORBIT_RATE,
       tilt: 0,
@@ -198,21 +201,20 @@ describe('dragging on the scene with the touch controls', () => {
 
 describe('pinching on the scene with the touch controls', () => {
   /**
-   * Makes the controls with two fingers pressed on the scene, a distance
+   * Makes the controls with two fingers pressed on the scene, 100 pixels
    * apart.
    *
-   * @param {number} distance - How far apart, in pixels.
    * @returns {TouchControls} The controls.
    */
-  function pinch(distance: number): TouchControls {
+  function pinch(): TouchControls {
     const controls = new TouchControls();
     controls.pressView(VIEW_FINGER, 400, 200);
-    controls.pressView(OTHER_FINGER, 400 + distance, 200);
+    controls.pressView(OTHER_FINGER, 500, 200);
     return controls;
   }
 
   it('zooms in as the fingers spread, and out as they close', () => {
-    const controls: TouchControls = pinch(100);
+    const controls: TouchControls = pinch();
     controls.movePointer(OTHER_FINGER, 600, 200);
     expect(controls.takeZoom()).toBeCloseTo(0.5);
     expect(controls.takeZoom()).toBe(1);
@@ -221,14 +223,14 @@ describe('pinching on the scene with the touch controls', () => {
   });
 
   it('does not turn the view while pinching', () => {
-    const controls: TouchControls = pinch(100);
+    const controls: TouchControls = pinch();
     controls.movePointer(VIEW_FINGER, 400 - TURN_REACH, 200 - TURN_REACH);
     expect(controls.resolveTurn(1)).toEqual({ orbit: 0, tilt: 0 });
     expect(controls.isHeld).toBe(true);
   });
 
   it('turns the view from where the finger left is once one is lifted', () => {
-    const controls: TouchControls = pinch(100);
+    const controls: TouchControls = pinch();
     controls.movePointer(VIEW_FINGER, 300, 200);
     controls.releasePointer(OTHER_FINGER);
     expect(controls.resolveTurn(1)).toEqual({ orbit: 0, tilt: 0 });
@@ -240,7 +242,7 @@ describe('pinching on the scene with the touch controls', () => {
   });
 
   it('takes no third finger', () => {
-    const controls: TouchControls = pinch(100);
+    const controls: TouchControls = pinch();
     expect(controls.pressView(4, 0, 0)).toBe(false);
     controls.movePointer(4, 900, 900);
     expect(controls.takeZoom()).toBe(1);

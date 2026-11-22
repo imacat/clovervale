@@ -28,10 +28,10 @@ import { parseArgs, parseEnv } from 'node:util';
 import { DEFAULT_SERVER_PORT } from '@clovervale/shared';
 
 /** The setting that tells the number of bots. */
-export const COUNT_SETTING = 'BOT_COUNT';
+const COUNT_SETTING = 'BOT_COUNT';
 
 /** The setting that tells the WebSocket URL of the game server. */
-export const SERVER_SETTING = 'SERVER_URL';
+const SERVER_SETTING = 'SERVER_URL';
 
 /** The settings file of the bots program, in its working directory. */
 export const SETTINGS_FILE = '.env';
@@ -46,7 +46,7 @@ export const USAGE =
 export const DEFAULT_BOT_COUNT = 4;
 
 /** The WebSocket URL of the game server unless told otherwise. */
-export const DEFAULT_SERVER_URL = `ws://localhost:${String(DEFAULT_SERVER_PORT)}`;
+const DEFAULT_SERVER_URL = `ws://localhost:${String(DEFAULT_SERVER_PORT)}`;
 
 /** What the options and the settings tell the bots program to do. */
 export interface BotsOptions {
@@ -128,7 +128,7 @@ function readSettingsFile(file: string): NodeJS.Dict<string> {
  */
 export function parseBotsOptions(
   args: string[],
-  settings: BotsSettings = {},
+  settings: BotsSettings,
 ): BotsOptions {
   const { values } = parseArgs({
     args,

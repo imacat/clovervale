@@ -118,9 +118,6 @@ class PushCourse {
    * @returns {boolean} Whether this course has it there just then.
    */
   isFollowedBy(step: number, position: GroundVector): boolean {
-    if (step < this.#first) {
-      return false;
-    }
     const place: GroundVector = this.#findPlace(step);
     return place.x === position.x && place.z === position.z;
   }
@@ -159,7 +156,7 @@ class PushCourse {
    */
   advance(tobyStep: number, time: number): GroundVector {
     const span: number =
-      this.#time === null ? 0 : Math.max(time - this.#time, 0) / 1000;
+      this.#time === null ? 0 : (time - this.#time) / 1000;
     this.#time = time;
     this.#moveTowards(this.#findTarget(tobyStep), PUSH_SPEED * span);
     return this.#findPoint(this.#progress);
@@ -247,10 +244,7 @@ class PushCourse {
    *   server last told of, for a later step.
    */
   #findPlace(step: number): GroundVector {
-    const index: number = Math.max(
-      Math.min(step, this.#horizon) - this.#first,
-      0,
-    );
+    const index: number = Math.min(step, this.#horizon) - this.#first;
     let place: GroundVector | undefined = this.#places[index];
     while (place === undefined) {
       const last: number = this.#places.length - 1;
@@ -294,8 +288,8 @@ function findClearShare(
   }
   const b: number = 2 * (apartX * wayX + apartZ * wayZ);
   const c: number = apartX * apartX + apartZ * apartZ - REACH * REACH;
-  const out: number = (-b + Math.sqrt(Math.max(b * b - 4 * a * c, 0))) / 2 / a;
-  return Math.min(share + Math.max(out, 0), 1);
+  const out: number = (-b + Math.sqrt(b * b - 4 * a * c)) / 2 / a;
+  return Math.min(share + out, 1);
 }
 
 /**
@@ -397,7 +391,7 @@ class HandoverGlide {
    */
   #findLeft(place: GroundVector, time: number): GroundVector {
     const length: number = Math.hypot(this.#offsetX, this.#offsetZ);
-    const elapsed: number = Math.max(time - this.#startTime, 0);
+    const elapsed: number = time - this.#startTime;
     const share: number = Math.max(1 - elapsed / SMOOTHING_DURATION, 0);
     if (length === 0 || share === 0) {
       return { x: 0, z: 0 };

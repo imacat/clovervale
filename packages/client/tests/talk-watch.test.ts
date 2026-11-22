@@ -28,9 +28,7 @@ import {
   CAVE_PASSAGE,
   PLAYER_RADIUS,
   SIMULATION_RATE,
-  TALK_REACH,
   TALK_STEPS,
-  TOBY_LOOP_STEPS,
   VILLAGERS,
   applyInput,
   createMotion,
@@ -45,6 +43,7 @@ import type {
   TobyPose,
   Villager,
 } from '@clovervale/shared';
+import { TALK_REACH } from '../../shared/src/interaction.ts';
 
 import { TalkWatch } from '../src/talk-watch.ts';
 
@@ -64,7 +63,7 @@ const BY_NANCY: PlayerMotion = createMotion(
  * @returns {PlayerMotion} The motion after the step.
  */
 function interact(motion: PlayerMotion): PlayerMotion {
-  return stepMotion(applyInput(motion, { type: 'interact' }), 0);
+  return stepMotion(applyInput(motion, { type: 'interact' }), 0, 'village', []);
 }
 
 /**
@@ -82,7 +81,7 @@ function stepTimes(
 ): PlayerMotion {
   let stepped: PlayerMotion = motion;
   for (let step = from; step < from + count; step++) {
-    stepped = stepMotion(stepped, step);
+    stepped = stepMotion(stepped, step, 'village', []);
   }
   return stepped;
 }
@@ -90,35 +89,39 @@ function stepTimes(
 describe('TalkWatch', () => {
   it('notices a talk once, as it starts, with whom it is', () => {
     const watch = new TalkWatch();
-    expect(watch.noticeTalk(BY_NANCY, 0)).toBeNull();
+    expect(watch.noticeTalk(BY_NANCY, 0, 'village', [])).toBeNull();
     const talking: PlayerMotion = interact(BY_NANCY);
-    expect(watch.noticeTalk(talking, 0)?.id).toBe('nancy');
-    expect(watch.noticeTalk(talking, 0)).toBeNull();
-    expect(watch.noticeTalk(stepMotion(talking, 0), 0)).toBeNull();
+    expect(watch.noticeTalk(talking, 0, 'village', [])?.id).toBe('nancy');
+    expect(watch.noticeTalk(talking, 0, 'village', [])).toBeNull();
+    expect(
+      watch.noticeTalk(stepMotion(talking, 0, 'village', []), 0, 'village', []),
+    ).toBeNull();
   });
 
   it('notices the next talk as well', () => {
     const watch = new TalkWatch();
     const first: PlayerMotion = interact(BY_NANCY);
-    watch.noticeTalk(first, 0);
+    watch.noticeTalk(first, 0, 'village', []);
     const over: PlayerMotion = stepTimes(first, TALK_STEPS);
     expect(over.action).toBe('Idle');
-    expect(watch.noticeTalk(over, 0)).toBeNull();
+    expect(watch.noticeTalk(over, 0, 'village', [])).toBeNull();
     const second: PlayerMotion = interact(over);
     expect(second.action).toBe('Talk');
-    expect(watch.noticeTalk(second, 0)?.id).toBe('nancy');
+    expect(watch.noticeTalk(second, 0, 'village', [])?.id).toBe('nancy');
   });
 
   it('notices no slash, and nothing without a player', () => {
     const watch = new TalkWatch();
-    expect(watch.noticeTalk(interact({ ...BY_NANCY, yaw: 0 }), 0)).toBeNull();
-    expect(watch.noticeTalk(null, 0)).toBeNull();
+    expect(
+      watch.noticeTalk(interact({ ...BY_NANCY, yaw: 0 }), 0, 'village', []),
+    ).toBeNull();
+    expect(watch.noticeTalk(null, 0, 'village', [])).toBeNull();
   });
 
   it('notices a talk to Toby where he was as it started', () => {
     let step = 0;
     while (findTobyPose(step).activity !== 'Run') {
-      step = (step + 1) % TOBY_LOOP_STEPS;
+      step++;
     }
     step += SIMULATION_RATE / 2;
     const toby: TobyPose = findTobyPose(step);
@@ -129,12 +132,16 @@ describe('TalkWatch', () => {
     const talking: PlayerMotion = stepMotion(
       applyInput(facing, { type: 'interact' }),
       step,
+      'village',
+      [],
     );
     expect(talking.action).toBe('Talk');
     // Noticed only some steps later, when he has run on out of reach.
     const later: PlayerMotion = stepTimes(talking, TALK_STEPS - 1, step + 1);
     const watch = new TalkWatch();
-    expect(watch.noticeTalk(later, step + TALK_STEPS - 1)?.id).toBe('toby');
+    expect(
+      watch.noticeTalk(later, step + TALK_STEPS - 1, 'village', [])?.id,
+    ).toBe('toby');
   });
 
   it('notices a talk to the prisoner through the bars of his cell', () => {
@@ -142,7 +149,7 @@ describe('TalkWatch', () => {
       (villager: Villager) => villager.id === 'edwin',
     );
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
     const before: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       180,
@@ -151,9 +158,10 @@ describe('TalkWatch', () => {
       applyInput(before, { type: 'interact' }),
       0,
       'cave',
+      [],
     );
     expect(talking.action).toBe('Talk');
     const watch = new TalkWatch();
-    expect(watch.noticeTalk(talking, 0, 'cave')?.id).toBe('edwin');
+    expect(watch.noticeTalk(talking, 0, 'cave', [])?.id).toBe('edwin');
   });
 });

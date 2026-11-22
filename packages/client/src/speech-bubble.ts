@@ -27,7 +27,6 @@ import {
   Box3,
   CanvasTexture,
   MathUtils,
-  PerspectiveCamera,
   SRGBColorSpace,
   Sprite,
   SpriteMaterial,
@@ -414,9 +413,9 @@ export function measureSpeechDuration(line: string): number {
  *   as it stands in its map, or `null` if it has no model.
  * @param {number} step - The number of the step, which may fall between
  *   two steps.
- * @param {readonly MonsterState[]} [monsters] - The monsters of its map,
- *   as they are shown, which tell where a villager who fights as a monster
- *   stands, none by default.
+ * @param {readonly MonsterState[]} monsters - The monsters of its map, as
+ *   they are shown, which tell where a villager who fights as a monster
+ *   stands.
  * @returns {Vector3} The point above where the villager stands at the
  *   height of the top of its model, or at a usual height without one.
  */
@@ -424,7 +423,7 @@ export function findHeadTop(
   villager: Villager,
   root: Object3D | null,
   step: number,
-  monsters: readonly MonsterState[] = [],
+  monsters: readonly MonsterState[],
 ): Vector3 {
   const { x, z } = locateVillager(villager, step, monsters);
   const top: number =
@@ -438,14 +437,12 @@ export function findHeadTop(
  * @param {Object3D} root - The root of the model of the player, where it
  *   stands.
  * @returns {Vector3} The point above where the player stands at the height
- *   of the top of its model, with whatever is shown above it, or at a
- *   usual height if the model has no height.
+ *   of the top of its model, with whatever is shown above it.
  */
 export function findFigureTop(root: Object3D): Vector3 {
-  const top: number = new Box3().setFromObject(root).max.y;
   return new Vector3(
     root.position.x,
-    Number.isFinite(top) ? top : DEFAULT_HEAD_TOP,
+    new Box3().setFromObject(root).max.y,
     root.position.z,
   );
 }
@@ -880,8 +877,8 @@ export class SpeechBubble {
   }
 
   /**
-   * Places the bubbles shown, if any, on the screen as a camera shows
-   * them, as each bubble does by itself each time it is drawn.
+   * Places a bubble on the screen as a camera shows it, as each bubble
+   * does by itself each time it is drawn.
    *
    * A bubble stands above the head of the one who speaks, but shifts
    * inwards as far as it must to stay wholly within the view, at least 8
@@ -892,19 +889,7 @@ export class SpeechBubble {
    * beyond the edge of the view, the bubble stays at that edge, its tail
    * towards it.  Once the one who speaks is behind the camera, the bubble
    * is not seen, and is not placed.  Nothing is placed before the bubble
-   * is told the view, or with a camera other than a perspective one.
-   *
-   * @param {Camera} camera - The camera, its matrices up to date.
-   */
-  place(camera: Camera): void {
-    for (const shown of this.#listShown()) {
-      this.#placeBubble(shown, camera);
-    }
-  }
-
-  /**
-   * Places a bubble on the screen as a camera shows it, as {@link place}
-   * tells.
+   * is told the view.
    *
    * @param {ShownSpeech} shown - The bubble.
    * @param {Camera} camera - The camera, its matrices up to date.
@@ -915,9 +900,6 @@ export class SpeechBubble {
       return;
     }
     shown.screen = null;
-    if (!(camera instanceof PerspectiveCamera)) {
-      return;
-    }
     const { sprite } = shown;
     sprite.updateWorldMatrix(true, false);
     const foot: Vector3 = new Vector3()
@@ -1050,18 +1032,6 @@ export class SpeechBubble {
    */
   hushVillagers(): void {
     this.#hide();
-  }
-
-  /**
-   * Takes the bubble away at once, if it is that of a villager, as the
-   * villager takes back what it said.
-   *
-   * @param {Villager} villager - The villager.
-   */
-  hush(villager: Villager): void {
-    if (this.#shown?.villager?.id === villager.id) {
-      this.#hide();
-    }
   }
 
   /**
@@ -1287,10 +1257,7 @@ export class SpeechBubble {
       return 0;
     }
     const choices: number = last === undefined ? count : count - 1;
-    let index: number = Math.min(
-      Math.floor(this.#random() * choices),
-      choices - 1,
-    );
+    let index: number = Math.floor(this.#random() * choices);
     if (last !== undefined && index >= last) {
       index++;
     }

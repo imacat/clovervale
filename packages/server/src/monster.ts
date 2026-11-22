@@ -82,10 +82,10 @@ export const MONSTER_SPAWNS: Readonly<Record<MapId, readonly MonsterSpawn[]>> =
   })();
 
 /** The shortest time a monster idles before it wanders, in seconds. */
-export const MONSTER_MIN_IDLE = 2;
+const MONSTER_MIN_IDLE = 2;
 
 /** The longest time a monster idles before it wanders, in seconds. */
-export const MONSTER_MAX_IDLE = 5;
+const MONSTER_MAX_IDLE = 5;
 
 /**
  * The farthest a player can be from a monster for its attack to hit, from
@@ -202,15 +202,15 @@ export class Monster {
    *   tells.
    * @param {MapId} map - The map of its world, whose ground it walks on.
    * @param {MonsterSpawn} spawn - Its kind, and where it lives.
-   * @param {() => number} [drawRandom] - Gives a random number from 0 up to
+   * @param {() => number} drawRandom - Gives a random number from 0 up to
    *   but not including 1, for how long the monster idles and where it
-   *   wanders to.  `Math.random` by default.
+   *   wanders to.
    */
   constructor(
     id: number,
     map: MapId,
     { kind, home }: MonsterSpawn,
-    drawRandom: () => number = Math.random,
+    drawRandom: () => number,
   ) {
     this.#id = id;
     this.#kindId = kind;
@@ -343,9 +343,9 @@ export class Monster {
   }
 
   /**
-   * Takes a hit.  A monster that is not chasing anyone already chases the
-   * player that hit it, and one that has no health left dies.  A dead
-   * monster takes no hits.
+   * Takes a hit, which only a monster that is alive can.  A monster that
+   * is not chasing anyone already chases the player that hit it, and one
+   * that has no health left dies.
    *
    * @param {number} damage - The health the hit takes.
    * @param {number} attackerId - The identifier of the player that hit it.
@@ -353,9 +353,6 @@ export class Monster {
    *   had.
    */
   takeHit(damage: number, attackerId: number): number {
-    if (this.#mode === 'dead') {
-      return 0;
-    }
     const lost: number = Math.min(damage, this.#health);
     this.#health -= lost;
     if (this.#health === 0) {
@@ -406,7 +403,6 @@ export class Monster {
 
   /** Idles, until it is time to wander. */
   #idle(): void {
-    this.#startAction('Idle');
     if (--this.#idleSteps > 0) {
       return;
     }

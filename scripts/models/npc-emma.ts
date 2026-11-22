@@ -195,7 +195,7 @@ export function buildNpcEmma(): BuiltModel {
 
   // The head, the hair tied up in a bun, and a kerchief tied round the
   // head across the brow, knotted at the nape.
-  addHead(model, 'Head');
+  addHead(model);
   const hair: Hair = createHair('bun');
   model.add('hair', hair.hair, 'Head');
   model.add('kerchief', hair.accent, 'Head');

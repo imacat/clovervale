@@ -660,7 +660,7 @@ function createGroundArc(
   height: number,
 ): Shape {
   const span: number = (((to - from) % 360) + 360) % 360;
-  const count: number = Math.max(Math.ceil(span / 6), 1);
+  const count: number = Math.ceil(span / 6);
   const angles: number[] = Array.from(
     { length: count + 1 },
     (_, i: number) => from + (span * i) / count,

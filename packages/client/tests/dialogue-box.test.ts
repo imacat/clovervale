@@ -111,7 +111,6 @@ describe('a dialogue box', () => {
 
   it('answers with a reply clicked', () => {
     const box: DialogueBox = openBox(ASKED);
-    expect(box.clickReply(5)).toBeNull();
     expect(box.clickReply(2)).toEqual({ type: 'reply', choice: 2 });
     expect(box.cursor).toBe(2);
   });

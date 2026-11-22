@@ -38,29 +38,33 @@ import {
 
 describe('parseBotsOptions', () => {
   it('runs the default number of bots on the local server by default', () => {
-    expect(parseBotsOptions([])).toEqual({
+    expect(parseBotsOptions([], {})).toEqual({
       count: DEFAULT_BOT_COUNT,
       serverUrl: `ws://localhost:${String(DEFAULT_SERVER_PORT)}`,
     });
   });
 
   it('runs as many bots as --count tells', () => {
-    expect(parseBotsOptions(['--count', '12']).count).toBe(12);
-    expect(parseBotsOptions(['--count=1']).count).toBe(1);
+    expect(parseBotsOptions(['--count', '12'], {}).count).toBe(12);
+    expect(parseBotsOptions(['--count=1'], {}).count).toBe(1);
   });
 
   it('connects to the server of --server', () => {
     expect(
-      parseBotsOptions(['--server', 'wss://game.example.com/play']).serverUrl,
+      parseBotsOptions(['--server', 'wss://game.example.com/play'], {})
+        .serverUrl,
     ).toBe('wss://game.example.com/play');
-    expect(parseBotsOptions(['--server=ws://[::1]:9001']).serverUrl).toBe(
+    expect(parseBotsOptions(['--server=ws://[::1]:9001'], {}).serverUrl).toBe(
       'ws://[::1]:9001',
     );
   });
 
   it('takes both options together', () => {
     expect(
-      parseBotsOptions(['--server', 'ws://127.0.0.1:9001', '--count', '2']),
+      parseBotsOptions(
+        ['--server', 'ws://127.0.0.1:9001', '--count', '2'],
+        {},
+      ),
     ).toEqual({ count: 2, serverUrl: 'ws://127.0.0.1:9001' });
   });
 
@@ -82,7 +86,7 @@ describe('parseBotsOptions', () => {
     [['--server', 'http://localhost:8080']],
     [['--server', 'game.sock']],
   ])('refuses %j', (args: string[]) => {
-    expect(() => parseBotsOptions(args)).toThrow();
+    expect(() => parseBotsOptions(args, {})).toThrow();
   });
 
   it('runs as many bots as the BOT_COUNT setting tells', () => {

@@ -27,7 +27,7 @@ import type { Shape, Triangle, Triple } from './geometry.ts';
 import { getItem } from './items.ts';
 
 /** The factors of a material other than its base colour. */
-export interface MaterialOptions {
+interface MaterialOptions {
   /** The roughness factor. */
   readonly roughness?: number;
   /** The metallic factor. */
@@ -65,7 +65,7 @@ export interface Face {
 }
 
 /** A corner of a triangle of a model. */
-export interface Corner {
+interface Corner {
   /** The corner in model space. */
   readonly point: Vector3;
   /** The index of the bone the corner follows. */
@@ -117,7 +117,7 @@ interface VertexData {
 }
 
 /** The numbers an accessor can hold. */
-type AccessorArray = Float32Array | Uint8Array | Uint16Array | Uint32Array;
+type AccessorArray = Float32Array | Uint8Array | Uint16Array;
 
 /** The glTF type of the elements of an accessor. */
 type AccessorType = 'SCALAR' | 'VEC3' | 'VEC4' | 'MAT4';
@@ -282,7 +282,6 @@ interface GltfDocument {
 const FLOAT = 5126;
 const UNSIGNED_BYTE = 5121;
 const UNSIGNED_SHORT = 5123;
-const UNSIGNED_INT = 5125;
 const ARRAY_BUFFER = 34962;
 const ELEMENT_ARRAY_BUFFER = 34963;
 
@@ -300,7 +299,7 @@ const ELEMENT_SIZES: Readonly<Record<AccessorType, number>> = {
  * @param {string} hex - The colour as `#rrggbb`.
  * @returns {number[]} The linear red, green and blue in [0, 1].
  */
-export function convertHexToLinear(hex: string): number[] {
+function convertHexToLinear(hex: string): number[] {
   return [1, 3, 5].map((i: number) => {
     const c: number = parseInt(hex.slice(i, i + 2), 16) / 255;
     const linear: number =
@@ -796,21 +795,12 @@ export class Model {
             { target: ARRAY_BUFFER, normalized: true },
           );
         }
-        const count: number = data.positions.length / 3;
-        const indices: number =
-          count > 65535
-            ? writer.addAccessor(
-                new Uint32Array(data.indices),
-                UNSIGNED_INT,
-                'SCALAR',
-                { target: ELEMENT_ARRAY_BUFFER },
-              )
-            : writer.addAccessor(
-                new Uint16Array(data.indices),
-                UNSIGNED_SHORT,
-                'SCALAR',
-                { target: ELEMENT_ARRAY_BUFFER },
-              );
+        const indices: number = writer.addAccessor(
+          new Uint16Array(data.indices),
+          UNSIGNED_SHORT,
+          'SCALAR',
+          { target: ELEMENT_ARRAY_BUFFER },
+        );
         return { attributes, indices, material: index, mode: 4 };
       },
     );
@@ -907,9 +897,6 @@ export class Model {
         ),
       },
     ];
-    if (this.animations.length === 0) {
-      return;
-    }
     gltf.animations = this.animations.map(({ name, times, tracks }: Clip) => {
       const input: number = writer.addAccessor(
         new Float32Array(times),

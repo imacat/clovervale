@@ -23,8 +23,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { STRIKE_HALF_ANGLE, isWithinStrike } from '../src/index.ts';
+import { isWithinStrike } from '../src/index.ts';
 import type { Pose } from '../src/index.ts';
+import { STRIKE_HALF_ANGLE } from '../src/combat.ts';
 
 /** A striker at the origin, facing +X. */
 const STRIKER: Pose = { x: 0, z: 0, yaw: 90 };

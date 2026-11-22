@@ -26,12 +26,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AuthoritativePlayer,
-  CAVE_LANDING,
   CAVE_PASSAGE,
   DEATH_DURATION,
   PLAYER_RADIUS,
   SIMULATION_RATE,
-  SLASH_STEPS,
   SNAPSHOT_RATE,
   SPAWN_YAW,
   TOBY_ENDS,
@@ -43,7 +41,6 @@ import {
   createMotion,
   findSpawnPoint,
   findTobyPose,
-  killMotion,
   locateVillager,
   stepMotion,
 } from '@clovervale/shared';
@@ -58,6 +55,8 @@ import type {
   TobyPose,
   Villager,
 } from '@clovervale/shared';
+import { CAVE_LANDING } from '../../shared/src/cave.ts';
+import { SLASH_STEPS, killMotion } from '../../shared/src/player-motion.ts';
 
 import { PlayerPrediction, placeOwnPlayer } from '../src/prediction.ts';
 
@@ -223,9 +222,7 @@ function play(
 ): Outcome {
   const server = new AuthoritativePlayer(start);
   let prediction: PlayerPrediction | null =
-    joining === null
-      ? new PlayerPrediction(start, 0, 0)
-      : null;
+    joining === null ? new PlayerPrediction(start, 0, 0, 'village') : null;
   let origin: number = joining === null ? 0 : Infinity;
   const upward = new Map<number, StampedInput[]>();
   const downward = new Map<number, SentSnapshot[]>();
@@ -265,7 +262,12 @@ function play(
     if (time >= link.phase && (time - link.phase) % STEP === 0) {
       const before: PlayerMotion = server.motion;
       stepCount++;
-      const taken: StampedInput[] = server.step(stepCount);
+      const taken: StampedInput[] = server.step(
+        stepCount,
+        'village',
+        false,
+        [],
+      );
       applied.push(...taken.map(() => stepCount));
       const toby: TobyPose = findTobyPose(stepCount);
       const after: PlayerMotion = server.motion;
@@ -305,7 +307,12 @@ function play(
     for (const { step, progress } of downward.get(time) ?? []) {
       latestTold = progress;
       if (prediction === null) {
-        prediction = new PlayerPrediction(progress.motion, step, time);
+        prediction = new PlayerPrediction(
+          progress.motion,
+          step,
+          time,
+          'village',
+        );
         origin = time;
         continue;
       }
@@ -376,7 +383,7 @@ function stepAway(motion: PlayerMotion): PlayerMotion {
     Math.hypot(motion.x - end.x, motion.z - end.z),
   );
   const far: number = (distances[0] ?? 0) < (distances[1] ?? 0) ? 1 : 0;
-  return stepMotion(motion, PICKING_STEPS[far] ?? 0);
+  return stepMotion(motion, PICKING_STEPS[far] ?? 0, 'village', []);
 }
 
 /**
@@ -392,7 +399,7 @@ function stepTimes(
   count: number,
 ): void {
   for (let step = from; step < from + count; step++) {
-    player.step(step);
+    player.step(step, 'village', false, []);
   }
 }
 
@@ -770,7 +777,7 @@ describe('a prediction by Toby', () => {
 
 describe('the prediction of the player of the page', () => {
   it('starts as the server tells, with nothing to correct', () => {
-    const prediction = new PlayerPrediction(START, 0, 1000);
+    const prediction = new PlayerPrediction(START, 0, 1000, 'village');
     expect(prediction.motion).toEqual(START);
     expect(prediction.readDrawn(1500)).toEqual(START);
     expect(prediction.correctionCount).toBe(0);
@@ -778,7 +785,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('moves the player at once on an input, when it rests', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1234);
     expect(prediction.motion.action).toBe('Walk');
     expect(prediction.motion.x).toBeCloseTo(START.x + STEP_LENGTH);
@@ -786,7 +793,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('moves the player on at the rate of the server', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1234);
     prediction.advance(1234 + STEP - 1);
     expect(prediction.motion.x).toBeCloseTo(START.x + STEP_LENGTH);
@@ -797,7 +804,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('shows an input at the next step of a player that moves', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput(steer(0, 1), 1020);
     expect(prediction.motion.yaw).toBeCloseTo(90);
@@ -809,7 +816,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('never takes two steps less than a step apart', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput(STOP, 1010);
     prediction.advance(1050);
@@ -822,7 +829,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('starts a slash at once, and stands still for as long as it lasts', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(0, 1), 1000);
     prediction.advance(1100);
     const walking: PlayerMotion = prediction.motion;
@@ -844,7 +851,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('drinks at the fountain, and slashes by it facing away', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     const pending: TimedInput[] = [...FOUNTAIN_VISIT];
     const actions: string[] = [];
     for (let time = 0; time <= 9000; time++) {
@@ -875,8 +882,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('tells when the latest input shows', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
-    expect(prediction.inputStepTime).toBeNull();
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     expect(prediction.inputStepTime).toBe(1000);
     prediction.issueInput(INTERACT, 1020);
@@ -887,7 +893,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('numbers its inputs, and tells the steps between them', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     const inputs: StampedInput[] = [
       prediction.issueInput(steer(1, 0), 1000),
       prediction.issueInput(steer(0, 1), 1120),
@@ -910,7 +916,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('draws the player gliding from step to step', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     expect(prediction.readDrawn(1000).x).toBe(START.x);
     expect(prediction.readDrawn(1000).action).toBe('Walk');
@@ -930,7 +936,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('counts the steps of the server on from where it starts', () => {
-    const prediction = new PlayerPrediction(START, 100, 0);
+    const prediction = new PlayerPrediction(START, 100, 0, 'village');
     expect(prediction.step).toBe(100);
     prediction.issueInput(steer(1, 0), 1000);
     expect(prediction.step).toBe(121);
@@ -939,7 +945,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('takes the count of the steps of the server from what it tells', () => {
-    const prediction = new PlayerPrediction(START, 100, 0);
+    const prediction = new PlayerPrediction(START, 100, 0, 'village');
     const input: StampedInput = prediction.issueInput(steer(1, 0), 1000);
     prediction.advance(1100);
     const server = new AuthoritativePlayer(START);
@@ -953,7 +959,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('tells the step of the server its next step is to be', () => {
-    const prediction = new PlayerPrediction(START, 100, 0);
+    const prediction = new PlayerPrediction(START, 100, 0, 'village');
     // At rest, the step that takes in an input sent then.
     expect(prediction.readNextStep(1000)).toBe(121);
     prediction.issueInput(steer(1, 0), 1000);
@@ -976,7 +982,7 @@ describe('the prediction of the player of the page', () => {
   });
 
   it('shows the step of the server Toby is at, as it draws the player', () => {
-    const prediction = new PlayerPrediction(START, 100, 0);
+    const prediction = new PlayerPrediction(START, 100, 0, 'village');
     expect(prediction.readDrawnStep(0)).toBe(100);
     expect(prediction.readDrawnStep(1000)).toBe(120);
     prediction.issueInput(steer(1, 0), 1000);
@@ -1183,7 +1189,7 @@ describe('a prediction set right by the server', () => {
   );
 
   it('keeps the player where it fell while it is dead', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.reconcile(
       { sequence: 0, steps: 2, motion: killMotion(START) },
       2,
@@ -1200,7 +1206,7 @@ describe('a prediction set right by the server', () => {
   });
 
   it('comes back walking as the keys held through death tell', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.reconcile(
       { sequence: 0, steps: 2, motion: killMotion(START) },
       2,
@@ -1226,7 +1232,7 @@ describe('a prediction set right by the server', () => {
   });
 
   it('takes the word of the server for where the player is', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     const moved: PlayerMotion = { ...START, x: START.x + 3, z: START.z - 4 };
     prediction.reconcile({ sequence: 0, steps: 8, motion: moved }, 8, 500);
     expect(prediction.motion).toEqual(moved);
@@ -1238,7 +1244,7 @@ describe('a prediction set right by the server', () => {
   });
 
   it('moves what the server tells on by the inputs it has not got to', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput(steer(0, 1), 1120);
     prediction.advance(1200);
@@ -1259,7 +1265,7 @@ describe('a prediction set right by the server', () => {
   });
 
   it('tells the step the server told its motion at, until it moves on', () => {
-    const prediction = new PlayerPrediction(START, 4, 0);
+    const prediction = new PlayerPrediction(START, 4, 0, 'village');
     expect(prediction.toldStep).toBe(4);
     prediction.reconcile({ sequence: 0, steps: 8, motion: START }, 8, 400);
     expect(prediction.toldStep).toBe(8);
@@ -1287,7 +1293,7 @@ describe('a prediction that goes into another map', () => {
   };
 
   it('starts afresh where the server tells, without a correction or a glide', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput({ type: 'travel' }, 1100);
     prediction.issueInput(STOP, 1150);
@@ -1298,7 +1304,6 @@ describe('a prediction that goes into another map', () => {
       30,
       1200,
     );
-    expect(prediction.map).toBe('cave');
     expect(prediction.motion).toEqual(LANDED);
     expect(prediction.readDrawn(1200)).toEqual(LANDED);
     expect(prediction.correctionCount).toBe(0);
@@ -1307,7 +1312,7 @@ describe('a prediction that goes into another map', () => {
   });
 
   it('moves the player on by the inputs the server has not got to there', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput({ type: 'travel' }, 1000);
     prediction.issueInput(steer(1, 0), 1100);
     prediction.advance(1300);
@@ -1329,7 +1334,7 @@ describe('a prediction that goes into another map', () => {
       (villager: Villager) => villager.id === 'edwin',
     );
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
     const turned: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       135,
@@ -1355,7 +1360,7 @@ describe('a prediction that goes into another map', () => {
   });
 
   it('walks the player by the ground of the map it is in', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.enterMap('cave', { sequence: 0, steps: 0, motion: LANDED }, 4, 0);
     prediction.issueInput(steer(1, 0), 1000);
     prediction.advance(4000);
@@ -1363,7 +1368,7 @@ describe('a prediction that goes into another map', () => {
   });
 
   it('goes on numbering its inputs from before', () => {
-    const prediction = new PlayerPrediction(START, 0, 0);
+    const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput({ type: 'travel' }, 1100);
     prediction.enterMap(
@@ -1373,10 +1378,6 @@ describe('a prediction that goes into another map', () => {
       1200,
     );
     expect(prediction.issueInput(STOP, 1300).sequence).toBe(3);
-  });
-
-  it('starts in the village', () => {
-    expect(new PlayerPrediction(START, 0, 0).map).toBe('village');
   });
 });
 

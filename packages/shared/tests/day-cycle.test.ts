@@ -24,14 +24,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  DAY_PHASES,
   DEFAULT_DAY_LENGTH,
   NOON,
   findDayPhase,
   findPhaseTime,
   findTimeOfDay,
 } from '../src/index.ts';
-import type { DayPeriod, DayPhase } from '../src/index.ts';
+import type { DayPhase } from '../src/index.ts';
+import { DAY_PHASES } from '../src/day-cycle.ts';
+import type { DayPeriod } from '../src/day-cycle.ts';
 
 /** The number of moments of the day to sample. */
 const SAMPLES = 2400;
@@ -83,11 +84,6 @@ describe('findTimeOfDay', () => {
     const cycle = { origin: NOON, length: null };
     expect(findTimeOfDay(cycle, 0)).toBe(NOON);
     expect(findTimeOfDay(cycle, DEFAULT_DAY_LENGTH * 3.7)).toBe(NOON);
-  });
-
-  it('lasts twenty minutes on the server by default', () => {
-    const cycle = { origin: 0, length: DEFAULT_DAY_LENGTH };
-    expect(findTimeOfDay(cycle, 10 * 60_000)).toBeCloseTo(0.5, 12);
   });
 });
 

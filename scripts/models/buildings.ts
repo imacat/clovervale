@@ -91,11 +91,11 @@ type PutOnWall = (
   side: Wall,
   u: number,
   y: number,
-  out?: number,
+  out: number,
 ) => Shape;
 
 /** A part of an object, as its material and its shape. */
-export type Part = readonly [string, Shape];
+type Part = readonly [string, Shape];
 
 /** One degree, in radians. */
 const DEG: number = Math.PI / 180;
@@ -145,7 +145,7 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
     side: Wall,
     u: number,
     y: number,
-    out = 0,
+    out: number,
   ): Shape => {
     switch (side) {
       case 'front':
@@ -995,9 +995,10 @@ export function buildCottage(): BuiltModel {
  *   materials `mortar`, `pestle` and `green` defined.
  * @param {PutOnWall} putOnWall - Moves a shape built facing +Z onto a wall
  *   of the house.
- * @param {number} y - The height of the middle of the sign.
  */
-function addMortarSign(model: Model, putOnWall: PutOnWall, y: number): void {
+function addMortarSign(model: Model, putOnWall: PutOnWall): void {
+  // The height of the middle of the sign.
+  const y = 3.6;
   const faceFront: Placement = { rot: [90, 0, 0] };
   const radius = 0.52;
   model.add(
@@ -1145,7 +1146,7 @@ export function buildApothecary(): BuiltModel {
     ],
   };
   const putOnWall: PutOnWall = addHouse(model, plan);
-  addMortarSign(model, putOnWall, 3.6);
+  addMortarSign(model, putOnWall);
   model.centreFootprint();
   return { model };
 }

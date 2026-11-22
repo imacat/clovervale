@@ -74,7 +74,7 @@ export function buildNpcNancy(): BuiltModel {
     model.addBone(`Hand${side}`, `ForeArm${side}`, [0.24 * x, 0.57, 0]);
   }
 
-  addHead(model, 'Head');
+  addHead(model);
   const hair: Hair = createHair('braid');
   model.add('hair', hair.hair, 'Head');
   model.add('green', hair.accent, 'Head');
@@ -376,7 +376,7 @@ export function buildNpcNancy(): BuiltModel {
     UpperArmR: [4, 0, -9],
     ForeArmR: [-16, 0, 0],
   };
-  const waveUp: PoseSpec = { UpperArmR: [0, 0, -142], HandR: [0, 0, 0] };
+  const waveUp: PoseSpec = { UpperArmR: [0, 0, -142] };
   const waveOut: PoseSpec = {
     ...rest,
     ...waveUp,

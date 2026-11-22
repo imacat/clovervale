@@ -172,7 +172,7 @@ export class TrailingCamera {
         this.#isChasing = true;
       }
     }
-    const fastest: number = Math.max(settings.turnRate, 0);
+    const fastest: number = settings.turnRate;
     const acceleration: number =
       settings.easeTime > 0 ? fastest / settings.easeTime : Infinity;
     // The fastest turn that can still stop where the player goes.
@@ -244,11 +244,11 @@ export class TrailingCamera {
  * the way the player goes is from the way the camera looks.
  *
  * @param {number} distance - How far the way the player goes is from the
- *   way the camera looks, from 0 to 180 degrees.
+ *   way the camera looks, from 0 degrees up to the angle limit.
  * @param {Readonly<TrailingCameraSettings>} settings - How the owner has
  *   the camera turn.
  * @returns {number} The share: 1 up to {@link FADE_SPAN} degrees below the
- *   angle limit, easing down to 0 at the angle limit, and 0 beyond.
+ *   angle limit, easing down to 0 at the angle limit.
  */
 function findTurnScale(
   distance: number,
@@ -256,9 +256,6 @@ function findTurnScale(
 ): number {
   const limit: number = settings.angleLimit;
   const fade: number = Math.max(limit - FADE_SPAN, 0);
-  if (distance >= limit) {
-    return 0;
-  }
   if (distance <= fade) {
     return 1;
   }

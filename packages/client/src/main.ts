@@ -21,8 +21,8 @@
  * @module client/main The entry point of the browser client.
  */
 
-import { Group, PerspectiveCamera } from 'three';
-import type { Camera, Object3D, Scene, Vector3 } from 'three';
+import { Group } from 'three';
+import type { Object3D, Scene, Vector3 } from 'three';
 
 import {
   CAVE_EDWIN_FILE,
@@ -220,16 +220,32 @@ const MUSIC_URL = `${import.meta.env.BASE_URL}music/${MUSIC_FILE}`;
 /** How long one step of the simulation lasts, in milliseconds. */
 const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 
+/**
+ * Gets a villager among the villagers.
+ *
+ * @param {(villager: Villager) => boolean} isWanted - Tells whether a
+ *   villager is the one.
+ * @returns {Villager} The first such villager.
+ * @throws {Error} If there is no such villager.
+ */
+function getVillager(isWanted: (villager: Villager) => boolean): Villager {
+  const found: Villager | undefined = VILLAGERS.find(isWanted);
+  if (found === undefined) {
+    throw new Error('There is no such villager.');
+  }
+  return found;
+}
+
 /** Toby, the child who goes about by the gate, as a villager. */
-const TOBY_VILLAGER: Villager | undefined = VILLAGERS.find(
+const TOBY_VILLAGER: Villager = getVillager(
   (villager: Villager) => villager.file === TOBY_FILE,
 );
 /** Edwin, the prisoner of the cave, as a villager. */
-const EDWIN_VILLAGER: Villager | undefined = VILLAGERS.find(
+const EDWIN_VILLAGER: Villager = getVillager(
   (villager: Villager) => villager.file === CAVE_EDWIN_FILE,
 );
 /** Martha, the village chief, who fights as a monster, as a villager. */
-const MARTHA_VILLAGER: Villager | undefined = VILLAGERS.find(
+const MARTHA_VILLAGER: Villager = getVillager(
   (villager: Villager) => villager.fighter !== undefined,
 );
 
@@ -381,12 +397,8 @@ const bagView: BagView = createBagView(
   document.body,
   translator,
   bag,
-  (request: ItemRequest) => {
-    carryOutItemAction(request);
-  },
-  () => {
-    clickBagIcon();
-  },
+  carryOutItemAction,
+  clickBagIcon,
   touchView.isTouch,
 );
 /** The box a line is typed in for the player of the page to say. */
@@ -399,12 +411,8 @@ const chatView: ChatView = createChatView(
   document.body,
   translator,
   chatBox,
-  () => {
-    clickChatButton();
-  },
-  (line: string) => {
-    sayLine(line);
-  },
+  clickChatButton,
+  sayLine,
   () => !bag.isOpen,
 );
 /** The sheet of the ending and the credits of the game. */
@@ -417,9 +425,7 @@ const helpView: HelpView = createHelpView(
   document.body,
   translator,
   helpSheet,
-  () => {
-    clickHelpButton();
-  },
+  clickHelpButton,
   () => {
     helpSheet.close();
     helpView.render();
@@ -530,10 +536,11 @@ const viewport: Viewport = showScene(
 
 /** Draws the bubbles above the villagers at the size for the view. */
 const fitSpeechToView = (): void => {
-  const camera: Camera = viewport.getCamera();
-  if (camera instanceof PerspectiveCamera) {
-    speech.fitView(window.innerWidth, window.innerHeight, camera.fov);
-  }
+  speech.fitView(
+    window.innerWidth,
+    window.innerHeight,
+    viewport.getCamera().fov,
+  );
 };
 window.addEventListener('resize', fitSpeechToView);
 fitSpeechToView();
@@ -695,15 +702,10 @@ function sendInput(input: PlayerInput): boolean {
   }
   const stamped: StampedInput = prediction.issueInput(input, performance.now());
   let message: ClientMessage = stamped;
-  const stepTime: number | null = prediction.inputStepTime;
-  if (
-    stamped.type === 'interact' &&
-    panel.compensation.isEnabled &&
-    stepTime !== null
-  ) {
+  if (stamped.type === 'interact' && panel.compensation.isEnabled) {
     const { isEnabled, delay } = panel.interpolation;
     const viewTime: number | null = timeline.findViewTime(
-      stepTime,
+      prediction.inputStepTime,
       isEnabled ? delay : null,
     );
     message = createInteractMessage(stamped, viewTime);
@@ -907,16 +909,7 @@ function readGamepads(seconds: number): void {
   if (!isPadConnected) {
     return;
   }
-  let states: readonly (PadState | null)[] = [];
-  try {
-    // A browser without the Gamepad API, or one that keeps it from the
-    // page, has no pads.
-    if (typeof navigator.getGamepads === 'function') {
-      states = navigator.getGamepads();
-    }
-  } catch {
-    states = [];
-  }
+  const states: readonly (PadState | null)[] = navigator.getGamepads();
   for (const button of gamepads.readPads(states, seconds)) {
     pressPadButton(button);
   }
@@ -998,10 +991,9 @@ function clickHelpButton(): void {
 /**
  * Opens the help sheet, closing the bag, and holds the controls of play.
  *
- * @param {number} [page] - The page to open it at, the page of the keyboard
- *   by default.
+ * @param {number} page - The page to open it at.
  */
-function openHelp(page?: number): void {
+function openHelp(page: number): void {
   if (bag.isOpen) {
     bag.clickIcon();
     bagView.render();
@@ -1255,12 +1247,10 @@ function showPlayers(): void {
   ) {
     speech.say(villager, findShownHead(villager, shownStep ?? 0));
   }
-  if (TOBY_VILLAGER !== undefined && shownStep !== null) {
+  if (shownStep !== null) {
     speech.follow(TOBY_VILLAGER, findShownHead(TOBY_VILLAGER, shownStep));
   }
-  if (MARTHA_VILLAGER !== undefined) {
-    speech.follow(MARTHA_VILLAGER, findShownHead(MARTHA_VILLAGER, 0));
-  }
+  speech.follow(MARTHA_VILLAGER, findShownHead(MARTHA_VILLAGER, 0));
   const followedId: number | null = panel.camera.followedId ?? ownId;
   const followed: PlayerState | undefined = view.players.find(
     (player: PlayerState) => player.id === followedId,
@@ -1290,7 +1280,7 @@ function showPitchfork(monsters: readonly MonsterState[]): void {
   if (lyingPitchfork === null) {
     return;
   }
-  lyingPitchfork.visible = martha !== undefined && isDropped;
+  lyingPitchfork.visible = isDropped;
   if (martha !== undefined && isDropped) {
     const yaw: number = (martha.yaw * Math.PI) / 180;
     lyingPitchfork.position.set(
@@ -1371,7 +1361,7 @@ function showEdwinCall(seconds: number): void {
       figure !== null &&
       isOnScreen(viewport.getCamera(), figure, findRoot(CAVE_FILE)),
   });
-  if (isCalling && EDWIN_VILLAGER !== undefined) {
+  if (isCalling) {
     const step: number = prediction?.step ?? 0;
     speech.say(
       EDWIN_VILLAGER,
@@ -1791,7 +1781,7 @@ function pressGameKey(code: string, isRepeat: boolean): boolean {
       return true;
     }
     if (!helpSheet.isOpen) {
-      openHelp();
+      openHelp(KEYBOARD_PAGE);
       return true;
     }
     if (!helpSheet.pressKey(code)) {

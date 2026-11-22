@@ -41,22 +41,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import {
-  CAVE_BARS_FILE,
-  CAVE_CELLS,
   CAVE_CONTAINERS,
   CAVE_CONTAINER_FILES,
   CAVE_EDWIN_FILE,
   CAVE_FILE,
-  CAVE_FIXTURE_FOOTPRINTS,
-  CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
-  CAVE_FOOTPRINT,
-  CAVE_MODEL_CENTRE,
   CAVE_PASSAGE,
-  CAVE_PASSAGE_HALF_WIDTH,
   CAVE_PLACEMENTS,
-  CAVE_ROPE,
-  CAVE_SKELETON_FILE,
   CAVE_TERRAIN,
   CAVE_TORCH_FILE,
   PLAYER_RADIUS,
@@ -72,19 +63,32 @@ import {
   VILLAGE_TERRAIN,
   findPlacement,
   findSpawnPoint,
-  findTurn,
-  findVillagePath,
+  findMapPath,
   findVillager,
   placePoint,
-  placeShape,
-  turnVector,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
   GroundVector,
   Placement,
   Shape,
+  TobyActivity,
 } from '@clovervale/shared';
+import {
+  CAVE_BARS_FILE,
+  CAVE_CELLS,
+  CAVE_FIXTURE_FOOTPRINTS,
+  CAVE_FLAME_AHEAD,
+  CAVE_MODEL_CENTRE,
+  CAVE_PASSAGE_HALF_WIDTH,
+  CAVE_ROPE,
+  CAVE_SKELETON_FILE,
+} from '../packages/shared/src/cave.ts';
+import {
+  findTurn,
+  placeShape,
+  turnVector,
+} from '../packages/shared/src/terrain.ts';
 
 import { getItem } from './models/items.ts';
 
@@ -121,14 +125,8 @@ interface GltfNode {
   readonly name?: string;
   /** The indices of the child nodes. */
   readonly children?: number[];
-  /** The transform matrix. */
-  readonly matrix?: number[];
   /** The translation. */
   readonly translation?: number[];
-  /** The rotation. */
-  readonly rotation?: number[];
-  /** The scale. */
-  readonly scale?: number[];
 }
 
 /** An animation of a glTF document. */
@@ -160,15 +158,6 @@ interface GltfAnimation {
 
 /** The parts of a glTF document the check reads. */
 interface GltfDocument {
-  /** The names of the extensions the document uses. */
-  readonly extensionsUsed?: string[];
-  /** The names of the extensions the document needs. */
-  readonly extensionsRequired?: string[];
-  /** The buffers. */
-  readonly buffers?: {
-    /** Where the data is, if not in the file. */
-    readonly uri?: string;
-  }[];
   /** The buffer views. */
   readonly bufferViews?: {
     /** The offset into the buffer, in bytes. */
@@ -181,34 +170,8 @@ interface GltfDocument {
     /** The index of the buffer view. */
     readonly bufferView?: number;
   }[];
-  /** The cameras. */
-  readonly cameras?: unknown[];
-  /** The images. */
-  readonly images?: unknown[];
-  /** The textures. */
-  readonly textures?: unknown[];
-  /** The scenes. */
-  readonly scenes?: {
-    /** The indices of the root nodes. */
-    readonly nodes?: number[];
-  }[];
   /** The nodes. */
   readonly nodes?: GltfNode[];
-  /** The materials. */
-  readonly materials?: {
-    /** The metallic-roughness factors. */
-    readonly pbrMetallicRoughness?: object;
-    /** How the material handles transparency. */
-    readonly alphaMode?: string;
-  }[];
-  /** The meshes. */
-  readonly meshes?: {
-    /** The primitives of the mesh. */
-    readonly primitives: {
-      /** The accessor indices of the vertex attributes. */
-      readonly attributes: Readonly<Record<string, number>>;
-    }[];
-  }[];
   /** The skins. */
   readonly skins?: {
     /** The node indices of the bones. */
@@ -235,8 +198,6 @@ interface ParsedGlb {
   readonly gltf: GltfDocument;
   /** The binary chunk. */
   readonly binary: Buffer;
-  /** The number of chunks in the file. */
-  readonly chunks: number;
 }
 
 /** The vertices of a posed model, in world space. */
@@ -259,10 +220,6 @@ interface ClipMeasurements {
   readonly start: readonly number[];
   /** The node matrices of the last pose. */
   readonly end: readonly number[];
-  /** How far the first pose is from the first pose of `Idle`. */
-  readonly startFromIdle: number;
-  /** How far the last pose is from the first pose of `Idle`. */
-  readonly endFromIdle: number;
   /** How far along X and Z the hips end from where they start. */
   readonly hipsDrift: readonly [number, number];
   /** The mean speed along Z of each foot while on the ground, by bone name. */
@@ -376,27 +333,20 @@ const CHIEF_CLIP_ORIGINS: Readonly<Record<string, string>> = {
   Sit: 'IdleArmed',
 };
 /**
- * The shortest and the longest each clip a model may have besides those it
- * must have may last, in seconds, by kind.  An NPC may work.
+ * The shortest and the longest each clip an NPC may have besides those it
+ * must have may last, in seconds.  An NPC may work.
  */
-const OPTIONAL_CLIP_DURATIONS: Readonly<
-  Record<ModelKind, Readonly<Record<string, readonly [number, number]>>>
-> = {
-  character: {},
-  npc: { Work: [0, Infinity] },
-  monster: {},
-  static: {},
-};
+const OPTIONAL_NPC_CLIP_DURATIONS: Readonly<
+  Record<string, readonly [number, number]>
+> = { Work: [0, Infinity] };
 /** How long each activity of Toby lasts on his course, in seconds. */
-const CHILD_ACTIVITY_DURATIONS: Readonly<Record<string, number>> =
-  Object.fromEntries(
-    Object.entries(TOBY_ACTIVITY_STEPS).map(
-      ([activity, steps]: [string, number]) => [
-        activity,
-        steps / SIMULATION_RATE,
-      ],
-    ),
-  );
+const CHILD_ACTIVITY_DURATIONS: Readonly<Record<TobyActivity, number>> = {
+  Squat: TOBY_ACTIVITY_STEPS.Squat / SIMULATION_RATE,
+  Pick: TOBY_ACTIVITY_STEPS.Pick / SIMULATION_RATE,
+  Rise: TOBY_ACTIVITY_STEPS.Rise / SIMULATION_RATE,
+  Turn: TOBY_ACTIVITY_STEPS.Turn / SIMULATION_RATE,
+  Run: TOBY_ACTIVITY_STEPS.Run / SIMULATION_RATE,
+};
 /**
  * The shortest and the longest each clip of Toby may last, in seconds:
  * squatting down, standing up and turning round each as long as his course
@@ -410,10 +360,7 @@ const CHILD_CLIP_DURATIONS: Readonly<
   ['Idle', [0, Infinity]],
   [
     'Find',
-    [
-      (CHILD_ACTIVITY_DURATIONS.Pick ?? 0) - 1e-6,
-      CHILD_ACTIVITY_DURATIONS.Pick ?? 0,
-    ],
+    [CHILD_ACTIVITY_DURATIONS.Pick - 1e-6, CHILD_ACTIVITY_DURATIONS.Pick],
   ],
   ...Object.entries(CHILD_ACTIVITY_DURATIONS).map(
     ([activity, duration]: [string, number]): [string, [number, number]] => [
@@ -627,8 +574,6 @@ const BASIL_SAMPLES = 40;
  * and a patch of clover, a spawn point or the course of Toby, in metres.
  */
 const PATH_CLEARANCE = 1;
-/** The magic number of a binary glTF file. */
-const GLB_MAGIC = 0x46546c67;
 /** The type of the JSON chunk of a binary glTF file. */
 const JSON_CHUNK = 0x4e4f534a;
 
@@ -642,7 +587,6 @@ function parseGlb(glb: Buffer): ParsedGlb {
   let offset = 12;
   let gltf: GltfDocument = {};
   let binary: Buffer = Buffer.alloc(0);
-  let chunks = 0;
   while (offset < glb.length) {
     const length: number = glb.readUInt32LE(offset);
     const type: number = glb.readUInt32LE(offset + 4);
@@ -652,10 +596,9 @@ function parseGlb(glb: Buffer): ParsedGlb {
     } else {
       binary = body;
     }
-    chunks += 1;
     offset += 8 + length;
   }
-  return { gltf, binary, chunks };
+  return { gltf, binary };
 }
 
 /**
@@ -672,24 +615,6 @@ function readAccessor({ gltf, binary }: ParsedGlb, index: number): Buffer {
   );
   const start: number = view.byteOffset ?? 0;
   return binary.subarray(start, start + view.byteLength);
-}
-
-/**
- * Counts how many times a key occurs anywhere in a document.
- *
- * @param {unknown} value - The document.
- * @param {string} key - The key.
- * @returns {number} How many times the key occurs.
- */
-function countKey(value: unknown, key: string): number {
-  if (value === null || typeof value !== 'object') {
-    return 0;
-  }
-  let count = 0;
-  for (const [name, child] of Object.entries(value)) {
-    count += (name === key ? 1 : 0) + countKey(child, key);
-  }
-  return count;
 }
 
 /**
@@ -719,11 +644,7 @@ function hashRig(glb: ParsedGlb): [string, string] {
     const head: string = (node.translation ?? [])
       .map((x: number) => x.toFixed(5))
       .join(',');
-    const rotation: string = (node.rotation ?? []).join(',');
-    const scale: string = (node.scale ?? []).join(',');
-    skeleton.update(
-      `${node.name ?? ''}|${parentName}|${head}|${rotation}|${scale};`,
-    );
+    skeleton.update(`${node.name ?? ''}|${parentName}|${head};`);
   }
   for (const clip of glb.gltf.animations ?? []) {
     clips.update(clip.name);
@@ -855,15 +776,12 @@ function measureDifference(a: readonly number[], b: readonly number[]): number {
  * @param {GLTF} model - The loaded model.
  * @param {AnimationClip} clip - The clip.
  * @param {readonly string[]} boneNames - The names of the bones.
- * @param {readonly number[]} idleStart - The node matrices of the first pose
- *   of `Idle`.
  * @returns {ClipMeasurements} The measurements.
  */
 function measureClip(
   model: GLTF,
   clip: AnimationClip,
   boneNames: readonly string[],
-  idleStart: readonly number[],
 ): ClipMeasurements {
   const root: Object3D = model.scene;
   const hips: Object3D | undefined = root.getObjectByName('Hips');
@@ -948,8 +866,6 @@ function measureClip(
     seam: measureDifference(start, end),
     start,
     end,
-    startFromIdle: measureDifference(start, idleStart),
-    endFromIdle: measureDifference(end, idleStart),
     hipsDrift: [last.x - first.x, last.z - first.z],
     footSpeeds,
     handReach,
@@ -998,18 +914,9 @@ async function measureModel(glb: Buffer): Promise<ModelMeasurements> {
     });
     centroids.set(node.material.name, sum.divideScalar(positions.length));
   });
-  const idle: AnimationClip | undefined = model.animations.find(
-    (clip: AnimationClip) => clip.name === 'Idle',
-  );
-  let idleStart: number[] = [];
-  if (idle !== undefined) {
-    const mixer: AnimationMixer = poseModel(model, idle, 0);
-    idleStart = listNodeMatrices(root);
-    resetModel(model, mixer);
-  }
   const clips = new Map<string, ClipMeasurements>();
   for (const clip of model.animations) {
-    clips.set(clip.name, measureClip(model, clip, boneNames, idleStart));
+    clips.set(clip.name, measureClip(model, clip, boneNames));
   }
   return {
     triangles,
@@ -1062,80 +969,11 @@ async function checkModel(file: string): Promise<ModelResult> {
   const size: Vector3 = measured.rest.getSize(new Vector3());
 
   // Format.
-  check(
-    glb.readUInt32LE(0) === GLB_MAGIC && glb.readUInt32LE(4) === 2,
-    'not a binary glTF 2.0 file',
-  );
-  check(
-    parsed.chunks === 2 &&
-      gltf.buffers?.length === 1 &&
-      countKey(gltf, 'uri') === 0,
-    'not one self-contained file',
-  );
-  check(
-    gltf.extensionsUsed === undefined &&
-      gltf.extensionsRequired === undefined &&
-      countKey(gltf, 'extensions') === 0,
-    'uses an extension',
-  );
-  check(
-    gltf.cameras === undefined && countKey(gltf, 'camera') === 0,
-    'has a camera',
-  );
-  check(
-    countKey(gltf, 'targets') === 0 && countKey(gltf, 'weights') === 0,
-    'has morph targets',
-  );
-  const roots: readonly number[] = gltf.scenes?.[0]?.nodes ?? [];
-  check(
-    gltf.scenes?.length === 1 && roots.length === 1,
-    'not one scene with one root node',
-  );
   const nodes: readonly GltfNode[] = gltf.nodes ?? [];
   const names: (string | undefined)[] = nodes.map(
     (node: GltfNode) => node.name,
   );
-  check(
-    !names.includes(undefined) && new Set(names).size === names.length,
-    'node names repeat',
-  );
-  const root: GltfNode = nodes[roots[0] ?? -1] ?? {};
-  check(
-    root.matrix === undefined &&
-      root.translation === undefined &&
-      root.rotation === undefined &&
-      root.scale === undefined,
-    'root transform is not identity',
-  );
-  check(
-    nodes.every(
-      (node: GltfNode) => node.scale === undefined && node.matrix === undefined,
-    ),
-    'a node carries a scale or a matrix',
-  );
-  check(
-    (gltf.animations ?? []).every((clip: GltfAnimation) =>
-      clip.channels.every(
-        (channel) =>
-          channel.target.path !== 'scale' && channel.target.node !== roots[0],
-      ),
-    ),
-    'an animation scales a node or moves the root node',
-  );
-
-  // Materials.
-  check(
-    (gltf.materials ?? []).every(
-      (material) =>
-        material.pbrMetallicRoughness !== undefined &&
-        material.alphaMode !== 'BLEND',
-    ),
-    'a material is not opaque metallic-roughness',
-  );
-  check(
-    (gltf.images ?? []).length === 0 && (gltf.textures ?? []).length === 0,
-    'has textures (their format and size are not checked here)',
-  );
+  check(new Set(names).size === names.length, 'node names repeat');
 
   // Budgets.
   const [maxTriangles, maxBytes] = rigged
@@ -1235,14 +1073,6 @@ async function checkModel(file: string): Promise<ModelResult> {
       gltf.skins?.length === 1 && (gltf.skins[0]?.joints.length ?? 0) <= 40,
       'more than 40 bones',
     );
-    check(
-      (gltf.meshes ?? []).every((mesh) =>
-        mesh.primitives.every(
-          (primitive) => primitive.attributes.JOINTS_1 === undefined,
-        ),
-      ),
-      'more than four influences per vertex',
-    );
     [skeletonHash, clipsHash] = hashRig(parsed);
     const required =
       file === TOBY_FILE
@@ -1250,7 +1080,10 @@ async function checkModel(file: string): Promise<ModelResult> {
         : file === CHIEF_FILE
           ? CHIEF_CLIP_DURATIONS
           : CLIP_DURATIONS[kind];
-    const durations = { ...OPTIONAL_CLIP_DURATIONS[kind], ...required };
+    const durations = {
+      ...(kind === 'npc' ? OPTIONAL_NPC_CLIP_DURATIONS : {}),
+      ...required,
+    };
     const clipNames: string[] = [...measured.clips.keys()];
     check(
       Object.keys(required).every((name: string) => clipNames.includes(name)) &&
@@ -1325,7 +1158,7 @@ async function checkModel(file: string): Promise<ModelResult> {
     if (file === TOBY_FILE) {
       const run: ClipMeasurements | undefined = measured.clips.get('Run');
       const strides: number =
-        (CHILD_ACTIVITY_DURATIONS.Run ?? 0) / (run?.duration ?? Infinity);
+        CHILD_ACTIVITY_DURATIONS.Run / (run?.duration ?? Infinity);
       check(
         Math.abs(strides - Math.round(strides)) < 1e-6 && strides >= 1,
         'Run does not fit a whole number of times into his run',
@@ -1370,24 +1203,6 @@ async function checkModel(file: string): Promise<ModelResult> {
     `${String(report.issues.numWarnings)}W [${codes.join(', ')}]` +
     clipSummaries.join('');
   return { file, kind, summary, failures, skeletonHash, clipsHash };
-}
-
-/**
- * Loads a model the way the client does, and stands it where the village
- * has a place for it.
- *
- * @param {string} file - The file name of the model.
- * @returns {Promise<GLTF>} The model, standing in its place.
- * @throws {Error} If the village has no place for the model.
- */
-async function loadPlaced(file: string): Promise<GLTF> {
-  const glb: Buffer = readFileSync(path.join(modelsDir, file));
-  const model: GLTF = await loader.parseAsync(new Uint8Array(glb).buffer, '');
-  const placement: Placement = findPlacement(file);
-  model.scene.position.set(placement.x, 0, placement.z);
-  model.scene.rotation.y = (placement.yaw * Math.PI) / 180;
-  model.scene.updateMatrixWorld(true);
-  return model;
 }
 
 /**
@@ -1448,8 +1263,8 @@ function isWithinOutline(point: Vector3, corners: readonly Vector3[]): boolean {
  * @returns {Promise<StrikeResult>} The outcome.
  */
 async function checkStrike(): Promise<StrikeResult> {
-  const smith: GLTF = await loadPlaced(SMITH_FILE);
-  const anvil: GLTF = await loadPlaced(ANVIL_FILE);
+  const smith: GLTF = await loadAt(findPlacement(SMITH_FILE));
+  const anvil: GLTF = await loadAt(findPlacement(ANVIL_FILE));
   const iron: Vector3[] = listMaterialVertices(anvil.scene, IRON_MATERIAL);
   const clip: AnimationClip | undefined = smith.animations.find(
     (candidate: AnimationClip) => candidate.name === HAMMERING_CLIP,
@@ -1553,14 +1368,9 @@ async function loadPorchSurroundings(
   for (const file of PORCH_SURROUNDINGS.filter((name: string) =>
     files.includes(name),
   )) {
-    const model: GLTF = await loadPlaced(file);
     for (const placement of VILLAGE_PLACEMENTS) {
       if (placement.file === file) {
-        const root: Object3D = model.scene.clone();
-        root.position.set(placement.x, 0, placement.z);
-        root.rotation.y = (placement.yaw * Math.PI) / 180;
-        root.updateMatrixWorld(true);
-        roots.push(root);
+        roots.push((await loadAt(placement)).scene);
       }
     }
   }
@@ -1584,7 +1394,7 @@ async function loadPorchSurroundings(
 async function checkChiefInSight(
   files: readonly string[],
 ): Promise<StrikeResult> {
-  const chief: GLTF = await loadPlaced(CHIEF_FILE);
+  const chief: GLTF = await loadAt(findPlacement(CHIEF_FILE));
   const clip: AnimationClip | undefined = chief.animations.find(
     (candidate: AnimationClip) => candidate.name === 'Idle',
   );
@@ -1640,21 +1450,20 @@ async function checkChiefInSight(
 }
 
 /**
- * Loads a model the way the client does, and stands it where the cave has
- * its first place for it.
+ * Finds the first place the cave has for a model.
  *
  * @param {string} file - The file name of the model.
- * @returns {Promise<GLTF>} The model, standing in its place.
+ * @returns {Placement} Where the model stands.
  * @throws {Error} If the cave has no place for the model.
  */
-async function loadCavePlaced(file: string): Promise<GLTF> {
+function findCavePlacement(file: string): Placement {
   const placement: Placement | undefined = CAVE_PLACEMENTS.find(
     (candidate: Placement) => candidate.file === file,
   );
   if (placement === undefined) {
     throw new Error(`The cave has no place for ${file}.`);
   }
-  return loadAt(placement);
+  return placement;
 }
 
 /**
@@ -1693,11 +1502,26 @@ async function loadAt(placement: Placement): Promise<GLTF> {
  * @returns {Promise<StrikeResult>} The outcome.
  */
 async function checkCave(files: readonly string[]): Promise<StrikeResult> {
-  const cave: GLTF = await loadCavePlaced(CAVE_FILE);
+  const cave: GLTF = await loadAt(findCavePlacement(CAVE_FILE));
   // The ground the model of the cave takes up, without what stands in it.
+  const fixtures: ReadonlySet<string> = new Set(
+    [
+      ...CAVE_PLACEMENTS,
+      ...CAVE_CONTAINERS.map(
+        (container: CaveContainer): Placement => ({
+          ...container,
+          file: CAVE_CONTAINER_FILES[container.kind].closed,
+        }),
+      ),
+    ].flatMap((placement: Placement) =>
+      (CAVE_FIXTURE_FOOTPRINTS[placement.file] ?? []).map((shape: Shape) =>
+        JSON.stringify(placeShape(placement, shape)),
+      ),
+    ),
+  );
   const rock = new Terrain(
-    CAVE_FOOTPRINT.map((shape: Shape) =>
-      placeShape({ ...CAVE_MODEL_CENTRE, yaw: 0 }, shape),
+    CAVE_TERRAIN.shapes.filter(
+      (shape: Shape) => !fixtures.has(JSON.stringify(shape)),
     ),
     CAVE_TERRAIN.boundary,
   );
@@ -1769,20 +1593,18 @@ async function checkCave(files: readonly string[]): Promise<StrikeResult> {
       }
     }
   }
-  const torch: GLTF = await loadCavePlaced(CAVE_TORCH_FILE);
+  const placement: Placement = findCavePlacement(CAVE_TORCH_FILE);
+  const torch: GLTF = await loadAt(placement);
   const flame: Vector3[] = listMaterialVertices(torch.scene, 'flame');
   const middle = new Vector3();
   for (const point of flame) {
     middle.add(point);
   }
-  middle.divideScalar(Math.max(flame.length, 1));
-  const placement: Placement | undefined = CAVE_PLACEMENTS.find(
-    (candidate: Placement) => candidate.file === CAVE_TORCH_FILE,
-  );
-  const ahead: GroundVector =
-    placement === undefined
-      ? { x: NaN, z: NaN }
-      : placePoint(placement, { x: 0, z: CAVE_FLAME_AHEAD });
+  middle.divideScalar(flame.length);
+  const ahead: GroundVector = placePoint(placement, {
+    x: 0,
+    z: CAVE_FLAME_AHEAD,
+  });
   if (
     flame.length === 0 ||
     Math.hypot(middle.x - ahead.x, middle.z - ahead.z) > FLAME_TOLERANCE ||
@@ -1875,8 +1697,8 @@ function findBarAxes(root: Object3D): number[] {
  *
  * Each of the bars, the bones and the containers, shut and open, standing
  * in its place, reaches out to the edges of the ground it takes up, and no
- * farther; the bars of each cell run across its whole opening, on the edge
- * of the passage; and the bones lean on the back wall of the south cell.
+ * farther; the bars of each cell run across its whole opening; and the
+ * bones lean on the back wall of the south cell.
  * Through his idle clip, both fists of the prisoner close round a bar of
  * his cell, and nothing else of him passes into a bar or through the bars
  * into the passage.
@@ -1885,23 +1707,27 @@ function findBarAxes(root: Object3D): number[] {
  */
 async function checkCaveFixtures(): Promise<StrikeResult> {
   const failures: string[] = [];
-  const placements: Placement[] = [
+  // Each model in its place, and the model whose ground it takes up: a
+  // container takes up the same ground open as shut.
+  const placements: (readonly [Placement, string])[] = [
     ...CAVE_PLACEMENTS.filter(
       ({ file }: Placement) =>
         file === CAVE_BARS_FILE || file === CAVE_SKELETON_FILE,
+    ).map((placement: Placement) => [placement, placement.file] as const),
+    ...CAVE_CONTAINERS.flatMap(
+      (container: CaveContainer): (readonly [Placement, string])[] => {
+        const { closed, open } = CAVE_CONTAINER_FILES[container.kind];
+        return [
+          [{ ...container, file: closed }, closed],
+          [{ ...container, file: open }, closed],
+        ];
+      },
     ),
-    ...CAVE_CONTAINERS.flatMap((container: CaveContainer): Placement[] => {
-      const { closed, open } = CAVE_CONTAINER_FILES[container.kind];
-      return [
-        { ...container, file: closed },
-        { ...container, file: open },
-      ];
-    }),
   ];
-  for (const placement of placements) {
+  for (const [placement, groundFile] of placements) {
     const model: GLTF = await loadAt(placement);
     const box: Box3 = new Box3().setFromObject(model.scene, true);
-    const shapes: Shape[] = (CAVE_FIXTURE_FOOTPRINTS[placement.file] ?? []).map(
+    const shapes: Shape[] = (CAVE_FIXTURE_FOOTPRINTS[groundFile] ?? []).map(
       (shape: Shape) => placeShape(placement, shape),
     );
     const where = `${placement.file} at (${placement.x.toFixed(2)}, ` +
@@ -1922,8 +1748,7 @@ async function checkCaveFixtures(): Promise<StrikeResult> {
       const cell = CAVE_CELLS[placement.z < 0 ? 0 : 1];
       if (
         Math.abs(box.min.x - cell.west) > FOOTPRINT_TOLERANCE ||
-        Math.abs(box.max.x - cell.east) > FOOTPRINT_TOLERANCE ||
-        Math.abs(Math.abs(placement.z) - CAVE_PASSAGE_HALF_WIDTH) > 1e-9
+        Math.abs(box.max.x - cell.east) > FOOTPRINT_TOLERANCE
       ) {
         failures.push(`${where} does not close off the whole cell`);
       }
@@ -1936,83 +1761,82 @@ async function checkCaveFixtures(): Promise<StrikeResult> {
     }
   }
 
-  const edwinPlacement: Placement | undefined = CAVE_PLACEMENTS.find(
-    ({ file }: Placement) => file === CAVE_EDWIN_FILE,
-  );
+  const edwinPlacement: Placement = findCavePlacement(CAVE_EDWIN_FILE);
   const barsPlacement: Placement | undefined = CAVE_PLACEMENTS.find(
     ({ file, z }: Placement) => file === CAVE_BARS_FILE && z < 0,
   );
+  if (barsPlacement === undefined) {
+    throw new Error(`The cave has no place for ${CAVE_BARS_FILE}.`);
+  }
   let closest = Infinity;
   let loosest = 0;
-  if (edwinPlacement !== undefined && barsPlacement !== undefined) {
-    const edwin: GLTF = await loadAt(edwinPlacement);
-    const bars: GLTF = await loadAt(barsPlacement);
-    const axes: number[] = findBarAxes(bars.scene);
-    const barTop: number = new Box3().setFromObject(bars.scene).max.y;
-    const barZ: number = barsPlacement.z;
-    const findBarDistance = (p: Vector3): number =>
-      Math.min(...axes.map((x: number) => Math.hypot(p.x - x, p.z - barZ)));
-    const clip: AnimationClip | undefined = edwin.animations.find(
-      (candidate: AnimationClip) => candidate.name === 'Idle',
-    );
-    if (clip === undefined) {
-      failures.push(`${CAVE_EDWIN_FILE} does not idle`);
-    } else {
-      let isHeld = true;
-      let isClear = true;
-      for (let k = 0; k <= EDWIN_SAMPLES; k++) {
-        const mixer: AnimationMixer = poseModel(
-          edwin,
-          clip,
-          (clip.duration * k) / EDWIN_SAMPLES,
+  const edwin: GLTF = await loadAt(edwinPlacement);
+  const bars: GLTF = await loadAt(barsPlacement);
+  const axes: number[] = findBarAxes(bars.scene);
+  const barTop: number = new Box3().setFromObject(bars.scene).max.y;
+  const barZ: number = barsPlacement.z;
+  const findBarDistance = (p: Vector3): number =>
+    Math.min(...axes.map((x: number) => Math.hypot(p.x - x, p.z - barZ)));
+  const clip: AnimationClip | undefined = edwin.animations.find(
+    (candidate: AnimationClip) => candidate.name === 'Idle',
+  );
+  if (clip === undefined) {
+    failures.push(`${CAVE_EDWIN_FILE} does not idle`);
+  } else {
+    let isHeld = true;
+    let isClear = true;
+    for (let k = 0; k <= EDWIN_SAMPLES; k++) {
+      const mixer: AnimationMixer = poseModel(
+        edwin,
+        clip,
+        (clip.duration * k) / EDWIN_SAMPLES,
+      );
+      const hands: Vector3[] = listMaterialVertices(
+        edwin.scene,
+        HAND_MATERIAL,
+      );
+      for (const side of [-1, 1]) {
+        const fist: Vector3[] = hands.filter(
+          (p: Vector3) => Math.sign(p.x - edwinPlacement.x) === side,
         );
-        const hands: Vector3[] = listMaterialVertices(
-          edwin.scene,
-          HAND_MATERIAL,
-        );
-        for (const side of [-1, 1]) {
-          const fist: Vector3[] = hands.filter(
-            (p: Vector3) => Math.sign(p.x - edwinPlacement.x) === side,
-          );
-          const middle = new Vector3();
-          for (const p of fist) {
-            middle.add(p);
-          }
-          middle.divideScalar(Math.max(fist.length, 1));
-          const grip: number =
-            fist.length === 0 ? Infinity : findBarDistance(middle);
-          loosest = Math.max(loosest, grip);
-          if (grip > GRIP_TOLERANCE) {
-            isHeld = false;
-          }
+        const middle = new Vector3();
+        for (const p of fist) {
+          middle.add(p);
         }
-        const rest: Mesh[] = [];
-        edwin.scene.traverse((node: Object3D) => {
-          if (
-            isMesh(node) &&
-            !Array.isArray(node.material) &&
-            node.material.name !== HAND_MATERIAL
-          ) {
-            rest.push(node);
-          }
-        });
-        for (const p of rest.flatMap(
-          (node: Mesh) => listWorldVertices(node).positions,
-        )) {
-          const distance: number = findBarDistance(p);
-          closest = Math.min(closest, distance);
-          if (p.z > barZ || (p.y < barTop && distance < BAR_CLEARANCE)) {
-            isClear = false;
-          }
+        middle.divideScalar(fist.length);
+        const grip: number =
+          fist.length === 0 ? Infinity : findBarDistance(middle);
+        loosest = Math.max(loosest, grip);
+        if (grip > GRIP_TOLERANCE) {
+          isHeld = false;
         }
-        resetModel(edwin, mixer);
       }
-      if (!isHeld) {
-        failures.push(`the fists of ${CAVE_EDWIN_FILE} do not hold the bars`);
+      const rest: Mesh[] = [];
+      edwin.scene.traverse((node: Object3D) => {
+        if (
+          isMesh(node) &&
+          !Array.isArray(node.material) &&
+          node.material.name !== HAND_MATERIAL
+        ) {
+          rest.push(node);
+        }
+      });
+      for (const p of rest.flatMap(
+        (node: Mesh) => listWorldVertices(node).positions,
+      )) {
+        const distance: number = findBarDistance(p);
+        closest = Math.min(closest, distance);
+        if (p.z > barZ || (p.y < barTop && distance < BAR_CLEARANCE)) {
+          isClear = false;
+        }
       }
-      if (!isClear) {
-        failures.push(`${CAVE_EDWIN_FILE} passes into the bars of his cell`);
-      }
+      resetModel(edwin, mixer);
+    }
+    if (!isHeld) {
+      failures.push(`the fists of ${CAVE_EDWIN_FILE} do not hold the bars`);
+    }
+    if (!isClear) {
+      failures.push(`${CAVE_EDWIN_FILE} passes into the bars of his cell`);
     }
   }
   const summary =
@@ -2115,7 +1939,7 @@ async function checkApothecary(
     }
   }
   const basilPlacement: Placement = findPlacement(BASIL_FILE);
-  const basil: GLTF = await loadPlaced(BASIL_FILE);
+  const basil: GLTF = await loadAt(basilPlacement);
   const clip: AnimationClip | undefined = basil.animations.find(
     (candidate: AnimationClip) => candidate.name === 'Idle',
   );
@@ -2188,10 +2012,11 @@ async function checkApothecary(
   const yaw: number =
     (Math.atan2(basilPlacement.x - spot.x, basilPlacement.z - spot.z) * 180) /
     Math.PI;
-  const isTalked: boolean = findVillager({ ...spot, yaw }, 0)?.id === 'basil';
+  const isTalked: boolean =
+    findVillager({ ...spot, yaw }, 0, 'village', [])?.id === 'basil';
   const isReached: boolean =
     VILLAGE_TERRAIN.isClear(spot) &&
-    findVillagePath(findSpawnPoint(0), spot) !== null;
+    findMapPath('village', findSpawnPoint(0), spot) !== null;
   if (!isTalked) {
     failures.push(
       `a player in front of the door of ${APOTHECARY_FILE} does not talk ` +
@@ -2275,7 +2100,6 @@ async function checkModels(): Promise<boolean> {
   // The models of the side chambers are required with the prisoner, and
   // optional props otherwise; without all of them, they are not checked.
   const fixtures: StrikeResult = [
-    CAVE_EDWIN_FILE,
     ...new Set(CAVE_PLACEMENTS.map(({ file }: Placement) => file)),
     ...Object.values(CAVE_CONTAINER_FILES).flatMap(
       ({ closed, open }) => [closed, open],

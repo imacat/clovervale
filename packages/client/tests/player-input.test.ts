@@ -26,14 +26,12 @@ import { describe, expect, it } from 'vitest';
 import {
   CAVE_CONTAINERS,
   CAVE_PASSAGE,
-  CAVE_ROPE,
   CLOVER_PATCHES,
   PLAYER_RADIUS,
   VILLAGERS,
   NO_WORLD_ITEMS,
   createMotion,
   findPlacement,
-  killMotion,
   locateVillager,
 } from '@clovervale/shared';
 import type {
@@ -42,6 +40,8 @@ import type {
   MonsterState,
   PlayerMotion,
 } from '@clovervale/shared';
+import { CAVE_ROPE } from '../../shared/src/cave.ts';
+import { killMotion } from '../../shared/src/player-motion.ts';
 
 import {
   MoveKeys,
@@ -86,7 +86,6 @@ describe('findKeyCommand', () => {
     expect(findKeyCommand('KeyQ')).toBeNull();
     expect(findKeyCommand('KeyI')).toBeNull();
     expect(findKeyCommand('Enter')).toBeNull();
-    expect(findKeyCommand('toString')).toBeNull();
   });
 
   it('leaves the arrow keys to the camera', () => {
@@ -108,18 +107,24 @@ describe('chooseSpaceInput', () => {
 
   it('picks while the clover of the patch is within reach', () => {
     const world = { clovers: [6], items: [] };
-    expect(chooseSpaceInput(BY_PATCH, 0, world)).toEqual({ type: 'pick' });
+    expect(chooseSpaceInput(BY_PATCH, 0, world, 'village', [])).toEqual({
+      type: 'pick',
+    });
   });
 
   it('interacts while there is nothing to pick within reach', () => {
-    expect(chooseSpaceInput(BY_PATCH, 0, NO_WORLD_ITEMS)).toEqual({
+    expect(
+      chooseSpaceInput(BY_PATCH, 0, NO_WORLD_ITEMS, 'village', []),
+    ).toEqual({
       type: 'interact',
     });
   });
 
   it('interacts while the player cannot interact', () => {
     const world = { clovers: [6], items: [] };
-    expect(chooseSpaceInput(killMotion(BY_PATCH), 0, world)).toEqual({
+    expect(
+      chooseSpaceInput(killMotion(BY_PATCH), 0, world, 'village', []),
+    ).toEqual({
       type: 'interact',
     });
   });
@@ -308,12 +313,12 @@ describe('chooseSpaceInput in the cave', () => {
   it('interacts before the prisoner, to talk to him through his bars', () => {
     const edwin = VILLAGERS.find(({ id }) => id === 'edwin');
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
     const before: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       180,
     );
-    expect(chooseSpaceInput(before, 0, NO_WORLD_ITEMS, 'cave')).toEqual({
+    expect(chooseSpaceInput(before, 0, NO_WORLD_ITEMS, 'cave', [])).toEqual({
       type: 'interact',
     });
   });
@@ -322,11 +327,11 @@ describe('chooseSpaceInput in the cave', () => {
     const looted: number[] = CAVE_CONTAINERS.map((_, id: number) => id);
     for (const container of CAVE_CONTAINERS) {
       const motion: PlayerMotion = standBefore(container);
-      expect(chooseSpaceInput(motion, 0, NO_WORLD_ITEMS, 'cave')).toEqual({
+      expect(chooseSpaceInput(motion, 0, NO_WORLD_ITEMS, 'cave', [])).toEqual({
         type: 'pick',
       });
       expect(
-        chooseSpaceInput(motion, 0, { ...NO_WORLD_ITEMS, looted }, 'cave'),
+        chooseSpaceInput(motion, 0, { ...NO_WORLD_ITEMS, looted }, 'cave', []),
       ).toEqual({ type: 'pick' });
     }
   });

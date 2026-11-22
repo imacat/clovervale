@@ -25,6 +25,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   INVENTORY_SIZE,
+  NO_WORLD_ITEMS,
   PROTOCOL_VERSION,
   createEventsMessage,
   createInteractMessage,
@@ -52,6 +53,7 @@ import type {
   MonsterState,
   PlayerState,
   SlashJudgement,
+  SnapshotMessage,
 } from '../src/index.ts';
 
 /** A player to put in snapshots. */
@@ -144,6 +146,40 @@ const ITEM: GroundItem = { id: 4, kind: 'clover', x: 2.5, z: -9.25 };
 /** How a slash was judged, to put in snapshots. */
 const SLASH: SlashJudgement = { step: 40, rewind: 312.5, isHit: true };
 
+/**
+ * Creates a snapshot message that tells of the players, the monsters and
+ * the inputs alone: with no slash judged, nothing to pick, nothing carried,
+ * no silver coins, no dialogue, no acquaintances and no quests.
+ *
+ * @param {number} step - The number of simulation steps the world has
+ *   taken.
+ * @param {readonly PlayerState[]} players - The players.
+ * @param {readonly MonsterState[]} monsters - The monsters.
+ * @param {InputProgress} own - How far the player of the peer has got with
+ *   the inputs of the peer.
+ * @returns {SnapshotMessage} The snapshot message.
+ */
+function createPlainSnapshot(
+  step: number,
+  players: readonly PlayerState[],
+  monsters: readonly MonsterState[],
+  own: InputProgress,
+): SnapshotMessage {
+  return createSnapshotMessage(
+    step,
+    players,
+    monsters,
+    own,
+    null,
+    NO_WORLD_ITEMS,
+    [],
+    null,
+    [],
+    {},
+    0,
+  );
+}
+
 describe('the server message codec', () => {
   it('decodes the welcome message it encodes', () => {
     const message = createWelcomeMessage(7, DAY);
@@ -179,7 +215,7 @@ describe('the server message codec', () => {
 
   it('decodes the snapshot message it encodes', () => {
     const idler: PlayerState = { ...PLAYER, id: 8, action: 'Slash' };
-    const message = createSnapshotMessage(42, [PLAYER, idler], [MONSTER], OWN);
+    const message = createPlainSnapshot(42, [PLAYER, idler], [MONSTER], OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -197,7 +233,7 @@ describe('the server message codec', () => {
       { ...MONSTER, id: 2, kind: 'cave-dog', mode: 'dead', health: 0 },
       { ...MONSTER, id: 3 },
     ];
-    const message = createSnapshotMessage(42, [PLAYER], monsters, OWN);
+    const message = createPlainSnapshot(42, [PLAYER], monsters, OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -221,7 +257,7 @@ describe('the server message codec', () => {
         isArmed: true,
       },
     ];
-    const message = createSnapshotMessage(42, [PLAYER], monsters, OWN);
+    const message = createPlainSnapshot(42, [PLAYER], monsters, OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
       monsters,
     });
@@ -233,7 +269,7 @@ describe('the server message codec', () => {
       const monsters: MonsterState[] = [
         { ...MONSTER, kind: 'martha', action: 'Walk', mode, isArmed: false },
       ];
-      const message = createSnapshotMessage(42, [PLAYER], monsters, OWN);
+      const message = createPlainSnapshot(42, [PLAYER], monsters, OWN);
       expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject(
         { monsters },
       );
@@ -267,7 +303,19 @@ describe('the server message codec', () => {
   });
 
   it('decodes a snapshot message that tells how a slash was judged', () => {
-    const message = createSnapshotMessage(42, [PLAYER], [], OWN, SLASH);
+    const message = createSnapshotMessage(
+      42,
+      [PLAYER],
+      [],
+      OWN,
+      SLASH,
+      NO_WORLD_ITEMS,
+      [],
+      null,
+      [],
+      {},
+      0,
+    );
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -285,7 +333,7 @@ describe('the server message codec', () => {
       ...OWN,
       motion: { ...OWN.motion, action: 'Talk', actionSteps: 5 },
     };
-    const message = createSnapshotMessage(42, [talker], [], own);
+    const message = createPlainSnapshot(42, [talker], [], own);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -303,7 +351,7 @@ describe('the server message codec', () => {
       ...OWN,
       motion: { ...OWN.motion, action: 'Die' },
     };
-    const message = createSnapshotMessage(42, [dead], [], own);
+    const message = createPlainSnapshot(42, [dead], [], own);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -316,7 +364,7 @@ describe('the server message codec', () => {
   });
 
   it('decodes a snapshot message without players or monsters', () => {
-    const message = createSnapshotMessage(0, [], [], OWN);
+    const message = createPlainSnapshot(0, [], [], OWN);
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -583,6 +631,10 @@ describe('the server message codec', () => {
       null,
       { clovers: [0, 3, 10], items: [ITEM, second] },
       ['clover', 'clover'],
+      null,
+      [],
+      {},
+      0,
     );
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
@@ -652,6 +704,10 @@ describe('the server message codec', () => {
       null,
       { clovers: [], items: [], looted: [0, 4] },
       ['sword', 'leather-armour', 'clover'],
+      null,
+      [],
+      {},
+      0,
     );
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
       type: 'snapshot',
@@ -668,6 +724,11 @@ describe('the server message codec', () => {
       OWN,
       null,
       { clovers: [0, 3], items: [], tobyFind: 197 },
+      [],
+      null,
+      [],
+      {},
+      0,
     );
     expect(message.tobyFind).toBe(197);
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
@@ -709,9 +770,7 @@ describe('the server message codec', () => {
       monsters: [],
       own: OWN,
       slash: null,
-      clovers: [],
-      items: [],
-      inventory: [],
+      ...NOTHING_TO_PICK,
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -732,9 +791,7 @@ describe('the server message codec', () => {
       monsters: [],
       own: OWN,
       slash: null,
-      items: [],
-      looted: [],
-      inventory: [],
+      ...NOTHING_TO_PICK,
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -753,9 +810,7 @@ describe('the server message codec', () => {
       monsters: [],
       own: OWN,
       slash: null,
-      clovers: [],
-      looted: [],
-      inventory: [],
+      ...NOTHING_TO_PICK,
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -768,10 +823,12 @@ describe('the server message codec', () => {
       [],
       OWN,
       null,
-      undefined,
+      NO_WORLD_ITEMS,
       ['clovervale-message'],
       DIALOGUE,
       ['edwin'],
+      {},
+      0,
     );
     const decoded = decodeServerMessage(encodeServerMessage(message));
     expect(decoded).toEqual(message);
@@ -792,7 +849,7 @@ describe('the server message codec', () => {
     ['has no number of its line', { dialogue: { ...DIALOGUE, turn: 0 } }],
   ])('rejects a snapshot whose dialogue %s', (_, flaw) => {
     const data = JSON.stringify({
-      ...createSnapshotMessage(4, [PLAYER], [], OWN),
+      ...createPlainSnapshot(4, [PLAYER], [], OWN),
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -805,11 +862,12 @@ describe('the server message codec', () => {
       [],
       OWN,
       null,
-      undefined,
+      NO_WORLD_ITEMS,
       ['martha-ointment'],
       null,
       [],
       { 'toby-hurt': 'started' },
+      0,
     );
     const decoded = decodeServerMessage(encodeServerMessage(message));
     expect(decoded).toEqual(message);
@@ -823,7 +881,7 @@ describe('the server message codec', () => {
     ['tell no stage there is', { quests: { 'toby-hurt': 'given up' } }],
   ])('rejects a snapshot whose quests %s', (_, flaw) => {
     const data = JSON.stringify({
-      ...createSnapshotMessage(4, [PLAYER], [], OWN),
+      ...createPlainSnapshot(4, [PLAYER], [], OWN),
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -835,7 +893,7 @@ describe('the server message codec', () => {
     ['name a villager twice', { acquaintances: ['edwin', 'edwin'] }],
   ])('rejects a snapshot whose acquaintances %s', (_, flaw) => {
     const data = JSON.stringify({
-      ...createSnapshotMessage(4, [PLAYER], [], OWN),
+      ...createPlainSnapshot(4, [PLAYER], [], OWN),
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -927,9 +985,7 @@ describe('the server message codec', () => {
       monsters: [],
       own: OWN,
       slash: null,
-      clovers: [],
-      items: [],
-      looted: [],
+      ...NOTHING_TO_PICK,
       ...flaw,
     });
     expect(() => decodeServerMessage(data)).toThrow();
@@ -966,15 +1022,6 @@ describe('the client message codec', () => {
       sequence: 2,
       after: 3,
       viewTime: 1234.5,
-    });
-  });
-
-  it('decodes an interact message whose time is null as naming none', () => {
-    const data = '{"type":"interact","sequence":1,"after":0,"viewTime":null}';
-    expect(decodeClientMessage(data)).toEqual({
-      type: 'interact',
-      sequence: 1,
-      after: 0,
     });
   });
 
@@ -1099,6 +1146,7 @@ describe('the client message codec', () => {
   });
 
   it.each([
+    ['null', null],
     ['a string', '100'],
     ['an object', {}],
     ['a truth value', true],

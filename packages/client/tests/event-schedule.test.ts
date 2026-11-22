@@ -66,7 +66,6 @@ describe('EventSchedule', () => {
     schedule.receive([hit]);
     expect(schedule.takeDue(20 * STEP)).toEqual([hit]);
     expect(schedule.takeDue(30 * STEP)).toEqual([]);
-    expect(schedule.size).toBe(0);
   });
 
   it('ignores an event it has taken in before', () => {

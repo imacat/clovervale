@@ -25,6 +25,7 @@ import { AnimationClip, NumberKeyframeTrack, Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import {
+  NO_WORLD_ITEMS,
   PLAYER_HEALTH,
   createMotion,
   createSnapshotMessage,
@@ -339,6 +340,13 @@ describe('PlayerFigures', () => {
         [{ ...PLAYER, ...state }],
         [],
         OWN,
+        null,
+        NO_WORLD_ITEMS,
+        [],
+        null,
+        [],
+        {},
+        0,
       );
       timeline.addSnapshot(snapshot, step * 50);
     }

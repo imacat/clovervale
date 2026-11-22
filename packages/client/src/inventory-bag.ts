@@ -284,12 +284,7 @@ export class InventoryBag {
       this.clickSlot(this.#cursor);
       return IGNORED;
     }
-    const move: readonly [number, number] | undefined = Object.hasOwn(
-      ARROW_MOVES,
-      code,
-    )
-      ? ARROW_MOVES[code]
-      : undefined;
+    const move: readonly [number, number] | undefined = ARROW_MOVES[code];
     if (move === undefined) {
       return PASSED;
     }
@@ -320,19 +315,12 @@ export class InventoryBag {
   }
 
   /**
-   * Puts the cursor on a slot, and opens the menu of its item if it holds
-   * one, or closes the menu if it does not.  A slot the bag does not have
-   * is left alone.
+   * Puts the cursor of the open bag on a slot, and opens the menu of its
+   * item if it holds one, or closes the menu if it does not.
    *
    * @param {number} slot - The number of the slot, from 0.
    */
   clickSlot(slot: number): void {
-    if (!this.#isOpen || !Number.isInteger(slot) || slot < 0) {
-      return;
-    }
-    if (slot >= INVENTORY_SIZE) {
-      return;
-    }
     this.#cursor = slot;
     this.#menuCursor = this.#isFilled(slot) ? 0 : null;
   }

@@ -82,15 +82,6 @@ export class Realm {
   }
 
   /**
-   * The number of caves the realm holds now, one for each player in one.
-   *
-   * @returns {number} The number of caves.
-   */
-  get caveCount(): number {
-    return this.#caves.size;
-  }
-
-  /**
    * Lets a new player into the village, as {@link World.addPlayer} tells,
    * with an appearance chosen among the players of every world.
    *
@@ -130,16 +121,6 @@ export class Realm {
       return cave;
     }
     return this.#village.findProgress(id) === null ? null : this.#village;
-  }
-
-  /**
-   * Finds the map a player is in.
-   *
-   * @param {number} id - The identifier of the player.
-   * @returns {MapId | null} The map, or `null` if the player is in none.
-   */
-  findMap(id: number): MapId | null {
-    return this.findWorld(id)?.map ?? null;
   }
 
   /**

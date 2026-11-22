@@ -63,8 +63,8 @@ const PASSED: DialogueResponse = { isHandled: false, request: null };
 export class DialogueBox {
   #dialogue: DialogueView | null = null;
   #cursor = 0;
-  /** The line the player has answered, while the box waits for the server. */
-  #answeredTurn: number | null = null;
+  /** Whether the player has answered the line, and the box waits. */
+  #isAnswered = false;
 
   /**
    * Whether the box is open.
@@ -104,7 +104,7 @@ export class DialogueBox {
   noticeDialogue(dialogue: DialogueView | null): void {
     if (dialogue?.turn !== this.#dialogue?.turn) {
       this.#cursor = 0;
-      this.#answeredTurn = null;
+      this.#isAnswered = false;
     }
     this.#dialogue = dialogue;
   }
@@ -135,42 +135,19 @@ export class DialogueBox {
 
   /**
    * Puts the cursor on a reply, and answers with it, or ends a dialogue
-   * that offers no reply.
+   * that offers no reply, for which the box then waits for the server.
    *
    * @param {number} index - The place of the reply among those offered,
-   *   from 0.
+   *   from 0, which is 0 where none is offered.
    * @returns {DialogueRequest | null} What the player answers, or `null`
-   *   if the box is closed or waits for the server, or there is no such
-   *   reply.
+   *   if the box is closed or waits for the server.
    */
   clickReply(index: number): DialogueRequest | null {
-    const dialogue: DialogueView | null = this.#dialogue;
-    if (dialogue === null || this.#answeredTurn !== null) {
-      return null;
-    }
-    if (dialogue.replies.length === 0) {
-      return this.#answer({ type: 'reply', choice: 0 });
-    }
-    if (!Number.isInteger(index) || dialogue.replies[index] === undefined) {
+    if (this.#dialogue === null || this.#isAnswered) {
       return null;
     }
     this.#cursor = index;
-    return this.#answer({ type: 'reply', choice: index });
-  }
-
-  /**
-   * Answers the line said to the player, unless the box waits for the
-   * server already.
-   *
-   * @param {DialogueRequest} request - The answer.
-   * @returns {DialogueRequest | null} The answer, or `null` if the box
-   *   waits for the server.
-   */
-  #answer(request: DialogueRequest): DialogueRequest | null {
-    if (this.#dialogue === null || this.#answeredTurn !== null) {
-      return null;
-    }
-    this.#answeredTurn = this.#dialogue.turn;
-    return request;
+    this.#isAnswered = true;
+    return { type: 'reply', choice: index };
   }
 }

@@ -215,13 +215,9 @@ export class Sky {
       hangInSky(object);
       scene.add(object);
     }
-    // The scene still does whatever it already did before being drawn.
-    const prepareScene: Scene['onBeforeRender'] =
-      scene.onBeforeRender.bind(scene);
     scene.onBeforeRender = (
       ...args: Parameters<Scene['onBeforeRender']>
     ): void => {
-      prepareScene(...args);
       this.centreOn(args[2]);
     };
   }

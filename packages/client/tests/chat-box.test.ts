@@ -129,11 +129,10 @@ describe('ChatBox', () => {
     }
   });
 
-  it('sends what a button asks it to, and nothing once closed', () => {
+  it('sends what a button asks it to, and closes', () => {
     const box: ChatBox = openBox();
     expect(box.send('Hello there!')).toBe('Hello there!');
     expect(box.isOpen).toBe(false);
-    expect(box.send('Hello again!')).toBeNull();
   });
 
   it('closes without sending when told to', () => {

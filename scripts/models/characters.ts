@@ -50,7 +50,7 @@ import type {
 } from './rig.ts';
 
 /** A way of wearing the hair. */
-export type HairStyle =
+type HairStyle =
   | 'bob'
   | 'ponytail'
   | 'twintails'
@@ -86,7 +86,7 @@ export interface HeadFit {
 }
 
 /** The look of a character. */
-export interface Look {
+interface Look {
   /** The hairstyle. */
   readonly style: HairStyle;
   /** The hair colour as `#rrggbb`. */
@@ -233,13 +233,13 @@ export const VARIANTS: readonly Look[] = [
  * @param {number} yaw - The angle from the front towards the left, in
  *   degrees.
  * @param {number} down - The angle below the equator, in degrees.
- * @param {number} [factor] - The distance from the centre, in head radii.
+ * @param {number} factor - The distance from the centre, in head radii.
  * @returns {Triple} The point in model space.
  */
 export function findHeadPoint(
   yaw: number,
   down: number,
-  factor = 1,
+  factor: number,
 ): Triple {
   const direction: Triple = [
     Math.sin(yaw * DEG) * Math.cos(down * DEG),
@@ -277,20 +277,15 @@ export function fitToHead(shape: Shape, fit: HeadFit): Shape {
  * The model needs the materials `skin`, `eye`, `white`, `blush` and
  * `mouth`.
  *
- * @param {Model} model - The model.
- * @param {string} bone - The head bone.
+ * @param {Model} model - The model, with the bone `Head`.
  * @param {HeadFit | null} [fit] - Where the head sits and how big it is,
  *   for a character of another build, or `null` for the head of a
  *   grown-up, which it is by default.
  */
-export function addHead(
-  model: Model,
-  bone: string,
-  fit: HeadFit | null = null,
-): void {
+export function addHead(model: Model, fit: HeadFit | null = null): void {
   const add = (material: string, shape: Shape, smooth = false): void => {
     const fitted: Shape = fit === null ? shape : fitToHead(shape, fit);
-    model.add(material, fitted, bone, { smooth });
+    model.add(material, fitted, 'Head', { smooth });
   };
   add(
     'skin',
@@ -361,21 +356,15 @@ function createHairCap(lines: readonly number[], flare: number): Shape {
         HEAD_RADII[2] * factor * Math.sin(phi) * Math.cos(theta),
     );
   };
-  const centre = new Vector3(...HEAD_CENTRE);
   const out: Shape = [];
-  const pushTriangle = (
-    a: Vector3,
-    b: Vector3,
-    c: Vector3,
-    outward: Vector3,
-  ): void => {
+  const pushTriangle = (a: Vector3, b: Vector3, c: Vector3): void => {
     const normal: Vector3 = new Vector3()
       .subVectors(b, a)
       .cross(new Vector3().subVectors(c, a));
     if (normal.length() < 1e-9) {
       return;
     }
-    out.push(normal.dot(outward) < 0 ? [a, c, b] : [a, b, c]);
+    out.push([a, c, b]);
   };
   for (let i = 0; i < columns; i++) {
     for (let j = 0; j < rows; j++) {
@@ -385,13 +374,8 @@ function createHairCap(lines: readonly number[], flare: number): Shape {
         findPoint(i + 1, j + 1),
         findPoint(i, j + 1),
       ];
-      const outward = new Vector3();
-      for (const p of quad) {
-        outward.addScaledVector(p, 0.25);
-      }
-      outward.sub(centre);
-      pushTriangle(quad[0], quad[1], quad[2], outward);
-      pushTriangle(quad[0], quad[2], quad[3], outward);
+      pushTriangle(quad[0], quad[1], quad[2]);
+      pushTriangle(quad[0], quad[2], quad[3]);
     }
     const rim: readonly [Vector3, Vector3, Vector3, Vector3] = [
       findPoint(i, rows),
@@ -399,11 +383,8 @@ function createHairCap(lines: readonly number[], flare: number): Shape {
       findPoint(i + 1, rows, true),
       findPoint(i, rows, true),
     ];
-    const down: Vector3 = new Vector3()
-      .subVectors(rim[0], findPoint(i, rows - 1))
-      .add(new Vector3().subVectors(rim[1], findPoint(i + 1, rows - 1)));
-    pushTriangle(rim[0], rim[1], rim[2], down);
-    pushTriangle(rim[0], rim[2], rim[3], down);
+    pushTriangle(rim[0], rim[1], rim[2]);
+    pushTriangle(rim[0], rim[2], rim[3]);
   }
   return out;
 }
@@ -829,7 +810,7 @@ function buildBody(name: string, look: Look): Model {
     model.addBone(`Foot${side}`, `Shin${side}`, [0.095 * x, 0.08, 0]);
   }
 
-  addHead(model, 'Head');
+  addHead(model);
   const hair: Hair = createHair(look.style);
   model.add('hair', hair.hair, 'Head');
   model.add('accent', hair.accent, 'Head');
@@ -1212,12 +1193,8 @@ const LEGS: Readonly<Record<'L' | 'R', LegBones>> = {
   R: ['ThighR', 'ShinR', 'FootR'],
 };
 const IDLE: PoseSpec = {
-  Chest: [2, 0, 0],
-  Head: [0, 0, 0],
-  UpperArmL: [6, 0, 9],
   ForeArmL: [-18, 0, 0],
   UpperArmR: [-12, 0, -14],
-  ForeArmR: [-58, 0, 0],
   HandR: [24, -16, 0],
 };
 
@@ -1387,10 +1364,8 @@ function animateBody(model: Model): ReadonlyMap<string, ClipReport> {
     ForeArmR: [0, 0, 20],
     HandR: [0, -90, 0],
     ThighL: [0, 0, 12],
-    ShinL: [0, 0, 0],
     FootL: [72, 0, 0],
     ThighR: [0, 0, -9],
-    ShinR: [0, 0, 0],
     FootR: [72, 0, 0],
   };
   const dieKeys: PoseKey[] = [

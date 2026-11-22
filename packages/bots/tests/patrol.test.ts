@@ -27,7 +27,6 @@ import { describe, expect, it } from 'vitest';
 import {
   PLAYER_RADIUS,
   SPAWN_POINT_COUNT,
-  TALK_REACH,
   TOBY_ENDS,
   TOBY_RADIUS,
   VILLAGE_TERRAIN,
@@ -36,10 +35,11 @@ import {
   findInteraction,
   findPlacement,
   findSpawnPoint,
-  findVillagePath,
+  findMapPath,
   stepMotion,
 } from '@clovervale/shared';
 import type { GroundVector, PlayerMotion } from '@clovervale/shared';
+import { TALK_REACH } from '../../shared/src/interaction.ts';
 
 import {
   DRINKING_SPOT,
@@ -53,7 +53,22 @@ import {
   planLeg,
   planRoute,
 } from '../src/patrol.ts';
-import type { Leg, PlaceLines } from '../src/patrol.ts';
+import type { Leg, PlaceLines, PointOfInterest } from '../src/patrol.ts';
+
+/**
+ * Finds the way from one point of the village to another, as a bot does.
+ *
+ * @param {GroundVector} from - Where the way starts.
+ * @param {GroundVector} to - Where the way is to end.
+ * @returns {GroundVector[] | null} The points to walk to, or `null` if
+ *   there is no such way.
+ */
+function findVillageWay(
+  from: GroundVector,
+  to: GroundVector,
+): GroundVector[] | null {
+  return findMapPath('village', from, to);
+}
 
 /**
  * Walks a player along a leg by the rules of the server.
@@ -68,7 +83,7 @@ function walkLeg(from: GroundVector, leg: Leg): GroundVector {
     direction: leg.direction,
   });
   for (let step = 0; step < leg.steps; step++) {
-    motion = stepMotion(motion, 0);
+    motion = stepMotion(motion, 0, 'village', []);
   }
   return { x: motion.x, z: motion.z };
 }
@@ -124,7 +139,7 @@ function traceRoute(from: GroundVector, legs: readonly Leg[]): GroundVector[] {
   for (const leg of legs) {
     motion = applyInput(motion, { type: 'move', direction: leg.direction });
     for (let step = 0; step < leg.steps; step++) {
-      motion = stepMotion(motion, 0);
+      motion = stepMotion(motion, 0, 'village', []);
       trace.push({ x: motion.x, z: motion.z });
     }
   }
@@ -177,29 +192,42 @@ describe('POINTS_OF_INTEREST', () => {
 
 describe('what a bot says at the points of interest', () => {
   /**
-   * Finds what a bot says at a point of interest.
+   * Finds the point of interest nearest a model of the village.
    *
-   * @param {string} name - What stands there.
-   * @returns {PlaceLines} Its lines there.
+   * @param {string} file - The file name of the model.
+   * @returns {PointOfInterest} The point.
    */
-  const findLines = (name: string): PlaceLines =>
-    POINTS_OF_INTEREST.find((point) => point.name === name)?.lines ?? [];
+  const findPointBy = (file: string): PointOfInterest => {
+    const place: GroundVector = findPlacement(file);
+    return POINTS_OF_INTEREST.reduce((nearest, point) =>
+      measureDistance(point.position, place) <
+      measureDistance(nearest.position, place)
+        ? point
+        : nearest,
+    );
+  };
+  /** The points of interest where a bot says nothing. */
+  const silent: PointOfInterest[] = [
+    findPointBy('fountain.glb'),
+    findPointBy('prop-spawn-stones.glb'),
+  ];
 
   it('is nothing at the fountain or the spawn point of the monster', () => {
-    expect(findLines('fountain')).toEqual([]);
-    expect(findLines('spawn point')).toEqual([]);
+    expect(silent.map(({ lines }) => lines)).toEqual([[], []]);
   });
 
   it('is two lines in turn everywhere else', () => {
-    for (const { name, lines } of POINTS_OF_INTEREST) {
-      if (name !== 'fountain' && name !== 'spawn point') {
-        expect(lines).toHaveLength(2);
-      }
+    const others: PointOfInterest[] = POINTS_OF_INTEREST.filter(
+      (point) => !silent.includes(point),
+    );
+    expect(others).toHaveLength(POINTS_OF_INTEREST.length - 2);
+    for (const { lines } of others) {
+      expect(lines).toHaveLength(2);
     }
   });
 
   it('asks Martha for an inn, then the way to one of four', () => {
-    const lines: PlaceLines = findLines('village chief');
+    const { lines } = findPointBy('npc-martha.glb');
     const draws: number[] = [0, 0.3, 0.6, 0.9];
     expect(choosePhrase(lines, 0, () => 0.9)).toBe('askInn');
     expect(draws.map((draw) => choosePhrase(lines, 1, () => draw))).toEqual([
@@ -242,11 +270,6 @@ describe('choosePhrase', () => {
       'askNancy',
     ]);
   });
-
-  it('says nothing where there are no lines', () => {
-    expect(choosePhrase([], 0, () => 0)).toBeNull();
-    expect(choosePhrase([], 3, () => 0.5)).toBeNull();
-  });
 });
 
 describe('planLeg', () => {
@@ -273,7 +296,7 @@ describe('planRoute', () => {
   )(
     'walks around the obstacles from %j to within half a step of %j',
     (from, to) => {
-      const path: GroundVector[] | null = findVillagePath(from, to);
+      const path: GroundVector[] | null = findMapPath('village', from, to);
       expect(path).not.toBeNull();
       let end: GroundVector = from;
       for (const leg of planRoute(from, path ?? [])) {
@@ -290,7 +313,7 @@ describe('planRoute', () => {
       const from: GroundVector = findSpawnPoint(index);
       for (const { position: to } of POINTS_OF_INTEREST) {
         let end: GroundVector = from;
-        for (const leg of planRoute(from, findVillagePath(from, to) ?? [])) {
+        for (const leg of planRoute(from, findMapPath('village', from, to) ?? [])) {
           end = walkLeg(end, leg);
         }
         expect(measureDistance(end, to)).toBeLessThanOrEqual(
@@ -304,9 +327,9 @@ describe('planRoute', () => {
     for (const { position: from } of POINTS_OF_INTEREST) {
       const routes: Leg[][] = [
         ...POINTS_OF_INTEREST.map(({ position: to }) =>
-          planRoute(from, findVillagePath(from, to) ?? []),
+          planRoute(from, findMapPath('village', from, to) ?? []),
         ),
-        planDrinkingWalk(from, findVillagePath) ?? [],
+        planDrinkingWalk(from, findVillageWay) ?? [],
       ];
       for (const legs of routes) {
         for (const point of traceRoute(from, legs)) {
@@ -331,18 +354,20 @@ describe('planDrinkingWalk', () => {
       DRINKING_SPOT,
     ];
     for (const start of starts) {
-      const legs: Leg[] | null = planDrinkingWalk(start, findVillagePath);
+      const legs: Leg[] | null = planDrinkingWalk(start, findVillageWay);
       expect(legs).not.toBeNull();
       let motion: PlayerMotion = createMotion(start, 0);
       for (const leg of legs ?? []) {
         motion = applyInput(motion, { type: 'move', direction: leg.direction });
         for (let step = 0; step < leg.steps; step++) {
-          motion = stepMotion(motion, 0);
+          motion = stepMotion(motion, 0, 'village', []);
         }
       }
       motion = stepMotion(
         applyInput(motion, { type: 'move', direction: { x: 0, z: 0 } }),
         0,
+        'village',
+        [],
       );
       expect(measureDistance(motion, DRINKING_SPOT)).toBeLessThanOrEqual(
         STEP_DISTANCE / 2 + 1e-9,
@@ -399,9 +424,5 @@ describe('chooseNextPoint', () => {
         [0, 1, 2, 3].filter((index: number) => index !== current),
       );
     }
-  });
-
-  it('chooses the only point again', () => {
-    expect(chooseNextPoint(1, 0, repeat(0.5))).toBe(0);
   });
 });

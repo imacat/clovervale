@@ -23,7 +23,7 @@
  *   and the chests and the barrels of the store rooms, shut and open.
  */
 
-import { CAVE_CELLS } from '@clovervale/shared';
+import { CAVE_CELLS } from '../../packages/shared/src/cave.ts';
 
 import {
   createBlock,
@@ -34,6 +34,7 @@ import {
   place,
 } from './geometry.ts';
 import type { Pair, Shape, Triple } from './geometry.ts';
+import { getItem } from './items.ts';
 import { Model } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
@@ -464,17 +465,18 @@ export function buildCaveSkeleton(): BuiltModel {
  * front, and its back if told, near either end.
  *
  * @param {Triple} centre - The middle of the box.
- * @param {Triple} size - The width, the height and the depth of the box.
+ * @param {number} height - The height of the box.
+ * @param {number} depth - The depth of the box.
  * @param {boolean} hasBack - Whether the straps run down its back too.
  * @returns {Shape[]} The straps.
  */
 function createStraps(
   centre: Triple,
-  size: Triple,
+  height: number,
+  depth: number,
   hasBack: boolean,
 ): Shape[] {
   const [cx, cy, cz] = centre;
-  const [, height, depth] = size;
   const straps: Shape[] = [];
   for (const x of [-0.3, 0.3]) {
     straps.push(
@@ -558,7 +560,8 @@ function buildChest(isOpen: boolean): BuiltModel {
   }
   const bodyStraps: Shape[] = createStraps(
     [0, CHEST_BODY / 2, 0],
-    [CHEST_WIDTH, CHEST_BODY, CHEST_DEPTH],
+    CHEST_BODY,
+    CHEST_DEPTH,
     true,
   );
   for (const strap of bodyStraps) {
@@ -598,7 +601,8 @@ function buildChest(isOpen: boolean): BuiltModel {
     ],
     ...createStraps(
       [0, CHEST_BODY + CHEST_LID / 2, 0],
-      [CHEST_WIDTH, CHEST_LID, CHEST_DEPTH],
+      CHEST_LID,
+      CHEST_DEPTH,
       false,
     ).map((strap: Shape): [string, Shape] => ['iron', strap]),
   ];
@@ -647,8 +651,8 @@ function buildBarrel(isOpen: boolean): BuiltModel {
   model.setMaterial('lid', '#6e4a2c');
   model.setMaterial('inside', '#2e2016');
   model.setMaterial('iron', '#3d3a37', { roughness: 0.5, metallic: 0.7 });
-  const top: number = BARREL_PROFILE.at(-1)?.[1] ?? 0;
-  const rim: number = (BARREL_PROFILE.at(-1)?.[0] ?? 0) - 0.025;
+  const [rimRadius, top] = getItem(BARREL_PROFILE, BARREL_PROFILE.length - 1);
+  const rim: number = rimRadius - 0.025;
   for (let stave = 0; stave < STAVES; stave++) {
     model.add(
       stave % 2 === 0 ? 'stave' : 'staveDark',

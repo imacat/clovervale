@@ -28,12 +28,10 @@ import {
   AuthoritativePlayer,
   CAVE_CONTAINERS,
   CAVE_DOG_HOMES,
-  CAVE_LANDING,
   CAVE_TERRAIN,
   CLOVER_PATCHES,
   CLOVER_REGROW_DURATION,
   DEATH_DURATION,
-  DRINK_STEPS,
   FOUNTAIN_HEALING,
   GROUND_ITEM_DURATION,
   HEALING_POTION_PRICE,
@@ -47,7 +45,6 @@ import {
   SAY_RANGE,
   SIMULATION_RATE,
   SLASH_DAMAGE,
-  SLASH_DURATION,
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   TALK_STEPS,
@@ -56,13 +53,10 @@ import {
   TOBY_FOUND_LINE,
   TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
-  TOBY_PATCHES,
   TOBY_RADIUS,
-  NavigationGraph,
   VILLAGERS,
   WALK_SPEED,
   PITCHFORK_STAND,
-  WELL_STAND,
   createInteractMessage,
   createMotion,
   createMoveMessage,
@@ -71,7 +65,7 @@ import {
   findTobyGrab,
   findTobyPose,
   findInteraction,
-  findVillagePath,
+  findMapPath,
   isWithinStrike,
   locateVillager,
   placePoint,
@@ -91,6 +85,12 @@ import type {
   TobyGrab,
   Villager,
 } from '@clovervale/shared';
+import { SLASH_DURATION } from '../../shared/src/actions.ts';
+import { CAVE_LANDING } from '../../shared/src/cave.ts';
+import { NavigationGraph } from '../../shared/src/navigation.ts';
+import { DRINK_STEPS } from '../../shared/src/player-motion.ts';
+import { TOBY_PATCHES } from '../../shared/src/toby.ts';
+import { WELL_STAND } from '../../shared/src/village-layout.ts';
 
 import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
 import type { MonsterSpawn } from '../src/monster.ts';
@@ -262,7 +262,7 @@ function findMonster(world: World): MonsterState {
  * @throws {Error} If the player finds no way there.
  */
 function walkPlayer(world: World, id: number, to: GroundVector): void {
-  const path: GroundVector[] | null = findVillagePath(
+  const path: GroundVector[] | null = findMapPath('village', 
     findPlayer(world, id),
     to,
   );
@@ -395,7 +395,7 @@ interface MonsterSighting {
  * @throws {Error} If the monster does not get away.
  */
 function runGetaway(world: RecordingWorld): { id: number; viewTime: number } {
-  const { id }: PlayerState = world.addPlayer();
+  const { id }: PlayerState = world.addPlayer([]);
   meetMonster(world, id);
   const sightings: MonsterSighting[] = [];
   const watch = (count: number): void => {
@@ -431,30 +431,30 @@ function runGetaway(world: RecordingWorld): { id: number; viewTime: number } {
 
 describe('a player coming into the world', () => {
   it('gets an identifier of its own', () => {
-    const world = new World();
-    const first: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const first: PlayerState = world.addPlayer([]);
     world.removePlayer(first.id);
-    const second: PlayerState = world.addPlayer();
-    const third: PlayerState = world.addPlayer();
+    const second: PlayerState = world.addPlayer([]);
+    const third: PlayerState = world.addPlayer([]);
     expect(new Set([first.id, second.id, third.id]).size).toBe(3);
   });
 
   it('gets the lowest appearance not in use', () => {
-    const world = new World();
-    const players: PlayerState[] = [1, 2, 3, 4].map(() => world.addPlayer());
+    const world = new World(Math.random);
+    const players: PlayerState[] = [1, 2, 3, 4].map(() => world.addPlayer([]));
     expect(players.map((player: PlayerState) => player.appearance)).toEqual(
       [1, 2, 3, 4],
     );
     world.removePlayer(players[1]?.id ?? 0);
-    expect(world.addPlayer().appearance).toBe(2);
-    expect(world.addPlayer().appearance).toBe(5);
+    expect(world.addPlayer([]).appearance).toBe(2);
+    expect(world.addPlayer([]).appearance).toBe(5);
   });
 
   it('shares an appearance once all are in use', () => {
-    const world = new World();
+    const world = new World(Math.random);
     const appearances: number[] = Array.from(
       { length: APPEARANCE_COUNT * 2 + 1 },
-      () => world.addPlayer().appearance,
+      () => world.addPlayer([]).appearance,
     );
     const all: number[] = Array.from(
       { length: APPEARANCE_COUNT },
@@ -464,8 +464,8 @@ describe('a player coming into the world', () => {
   });
 
   it('idles on the plaza in front of the fountain, facing it', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     expect(player.action).toBe('Idle');
     expect(player.z).toBeGreaterThan(PLAZA_CENTRE.z);
     expect(Math.hypot(player.x - PLAZA_CENTRE.x, player.z - PLAZA_CENTRE.z))
@@ -474,9 +474,9 @@ describe('a player coming into the world', () => {
   });
 
   it('stands clear of everyone else', () => {
-    const world = new World();
+    const world = new World(Math.random);
     const players: PlayerState[] = Array.from({ length: 20 }, () =>
-      world.addPlayer(),
+      world.addPlayer([]),
     );
     players.forEach((player: PlayerState, index: number) => {
       for (const other of players.slice(index + 1)) {
@@ -486,25 +486,25 @@ describe('a player coming into the world', () => {
   });
 
   it('takes the place of a player who has left', () => {
-    const world = new World();
-    const first: PlayerState = world.addPlayer();
-    world.addPlayer();
+    const world = new World(Math.random);
+    const first: PlayerState = world.addPlayer([]);
+    world.addPlayer([]);
     world.removePlayer(first.id);
-    const third: PlayerState = world.addPlayer();
+    const third: PlayerState = world.addPlayer([]);
     expect({ x: third.x, z: third.z }).toEqual({ x: first.x, z: first.z });
   });
 
   it('keeps away from a player who has walked to where it would stand', () => {
-    const world = new World();
-    const first: PlayerState = world.addPlayer();
-    const second: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const first: PlayerState = world.addPlayer([]);
+    const second: PlayerState = world.addPlayer([]);
     world.removePlayer(first.id);
     // The second player walks to where the first one stood.
     steerPlayer(world, second.id, { x: first.x - second.x, z: 0 });
     const steps: number =
       (measureDistance(first, second) / WALK_SPEED) * SIMULATION_RATE;
     stepTimes(world, Math.round(steps));
-    const third: PlayerState = world.addPlayer();
+    const third: PlayerState = world.addPlayer([]);
     expect(measureDistance(third, findPlayer(world, second.id)))
       .toBeGreaterThan(1);
   });
@@ -512,17 +512,17 @@ describe('a player coming into the world', () => {
 
 describe('the players in the world', () => {
   it('are all listed, until they leave', () => {
-    const world = new World();
-    const first: PlayerState = world.addPlayer();
-    const second: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const first: PlayerState = world.addPlayer([]);
+    const second: PlayerState = world.addPlayer([]);
     expect(world.listPlayers()).toEqual([first, second]);
     world.removePlayer(first.id);
     expect(world.listPlayers()).toEqual([second]);
   });
 
   it('stay as they are without input', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     stepTimes(world, SIMULATION_RATE);
     expect(findPlayer(world, player.id)).toEqual(player);
   });
@@ -530,15 +530,15 @@ describe('the players in the world', () => {
 
 describe('a player who wants to move', () => {
   it('stays put until the next step', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     steerPlayer(world, player.id, { x: 1, z: 0 });
     expect(findPlayer(world, player.id)).toEqual(player);
   });
 
   it('walks at walking speed, facing the way it goes', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, SIMULATION_RATE * 2);
     const player: PlayerState = findPlayer(world, start.id);
@@ -549,8 +549,8 @@ describe('a player who wants to move', () => {
   });
 
   it('walks no faster for a longer direction', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: -30, z: 40 });
     stepTimes(world, SIMULATION_RATE);
     const player: PlayerState = findPlayer(world, start.id);
@@ -560,8 +560,8 @@ describe('a player who wants to move', () => {
   });
 
   it('turns when its direction changes', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 3);
     steerPlayer(world, start.id, { x: 0, z: 1 });
@@ -570,8 +570,8 @@ describe('a player who wants to move', () => {
   });
 
   it('stops where it is, facing the same way, and idles', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 5);
     const walking: PlayerState = findPlayer(world, start.id);
@@ -584,17 +584,17 @@ describe('a player who wants to move', () => {
   });
 
   it('moves alone', () => {
-    const world = new World();
-    const mover: PlayerState = world.addPlayer();
-    const other: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const mover: PlayerState = world.addPlayer([]);
+    const other: PlayerState = world.addPlayer([]);
     steerPlayer(world, mover.id, { x: 0, z: 1 });
     stepTimes(world, 5);
     expect(findPlayer(world, other.id)).toEqual(other);
   });
 
   it('is ignored once it has left', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     world.removePlayer(player.id);
     expect(steerPlayer(world, player.id, { x: 0, z: 1 })).toBe(false);
     expect(interactPlayer(world, player.id)).toBe(false);
@@ -606,8 +606,8 @@ describe('a player who wants to move', () => {
 
 describe('a player who interacts', () => {
   it('slashes from the next step, for as long as a slash lasts', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     expect(findPlayer(world, player.id).action).toBe('Idle');
     world.step();
@@ -619,8 +619,8 @@ describe('a player who interacts', () => {
   });
 
   it('slashes once for every request', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS + 1);
     stepTimes(world, SIMULATION_RATE);
@@ -628,8 +628,8 @@ describe('a player who interacts', () => {
   });
 
   it('carries on with its slash alone when asked again during it', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS / 2);
     const slashing: PlayerState = findPlayer(world, player.id);
@@ -643,8 +643,8 @@ describe('a player who interacts', () => {
   });
 
   it('stands still without turning while it slashes', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 4);
     const walking: PlayerState = findPlayer(world, start.id);
@@ -661,8 +661,8 @@ describe('a player who interacts', () => {
   });
 
   it('walks on after the slash the way it wants to move by then', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     interactPlayer(world, start.id);
     world.step();
     steerPlayer(world, start.id, { x: 1, z: 0 });
@@ -677,8 +677,8 @@ describe('a player who interacts', () => {
   });
 
   it('idles after the slash if it has stopped wanting to move', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     world.step();
     interactPlayer(world, start.id);
@@ -689,8 +689,8 @@ describe('a player who interacts', () => {
   });
 
   it('can slash again as soon as the slash is over', () => {
-    const world = new World();
-    const player: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS + 1);
     interactPlayer(world, player.id);
@@ -702,7 +702,7 @@ describe('a player who interacts', () => {
 describe('a player who interacts by the fountain', () => {
   it('drinks from the next step, for as long as a drink lasts', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, PLAZA_CENTRE);
     const before: PlayerState = findPlayer(world, id);
@@ -722,7 +722,7 @@ describe('a player who interacts by the fountain', () => {
 
   it('gets health back at once as the drink starts, as an event', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     const hurt: PlayerState = hurtPlayer(
       world,
       id,
@@ -744,7 +744,7 @@ describe('a player who interacts by the fountain', () => {
 
   it('gets no more health back than it lacks', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     const hurt: PlayerState = hurtPlayer(world, id, PLAYER_HEALTH - 1);
     const lacking: number = PLAYER_HEALTH - hurt.health;
     interactPlayer(world, id);
@@ -764,7 +764,7 @@ describe('a player who interacts by the fountain', () => {
 
   it('drinks at full health without getting any back', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, PLAZA_CENTRE);
     world.takeEvents();
@@ -779,7 +779,7 @@ describe('a player who interacts by the fountain', () => {
 
   it('is not judged as a slash, whatever time it names', () => {
     const world = new RecordingWorld(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, PLAZA_CENTRE);
     interactPlayer(world, id, world.time - 200);
@@ -790,7 +790,7 @@ describe('a player who interacts by the fountain', () => {
 
   it('slashes facing away from the fountain', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, { x: BY_FOUNTAIN.x, z: BY_FOUNTAIN.z + 1 });
     interactPlayer(world, id);
@@ -803,7 +803,7 @@ describe('a player who interacts by the fountain', () => {
 describe('a player who interacts by Nancy', () => {
   it('talks from the next step, for as long as a talk lasts', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_NANCY);
     turnPlayer(world, id, NANCY);
     const before: PlayerState = findPlayer(world, id);
@@ -825,7 +825,7 @@ describe('a player who interacts by Nancy', () => {
 
   it('changes nothing else, and is not judged as a slash', () => {
     const world = new RecordingWorld(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_NANCY);
     turnPlayer(world, id, NANCY);
     world.takeEvents();
@@ -840,7 +840,7 @@ describe('a player who interacts by Nancy', () => {
 
   it('slashes facing away from her', () => {
     const world = new RecordingWorld(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_NANCY);
     turnPlayer(world, id, { x: BY_NANCY.x, z: BY_NANCY.z + 1 });
     interactPlayer(world, id);
@@ -852,8 +852,8 @@ describe('a player who interacts by Nancy', () => {
 
 describe('the action count of a player', () => {
   it('goes up whenever the player starts an action', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     const counts: number[] = [start.actionCount];
     const record = (): void => {
       counts.push(findPlayer(world, start.id).actionCount - (counts[0] ?? 0));
@@ -871,8 +871,8 @@ describe('the action count of a player', () => {
   });
 
   it('stays the same while the player carries on with an action', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     stepTimes(world, 5);
     expect(findPlayer(world, start.id).actionCount).toBe(start.actionCount);
     steerPlayer(world, start.id, { x: 1, z: 0 });
@@ -892,8 +892,8 @@ describe('the action count of a player', () => {
   });
 
   it('tells two slashes in a row apart', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     interactPlayer(world, start.id);
     world.step();
     const first: PlayerState = findPlayer(world, start.id);
@@ -908,8 +908,8 @@ describe('the action count of a player', () => {
 
 describe('the inputs of a player', () => {
   it('come into effect in turn, as far apart as they tell', () => {
-    const world = new World();
-    const start: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const start: PlayerState = world.addPlayer([]);
     const east = createMoveMessage({ sequence: 1, after: 0 }, { x: 1, z: 0 });
     const stop = createMoveMessage({ sequence: 2, after: 3 }, { x: 0, z: 0 });
     expect(world.receiveInput(start.id, east)).toBe(true);
@@ -921,8 +921,8 @@ describe('the inputs of a player', () => {
   });
 
   it('are told with how far the player has got with them', () => {
-    const world = new World();
-    const { id }: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const { id }: PlayerState = world.addPlayer([]);
     stepTimes(world, 2);
     expect(world.findProgress(id)).toMatchObject({ sequence: 0, steps: 2 });
     world.receiveInput(
@@ -949,8 +949,8 @@ describe('the inputs of a player', () => {
   });
 
   it('are refused when they are not numbered upwards', () => {
-    const world = new World();
-    const { id }: PlayerState = world.addPlayer();
+    const world = new World(Math.random);
+    const { id }: PlayerState = world.addPlayer([]);
     const first = createInteractMessage({ sequence: 5, after: 0 });
     expect(world.receiveInput(id, first)).toBe(true);
     expect(world.receiveInput(id, first)).toBe(false);
@@ -977,7 +977,7 @@ describe('the monster in the world', () => {
 
   it('comes to a player near its home', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     expect(
       measureDistance(findPlayer(world, id), findMonster(world)),
@@ -988,7 +988,7 @@ describe('the monster in the world', () => {
 describe('a slash', () => {
   it('hurts the monster in front of the player and within reach', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     turnPlayer(world, id, findMonster(world));
     world.takeEvents();
@@ -1008,7 +1008,7 @@ describe('a slash', () => {
 
   it('misses the monster behind the player', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     const player: PlayerState = findPlayer(world, id);
     const monster: MonsterState = findMonster(world);
@@ -1023,7 +1023,7 @@ describe('a slash', () => {
 
   it('misses the monster out of reach', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     turnPlayer(world, id, findMonster(world));
     interactPlayer(world, id);
     stepTimes(world, 2);
@@ -1033,8 +1033,8 @@ describe('a slash', () => {
 
   it('does not hurt another player', () => {
     const world = new World(createRandom());
-    const first: PlayerState = world.addPlayer();
-    const second: PlayerState = world.addPlayer();
+    const first: PlayerState = world.addPlayer([]);
+    const second: PlayerState = world.addPlayer([]);
     turnPlayer(world, first.id, second);
     expect(
       measureDistance(findPlayer(world, first.id), second),
@@ -1047,7 +1047,7 @@ describe('a slash', () => {
 
   it('can kill the monster, which is then gone for a while', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     let hits = 0;
     for (
@@ -1149,7 +1149,7 @@ describe('a slash that names the time its peer showed', () => {
 describe('the judgement of the slashes of a player', () => {
   it('is not there before the first slash', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     world.step();
     expect(world.findSlash(id)).toBeNull();
   });
@@ -1162,7 +1162,7 @@ describe('the judgement of the slashes of a player', () => {
 describe('the attack of the monster', () => {
   it('hurts the player until it dies', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     world.takeEvents();
     const { health }: PlayerState = findPlayer(world, id);
@@ -1195,7 +1195,7 @@ describe('the attack of the monster', () => {
 describe('a dead player', () => {
   it('lies where it fell for as long as a death lasts', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     const fallen: PlayerState = killPlayer(world, id);
     expect(fallen).toMatchObject({ action: 'Die', health: 0 });
     stepTimes(world, DEATH_STEPS - 1);
@@ -1204,7 +1204,7 @@ describe('a dead player', () => {
 
   it('then comes back at a spawn point, idling at full health', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     const fallen: PlayerState = killPlayer(world, id);
     stepTimes(world, DEATH_STEPS);
     const player: PlayerState = findPlayer(world, id);
@@ -1224,7 +1224,7 @@ describe('a dead player', () => {
 
   it('neither moves, turns nor slashes', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     const fallen: PlayerState = killPlayer(world, id);
     steerPlayer(world, id, { x: fallen.x, z: fallen.z });
     interactPlayer(world, id);
@@ -1242,7 +1242,7 @@ describe('a dead player', () => {
 
   it('is neither hurt nor chased by the monster', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     killPlayer(world, id);
     const modes = new Set<string>();
     for (let step = 1; step < DEATH_STEPS; step++) {
@@ -1256,7 +1256,7 @@ describe('a dead player', () => {
 
   it('comes back walking the way it was last told to move', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     killPlayer(world, id);
     steerPlayer(world, id, { x: 1, z: 0 });
     stepTimes(world, DEATH_STEPS);
@@ -1268,7 +1268,7 @@ describe('a dead player', () => {
 
   it('comes back without the slash it was asked for', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     killPlayer(world, id);
     interactPlayer(world, id);
     stepTimes(world, DEATH_STEPS + 1);
@@ -1279,7 +1279,7 @@ describe('a dead player', () => {
 describe('the events of the world', () => {
   it('are taken once each, numbered upwards, with their steps', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     const events: GameEvent[] = [];
     for (let step = 1; step <= 10 * SIMULATION_RATE; step++) {
@@ -1300,7 +1300,7 @@ describe('the events of the world', () => {
 describe('Toby in the world', () => {
   it('pushes a player out of his way as he is at each step', () => {
     const world = new RecordingWorld(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     const [first, second] = TOBY_ENDS;
     const middle: GroundVector = {
       x: (first.x + second.x) / 2,
@@ -1398,7 +1398,7 @@ function pickClovers(world: World, id: number, count: number): void {
  * @returns {number} The identifier of the player.
  */
 function addPicker(world: World): number {
-  const { id }: PlayerState = world.addPlayer();
+  const { id }: PlayerState = world.addPlayer([]);
   walkPlayer(world, id, BY_PATCH);
   turnPlayer(world, id, PATCH_CENTRE);
   return id;
@@ -1524,7 +1524,7 @@ function addRival(world: World): number {
     x: (second.x - first.x) / away,
     z: (second.z - first.z) / away,
   };
-  const { id }: PlayerState = world.addPlayer();
+  const { id }: PlayerState = world.addPlayer([]);
   walkPlayer(world, id, {
     x: patch.x + along.x * 1.12,
     z: patch.z + along.z * 1.12,
@@ -2160,7 +2160,7 @@ describe('a player who puts an item down', () => {
     const carrier: number = addPicker(world);
     pickItem(world, carrier);
     world.step();
-    const { id: other }: PlayerState = world.addPlayer();
+    const { id: other }: PlayerState = world.addPlayer([]);
     dropItem(world, other, 0);
     world.step();
     expect(world.findInventory(carrier)).toEqual(['clover']);
@@ -2170,7 +2170,7 @@ describe('a player who puts an item down', () => {
 
   it('lays nothing down while it carries nothing', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     dropItem(world, id);
     world.step();
     expect(world.describeItems().items).toEqual([]);
@@ -2373,7 +2373,7 @@ describe('a player who uses a healing potion', () => {
 describe('the inventory of a player', () => {
   it('is empty when the player comes into the world', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     expect(world.findInventory(id)).toEqual([]);
   });
 
@@ -2391,14 +2391,11 @@ describe('the inventory of a player', () => {
   it('is told of its player alone', () => {
     const world = new World(createRandom());
     const id: number = addPicker(world);
-    const { id: other }: PlayerState = world.addPlayer();
+    const { id: other }: PlayerState = world.addPlayer([]);
     pickItem(world, id);
     world.step();
     expect(world.findInventory(other)).toEqual([]);
     for (const player of world.listPlayers()) {
-      expect(Object.keys(player).sort()).toEqual(
-        Object.keys(findPlayer(world, other)).sort(),
-      );
       expect(JSON.stringify(player)).not.toContain('clover');
     }
   });
@@ -2465,7 +2462,7 @@ function killVillageDog(world: World, id: number, rig: () => void): void {
 describe('the silver coins of a player', () => {
   it('are none when the player comes into the world', () => {
     const world = new World(createRandom());
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     expect(world.findSilver(id)).toBe(0);
   });
 
@@ -2481,7 +2478,7 @@ describe('the silver coins of a player', () => {
     (value: number, silver: number) => {
       const [draw, rig] = createRiggedRandom();
       const world = new World(draw);
-      const { id }: PlayerState = world.addPlayer();
+      const { id }: PlayerState = world.addPlayer([]);
       killVillageDog(world, id, () => {
         rig(value);
       });
@@ -2493,8 +2490,8 @@ describe('the silver coins of a player', () => {
   it('go to the player who kills the dog alone', () => {
     const [draw, rig] = createRiggedRandom();
     const world = new World(draw);
-    const { id }: PlayerState = world.addPlayer();
-    const { id: other }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
+    const { id: other }: PlayerState = world.addPlayer([]);
     killVillageDog(world, id, () => {
       rig(0.99);
     });
@@ -2505,7 +2502,7 @@ describe('the silver coins of a player', () => {
   it('come once for each death of the dog', () => {
     const [draw, rig] = createRiggedRandom();
     const world = new World(draw);
-    const { id }: PlayerState = world.addPlayer();
+    const { id }: PlayerState = world.addPlayer([]);
     killVillageDog(world, id, () => {
       rig(0.99);
     });
@@ -2857,13 +2854,6 @@ describe('a world of the cave', () => {
     );
   });
 
-  it('has its dogs in the passage, by the cells and before them', () => {
-    expect(CAVE_DOG_HOMES).toEqual([
-      { x: 14.5, z: 0, yaw: 90 },
-      { x: 9.25, z: 0, yaw: 90 },
-    ]);
-  });
-
   it('has its dogs wander a little round their homes, in the passage', () => {
     const world = new World(createRandom(), { map: 'cave' });
     const modes = new Set<string>();
@@ -3011,7 +3001,7 @@ describe('a world of the cave', () => {
    */
   function faceEdwin(world: World, id: number): void {
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
     walkInCave(world, id, { x: at.x, z: 0 });
     steerPlayer(world, id, { x: 0, z: -1 });
     stepTimes(world, 2 * SIMULATION_RATE);
@@ -3050,7 +3040,7 @@ describe('a world of the cave', () => {
   it('has the prisoner talked to through his bars, unhurt', () => {
     const [world, id] = enterCave();
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
     faceEdwin(world, id);
     const before: PlayerState = findPlayer(world, id);
     expect(before.z).toBeGreaterThan(at.z);
@@ -3067,7 +3057,7 @@ describe('a world of the cave', () => {
 
   it('has a player slash at a dog in front of it, rather than talk', () => {
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
     const [world, id] = enterCave([], true, [
       { kind: 'cave-dog', home: { x: at.x + 3, z: 0, yaw: -90 } },
     ]);
@@ -3499,7 +3489,7 @@ describe('Martha in the village', () => {
   it('is not hurt by anyone but the player she fights', () => {
     const world: World = createVillage();
     startFight(world);
-    const { id: other }: PlayerState = world.addPlayer();
+    const { id: other }: PlayerState = world.addPlayer([]);
     walkPlayer(world, other, findMartha(world));
     world.takeEvents();
     for (let tries = 0; tries < 3; tries++) {
@@ -3887,7 +3877,7 @@ describe('a player who says a line', () => {
     const speaker: number = admitListener(world, 1, 0);
     const near: number = admitListener(world, 2, 1.5);
     const edge: number = admitListener(world, 3, SAY_RANGE);
-    expect(world.say(speaker, 'Hello there!')).toBe(true);
+    world.say(speaker, 'Hello there!');
     const said: Saying[] = [{ player: speaker, text: 'Hello there!' }];
     expect(world.takeSayings(speaker)).toEqual(said);
     expect(world.takeSayings(near)).toEqual(said);
@@ -3898,7 +3888,7 @@ describe('a player who says a line', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
     const far: number = admitListener(world, 2, SAY_RANGE + 0.1);
-    expect(world.say(speaker, 'Hello there!')).toBe(true);
+    world.say(speaker, 'Hello there!');
     expect(world.takeSayings(far)).toEqual([]);
     expect(world.takeSayings(speaker)).toHaveLength(1);
   });
@@ -3909,7 +3899,7 @@ describe('a player who says a line', () => {
     const listener: number = admitListener(world, 2, SAY_RANGE + 2);
     steerPlayer(world, speaker, { x: 1, z: 0 });
     stepTimes(world, Math.ceil(2.5 / STEP_DISTANCE));
-    expect(world.say(speaker, 'Coming!')).toBe(true);
+    world.say(speaker, 'Coming!');
     expect(world.takeSayings(listener)).toEqual([
       { player: speaker, text: 'Coming!' },
     ]);
@@ -3953,21 +3943,24 @@ describe('a player who says a line', () => {
   it('says nothing of an empty line', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
-    expect(world.say(speaker, ' \n ')).toBe(false);
+    world.say(speaker, ' \n ');
     expect(world.takeSayings(speaker)).toEqual([]);
     // An empty line does not keep the next one from being said.
-    expect(world.say(speaker, 'Now then.')).toBe(true);
+    world.say(speaker, 'Now then.');
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, text: 'Now then.' },
+    ]);
   });
 
   it('says one line at most in the time between two lines', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
     const listener: number = admitListener(world, 2, 1.5);
-    expect(world.say(speaker, 'One.')).toBe(true);
+    world.say(speaker, 'One.');
     stepTimes(world, SAY_INTERVAL_STEPS - 1);
-    expect(world.say(speaker, 'Two.')).toBe(false);
+    world.say(speaker, 'Two.');
     world.step();
-    expect(world.say(speaker, 'Three.')).toBe(true);
+    world.say(speaker, 'Three.');
     const said: Saying[] = [
       { player: speaker, text: 'One.' },
       { player: speaker, text: 'Three.' },
@@ -3980,8 +3973,8 @@ describe('a player who says a line', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
     const other: number = admitListener(world, 2, 1.5);
-    expect(world.say(speaker, 'One.')).toBe(true);
-    expect(world.say(other, 'Two.')).toBe(true);
+    world.say(speaker, 'One.');
+    world.say(other, 'Two.');
     expect(world.takeSayings(speaker)).toEqual([
       { player: speaker, text: 'One.' },
       { player: other, text: 'Two.' },
@@ -3991,7 +3984,7 @@ describe('a player who says a line', () => {
   it('says nothing for a player who is not in the world', () => {
     const world = new World(createRandom());
     const listener: number = admitListener(world, 1, 0);
-    expect(world.say(99, 'Hello there!')).toBe(false);
+    world.say(99, 'Hello there!');
     expect(world.takeSayings(listener)).toEqual([]);
     expect(world.takeSayings(99)).toEqual([]);
   });
@@ -4003,7 +3996,7 @@ describe('a player who says a phrase', () => {
     const speaker: number = admitListener(world, 1, 0);
     const near: number = admitListener(world, 2, 1.5);
     const edge: number = admitListener(world, 3, SAY_RANGE);
-    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    world.sayPhrase(speaker, 'askInn');
     const said: Saying[] = [{ player: speaker, phrase: 'askInn' }];
     expect(world.takeSayings(speaker)).toEqual(said);
     expect(world.takeSayings(near)).toEqual(said);
@@ -4015,7 +4008,7 @@ describe('a player who says a phrase', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
     const far: number = admitListener(world, 2, SAY_RANGE + 0.1);
-    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    world.sayPhrase(speaker, 'askInn');
     expect(world.takeSayings(far)).toEqual([]);
     expect(world.takeSayings(speaker)).toHaveLength(1);
   });
@@ -4028,21 +4021,24 @@ describe('a player who says a phrase', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
     const listener: number = admitListener(world, 2, 1.5);
-    expect(world.sayPhrase(speaker, code)).toBe(false);
+    world.sayPhrase(speaker, code);
     expect(world.takeSayings(speaker)).toEqual([]);
     expect(world.takeSayings(listener)).toEqual([]);
     // What is not said does not keep the next phrase from being said.
-    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    world.sayPhrase(speaker, 'askInn');
+    expect(world.takeSayings(speaker)).toEqual([
+      { player: speaker, phrase: 'askInn' },
+    ]);
   });
 
   it('says one phrase at most in the time between two lines', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
-    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    world.sayPhrase(speaker, 'askInn');
     stepTimes(world, SAY_INTERVAL_STEPS - 1);
-    expect(world.sayPhrase(speaker, 'askEmma')).toBe(false);
+    world.sayPhrase(speaker, 'askEmma');
     world.step();
-    expect(world.sayPhrase(speaker, 'askBasil')).toBe(true);
+    world.sayPhrase(speaker, 'askBasil');
     expect(world.takeSayings(speaker)).toEqual([
       { player: speaker, phrase: 'askInn' },
       { player: speaker, phrase: 'askBasil' },
@@ -4052,15 +4048,15 @@ describe('a player who says a phrase', () => {
   it('shares that time with the lines the player types', () => {
     const world = new World(createRandom());
     const speaker: number = admitListener(world, 1, 0);
-    expect(world.sayPhrase(speaker, 'askInn')).toBe(true);
+    world.sayPhrase(speaker, 'askInn');
     stepTimes(world, SAY_INTERVAL_STEPS - 1);
-    expect(world.say(speaker, 'Anyone?')).toBe(false);
+    world.say(speaker, 'Anyone?');
     world.step();
-    expect(world.say(speaker, 'Anyone?')).toBe(true);
+    world.say(speaker, 'Anyone?');
     stepTimes(world, SAY_INTERVAL_STEPS - 1);
-    expect(world.sayPhrase(speaker, 'askEmma')).toBe(false);
+    world.sayPhrase(speaker, 'askEmma');
     world.step();
-    expect(world.sayPhrase(speaker, 'askEmma')).toBe(true);
+    world.sayPhrase(speaker, 'askEmma');
     expect(world.takeSayings(speaker)).toEqual([
       { player: speaker, phrase: 'askInn' },
       { player: speaker, text: 'Anyone?' },
@@ -4071,7 +4067,7 @@ describe('a player who says a phrase', () => {
   it('says nothing for a player who is not in the world', () => {
     const world = new World(createRandom());
     const listener: number = admitListener(world, 1, 0);
-    expect(world.sayPhrase(99, 'askInn')).toBe(false);
+    world.sayPhrase(99, 'askInn');
     expect(world.takeSayings(listener)).toEqual([]);
   });
 });

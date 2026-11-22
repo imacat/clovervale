@@ -119,7 +119,7 @@ const PEN_REACH: Triple = [0.04, -0.09, 0.05];
  * his right and away from him: the start and the end of each of the two
  * lines he writes, the second nearer him.
  */
-const WRITING_LINES: readonly (readonly [number, number, number])[] = [
+const WRITING_LINES: readonly [Triple, Triple] = [
   [-0.01, 0.05, 0.02],
   [-0.01, 0.05, -0.02],
 ];
@@ -317,7 +317,7 @@ function addBoard(model: Model, board: BoardFrame): void {
  */
 function addPen(model: Model, board: BoardFrame): void {
   const [first] = WRITING_LINES;
-  const tip: Vector3 = findOnPaper(board, first?.[0] ?? 0, first?.[2] ?? 0);
+  const tip: Vector3 = findOnPaper(board, first[0], first[2]);
   const wrist: Vector3 = tip.clone().sub(new Vector3(...PEN_REACH));
   const back: Vector3 = new Vector3(...PEN_REACH).normalize().negate();
   const along = (distance: number): Triple =>
@@ -456,7 +456,7 @@ export function buildNpcBasil(): BuiltModel {
   }
 
   // The head: a mop of brown tufts, round glasses, and brows raised high.
-  addHead(model, 'Head');
+  addHead(model);
   const hair: Hair = createHair('tufts');
   model.add('hair', hair.hair, 'Head');
   model.add('hair', hair.accent, 'Head');
@@ -741,16 +741,15 @@ export function buildNpcBasil(): BuiltModel {
    * @returns {Vector3} The tip.
    */
   const findTip = (t: number, look: number): Vector3 => {
-    const [first, second] = WRITING_LINES;
-    const lines = [first ?? [0, 0, 0], second ?? [0, 0, 0]] as const;
+    const lines: readonly [Triple, Triple] = WRITING_LINES;
     // He writes the first line, lifts his pen back to the start of the
     // second and writes it, then rests his pen, and starts again.
-    const spans: readonly (readonly [number, number, number])[] = [
+    const spans: readonly (readonly [number, number, 0 | 1])[] = [
       [0.3, 2.7, 0],
       [3.1, 5.5, 1],
     ];
     for (const [start, end, index] of spans) {
-      const [from, to, up] = lines[index] ?? [0, 0, 0];
+      const [from, to, up] = lines[index];
       if (t >= start && t <= end) {
         const progress: number = (t - start) / (end - start);
         const wiggle: number = Math.sin(progress * Math.PI * 18) * 0.006;

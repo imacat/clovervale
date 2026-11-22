@@ -21,49 +21,30 @@
  * @module shared/index The public interface of the shared package.
  */
 
-export {
-  ACTION_STATES,
-  DRINK_DURATION,
-  MONSTER_ACTIONS,
-  SLASH_DURATION,
-  TALK_DURATION,
-} from './actions.ts';
-export type { ActionState, Interaction, MonsterAction } from './actions.ts';
+export type { ActionState, MonsterAction } from './actions.ts';
 export {
   AuthoritativePlayer,
   INPUT_WAIT_LIMIT,
-  WAITING_INPUT_LIMIT,
 } from './authoritative-player.ts';
-export type {
-  InputProgress,
-  InputStamp,
-  StampedInput,
-} from './authoritative-player.ts';
+export type { InputProgress, StampedInput } from './authoritative-player.ts';
 export {
-  PHRASE_CODES,
-  SAY_BREAK_LIMIT,
   SAY_INTERVAL,
   SAY_LENGTH_LIMIT,
   SAY_RANGE,
   cleanSayText,
   isPhraseCode,
-  isSayText,
 } from './chat.ts';
 export type { PhraseCode } from './chat.ts';
 export {
   DEATH_DURATION,
   MONSTER_KINDS,
-  MONSTER_KIND_IDS,
   PLAYER_HEALTH,
   SLASH_DAMAGE,
   SLASH_REACH,
-  STRIKE_HALF_ANGLE,
-  isMonsterKindId,
   isWithinStrike,
 } from './combat.ts';
 export type { MonsterKind, MonsterKindId } from './combat.ts';
 export {
-  DAY_PHASES,
   DEFAULT_DAY_LENGTH,
   DEFAULT_DAY_ORIGIN,
   NOON,
@@ -71,65 +52,32 @@ export {
   findPhaseTime,
   findTimeOfDay,
 } from './day-cycle.ts';
-export type { DayCycle, DayPeriod, DayPhase } from './day-cycle.ts';
+export type { DayCycle, DayPhase } from './day-cycle.ts';
 export {
-  CAVE_BARS_FILE,
-  CAVE_BARS_HALF_DEPTH,
-  CAVE_BOUNDARY,
-  CAVE_CELLS,
-  CAVE_CHAMBERS,
-  CAVE_CHAMBER_DEPTH,
   CAVE_CONTAINERS,
   CAVE_CONTAINER_FILES,
   CAVE_DOG_HOMES,
-  CAVE_EDWIN_BEHIND_BARS,
   CAVE_EDWIN_FILE,
   CAVE_FILE,
-  CAVE_FIXTURE_FOOTPRINTS,
   CAVE_FLAMES,
-  CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
-  CAVE_FOOTPRINT,
-  CAVE_LANDING,
-  CAVE_MODEL_CENTRE,
   CAVE_MOUTH,
   CAVE_MOUTH_OUTLINE,
   CAVE_PASSAGE,
-  CAVE_PASSAGE_HALF_WIDTH,
-  CAVE_PASSAGE_LENGTH,
   CAVE_PLACEMENTS,
-  CAVE_ROPE,
-  CAVE_SHAFT_RADIUS,
-  CAVE_SKELETON_FILE,
-  CAVE_STORE_ROOMS,
   CAVE_TERRAIN,
-  CAVE_TORCH_DEPTH,
   CAVE_TORCH_FILE,
-  isEmptyContainer,
 } from './cave.ts';
-export type {
-  CaveContainer,
-  CaveContainerFiles,
-  CaveContainerKind,
-  CaveRoom,
-} from './cave.ts';
+export type { CaveContainer, CaveContainerFiles } from './cave.ts';
 export {
-  BURROW_REACH,
-  FEET_REACH,
   FOUNTAIN_HEALING,
   FOUNTAIN_REACH,
-  INTERACTION_HALF_ANGLE,
-  LOOT_REACH,
-  PICK_REACH,
-  PASSAGES,
-  ROPE_REACH,
-  TALK_REACH,
   findInteraction,
   findPassage,
   findPickTarget,
   findVillager,
 } from './interaction.ts';
-export type { Passage, PickSource, PickTarget } from './interaction.ts';
+export type { Passage, PickTarget } from './interaction.ts';
 export {
   CLOVER_KIND,
   CLOVER_PATCHES,
@@ -137,12 +85,10 @@ export {
   GROUND_ITEM_DURATION,
   HEALING_POTION_PRICE,
   INVENTORY_SIZE,
-  ITEM_KINDS,
   NO_WORLD_ITEMS,
   canUseItem,
   findItemKind,
   hasRoom,
-  isItemKindId,
   isUsableItem,
 } from './items.ts';
 export type {
@@ -151,18 +97,11 @@ export type {
   ItemKindId,
   WorldItems,
 } from './items.ts';
-export { DIALOGUE_REPLY_LIMIT, isDialogueText } from './dialogue.ts';
+export { DIALOGUE_REPLY_LIMIT } from './dialogue.ts';
 export type { DialogueView } from './dialogue.ts';
-export {
-  QUESTS,
-  QUEST_IDS,
-  QUEST_STAGES,
-  hasQuestWords,
-  isQuestLog,
-} from './quests.ts';
-export type { Quest, QuestId, QuestLog, QuestStage } from './quests.ts';
+export { hasQuestWords } from './quests.ts';
+export type { QuestId, QuestLog, QuestStage } from './quests.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
-export type { Placed } from './interpolation.ts';
 export {
   SIMULATION_RATE,
   WALK_SPEED,
@@ -171,39 +110,21 @@ export {
 } from './movement.ts';
 export type { GroundVector } from './movement.ts';
 export {
-  NavigationGraph,
   WAYPOINT_CLEARANCE,
   findMapPath,
-  findVillagePath,
-  placeWaypoints,
 } from './navigation.ts';
 export {
-  DRINK_STEPS,
-  SLASH_STEPS,
   TALK_STEPS,
   applyInput,
   canInteract,
   createMotion,
   isResting,
-  killMotion,
-  relocateMotion,
   stepMotion,
 } from './player-motion.ts';
-export type {
-  DropInput,
-  InteractInput,
-  MoveInput,
-  PickInput,
-  PlayerInput,
-  PlayerMotion,
-  ReplyInput,
-  TravelInput,
-  UseInput,
-} from './player-motion.ts';
+export type { PlayerInput, PlayerMotion, ReplyInput } from './player-motion.ts';
 export {
   APPEARANCE_COUNT,
   DEFAULT_SERVER_PORT,
-  MONSTER_MODES,
   PROTOCOL_VERSION,
   SNAPSHOT_RATE,
   createEventsMessage,
@@ -225,59 +146,27 @@ export {
 } from './protocol.ts';
 export type {
   ClientMessage,
-  DropMessage,
-  EntityKind,
   EntityRef,
   EventsMessage,
   GameEvent,
   HealEvent,
   HitEvent,
-  InteractMessage,
-  MapMessage,
   MonsterMode,
   MonsterState,
-  MoveMessage,
-  PhraseMessage,
-  PhrasedMessage,
-  PickMessage,
   PlayerState,
-  ReplyMessage,
-  SaidMessage,
-  SayMessage,
   ServerMessage,
   SlashJudgement,
   SnapshotMessage,
-  SpeechMessage,
-  TravelMessage,
-  UseMessage,
-  WelcomeMessage,
 } from './protocol.ts';
+export { PLAYER_RADIUS, Terrain, placePoint } from './terrain.ts';
+export type { Boundary, Pose, Shape } from './terrain.ts';
 export {
-  PLAYER_RADIUS,
-  Terrain,
-  findTurn,
-  placePoint,
-  placeShape,
-  turnVector,
-} from './terrain.ts';
-export type {
-  Boundary,
-  BoxShape,
-  CircleShape,
-  Pose,
-  Shape,
-  Turn,
-} from './terrain.ts';
-export {
-  TOBY_ACTIVITIES,
   TOBY_ACTIVITY_STEPS,
-  TOBY_CLOVERS,
   TOBY_ENDS,
   TOBY_FILE,
   TOBY_FOUND_LINE,
   TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
-  TOBY_PATCHES,
   TOBY_RADIUS,
   TOBY_RUN_SPEED,
   TOBY_STOW_STEPS,
@@ -285,32 +174,23 @@ export {
   findTobyPose,
   measurePushReach,
   pushAside,
-  resolveWalk,
 } from './toby.ts';
 export type { TobyActivity, TobyGrab, TobyPose } from './toby.ts';
 export {
   FOUNTAIN_RIM_RADIUS,
-  VILLAGE_BOUNDARY,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
   PITCHFORK_STAND,
-  WELL_STAND,
   findPlacement,
 } from './village-layout.ts';
 export type { Placement } from './village-layout.ts';
 export {
   PLAZA_CENTRE,
   SPAWN_POINT_COUNT,
-  SPAWN_SPACING,
   SPAWN_YAW,
   findSpawnPoint,
 } from './village.ts';
-export {
-  VILLAGERS,
-  isVillagerFree,
-  isVillagerId,
-  locateVillager,
-} from './villagers.ts';
-export { MAP_IDS, findMapTerrain, isMapId } from './world-map.ts';
+export { VILLAGERS, isVillagerFree, locateVillager } from './villagers.ts';
+export { findMapTerrain } from './world-map.ts';
 export type { MapId } from './world-map.ts';
 export type { Villager, VillagerId } from './villagers.ts';

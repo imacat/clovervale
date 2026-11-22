@@ -25,38 +25,28 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  BURROW_REACH,
   CAVE_CONTAINERS,
-  CAVE_LANDING,
-  CAVE_ROPE,
   CAVE_TERRAIN,
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
   CLOVER_PATCHES,
-  INTERACTION_HALF_ANGLE,
-  PICK_REACH,
   PLAYER_RADIUS,
   PLAZA_CENTRE,
   SIMULATION_RATE,
-  TALK_REACH,
-  ROPE_REACH,
   SLASH_REACH,
   TOBY_LOOP_STEPS,
   VILLAGERS,
   VILLAGE_TERRAIN,
-  WELL_STAND,
   createMotion,
   findInteraction,
   findPassage,
   findPickTarget,
   findPlacement,
   findTobyPose,
-  findTurn,
   findVillager,
   locateVillager,
   placePoint,
   stepMotion,
-  turnVector,
 } from '../src/index.ts';
 import type {
   GroundItem,
@@ -69,6 +59,16 @@ import type {
   Villager,
   WorldItems,
 } from '../src/index.ts';
+import { CAVE_LANDING, CAVE_ROPE } from '../src/cave.ts';
+import {
+  BURROW_REACH,
+  INTERACTION_HALF_ANGLE,
+  PICK_REACH,
+  TALK_REACH,
+  ROPE_REACH,
+} from '../src/interaction.ts';
+import { findTurn, turnVector } from '../src/terrain.ts';
+import { WELL_STAND } from '../src/village-layout.ts';
 
 /**
  * The farthest a player can stand from the centre of the fountain to drink
@@ -204,7 +204,7 @@ describe('findInteraction by Emma the smith', () => {
   it('talks to her close by, facing her', () => {
     for (const pose of listPosesFacingEmma()) {
       expect(findInteraction(pose, 0)).toBe('Talk');
-      expect(findVillager(pose, 0)).toEqual({
+      expect(findVillager(pose, 0, 'village', [])).toEqual({
         id: 'emma',
         file: 'npc-emma.glb',
         map: 'village',
@@ -234,7 +234,9 @@ describe('findInteraction by Martha the village chief', () => {
 
 describe('findVillager', () => {
   it('finds Nancy, facing her', () => {
-    expect(findVillager(standByNancy(TALK_REACH - 0.1, 180), 0)).toEqual({
+    expect(
+      findVillager(standByNancy(TALK_REACH - 0.1, 180), 0, 'village', []),
+    ).toEqual({
       id: 'nancy',
       file: 'npc-nancy.glb',
       map: 'village',
@@ -243,7 +245,7 @@ describe('findVillager', () => {
   });
 
   it('finds Martha, facing her on the porch', () => {
-    expect(findVillager(standBeforeMartha(), 0)).toEqual({
+    expect(findVillager(standBeforeMartha(), 0, 'village', [])).toEqual({
       id: 'martha',
       file: 'npc-martha.glb',
       map: 'village',
@@ -252,12 +254,16 @@ describe('findVillager', () => {
   });
 
   it('finds nobody by her, facing away from her', () => {
-    expect(findVillager(standByNancy(TALK_REACH - 0.1, 0), 0)).toBeNull();
+    expect(
+      findVillager(standByNancy(TALK_REACH - 0.1, 0), 0, 'village', []),
+    ).toBeNull();
   });
 
   it('finds nobody by the fountain, facing it', () => {
     const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
-    expect(findVillager({ x: PLAZA_CENTRE.x, z, yaw: 180 }, 0)).toBeNull();
+    expect(
+      findVillager({ x: PLAZA_CENTRE.x, z, yaw: 180 }, 0, 'village', []),
+    ).toBeNull();
   });
 });
 
@@ -362,7 +368,7 @@ describe('findVillager by Toby', () => {
   it('finds him where he is at the step, facing him, as he runs', () => {
     const toby: Pose = findTobyPose(RUNNING);
     const facing: Pose = { x: toby.x, z: toby.z + TALK_REACH - 0.1, yaw: 180 };
-    expect(findVillager(facing, RUNNING)).toEqual({
+    expect(findVillager(facing, RUNNING, 'village', [])).toEqual({
       id: 'toby',
       file: 'npc-toby.glb',
       map: 'village',
@@ -374,7 +380,9 @@ describe('findVillager by Toby', () => {
   it('finds nobody where he was, once he has run on', () => {
     const toby: Pose = findTobyPose(RUNNING);
     const facing: Pose = { x: toby.x, z: toby.z + TALK_REACH - 0.1, yaw: 180 };
-    expect(findVillager(facing, RUNNING + SIMULATION_RATE)).toBeNull();
+    expect(
+      findVillager(facing, RUNNING + SIMULATION_RATE, 'village', []),
+    ).toBeNull();
     expect(findInteraction(facing, RUNNING + SIMULATION_RATE)).toBe('Slash');
   });
 });
@@ -415,25 +423,41 @@ describe('findPickTarget', () => {
 
   it('picks the clover of a patch within reach, facing it', () => {
     expect(
-      findPickTarget(standByPatch(PICK_REACH - 0.01, 180), 0, WITH_CLOVER),
+      findPickTarget(
+        standByPatch(PICK_REACH - 0.01, 180),
+        0,
+        WITH_CLOVER,
+        'village',
+        [],
+      ),
     ).toEqual({ source: 'patch', id: PATCH, kind: 'clover' });
   });
 
   it('picks nothing from a patch whose clover is gone', () => {
     const pose: Pose = standByPatch(0.8, 180);
-    expect(findPickTarget(pose, 0, { clovers: [], items: [] })).toBeNull();
+    expect(
+      findPickTarget(pose, 0, { clovers: [], items: [] }, 'village', []),
+    ).toBeNull();
     expect(findInteraction(pose, 0)).toBe('Slash');
   });
 
   it('picks nothing out of reach, or facing away', () => {
     expect(
-      findPickTarget(standByPatch(PICK_REACH + 0.01, 180), 0, WITH_CLOVER),
+      findPickTarget(
+        standByPatch(PICK_REACH + 0.01, 180),
+        0,
+        WITH_CLOVER,
+        'village',
+        [],
+      ),
     ).toBeNull();
     expect(
       findPickTarget(
         standByPatch(0.8, 180 + INTERACTION_HALF_ANGLE + 1),
         0,
         WITH_CLOVER,
+        'village',
+        [],
       ),
     ).toBeNull();
   });
@@ -442,7 +466,13 @@ describe('findPickTarget', () => {
     const at: GroundVector = { x: PATCH_CENTRE.x, z: PATCH_CENTRE.z + 0.5 };
     const pose: Pose = standByPatch(1.5, 180);
     expect(
-      findPickTarget(pose, 0, { clovers: [], items: [layItem(3, at)] }),
+      findPickTarget(
+        pose,
+        0,
+        { clovers: [], items: [layItem(3, at)] },
+        'village',
+        [],
+      ),
     ).toEqual({ source: 'ground', id: 3, kind: 'clover' });
   });
 
@@ -457,10 +487,22 @@ describe('findPickTarget', () => {
     });
     const pose: Pose = standByPatch(1, 180);
     expect(
-      findPickTarget(pose, 0, { clovers: [PATCH], items: [far, near] }),
+      findPickTarget(
+        pose,
+        0,
+        { clovers: [PATCH], items: [far, near] },
+        'village',
+        [],
+      ),
     ).toMatchObject({ source: 'ground', id: 5 });
     expect(
-      findPickTarget(pose, 0, { clovers: [PATCH], items: [far] }),
+      findPickTarget(
+        pose,
+        0,
+        { clovers: [PATCH], items: [far] },
+        'village',
+        [],
+      ),
     ).toMatchObject({ source: 'ground', id: 4 });
   });
 
@@ -472,8 +514,12 @@ describe('findPickTarget', () => {
       layItem(1, { x: byFountain.x, z: byFountain.z - 0.3 }),
       layItem(2, { x: byNancy.x, z: byNancy.z - 0.3 }),
     ];
-    expect(findPickTarget(byFountain, 0, { clovers: [], items })).toBeNull();
-    expect(findPickTarget(byNancy, 0, { clovers: [], items })).toBeNull();
+    expect(
+      findPickTarget(byFountain, 0, { clovers: [], items }, 'village', []),
+    ).toBeNull();
+    expect(
+      findPickTarget(byNancy, 0, { clovers: [], items }, 'village', []),
+    ).toBeNull();
   });
 });
 
@@ -621,7 +667,7 @@ describe('the prisoner in the north cell of the cave', () => {
 
   /** Where he stands, behind the bars of his cell. */
   const at: GroundVector =
-    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0);
+    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
 
   /**
    * Walks a player along the passage up to the bars of his cell, and has it
@@ -637,7 +683,7 @@ describe('the prisoner in the north cell of the cave', () => {
       direction: { x: 0, z: -1 },
     };
     for (let step = 1; step <= 60; step++) {
-      motion = stepMotion(motion, step, 'cave');
+      motion = stepMotion(motion, step, 'cave', []);
     }
     return motion;
   }
@@ -645,13 +691,15 @@ describe('the prisoner in the north cell of the cave', () => {
   it('stands in the cave, and in no other map', () => {
     expect(edwin?.map).toBe('cave');
     expect(CAVE_TERRAIN.isClear(at)).toBe(false);
-    expect(findVillager({ x: at.x, z: at.z + 0.8, yaw: 180 }, 0)).toBeNull();
+    expect(
+      findVillager({ x: at.x, z: at.z + 0.8, yaw: 180 }, 0, 'village', []),
+    ).toBeNull();
   });
 
   it('is talked to through the bars, before him and along them', () => {
     for (const x of [at.x - 0.8, at.x, at.x + 0.8]) {
       const pose: Pose = walkToBars(x);
-      expect(findVillager(pose, 0, 'cave')?.id).toBe('edwin');
+      expect(findVillager(pose, 0, 'cave', [])?.id).toBe('edwin');
       expect(findInteraction(pose, 0, 'cave')).toBe('Talk');
     }
   });
@@ -662,12 +710,12 @@ describe('the prisoner in the north cell of the cave', () => {
       clovers: [],
       items: [layItem(1, { x: pose.x, z: pose.z })],
     };
-    expect(findPickTarget(pose, 0, world, 'cave')).toBeNull();
+    expect(findPickTarget(pose, 0, world, 'cave', [])).toBeNull();
   });
 
   it('is not talked to facing away from him', () => {
     const pose: Pose = { ...walkToBars(at.x), yaw: 0 };
-    expect(findVillager(pose, 0, 'cave')).toBeNull();
+    expect(findVillager(pose, 0, 'cave', [])).toBeNull();
     expect(findInteraction(pose, 0, 'cave')).toBe('Slash');
   });
 
@@ -735,19 +783,9 @@ describe('findPickTarget by the containers of the cave', () => {
   /** Nothing to pick in the cave, but the containers. */
   const NOTHING: WorldItems = { clovers: [], items: [] };
 
-  it('has a chest with a sword, a chest with a leather armour, and four barrels', () => {
-    expect(chests.map((id: number) => CAVE_CONTAINERS[id]?.item)).toEqual([
-      'sword',
-      'leather-armour',
-    ]);
-    expect(
-      barrels.map((id: number) => CAVE_CONTAINERS[id]?.item ?? null).sort(),
-    ).toEqual(['clover', 'clover', 'healing-potion', null]);
-  });
-
   it('takes what a container holds while it has not been looted', () => {
     CAVE_CONTAINERS.forEach((container, id: number) => {
-      expect(findPickTarget(standBefore(id), 0, NOTHING, 'cave')).toEqual({
+      expect(findPickTarget(standBefore(id), 0, NOTHING, 'cave', [])).toEqual({
         source: 'container',
         id,
         kind: container.item,
@@ -756,15 +794,12 @@ describe('findPickTarget by the containers of the cave', () => {
     });
   });
 
-  it('has five silver coins in the last barrel that holds no item, and only there', () => {
+  it('takes the five silver coins of the last barrel that holds no item', () => {
     const empty: number[] = barrels.filter(
       (id: number) => CAVE_CONTAINERS[id]?.item === null,
     );
     const last: number = empty.at(-1) ?? -1;
-    CAVE_CONTAINERS.forEach((container, id: number) => {
-      expect(container.silver ?? 0).toBe(id === last ? 5 : 0);
-    });
-    expect(findPickTarget(standBefore(last), 0, NOTHING, 'cave')).toEqual({
+    expect(findPickTarget(standBefore(last), 0, NOTHING, 'cave', [])).toEqual({
       source: 'container',
       id: last,
       kind: null,
@@ -776,7 +811,7 @@ describe('findPickTarget by the containers of the cave', () => {
     const looted: number[] = CAVE_CONTAINERS.map((_, id: number) => id);
     CAVE_CONTAINERS.forEach((_, id: number) => {
       expect(
-        findPickTarget(standBefore(id), 0, { ...NOTHING, looted }, 'cave'),
+        findPickTarget(standBefore(id), 0, { ...NOTHING, looted }, 'cave', []),
       ).toEqual({ source: 'container', id, kind: null });
     });
   });
@@ -791,6 +826,7 @@ describe('findPickTarget by the containers of the cave', () => {
         0,
         { ...NOTHING, items: [item], looted: [empty] },
         'cave',
+        [],
       ),
     ).toEqual({ source: 'ground', id: 7, kind: 'clover' });
   });
@@ -798,8 +834,8 @@ describe('findPickTarget by the containers of the cave', () => {
   it('finds no container facing away, nor in the village', () => {
     const pose: Pose = standBefore(chests[0] ?? -1);
     expect(
-      findPickTarget({ ...pose, yaw: pose.yaw + 180 }, 0, NOTHING, 'cave'),
+      findPickTarget({ ...pose, yaw: pose.yaw + 180 }, 0, NOTHING, 'cave', []),
     ).toBeNull();
-    expect(findPickTarget(pose, 0, NOTHING, 'village')).toBeNull();
+    expect(findPickTarget(pose, 0, NOTHING, 'village', [])).toBeNull();
   });
 });

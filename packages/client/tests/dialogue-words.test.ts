@@ -19,14 +19,14 @@
 
 /**
  * @module client/tests/dialogue-words Tests for wording what is said in a
- *   dialogue, and the counts it names.
+ *   dialogue.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { HEALING_POTION_PRICE } from '@clovervale/shared';
 
-import { wordCount, wordDialogueText } from '../src/dialogue-words.ts';
+import { wordDialogueText } from '../src/dialogue-words.ts';
 import type { LanguageCode } from '../src/language.ts';
 import { Translator } from '../src/translator.ts';
 
@@ -41,32 +41,6 @@ async function createTranslator(code: LanguageCode): Promise<Translator> {
   await translator.choose(code);
   return translator;
 }
-
-describe('wordCount', () => {
-  it.each([
-    [1, 'en', 'one'],
-    [3, 'en', 'three'],
-    [12, 'en', 'twelve'],
-    [13, 'en', '13'],
-    [3, 'zh-TW', '三'],
-    [2, 'zh-TW', '兩'],
-    [2, 'zh-CN', '两'],
-    [10, 'zh-TW', '十'],
-    [12, 'zh-CN', '十二'],
-    [20, 'zh-TW', '二十'],
-    [35, 'zh-CN', '三十五'],
-    [100, 'zh-TW', '100'],
-    [3, 'ja', '3'],
-    [3, 'es', 'tres'],
-    [12, 'es', 'doce'],
-    [13, 'es', '13'],
-  ] as const)(
-    'words %i in %s as "%s"',
-    (count: number, code: LanguageCode, words: string) => {
-      expect(wordCount(count, code)).toBe(words);
-    },
-  );
-});
 
 describe('wordDialogueText', () => {
   it('words the price of a potion into the offer of Basil', async () => {

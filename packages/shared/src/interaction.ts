@@ -178,7 +178,7 @@ export interface Passage {
  * cave, and up the rope at the bottom of the old well shaft in the cave to
  * beside the old well in the yard of the chief's house.
  */
-export const PASSAGES: readonly Passage[] = [
+const PASSAGES: readonly Passage[] = [
   {
     map: 'village',
     centre: (() => {
@@ -280,17 +280,16 @@ export function findInteraction(
  *
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
- * @param {MapId} [map] - The map the player is in, the village by default.
- * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
- *   none by default.
+ * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map.
  * @returns {Villager | null} The villager, or `null` if the player does not
  *   talk.
  */
 export function findVillager(
   pose: Pose,
   step: number,
-  map: MapId = 'village',
-  monsters: readonly MonsterState[] = [],
+  map: MapId,
+  monsters: readonly MonsterState[],
 ): Villager | null {
   return findInteractable(pose, step, map, monsters)?.villager ?? null;
 }
@@ -402,9 +401,8 @@ function isWithinReach(
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {number} step - The number of the step.
  * @param {WorldItems} world - What there is to pick in the map.
- * @param {MapId} [map] - The map the player is in, the village by default.
- * @param {readonly MonsterState[]} [monsters] - The monsters in the map,
- *   none by default.
+ * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map.
  * @returns {PickTarget | null} The nearest of the clovers, the items and
  *   the containers that hold something within reach, an item or silver
  *   coins, a clover before an item as near and an item before a container;
@@ -416,8 +414,8 @@ export function findPickTarget(
   pose: Pose,
   step: number,
   world: WorldItems,
-  map: MapId = 'village',
-  monsters: readonly MonsterState[] = [],
+  map: MapId,
+  monsters: readonly MonsterState[],
 ): PickTarget | null {
   if (findInteraction(pose, step, map, monsters) !== 'Slash') {
     return null;

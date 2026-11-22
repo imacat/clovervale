@@ -315,7 +315,7 @@ export const ES_MESSAGES: MessageTable = {
     'No te muevas, que te pongo el ungüento. Listo, ya está. Y ten más cuidado cuando juegues, ¿eh?',
   'dialogue.toby.thanks': 'Sí. ¡Gracias! ¡Esto es para ti!',
   'dialogue.basil.offer':
-    '¡Hola, hola! ¿Quieres una poción curativa? ¡Solo {price} monedas de plata el frasco!',
+    '¡Hola, hola! ¿Quieres una poción curativa? ¡Solo tres monedas de plata el frasco!',
   'dialogue.basil.buy': 'Me llevo una.',
   'dialogue.basil.decline': 'No, gracias.',
   'dialogue.basil.sold':

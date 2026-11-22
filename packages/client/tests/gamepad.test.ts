@@ -140,7 +140,7 @@ describe('reading the buttons of the gamepads', () => {
         'dpadRight',
       ],
     });
-    expect([...all].sort()).toEqual(['a', 'b', 'y', 'lb', 'rb', 'start'].sort());
+    expect(all).toEqual(['a', 'b', 'y', 'lb', 'rb', 'start']);
   });
 
   it('ignores the D-pad', () => {
@@ -155,7 +155,7 @@ describe('reading the buttons of the gamepads', () => {
   it('does not repeat a button held', () => {
     const pads = new Gamepads();
     const hold: PadState = createPad({ buttons: ['a', 'lb'] });
-    expect([...pads.readPads([hold], 0)].sort()).toEqual(['a', 'lb']);
+    expect(pads.readPads([hold], 0)).toEqual(['a', 'lb']);
     expect(pads.readPads([hold], CHOICE_REPEAT_DELAY + 1)).toEqual([]);
   });
 
@@ -273,6 +273,9 @@ describe('choosing with a left stick held from play', () => {
   });
 });
 
+/** No walk along an axis, which either zero tells. */
+const NONE: number = expect.closeTo(0) as number;
+
 describe('walking with the left stick', () => {
   it('stands still within the dead zone', () => {
     expect(resolveStick([0, 0])).toEqual({ ahead: 0, aside: 0 });
@@ -286,8 +289,8 @@ describe('walking with the left stick', () => {
   it('walks in the eight directions the stick is nearest to', () => {
     expect(resolveStick([0, -1])).toEqual({ ahead: 1, aside: 0 });
     expect(resolveStick([0, 1])).toEqual({ ahead: -1, aside: 0 });
-    expect(resolveStick([1, 0])).toEqual({ ahead: 0, aside: 1 });
-    expect(resolveStick([-1, 0])).toEqual({ ahead: 0, aside: -1 });
+    expect(resolveStick([1, 0])).toEqual({ ahead: NONE, aside: 1 });
+    expect(resolveStick([-1, 0])).toEqual({ ahead: NONE, aside: -1 });
     expect(resolveStick([0.7, -0.7])).toEqual({ ahead: 1, aside: 1 });
     expect(resolveStick([-0.7, 0.7])).toEqual({ ahead: -1, aside: -1 });
     expect(resolveStick([0.3, -0.9])).toEqual({ ahead: 1, aside: 0 });

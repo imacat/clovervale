@@ -29,7 +29,7 @@ import type { StickPlace, StickPush, TouchControls } from './touch-controls.ts';
 import type { Translator } from './translator.ts';
 
 /** The class of the root of the page while it is used by touch. */
-export const TOUCH_CLASS = 'is-touch';
+const TOUCH_CLASS = 'is-touch';
 
 /** The touch controls as the page shows them. */
 export interface TouchView {
@@ -119,10 +119,7 @@ export function drawHand(): SVGElement {
  * @returns {boolean} Whether it does.
  */
 function isCoarsePointer(): boolean {
-  return (
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(pointer: coarse)').matches
-  );
+  return window.matchMedia('(pointer: coarse)').matches;
 }
 
 /**
@@ -145,8 +142,8 @@ function isCoarsePointer(): boolean {
  * @param {TouchControls} controls - The fingers.
  * @param {() => void} pressAction - Called when the action button is
  *   pressed.
- * @param {(isTouch: boolean) => void} noticeMode - Called once the page
- *   comes to be used by touch, or by a mouse again.
+ * @param {() => void} noticeMode - Called once the page comes to be used
+ *   by touch, or by a mouse again.
  * @returns {TouchView} The controls as shown.
  */
 export function createTouchView(
@@ -154,7 +151,7 @@ export function createTouchView(
   translator: Translator,
   controls: TouchControls,
   pressAction: () => void,
-  noticeMode: (isTouch: boolean) => void,
+  noticeMode: () => void,
 ): TouchView {
   let isTouch: boolean = isCoarsePointer();
   document.documentElement.classList.toggle(TOUCH_CLASS, isTouch);
@@ -232,7 +229,7 @@ export function createTouchView(
       if (next !== isTouch) {
         isTouch = next;
         document.documentElement.classList.toggle(TOUCH_CLASS, isTouch);
-        noticeMode(isTouch);
+        noticeMode();
       }
       if (
         event.pointerType !== 'touch' ||
@@ -247,9 +244,7 @@ export function createTouchView(
     { capture: true },
   );
   window.addEventListener('pointermove', (event: PointerEvent) => {
-    if (controls.hasPointer(event.pointerId)) {
-      controls.movePointer(event.pointerId, event.clientX, event.clientY);
-    }
+    controls.movePointer(event.pointerId, event.clientX, event.clientY);
   });
   for (const type of ['pointerup', 'pointercancel']) {
     window.addEventListener(type, (event: Event) => {
@@ -258,14 +253,12 @@ export function createTouchView(
       }
     });
   }
-  if (typeof window.matchMedia === 'function') {
-    window
-      .matchMedia('(orientation: portrait)')
-      .addEventListener('change', () => {
-        controls.releaseAll();
-        action.classList.remove('is-pressed');
-      });
-  }
+  window
+    .matchMedia('(orientation: portrait)')
+    .addEventListener('change', () => {
+      controls.releaseAll();
+      action.classList.remove('is-pressed');
+    });
 
   let shownPush = '';
   let shownHeld: boolean | null = null;

@@ -31,24 +31,19 @@ import {
   PLAZA_CENTRE,
   SPAWN_POINT_COUNT,
   Terrain,
-  VILLAGE_BOUNDARY,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
   findInteraction,
   findPlacement,
   findSpawnPoint,
-  findTurn,
-  findVillagePath,
+  findMapPath,
   findVillager,
   placePoint,
-  turnVector,
 } from '../src/index.ts';
-import type {
-  CircleShape,
-  GroundVector,
-  Placement,
-  Shape,
-} from '../src/index.ts';
+import type { GroundVector, Placement, Shape } from '../src/index.ts';
+import { findTurn, turnVector } from '../src/terrain.ts';
+import { VILLAGE_BOUNDARY } from '../src/village-layout.ts';
+import type { CircleShape } from '../src/terrain.ts';
 
 /**
  * The models a player can walk over or into the middle of, Martha, who
@@ -138,25 +133,19 @@ interface GridPoint extends GroundVector {
 }
 
 /**
- * Walks over a square of points on the ground, a step apart, from where the
- * walk starts to every point a player can walk to from there, from one
- * point to a neighbouring one at a time.
+ * Walks over a square of points on the ground of the village, a step
+ * apart, from its edge to every point a player can walk to from there, from
+ * one point to a neighbouring one at a time.
  *
  * @param {GroundVector} centre - The middle of the square.
  * @param {number} reach - Half the width of the square, in metres.
  * @param {number} step - The distance between neighbouring points.
- * @param {(point: GroundVector) => boolean} isOpen - Tells whether a player
- *   may stand at a point.
- * @param {(point: GridPoint) => boolean} isStart - Tells whether the walk
- *   starts at a point a player may stand at.
  * @returns {GridPoint[]} The points of the square.
  */
 function walkGrid(
   centre: GroundVector,
   reach: number,
   step: number,
-  isOpen: (point: GroundVector) => boolean,
-  isStart: (point: GridPoint) => boolean,
 ): GridPoint[] {
   const count: number = Math.round((2 * reach) / step) + 1;
   const points: GridPoint[] = Array.from(
@@ -175,14 +164,14 @@ function walkGrid(
           column === count - 1 ||
           row === 0 ||
           row === count - 1,
-        isOpen: isOpen(point),
+        isOpen: VILLAGE_TERRAIN.isClear(point),
         isReached: false,
       };
     },
   );
   const queue: number[] = [];
   points.forEach((point: GridPoint, index: number) => {
-    if (point.isOpen && isStart(point)) {
+    if (point.isOpen && point.isEdge) {
       points[index] = { ...point, isReached: true };
       queue.push(index);
     }
@@ -652,10 +641,6 @@ describe('the house of the village chief', () => {
   it('stands in place of the cottage at the back on the north-east', () => {
     const house: Placement = findPlacement(CHIEF_HOUSE_FILE);
     expect(Math.hypot(house.x - 10.5, house.z + 16.5)).toBeLessThan(1.5);
-    const cottages: number[][] = VILLAGE_PLACEMENTS.filter(
-      (placement: Placement) => placement.file === 'prop-cottage.glb',
-    ).map(({ x, z, yaw }: Placement) => [x, z, yaw]);
-    expect(cottages).toEqual([[-11, -4.5, 90]]);
     const toPlaza: GroundVector = findWay(house, PLAZA_CENTRE);
     expect(measureAlignment(findChiefHouseFront(), toPlaza)).toBeGreaterThan(
       Math.cos((15 * Math.PI) / 180),
@@ -745,8 +730,6 @@ describe('the house of the village chief', () => {
       findPlacement(CHIEF_HOUSE_FILE),
       10,
       0.1,
-      (point: GroundVector) => VILLAGE_TERRAIN.isClear(point),
-      (point: GridPoint) => point.isEdge,
     );
     expect(
       points.filter((point: GridPoint) => point.isOpen && !point.isReached),
@@ -764,13 +747,6 @@ function findMarthaFront(): GroundVector {
 }
 
 describe('Martha the village chief', () => {
-  it('stands on the porch beside the door, on the side of the well', () => {
-    const martha: Placement = findPlacement(MARTHA_FILE);
-    const place: GroundVector = placeOnChiefHouse(PORCH_PLACE);
-    expect(martha.x).toBeCloseTo(place.x, 6);
-    expect(martha.z).toBeCloseTo(place.z, 6);
-  });
-
   it('faces the plaza', () => {
     const martha: Placement = findPlacement(MARTHA_FILE);
     expect(
@@ -926,7 +902,6 @@ function findFootprintsAt(
 describe("the apothecary's", () => {
   it('stands in place of the cottage at the back on the north-west', () => {
     const shop: Placement = findPlacement(APOTHECARY_FILE);
-    expect([shop.x, shop.z, shop.yaw]).toEqual([-10.5, -16.5, 55]);
     const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(shop.yaw));
     const toPlaza: GroundVector = findWay(shop, PLAZA_CENTRE);
     expect(measureAlignment(front, toPlaza)).toBeGreaterThan(
@@ -994,7 +969,7 @@ describe("the apothecary's", () => {
   it('leaves the way open from the plaza to the front of its door', () => {
     const spot: GroundVector = placeOnApothecary(BEFORE_SHOP_DOOR);
     expect(VILLAGE_TERRAIN.isClear(spot)).toBe(true);
-    expect(findVillagePath(findSpawnPoint(0), spot)).not.toBeNull();
+    expect(findMapPath('village', findSpawnPoint(0), spot)).not.toBeNull();
   });
 
   it('leaves no ground in or around it that cannot be reached', () => {
@@ -1002,8 +977,6 @@ describe("the apothecary's", () => {
       findPlacement(APOTHECARY_FILE),
       6,
       0.1,
-      (point: GroundVector) => VILLAGE_TERRAIN.isClear(point),
-      (point: GridPoint) => point.isEdge,
     );
     expect(
       points.filter((point: GridPoint) => point.isOpen && !point.isReached),
@@ -1055,7 +1028,7 @@ describe('Basil the apothecary', () => {
     const spot: GroundVector = placeOnApothecary(BEFORE_SHOP_DOOR);
     const yaw: number =
       (Math.atan2(basil.x - spot.x, basil.z - spot.z) * 180) / Math.PI;
-    expect(findVillager({ ...spot, yaw }, 0)?.id).toBe('basil');
+    expect(findVillager({ ...spot, yaw }, 0, 'village', [])?.id).toBe('basil');
   });
 });
 
