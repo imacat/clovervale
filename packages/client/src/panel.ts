@@ -225,8 +225,6 @@ export interface Panel {
    *   shown.
    */
   readonly listProblems: (problems: readonly ModelProblem[]) => void;
-  /** Folds the panel up to its title, which opens it again when clicked. */
-  readonly collapse: () => void;
 }
 
 /** The names of the values of the readout, in the order they are shown. */
@@ -359,7 +357,8 @@ function showHourAsClock(control: NumberController): void {
 
 /**
  * Creates the settings panel, in the language of the page, which starts
- * with nothing synchronised yet, with the player of the page to be shown as
+ * folded up to its title, which opens it when clicked, and with nothing
+ * synchronised yet, with the player of the page to be shown as
  * predicted, gliding over its corrections, pushed out of the way of Toby
  * before the server tells of it, the other players smoothly, by the default
  * delay, no message held back, the slashes judged on the world as the page
@@ -454,6 +453,7 @@ export function createPanel(
   relabels.push(() => {
     gui.title(translator.translate('title'));
   });
+  gui.close();
   name(gui.add(state, 'server'), 'panel.server').disable().listen();
   name(gui.add(state, 'models'), 'panel.models').disable().listen();
   name(gui.add(state, 'timeOfDay'), 'panel.timeOfDay').disable().listen();
@@ -645,8 +645,5 @@ export function createPanel(
     showInteraction,
     showSlash,
     listProblems,
-    collapse: (): void => {
-      gui.close();
-    },
   };
 }

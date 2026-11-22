@@ -359,18 +359,11 @@ const touchView: TouchView = createTouchView(
       pressGameKey('Space', false);
     }
   },
-  (isTouch: boolean) => {
-    if (isTouch) {
-      panel.collapse();
-    }
+  () => {
     bagView.render();
     dialogueView.render();
   },
 );
-// The panel starts folded up on a touch device, clear of the controls.
-if (touchView.isTouch()) {
-  panel.collapse();
-}
 const music = new BackgroundMusic(new Audio(MUSIC_URL));
 const prompt: Prompt = createPrompt(document.body);
 /** The bag of the player of the page, which the person at the page opens. */

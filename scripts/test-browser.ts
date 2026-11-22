@@ -4178,9 +4178,9 @@ const ZOOM_STEP_FACTOR = 0.95;
  * width of the view.  Its player talks to her, steps south of her, and
  * walks off to one side until she stands near the edge, with the camera
  * brought nearer first where the view is too wide for her to get there
- * otherwise, and then goes back to talk to her again.  The panel is folded
- * up meanwhile, out of the way, and the camera is put back after.  Each
- * bubble is saved, if the environment names a directory to.
+ * otherwise, and then goes back to talk to her again.  The camera is put
+ * back after.  Each bubble is saved, if the environment names a directory
+ * to.
  *
  * The player is to stand by Nancy, level with her and facing her from the
  * west, where it is left after.
@@ -4245,11 +4245,8 @@ async function checkSpeechEdges(
       await sendKey(session, context, 'keyUp', key);
     }
   };
-  const toggleTitle =
-    'document.querySelector(".lil-gui.lil-root > .lil-title").click(), ""';
   const problems: string[] = [];
   const distance: number = await readDistance();
-  await evaluateInPage(session, context, toggleTitle);
   try {
     for (const [name, viewport, pixelRatio] of [
       ['portrait', PORTRAIT_VIEWPORT, PHONE_PIXEL_RATIO],
@@ -4366,7 +4363,6 @@ async function checkSpeechEdges(
     });
     await sleep(VIEW_SETTLE_DURATION);
     await zoomTo(distance);
-    await evaluateInPage(session, context, toggleTitle);
   }
   await waitFor(
     look,
@@ -5096,6 +5092,98 @@ async function checkBrowserKeys(
         'browser.',
     );
   }
+}
+
+/** Reads how the panel of a page shows itself, as JSON. */
+const PANEL_LOOK_EXPRESSION = `(() => {
+  const root = document.querySelector('.lil-gui.lil-root');
+  const boxOf = (selector) => {
+    const box = document.querySelector(selector)?.getBoundingClientRect();
+    return box === undefined || box.width === 0 || box.height === 0
+      ? null
+      : { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+  };
+  return JSON.stringify({
+    isClosed: root?.classList.contains('lil-closed') ?? false,
+    title: boxOf('.lil-gui.lil-root > .lil-title'),
+    children: boxOf('.lil-gui.lil-root > .lil-children'),
+    bagIcon: boxOf('.bag-icon'),
+    helpButton: boxOf('.help-button'),
+  });
+})()`;
+
+/** How the panel of a page shows itself. */
+interface PanelLook {
+  /** Whether the panel is folded up to its title. */
+  readonly isClosed: boolean;
+  /** The box of its title, or `null` if it is not shown. */
+  readonly title: BoxView | null;
+  /** The box of what it holds, or `null` if it is not shown. */
+  readonly children: BoxView | null;
+  /** The box of the icon of the bag, or `null` if it is not shown. */
+  readonly bagIcon: BoxView | null;
+  /** The box of the help button, or `null` if it is not shown. */
+  readonly helpButton: BoxView | null;
+}
+
+/**
+ * Checks that the panel of a page starts folded up to its title, which is
+ * clear of the icon of the bag and of the help button, and that clicking
+ * the title opens it and clicking it again folds it up again.  The panel
+ * is left folded up.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<void>} A promise settled once the page has passed.
+ * @throws {Error} If the panel does not show itself so.
+ */
+async function checkPanelFolded(
+  session: BidiSession,
+  context: string,
+): Promise<void> {
+  const look = async (): Promise<PanelLook> =>
+    JSON.parse(
+      await evaluateInPage(session, context, PANEL_LOOK_EXPRESSION),
+    ) as PanelLook;
+  const describe = (seen: PanelLook): string => JSON.stringify(seen);
+  const overlaps = (one: BoxView | null, other: BoxView | null): boolean =>
+    one !== null &&
+    other !== null &&
+    one.left < other.right &&
+    other.left < one.right &&
+    one.top < other.bottom &&
+    other.top < one.bottom;
+  const clickTitle =
+    'document.querySelector(".lil-gui.lil-root > .lil-title").click(), ""';
+  const first: PanelLook = await look();
+  if (
+    !first.isClosed ||
+    first.title === null ||
+    overlaps(first.title, first.bagIcon) ||
+    overlaps(first.title, first.helpButton)
+  ) {
+    throw new Error(
+      `Just loaded, the first page shows its panel as ${describe(first)}.`,
+    );
+  }
+  await evaluateInPage(session, context, clickTitle);
+  await waitFor(
+    look,
+    (seen: PanelLook) => !seen.isClosed && seen.children !== null,
+    ACTION_TIMEOUT,
+    (seen: PanelLook) =>
+      `With the title of its panel clicked, the first page shows its ` +
+      `panel as ${describe(seen)}.`,
+  );
+  await evaluateInPage(session, context, clickTitle);
+  await waitFor(
+    look,
+    (seen: PanelLook) => seen.isClosed,
+    ACTION_TIMEOUT,
+    (seen: PanelLook) =>
+      `With the title of its panel clicked again, the first page shows ` +
+      `its panel as ${describe(seen)}.`,
+  );
 }
 
 /**
@@ -8201,35 +8289,6 @@ async function talkToToby(
 }
 
 /**
- * Saves the view of a page as a picture with its panel folded up, so that
- * the panel hides nothing of the dialogue box, if the environment names a
- * directory for the views.  The panel is unfolded again after.
- *
- * @param {BidiSession} session - The session with the browser.
- * @param {string} context - The browsing context of the page.
- * @param {string} name - The file name of the picture.
- * @returns {Promise<void>} A promise settled once it is saved, if it is.
- */
-async function saveViewUnpanelled(
-  session: BidiSession,
-  context: string,
-  name: string,
-): Promise<void> {
-  if (SCREENSHOT_DIR === undefined) {
-    return;
-  }
-  const toggleTitle =
-    'document.querySelector(".lil-gui.lil-root > .lil-title").click(), ""';
-  await evaluateInPage(session, context, toggleTitle);
-  try {
-    await sleep(VIEW_SETTLE_DURATION);
-    await saveView(session, context, name);
-  } finally {
-    await evaluateInPage(session, context, toggleTitle);
-  }
-}
-
-/**
  * Checks that a player plays the quest of Toby, hurt, through, as a player
  * who has beaten Martha.
  *
@@ -8329,7 +8388,7 @@ async function checkTobyQuest(
         `${toVillage(held)}, after ${toVillage(hurt)}.`,
     );
   }
-  await saveViewUnpanelled(session, context, 'quest-toby-hurt.png');
+  await saveView(session, context, 'quest-toby-hurt.png');
   await press(BAG_KEYS.enter);
   await waitForEnd('the promise to ask the village chief chosen');
   await talkToToby(
@@ -8381,7 +8440,7 @@ async function checkTobyQuest(
         `page tells ${toVillage(seen)}.`,
     );
     await sleep(VIEW_SETTLE_DURATION);
-    await saveViewUnpanelled(session, context, 'quest-martha-welcome.png');
+    await saveView(session, context, 'quest-martha-welcome.png');
     await press(BAG_KEYS.enter);
     await waitForDialogue(
       MARTHA_OINTMENT,
@@ -8392,7 +8451,7 @@ async function checkTobyQuest(
         seen.notices.includes(OINTMENT_NOTICE),
     );
     await sleep(VIEW_SETTLE_DURATION);
-    await saveViewUnpanelled(session, context, 'quest-martha-ointment.png');
+    await saveView(session, context, 'quest-martha-ointment.png');
     await press(BAG_KEYS.enter);
     await waitForEnd('Enter pressed as Martha gives her ointment');
     await press(' ');
@@ -8431,7 +8490,7 @@ async function checkTobyQuest(
         `page tells ${toVillage(seen)}.`,
     );
     await sleep(VIEW_SETTLE_DURATION);
-    await saveViewUnpanelled(session, context, 'quest-ointment-bag.png');
+    await saveView(session, context, 'quest-ointment-bag.png');
     await press(BAG_KEYS.enter);
     await waitFor(
       look,
@@ -8470,7 +8529,7 @@ async function checkTobyQuest(
     await walkInVillage(session, context, id, beyond, 'beyond the jar');
     await zoomCamera(session, context, OINTMENT_CAMERA_ZOOM);
     await sleep(VIEW_SETTLE_DURATION);
-    await saveViewUnpanelled(session, context, 'quest-ointment-ground.png');
+    await saveView(session, context, 'quest-ointment-ground.png');
     await zoomCamera(session, context, -OINTMENT_CAMERA_ZOOM);
     await walkInVillage(session, context, id, AWAY_FROM_MARTHA, 'back');
   }
@@ -8507,7 +8566,7 @@ async function checkTobyQuest(
   );
   await press(' ');
   await waitForDialogue(MARTHA_WONDER, 'Martha talked to without her jar');
-  await saveViewUnpanelled(session, context, 'quest-martha-wonder.png');
+  await saveView(session, context, 'quest-martha-wonder.png');
   await press(BAG_KEYS.enter);
   await waitForDialogue(
     MARTHA_REPLACE,
@@ -8527,7 +8586,7 @@ async function checkTobyQuest(
     (seen: QuestLook) => isShowing(seen, TOBY_ACHE),
     'Toby moaning to the player who brings the ointment',
   );
-  await saveViewUnpanelled(session, context, 'quest-toby-ache.png');
+  await saveView(session, context, 'quest-toby-ache.png');
   await press(BAG_KEYS.enter);
   await waitForDialogue(
     TOBY_THANKS,
@@ -8539,7 +8598,7 @@ async function checkTobyQuest(
       seen.notices.includes(QUEST_CLOVER_NOTICE),
   );
   await sleep(VIEW_SETTLE_DURATION);
-  await saveViewUnpanelled(session, context, 'quest-toby-thanks.png');
+  await saveView(session, context, 'quest-toby-thanks.png');
   await press(BAG_KEYS.enter);
   await waitForEnd('Enter pressed as Toby thanks the player');
   await talkToToby(
@@ -8716,11 +8775,11 @@ async function saveApothecaryViews(
     id,
     findHeading(SHOP_VIEWPOINT, APOTHECARY_PLACE),
   );
-  await saveViewUnpanelled(session, context, 'apothecary-day.png');
+  await saveView(session, context, 'apothecary-day.png');
   await setControl(session, context, PREVIEW_HOUR_CONTROL, NIGHT_CLOCK);
   await setControl(session, context, PREVIEW_CONTROL, true);
   try {
-    await saveViewUnpanelled(session, context, 'apothecary-night.png');
+    await saveView(session, context, 'apothecary-night.png');
   } finally {
     await setControl(session, context, PREVIEW_CONTROL, false);
   }
@@ -8735,7 +8794,7 @@ async function saveApothecaryViews(
   );
   await zoomCamera(session, context, SHOP_CLOSE_ZOOM);
   await tiltCamera(session, context, GABLE_TILT);
-  await saveViewUnpanelled(session, context, 'apothecary-gable.png');
+  await saveView(session, context, 'apothecary-gable.png');
   await tiltCamera(session, context, -GABLE_TILT);
   await walkInVillage(session, context, id, RACK_VIEWPOINT, 'before the rack');
   await faceInVillage(session, context, id, RACK_SPOT);
@@ -8745,7 +8804,7 @@ async function saveApothecaryViews(
     id,
     findHeading(RACK_VIEWPOINT, RACK_SPOT),
   );
-  await saveViewUnpanelled(session, context, 'apothecary-rack.png');
+  await saveView(session, context, 'apothecary-rack.png');
 
   // Basil from the front and from three quarters, away from the great
   // tree, the player standing off to one side of the way the camera looks
@@ -8766,7 +8825,7 @@ async function saveApothecaryViews(
     await walkInVillage(session, context, id, stand, `to see ${name}`);
     await faceInVillage(session, context, id, BASIL_SPOT);
     await turnCameraTo(session, context, id, basil.yaw + turn + 180);
-    await saveViewUnpanelled(session, context, name);
+    await saveView(session, context, name);
   }
   await zoomCamera(session, context, -BASIL_CLOSE_ZOOM - SHOP_CLOSE_ZOOM);
   await turnCameraTo(session, context, id, heading);
@@ -8851,7 +8910,7 @@ async function checkApothecary(
       `${describeQuestLook(seen)}.`,
   );
   await sleep(VIEW_SETTLE_DURATION);
-  await saveViewUnpanelled(session, context, 'apothecary-offer.png');
+  await saveView(session, context, 'apothecary-offer.png');
   let bought = 0;
   while (silver >= HEALING_POTION_PRICE) {
     await press(BAG_KEYS.enter);
@@ -8870,7 +8929,7 @@ async function checkApothecary(
     );
     if (bought === 0) {
       await sleep(VIEW_SETTLE_DURATION);
-      await saveViewUnpanelled(session, context, 'apothecary-sold.png');
+      await saveView(session, context, 'apothecary-sold.png');
     }
     bought++;
     silver = Number(sold.silver);
@@ -8898,7 +8957,7 @@ async function checkApothecary(
         `${describeQuestLook(refused)}.`,
     );
   }
-  await saveViewUnpanelled(session, context, 'apothecary-short.png');
+  await saveView(session, context, 'apothecary-short.png');
   await press(BAG_KEYS.enter);
   await waitFor(
     look,
@@ -9700,7 +9759,7 @@ function findLayoutProblems(
  * Checks the touch controls in a page of its own on a phone-sized screen,
  * held upright and on its side, with synthetic touches: that the first
  * touch has the page count as used by touch, show the stick and the
- * action button and fold up its panel, all laid out within the view
+ * action button with its panel folded up, all laid out within the view
  * without overlapping and large enough to tap, without the keys on the
  * buttons of the bag and the help sheet; that the stick walks the player
  * and stops once lifted; that a finger on the scene turns the view while
@@ -10169,6 +10228,7 @@ async function checkClient(): Promise<void> {
       );
     }
 
+    await checkPanelFolded(session, first);
     await checkHelp(session, first, second, id);
     await checkToby(session, first, second);
     await checkTobyFind(session, first, second);
