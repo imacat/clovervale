@@ -255,8 +255,8 @@ export class Patroller {
    * Takes note of how the player stands in a snapshot of the server, and
    * has it do what it is to do next, if it is ready to.
    *
-   * @param {InputProgress} own - How far the player has got with the inputs
-   *   sent for it.
+   * @param {InputProgress} own - How far the player has gotten with the
+   *   inputs sent for it.
    * @param {number} health - The health of the player.
    * @param {number} step - The number of the step of the snapshot.
    * @param {number} localTime - When the snapshot arrived, in milliseconds,
@@ -329,7 +329,7 @@ export class Patroller {
   /**
    * Has the player visit the fountain, if it is to.
    *
-   * @param {InputProgress} own - How far the player has got with the
+   * @param {InputProgress} own - How far the player has gotten with the
    *   inputs of the bot, now that it is ready for the next one.
    * @param {number} health - The health of the player.
    * @param {number} step - The number of the step the server told that at.
@@ -496,7 +496,7 @@ export class Patroller {
   }
 
   /**
-   * Has the player speak at the point it has just got to, if it has
+   * Has the player speak at the point it has just gotten to, if it has
    * something to say there and chances to.
    *
    * @param {PatrolPoint} place - The point.
@@ -529,7 +529,7 @@ export class Patroller {
 }
 
 /**
- * Tells whether a player has got to a point.
+ * Tells whether a player has gotten to a point.
  *
  * @param {GroundVector} position - Where the player stands.
  * @param {GroundVector} point - The point.

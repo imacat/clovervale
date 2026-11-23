@@ -44,13 +44,13 @@ export const ACTION_TIMEOUT = 10_000;
 /** How long to wait between two looks at the page, in milliseconds. */
 export const POLL_INTERVAL = 100;
 
-/** How far a player walks in the check, in metres. */
+/** How far a player walks in the check, in meters. */
 export const WALK_DISTANCE = 2;
-/** The most two positions differ by when they are the same, in metres. */
+/** The most two positions differ by when they are the same, in meters. */
 export const SAME_POSITION = 1e-9;
 /** The key value WebDriver gives the left arrow. */
 export const LEFT_ARROW = '\uE012';
-/** The farthest a player standing still may seem to move, in metres. */
+/** The farthest a player standing still may seem to move, in meters. */
 export const STANDING_DRIFT = 0.01;
 
 /** How long a page holds its messages back each way, in milliseconds. */
@@ -63,13 +63,13 @@ export const NETWORK_DELAY = 300;
 export const LEG_TIMEOUT = 20_000;
 /**
  * The least position along the Z axis of the stretch the player walks
- * along to and from the monster, in metres.  Along the whole stretch, the
+ * along to and from the monster, in meters.  Along the whole stretch, the
  * way is clear from the path, between the bush and the rock west of the
  * spawn stones, and between the two stones on that side, to the far side
  * of the stones.
  */
 export const ROUTE_LEAST_Z = 8.6;
-/** The greatest position along the Z axis of that stretch, in metres. */
+/** The greatest position along the Z axis of that stretch, in meters. */
 export const ROUTE_MOST_Z = 8.95;
 /** How long the monster may take to come to the player, in milliseconds. */
 export const MONSTER_TIMEOUT = 15_000;
@@ -94,7 +94,7 @@ export const TALK_KEY = 'talk to Nancy';
 export const TALK_PROMPT = 'Press Space to talk to Nancy';
 /** What Nancy says the first time a page talks to her, to welcome it. */
 export const NANCY_WELCOME =
-  'Welcome to Clovervale! If you need anything, go and see the village ' +
+  'Welcome to Clovervale! If you need anything, go see the village ' +
   'chief. She lives in the biggest house, right at the back.';
 /** The key values WebDriver gives the keys the bag takes, by their names. */
 export const BAG_KEYS = {
@@ -105,7 +105,7 @@ export const BAG_KEYS = {
 } as const;
 /**
  * How far from the feet of a player an item it puts down may be shown, in
- * metres.
+ * meters.
  */
 export const ITEM_NEARNESS = 0.05;
 /**
@@ -188,18 +188,18 @@ export const ENDING_WORDS = {
     'Libraries',
     'three.js — MIT License',
     'lil-gui — MIT License',
-    'Licence',
+    'License',
     'This game project is licensed under the Apache License 2.0; the music ' +
-      'and the libraries are under their own licences.',
+      'and the libraries are under their own licenses.',
   ],
 } as const;
-/** The notice of the healing potion got from a barrel. */
+/** The notice of the healing potion found in a barrel. */
 export const POTION_NOTICE = 'You got a healing potion';
 /** How the bag of a player without silver coins tells them, in English. */
 export const NO_SILVER_LABEL = '0 silver coins';
 /** The name of the language control of the panel in Traditional Chinese. */
 export const ZH_TW_LANGUAGE_CONTROL = '語言';
-/** The least height of the foot of a speech bubble, in metres. */
+/** The least height of the foot of a speech bubble, in meters. */
 export const SPEECH_LEAST_HEIGHT = 1;
 /**
  * How long the bubble of what Nancy says may take to go away, in
@@ -223,7 +223,7 @@ export const NIGHT_CLOCK = '00:00';
  */
 export const RUNNING_DAY_MINUTES = 10;
 /**
- * How long Toby may take to be seen to find a four-leaved clover, in
+ * How long Toby may take to be seen to find a four-leaf clover, in
  * milliseconds: more than three of his visits to each patch, of which a
  * patch he has taken the clover of regrows its clover in time for the
  * third.
@@ -232,7 +232,7 @@ export const TOBY_FIND_TIMEOUT = 60_000;
 
 /**
  * The keys that walk a player each way in the first view, by the turn of
- * the way from +Z towards +X, in steps of 45 degrees from 0.
+ * the way from +Z toward +X, in steps of 45 degrees from 0.
  */
 export const TURN_KEYS: readonly (readonly string[])[] = [
   ['s'],

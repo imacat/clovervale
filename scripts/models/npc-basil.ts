@@ -68,19 +68,19 @@ const LEGS: Readonly<Record<'L' | 'R', LegBones>> = {
   R: ['ThighR', 'ShinR', 'FootR'],
 };
 
-/** The height of the shoulders, in metres. */
+/** The height of the shoulders, in meters. */
 const SHOULDER_HEIGHT = 0.9;
 
-/** The length of the upper arm, and of the forearm, in metres. */
+/** The length of the upper arm, and of the forearm, in meters. */
 const ARM_BONE = 0.21;
 
 /** How far either shoulder stands out to the side of the middle. */
 const SHOULDER_X = 0.25;
 
-/** The height of the elbows, in metres. */
+/** The height of the elbows, in meters. */
 const ELBOW_HEIGHT: number = SHOULDER_HEIGHT - ARM_BONE;
 
-/** The height of the wrists, in metres. */
+/** The height of the wrists, in meters. */
 const WRIST_HEIGHT: number = SHOULDER_HEIGHT - 2 * ARM_BONE;
 
 /**
@@ -89,7 +89,7 @@ const WRIST_HEIGHT: number = SHOULDER_HEIGHT - 2 * ARM_BONE;
  */
 const ANKLE_HEIGHT = 0.082;
 
-/** How far either ankle stands out to the side of the middle, in metres. */
+/** How far either ankle stands out to the side of the middle, in meters. */
 const STANCE = 0.11;
 
 /** How long his idling lasts before it starts again, in seconds. */
@@ -102,7 +102,7 @@ const CHEST_LEAN = 7;
  * The middle of the writing board, as he holds it to write on, in model
  * space: in front of his chest, a little to his left.
  */
-const BOARD_CENTRE: Triple = [0.05, 0.75, 0.3];
+const BOARD_CENTER: Triple = [0.05, 0.75, 0.3];
 
 /**
  * How the board is turned as he holds it to write, as the X, Y and Z
@@ -112,7 +112,7 @@ const BOARD_CENTRE: Triple = [0.05, 0.75, 0.3];
  */
 const BOARD_TURN: Triple = [-50, 180, 0];
 
-/** The width, the length and the thickness of the board, in metres. */
+/** The width, the length and the thickness of the board, in meters. */
 const BOARD_SIZE: Triple = [0.2, 0.24, 0.015];
 
 /**
@@ -123,7 +123,7 @@ const BOARD_SIZE: Triple = [0.2, 0.24, 0.015];
 const PEN_REACH: Triple = [0.04, -0.09, 0.05];
 
 /**
- * Where on the paper he writes, from its middle, in metres, along it to
+ * Where on the paper he writes, from its middle, in meters, along it to
  * his right and away from him: the start and the end of each of the two
  * lines he writes, the second nearer him.
  */
@@ -139,16 +139,16 @@ const WRITING_LINES: readonly [Triple, Triple] = [
  */
 const ELBOW_YAWS: Readonly<Record<'L' | 'R', number>> = { L: -40, R: 70 };
 
-/** The radius of the ball of a hand, in metres. */
+/** The radius of the ball of a hand, in meters. */
 const HAND_RADIUS = 0.064;
 
 /** The parts of a board held in front of him: its axes and its middle. */
 interface BoardFrame {
   /** The middle of the board. */
-  readonly centre: Vector3;
+  readonly center: Vector3;
   /** The way along its width, to his right. */
   readonly across: Vector3;
-  /** The way along its length, away from him, towards its top edge. */
+  /** The way along its length, away from him, toward its top edge. */
   readonly up: Vector3;
   /** The way its face looks: to him, and up. */
   readonly out: Vector3;
@@ -162,7 +162,7 @@ interface BoardFrame {
 function findBoardFrame(): BoardFrame {
   const tilt = createRotation(BOARD_TURN);
   return {
-    centre: new Vector3(...BOARD_CENTRE),
+    center: new Vector3(...BOARD_CENTER),
     across: new Vector3(1, 0, 0).applyQuaternion(tilt),
     up: new Vector3(0, 1, 0).applyQuaternion(tilt),
     out: new Vector3(0, 0, 1).applyQuaternion(tilt),
@@ -184,7 +184,7 @@ function findOnPaper(
   up: number,
   lift = 0,
 ): Vector3 {
-  return board.centre
+  return board.center
     .clone()
     .addScaledVector(board.across, across)
     .addScaledVector(board.up, up)
@@ -200,7 +200,7 @@ function findOnPaper(
  * @returns {Vector3} The wrist.
  */
 function findHoldingWrist(board: BoardFrame): Vector3 {
-  return board.centre
+  return board.center
     .clone()
     .addScaledVector(board.across, -0.06)
     .addScaledVector(board.up, -0.08)
@@ -247,7 +247,7 @@ function addBoard(model: Model, board: BoardFrame): void {
   const onBoard = (shape: Shape, across: number, up: number, out: number) =>
     moveToRestHand(
       place(place(shape, { pos: [across, up, out] }), {
-        pos: board.centre.toArray(),
+        pos: board.center.toArray(),
         rot: BOARD_TURN,
       }),
       wrist,
@@ -324,7 +324,7 @@ function addPen(model: Model, board: BoardFrame): void {
 }
 
 /**
- * Adds his round glasses: two thin rings of dark wire round his eyes, a
+ * Adds his round glasses: two thin rings of dark wire around his eyes, a
  * bridge over his nose, and the arms back to his ears.
  *
  * @param {Model} model - The model, with the material `frame` defined.
@@ -399,7 +399,7 @@ function setMaterials(model: Model): void {
   model.setMaterial('collar', '#3e8048');
   model.setMaterial('apron', '#e3d3ad');
   model.setMaterial('apronTie', '#b39c6c');
-  model.setMaterial('trousers', '#6b5240');
+  model.setMaterial('pants', '#6b5240');
   model.setMaterial('boot', '#4a3222');
   model.setMaterial('board', '#c08a50');
   model.setMaterial('paper', '#f7f2e4');
@@ -434,8 +434,8 @@ function addFace(model: Model): void {
 
 /**
  * Adds his body: the shirt, its collar, and the bib of the apron over it,
- * hung from a strap round his neck; and at the hips the trousers, the tie
- * of the apron round the waist, and its skirt down to the knees.
+ * hung from a strap around his neck; and at the hips the pants, the tie
+ * of the apron around the waist, and its skirt down to the knees.
  *
  * @param {Model} model - The model, with his materials and bones defined.
  */
@@ -507,10 +507,10 @@ function addBody(model: Model): void {
     );
   }
 
-  // The hips: the trousers, the tie of the apron round the waist, and its
+  // The hips: the pants, the tie of the apron around the waist, and its
   // skirt down to the knees.
   model.add(
-    'trousers',
+    'pants',
     place(
       createLathe(
         [
@@ -690,7 +690,7 @@ function findTip(board: BoardFrame, t: number, look: number): Vector3 {
  * Bakes his idling, `Idle`: he writes on his board, bent over it, line
  * after line, and now and then turns and looks up over his right shoulder.
  *
- * @param {Model} model - The model, centred on its feet.
+ * @param {Model} model - The model, centered on its feet.
  * @param {BoardFrame} board - The board, as he holds it to write.
  * @returns {ReadonlyMap<string, ClipReport>} The measurements of the baked
  *   clips, by clip name.
@@ -767,7 +767,7 @@ function animate(
  * Builds Basil, the apothecary: a young man, eager and a little
  * scatter-brained, his brown hair in a mop of tufts, with round glasses
  * and his brows raised, in a green shirt with its sleeves rolled up, a long
- * apron over it and brown trousers and boots.  He holds a writing board in
+ * apron over it and brown pants and boots.  He holds a writing board in
  * his left hand and a pen in his right.  He idles writing on his board,
  * bent over it, line after line, and now and then turns and looks up over
  * his right shoulder, as at the herb rack beside him, before he writes on.
@@ -787,10 +787,10 @@ export function buildNpcBasil(): BuiltModel {
   addFace(model);
   addBody(model);
   addArms(model);
-  // His legs, in trousers and boots.
+  // His legs, in pants and boots.
   addNpcLegs(model, [
     {
-      material: 'trousers',
+      material: 'pants',
       profile: [
         [0, 0.32],
         [0.085, 0.31],
@@ -812,8 +812,8 @@ export function buildNpcBasil(): BuiltModel {
   const board: BoardFrame = findBoardFrame();
   addBoard(model, board);
   addPen(model, board);
-  // The model is centred on its feet before it is posed, so that his feet
+  // The model is centered on its feet before it is posed, so that his feet
   // stand where they stand at rest.
-  model.centreOn(['FootL', 'FootR']);
+  model.centerOn(['FootL', 'FootR']);
   return { model, report: animate(model, board) };
 }

@@ -30,7 +30,7 @@ import {
   MODEL_FILES,
   MONSTER_FILE,
   REQUIRED_MODEL_FILES,
-} from '../src/model-catalogue.ts';
+} from '../src/model-catalog.ts';
 import { layoutVillage } from '../src/village-layout.ts';
 import type { Placement } from '../src/village-layout.ts';
 
@@ -48,7 +48,7 @@ const PLAZA_FILES: readonly string[] = [
  *
  * @param {Placement} a - Where one model stands.
  * @param {Placement} b - Where the other model stands.
- * @returns {number} The distance between them, in metres.
+ * @returns {number} The distance between them, in meters.
  */
 function measureDistance(a: Placement, b: Placement): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
@@ -98,7 +98,7 @@ describe('layoutVillage', () => {
     );
   });
 
-  it('leaves the characters, the monster, Martha and Toby to go about', () => {
+  it('leaves the characters, the monster, Martha and Toby to move around', () => {
     expect(
       layoutVillage([
         ...CHARACTER_FILES,
@@ -217,7 +217,7 @@ describe('layoutVillage', () => {
       'prop-cave-barrel.glb',
       'prop-cave-barrel-open.glb',
       'prop-item-sword.glb',
-      'prop-item-leather-armour.glb',
+      'prop-item-leather-armor.glb',
       'prop-item-healing-potion.glb',
       'prop-item-clovervale-message.glb',
     ];

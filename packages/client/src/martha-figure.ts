@@ -28,7 +28,7 @@ import { getVillager } from '@clovervale/shared';
 import type { MonsterState, Villager } from '@clovervale/shared';
 
 import type { FigureFrame } from './figure-set.ts';
-import { LYING_PITCHFORK_FILE, MODEL_FILES } from './model-catalogue.ts';
+import { LYING_PITCHFORK_FILE, MODEL_FILES } from './model-catalog.ts';
 import { findStandingHead } from './villager-figure.ts';
 import type { FigureContext, VillagerFigure } from './villager-figure.ts';
 
@@ -37,7 +37,7 @@ const MARTHA_VILLAGER: Villager = getVillager('martha');
 
 /**
  * How far to her right Martha's pitchfork lies from her middle once she
- * has dropped it, beaten, in metres.
+ * has dropped it, beaten, in meters.
  */
 const DROPPED_PITCHFORK_ASIDE = 0.6;
 
@@ -65,8 +65,8 @@ export interface PitchforkView {
 export class MarthaFigure implements VillagerFigure {
   /** What the figure is shown with. */
   readonly #context: FigureContext;
-  /** Whether Martha goes about her map, which she does. */
-  readonly goesAbout = true;
+  /** Whether Martha moves around her map, which she does. */
+  readonly movesAround = true;
   /**
    * Martha's pitchfork as it leans against the wall of her house, once its
    * model has been loaded.

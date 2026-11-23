@@ -35,8 +35,8 @@ import type { Material, Object3D } from 'three';
 
 /** The name of the material of the water in the model of the fountain. */
 const WATER_MATERIAL = 'water';
-/** The colour the water glows in. */
-const GLOW_COLOUR = '#3fd6b0';
+/** The color the water glows in. */
+const GLOW_COLOR = '#3fd6b0';
 /** The least strength of the glow of the water. */
 const GLOW_LEAST = 0.45;
 /** The greatest strength of the glow of the water. */
@@ -48,26 +48,26 @@ const GLOW_PERIOD = 5;
 export const MOTE_COUNT = 10;
 /** How long a mote of light lasts, in seconds. */
 export const MOTE_LIFETIME = 4.5;
-/** The height of the water the motes rise from, in metres. */
+/** The height of the water the motes rise from, in meters. */
 export const WATER_HEIGHT = 0.62;
-/** How fast a mote rises, in metres per second. */
+/** How fast a mote rises, in meters per second. */
 const RISE_SPEED = 0.32;
 /**
- * The least distance of a mote from the middle of the fountain, in metres,
+ * The least distance of a mote from the middle of the fountain, in meters,
  * outside the bowl above the water.
  */
 export const MOTE_LEAST_RADIUS = 0.88;
 /**
  * The greatest distance of a mote from the middle of the fountain, in
- * metres, inside the rim of the basin.
+ * meters, inside the rim of the basin.
  */
 export const MOTE_MOST_RADIUS = 1.04;
-/** How far a mote sways to either side as it rises, in metres. */
+/** How far a mote sways to either side as it rises, in meters. */
 const SWAY = 0.06;
-/** The size of a mote, in metres. */
+/** The size of a mote, in meters. */
 const MOTE_SIZE = 0.16;
-/** The colour of a mote. */
-const MOTE_COLOUR = '#b8ffcf';
+/** The color of a mote. */
+const MOTE_COLOR = '#b8ffcf';
 /** The width and height of the picture of a mote, in pixels. */
 const MOTE_PIXELS = 16;
 
@@ -83,7 +83,7 @@ interface Mote {
 
 /**
  * Draws a soft round spot, white and opaque in the middle, fading out
- * towards the edge.
+ * toward the edge.
  *
  * @returns {DataTexture} The picture.
  */
@@ -143,7 +143,7 @@ export class FountainGlow {
           material.name === WATER_MATERIAL &&
           !this.#water.includes(material)
         ) {
-          material.emissive = new Color(GLOW_COLOUR);
+          material.emissive = new Color(GLOW_COLOR);
           this.#water.push(material);
         }
       }
@@ -153,7 +153,7 @@ export class FountainGlow {
       const sprite = new Sprite(
         new SpriteMaterial({
           map: spot,
-          color: MOTE_COLOUR,
+          color: MOTE_COLOR,
           transparent: true,
           blending: AdditiveBlending,
           depthWrite: false,

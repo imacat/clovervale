@@ -611,7 +611,7 @@ export async function checkPrediction(
  * page shows it in the end where the server tells, without a correction,
  * as does the page of another player.
  *
- * The player walks left, which in the first view is towards the cottage
+ * The player walks left, which in the first view is toward the cottage
  * on the left of the plaza, whose front faces the plaza.
  *
  * @param {BidiSession} session - The session with the browser.

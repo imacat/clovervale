@@ -27,7 +27,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FOUNTAIN_RIM_RADIUS,
   PLAYER_RADIUS,
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   SIMULATION_RATE,
   TALK_STEPS,
   TOBY_LOOP_STEPS,
@@ -59,8 +59,8 @@ const INTERACT: PlayerInput = { type: 'interact' };
 /** Where a player stands against the rim of the fountain, facing it. */
 const BY_FOUNTAIN: PlayerMotion = createMotion(
   {
-    x: PLAZA_CENTRE.x,
-    z: PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.1,
+    x: PLAZA_CENTER.x,
+    z: PLAZA_CENTER.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.1,
   },
   180,
 );
@@ -404,7 +404,7 @@ describe('a player who walks into the scenery', () => {
   const cottage = findPlacement('cottage');
   const front: number = cottage.x + 2.35 + PLAYER_RADIUS;
 
-  it('walks on the spot against what it walks straight into', () => {
+  it('walks in place against what it walks straight into', () => {
     const start: PlayerMotion = createMotion({ x: front + 2, z: -3.5 }, 0);
     const walked: PlayerMotion = stepTimes(applyInput(start, steer(-1, 0)), 60);
     expect(walked.x).toBeCloseTo(front, 9);
@@ -536,7 +536,7 @@ describe('a player and Toby', () => {
       step > RUN_START && findTobyPose(step).activity !== 'Run',
   );
 
-  /** The way he runs on his first run, one metre long. */
+  /** The way he runs on his first run, one meter long. */
   const AHEAD: GroundVector = turnVector(
     { x: 0, z: 1 },
     findTurn(findTobyPose(RUN_START).yaw),
@@ -547,7 +547,7 @@ describe('a player and Toby', () => {
    *
    * @param {GroundVector} point - The point.
    * @param {GroundVector} from - The other point.
-   * @returns {number} The distance, in metres, negative if behind.
+   * @returns {number} The distance, in meters, negative if behind.
    */
   const measureAhead = (point: GroundVector, from: GroundVector): number =>
     (point.x - from.x) * AHEAD.x + (point.z - from.z) * AHEAD.z;
@@ -557,7 +557,7 @@ describe('a player and Toby', () => {
    *
    * @param {PlayerMotion} motion - The motion of the player.
    * @param {number} step - The step.
-   * @returns {number} The distance between their centres, in metres.
+   * @returns {number} The distance between their centers, in meters.
    */
   const measureFromToby = (motion: PlayerMotion, step: number): number => {
     const toby: TobyPose = findTobyPose(step);
@@ -610,7 +610,7 @@ describe('a player and Toby', () => {
     expect(off).toBeLessThanOrEqual(TOBY_RADIUS + PLAYER_RADIUS);
   });
 
-  it('is pushed aside while it walks along his way towards him', () => {
+  it('is pushed aside while it walks along his way toward him', () => {
     const middle: TobyPose = findTobyPose((RUN_START + RUN_END) / 2);
     const end: TobyPose = findTobyPose(RUN_END);
     let motion: PlayerMotion = applyInput(
@@ -676,7 +676,7 @@ describe('a player and Toby', () => {
     const step: number = RUN_START + 8;
     const toby: TobyPose = findTobyPose(step);
     // Just ahead of him on his way, facing a little back his way from
-    // square to it, on the side towards the fence.
+    // square to it, on the side toward the fence.
     const asking: PlayerMotion = applyInput(
       createMotion(
         { x: toby.x + AHEAD.x * 0.5, z: toby.z + AHEAD.z * 0.5 },

@@ -38,7 +38,7 @@ import type { GroundVector, Pose } from '@clovervale/shared';
 import { Player } from './player.ts';
 import type { Saying } from './player.ts';
 
-/** The least distance between a new player and everyone else, in metres. */
+/** The least distance between a new player and everyone else, in meters. */
 const SPAWN_CLEARANCE = 1;
 
 /** The least number of simulation steps between two lines of a player. */
@@ -137,7 +137,7 @@ export class Roster {
 
   /**
    * Lists the players within hearing of a point: within {@link SAY_RANGE}
-   * metres of it.
+   * meters of it.
    *
    * @param {GroundVector} point - The point.
    * @returns {Player[]} The players, in the order they came in.
@@ -153,7 +153,7 @@ export class Roster {
    * Has a player say something to the players nearby, at once, unless it
    * is not in the world or said its last line or phrase less than
    * {@link SAY_INTERVAL} seconds ago.  What it says is heard by every
-   * player within {@link SAY_RANGE} metres of it, itself among them, and by
+   * player within {@link SAY_RANGE} meters of it, itself among them, and by
    * nobody else.
    *
    * @param {number} id - The identifier of the player.

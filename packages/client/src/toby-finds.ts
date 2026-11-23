@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/toby-finds What the page makes of the four-leaved clovers
+ * @module client/toby-finds What the page makes of the four-leaf clovers
  *   Toby takes from the patches of clover, at the step it shows him at,
  *   which may be ahead of the latest snapshot or behind it.
  *
@@ -43,7 +43,7 @@ export interface WorldNews {
 }
 
 /**
- * Tells whether Toby found a four-leaved clover at a grab of his, as far
+ * Tells whether Toby found a four-leaf clover at a grab of his, as far
  * as the page can tell.
  *
  * @param {TobyGrab} grab - The grab.

@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/check-models/apothecary Checks the apothecary's, its props
- *   and Basil, as the village stands them.
+ * @module scripts/check-models/apothecary Checks the apothecary shop, its
+ *   props and Basil, as the village stands them.
  */
 
 import type { AnimationClip, AnimationMixer, Object3D } from 'three';
@@ -46,7 +46,7 @@ import type {
   Placement,
   Shape,
 } from '@clovervale/shared';
-import { MODEL_FILES } from '../../packages/client/src/model-catalogue.ts';
+import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import { FOOTPRINT_TOLERANCE } from './constants.ts';
 import type { StrikeResult } from './constants.ts';
@@ -54,7 +54,7 @@ import { APOTHECARY_FILE, BASIL_FILE } from './files.ts';
 import { listWorldVertices, loadAt, poseModel, resetModel } from './pose.ts';
 
 /**
- * The models that stand about the front of the apothecary's: the herb
+ * The models that stand around the front of the apothecary: the herb
  * rack, the crates, the potted plant and the barrels.
  */
 const APOTHECARY_PROPS: readonly ModelId[] = [
@@ -65,21 +65,21 @@ const APOTHECARY_PROPS: readonly ModelId[] = [
   'barrel',
 ];
 /**
- * Where a player stands in front of the door of the apothecary's, a step
+ * Where a player stands in front of the door of the apothecary, a step
  * out from its doorstep, as the model of the shop has it.
  */
 const BEFORE_SHOP_DOOR: GroundVector = { x: 0.9, z: 4.1 };
 /**
  * The heights between which whatever a model has must lie within the
- * ground it takes up, in metres: above a doorstep, which a player steps
+ * ground it takes up, in meters: above a doorstep, which a player steps
  * over, and below the eaves of a roof, which a player walks under.
  */
 const SOLID_HEIGHTS: readonly [number, number] = [0.2, 2];
 /** How many times in his idle clip Basil is looked at. */
 const BASIL_SAMPLES = 40;
 /**
- * The least room between the ground the props of the apothecary's take up
- * and a patch of clover, a spawn point or the course of Toby, in metres.
+ * The least room between the ground the props of the apothecary take up
+ * and a patch of clover, a spawn point or the course of Toby, in meters.
  */
 const PATH_CLEARANCE = 1;
 
@@ -88,7 +88,7 @@ const PATH_CLEARANCE = 1;
  *
  * @param {GroundVector} point - The point.
  * @param {Shape} shape - The shape, in the world.
- * @returns {number} How far, in metres, or zero if it lies within.
+ * @returns {number} How far, in meters, or zero if it lies within.
  */
 function measureOutside(point: GroundVector, shape: Shape): number {
   if (shape.shape === 'circle') {
@@ -115,7 +115,7 @@ function measureOutside(point: GroundVector, shape: Shape): number {
  *
  * @param {Object3D} root - The model, standing in its place.
  * @param {Placement} placement - Its place.
- * @returns {number} How far, in metres.
+ * @returns {number} How far, in meters.
  */
 function measureOverhang(root: Object3D, placement: Placement): number {
   const own: Shape[] = VILLAGE_TERRAIN.shapes.filter(
@@ -137,14 +137,14 @@ function measureOverhang(root: Object3D, placement: Placement): number {
 }
 
 /**
- * Checks that the house and the props of the apothecary's reach no
+ * Checks that the house and the props of the apothecary reach no
  * farther than {@link FOOTPRINT_TOLERANCE} out of the ground they take up.
  *
  * @param {readonly string[]} files - The file names of the models there
  *   are.
  * @param {string[]} failures - The requirements not met, to add to.
  * @returns {Promise<number>} The farthest any of them reaches out, in
- *   metres.
+ *   meters.
  */
 async function checkShopOverhangs(
   files: readonly string[],
@@ -176,7 +176,7 @@ async function checkShopOverhangs(
  *
  * @param {Placement} placement - Where Basil stands.
  * @param {string[]} failures - The requirements not met, to add to.
- * @returns {Promise<number>} The farthest he reaches out, in metres.
+ * @returns {Promise<number>} The farthest he reaches out, in meters.
  */
 async function checkBasilOverhang(
   placement: Placement,
@@ -210,7 +210,7 @@ async function checkBasilOverhang(
 }
 
 /**
- * Checks that the props of the apothecary's stand at least
+ * Checks that the props of the apothecary stand at least
  * {@link PATH_CLEARANCE} from every patch of clover and every spawn point,
  * and from the course Toby runs.
  *
@@ -250,7 +250,7 @@ function checkPropClearance(failures: string[]): void {
     for (const prop of props) {
       if (measureOutside(point, prop) < PATH_CLEARANCE + radius) {
         failures.push(
-          'a prop of the apothecary\'s stands within ' +
+          'a prop of the apothecary stands within ' +
             `${String(PATH_CLEARANCE)} m of ${what} at ` +
             `(${point.x.toFixed(2)}, ${point.z.toFixed(2)})`,
         );
@@ -260,7 +260,7 @@ function checkPropClearance(failures: string[]): void {
 }
 
 /**
- * Checks that a player in front of the door of the apothecary's, facing
+ * Checks that a player in front of the door of the apothecary, facing
  * Basil, talks to him, and walks there from the plaza.
  *
  * @param {Placement} basil - Where Basil stands.
@@ -292,7 +292,8 @@ function checkShopDoor(basil: Placement, failures: string[]): void {
 }
 
 /**
- * Checks the apothecary's, its props and Basil, as the village stands them.
+ * Checks the apothecary shop, its props and Basil, as the village stands
+ * them.
  *
  * The house, the herb rack, the crates, the potted plant and the barrels,
  * and Basil through his idle clip, each reach no farther than

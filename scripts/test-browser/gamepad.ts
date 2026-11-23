@@ -65,7 +65,7 @@ const PAD_PRESS_DURATION = 200;
 const PAD_WALK_DISTANCE = 0.5;
 /**
  * The ways the left stick of the fake gamepad is pushed in turn to walk the
- * player, as the place of an axis and its value: forwards, backwards, to
+ * player, as the place of an axis and its value: forward, backward, to
  * the left and to the right.
  */
 const PAD_WALK_PUSHES: readonly (readonly [number, number])[] = [
@@ -276,7 +276,7 @@ export async function checkGamepad(
     ),
   );
   const cursor: number = await readCursor();
-  // The stick is pushed towards a slot beside the cursor in its row.
+  // The stick is pushed toward a slot beside the cursor in its row.
   const step: number = cursor % columns === columns - 1 ? -1 : 1;
   await run(`window.fakePad.axes[0] = ${String(step)}`);
   await sleep(PAD_PRESS_DURATION);
@@ -311,7 +311,7 @@ export async function checkGamepad(
   } finally {
     await run('window.fakePad.axes[2] = 0');
   }
-  // Whatever stands round the player may block a way, so the stick is
+  // Whatever stands around the player may block a way, so the stick is
   // pushed each way in turn till the player walks.
   const hasWalked = (seen: HelpLook): boolean => {
     const is: FigureView | undefined = findOwn(seen);

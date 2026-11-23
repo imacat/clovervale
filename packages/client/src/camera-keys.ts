@@ -23,7 +23,7 @@
  */
 
 /**
- * How fast the left and right arrows orbit the camera round what it looks
+ * How fast the left and right arrows orbit the camera around what it looks
  * at, in degrees per second: a full turn in four seconds.
  */
 export const CAMERA_ORBIT_RATE = 90;
@@ -36,13 +36,13 @@ export const CAMERA_TILT_RATE = 45;
 /** How far the arrow keys held turn the camera over some time. */
 export interface CameraTurn {
   /**
-   * How far the camera goes round what it looks at, in degrees: positive
+   * How far the camera goes around what it looks at, in degrees: positive
    * to the left of the camera, and negative to its right.
    */
   readonly orbit: number;
   /**
    * How far the camera rises over what it looks at, in degrees: positive
-   * upwards, and negative downwards.
+   * upward, and negative downward.
    */
   readonly tilt: number;
 }
@@ -85,7 +85,7 @@ export function isCameraKey(code: string): boolean {
 
 /**
  * The arrow keys held down to turn the camera: the left and right arrows
- * orbit it round what it looks at, so that the view turns left and right
+ * orbit it around what it looks at, so that the view turns left and right
  * on the screen, and the up and down arrows lower and raise it, so that
  * the view tilts up and down, each at a steady rate.  Opposite keys cancel
  * out.
@@ -125,7 +125,7 @@ export class CameraKeys implements CameraHold {
     this.#held.delete(code);
   }
 
-  /** Notes that no key is held down any more. */
+  /** Notes that no key is held down anymore. */
   releaseAllKeys(): void {
     this.#held.clear();
   }

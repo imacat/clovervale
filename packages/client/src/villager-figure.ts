@@ -29,7 +29,7 @@ import type { MonsterState, Villager } from '@clovervale/shared';
 import type { FigureSet } from './figure-set.ts';
 import { findHeadTop } from './head-top.ts';
 import type { PlainMessageId } from './messages/en.ts';
-import { MODEL_FILES } from './model-catalogue.ts';
+import { MODEL_FILES } from './model-catalog.ts';
 import type { ModelLibrary } from './model-library.ts';
 import type { PlayerRecord } from './player-record.ts';
 import type { SpeechView } from './speech-bubble.ts';
@@ -98,10 +98,10 @@ export interface VillagerFigure extends FigureSet {
   /** The villager. */
   readonly villager: Villager;
   /**
-   * Whether the villager goes about its map, so that its bubble is to be
+   * Whether the villager moves around its map, so that its bubble is to be
    * kept above its head.
    */
-  readonly goesAbout: boolean;
+  readonly movesAround: boolean;
 
   /**
    * Shows what the figure has of its own in a map, as far as the models
@@ -193,12 +193,12 @@ export class StandingFigure implements VillagerFigure {
   }
 
   /**
-   * Whether the villager goes about its map.
+   * Whether the villager moves around its map.
    *
    * @returns {boolean} Whether it does, which a villager who fights as a
    *   monster does.
    */
-  get goesAbout(): boolean {
+  get movesAround(): boolean {
     return this.#villager.fighter !== undefined;
   }
 

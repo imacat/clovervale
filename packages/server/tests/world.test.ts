@@ -39,7 +39,7 @@ import {
   MONSTER_KINDS,
   PLAYER_HEALTH,
   PLAYER_RADIUS,
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   SAY_INTERVAL,
   SAY_LENGTH_LIMIT,
   SAY_RANGE,
@@ -237,13 +237,13 @@ function tellQuests(world: World, id: number): QuestJSON[] {
  *
  * @param {GroundVector} a - One of them.
  * @param {GroundVector} b - The other.
- * @returns {number} The distance between them, in metres.
+ * @returns {number} The distance between them, in meters.
  */
 function measureDistance(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
-/** How far a walking player goes in one simulation step, in metres. */
+/** How far a walking player goes in one simulation step, in meters. */
 const STEP_DISTANCE: number = WALK_SPEED / SIMULATION_RATE;
 
 /** A point near the home of the monster, where nothing stands. */
@@ -348,7 +348,7 @@ function killPlayer(world: World, id: number): PlayerState {
 }
 
 /**
- * Turns a player of a world towards a point, with a single step towards
+ * Turns a player of a world toward a point, with a single step toward
  * it, and stops it.
  *
  * @param {World} world - The world.
@@ -365,8 +365,8 @@ function turnPlayer(world: World, id: number, point: GroundVector): void {
 
 /** Where a player stands by the fountain, which it is within reach of. */
 const BY_FOUNTAIN: GroundVector = {
-  x: PLAZA_CENTRE.x,
-  z: PLAZA_CENTRE.z + 2.1,
+  x: PLAZA_CENTER.x,
+  z: PLAZA_CENTER.z + 2.1,
 };
 
 /** Where Nancy the villager stands. */
@@ -395,7 +395,7 @@ function hurtPlayer(world: World, id: number, health: number): PlayerState {
     world.step();
   }
   walkPlayer(world, id, BY_FOUNTAIN);
-  turnPlayer(world, id, PLAZA_CENTRE);
+  turnPlayer(world, id, PLAZA_CENTER);
   world.takeEvents();
   return findPlayer(world, id);
 }
@@ -492,8 +492,8 @@ describe('a player coming into the world', () => {
     const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     expect(player.action).toBe('Idle');
-    expect(player.z).toBeGreaterThan(PLAZA_CENTRE.z);
-    expect(Math.hypot(player.x - PLAZA_CENTRE.x, player.z - PLAZA_CENTRE.z))
+    expect(player.z).toBeGreaterThan(PLAZA_CENTER.z);
+    expect(Math.hypot(player.x - PLAZA_CENTER.x, player.z - PLAZA_CENTER.z))
       .toBeLessThan(8);
     expect(player.yaw).toBe(180);
   });
@@ -729,7 +729,7 @@ describe('a player who interacts by the fountain', () => {
     const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
-    turnPlayer(world, id, PLAZA_CENTRE);
+    turnPlayer(world, id, PLAZA_CENTER);
     const before: PlayerState = findPlayer(world, id);
     interactPlayer(world, id);
     world.step();
@@ -791,7 +791,7 @@ describe('a player who interacts by the fountain', () => {
     const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
-    turnPlayer(world, id, PLAZA_CENTRE);
+    turnPlayer(world, id, PLAZA_CENTER);
     world.takeEvents();
     interactPlayer(world, id);
     world.step();
@@ -806,7 +806,7 @@ describe('a player who interacts by the fountain', () => {
     const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
-    turnPlayer(world, id, PLAZA_CENTRE);
+    turnPlayer(world, id, PLAZA_CENTER);
     interactPlayer(world, id, world.time - 200);
     world.step();
     expect(findPlayer(world, id).action).toBe('Drink');
@@ -949,7 +949,7 @@ describe('the inputs of a player', () => {
     expect(player.x).toBeCloseTo(start.x + (WALK_SPEED * 3) / SIMULATION_RATE);
   });
 
-  it('are told with how far the player has got with them', () => {
+  it('are told with how far the player has gotten with them', () => {
     const world = new World(Math.random, RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     stepTimes(world, 2);
@@ -983,7 +983,7 @@ describe('the inputs of a player', () => {
     });
   });
 
-  it('are refused when they are not numbered upwards', () => {
+  it('are refused when they are not numbered upward', () => {
     const world = new World(Math.random, RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const first = createInteractMessage({ sequence: 5, after: 0 });
@@ -1186,7 +1186,7 @@ describe('a slash that names the time its peer showed', () => {
   });
 });
 
-describe('the judgement of the slashes of a player', () => {
+describe('the judgment of the slashes of a player', () => {
   it('is not there before the first slash', () => {
     const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
@@ -1319,7 +1319,7 @@ describe('a dead player', () => {
 });
 
 describe('the events of the world', () => {
-  it('are taken once each, numbered upwards, with their steps', () => {
+  it('are taken once each, numbered upward, with their steps', () => {
     const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
@@ -1382,10 +1382,10 @@ const GROUND_ITEM_STEPS: number = GROUND_ITEM_DURATION * SIMULATION_RATE;
 const PATCH = 6;
 
 /** Where the patch of clover east of the fountain is. */
-const PATCH_CENTRE: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
+const PATCH_CENTER: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
 
 /** Where a player stands by that patch, within reach of its clover. */
-const BY_PATCH: GroundVector = { x: PATCH_CENTRE.x, z: PATCH_CENTRE.z + 1 };
+const BY_PATCH: GroundVector = { x: PATCH_CENTER.x, z: PATCH_CENTER.z + 1 };
 
 /**
  * Tells a world, as the next input of a player, that the player picks what
@@ -1442,12 +1442,12 @@ function pickClovers(world: World, id: number, count: number): void {
 function addPicker(world: World): number {
   const { id }: PlayerState = world.addPlayer([]);
   walkPlayer(world, id, BY_PATCH);
-  turnPlayer(world, id, PATCH_CENTRE);
+  turnPlayer(world, id, PATCH_CENTER);
   return id;
 }
 
 describe('a player who picks by a patch of clover', () => {
-  it('gets its four-leaved clover, which is gone from the patch', () => {
+  it('gets its four-leaf clover, which is gone from the patch', () => {
     const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     expect(world.describeItems().clovers).toContain(PATCH);
@@ -1561,7 +1561,7 @@ function stepToGrab(world: RecordingWorld, patch: number, ahead = 1): number {
  * @returns {number} The identifier of the player.
  */
 function addRival(world: World): number {
-  const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTRE;
+  const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTER;
   const [first, second] = TOBY_ENDS;
   const away: number = measureDistance(first, second);
   const along: GroundVector = {
@@ -1578,7 +1578,7 @@ function addRival(world: World): number {
 }
 
 describe('Toby picking at a patch of clover', () => {
-  it('takes its four-leaved clover as his hand grabs, until it regrows', () => {
+  it('takes its four-leaf clover as his hand grabs, until it regrows', () => {
     const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const [patch] = TOBY_PATCHES;
     expect(world.describeItems().tobyFind).toBeNull();
@@ -1647,7 +1647,7 @@ describe('Toby picking at a patch of clover', () => {
  *
  * @param {World} world - The world.
  * @param {number} id - The identifier of the player.
- * @param {number} distance - The distance, in metres.
+ * @param {number} distance - The distance, in meters.
  * @returns {number} The identifier of the player.
  */
 function admitBystander(world: World, id: number, distance: number): number {
@@ -1655,7 +1655,7 @@ function admitBystander(world: World, id: number, distance: number): number {
   return admitSpeaker(world, id, { x: x + distance, z });
 }
 
-describe('Toby exclaiming as he finds a four-leaved clover', () => {
+describe('Toby exclaiming as he finds a four-leaf clover', () => {
   /** What the players who hear him are told. */
   const FOUND: Speech[] = [{ villager: 'toby', line: TOBY_FOUND_LINE }];
 
@@ -1681,7 +1681,7 @@ describe('Toby exclaiming as he finds a four-leaved clover', () => {
     expect(world.takeSpeeches(near)).toEqual(FOUND);
   });
 
-  it('is not heard by a player who comes within range afterwards', () => {
+  it('is not heard by a player who comes within range afterward', () => {
     const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     stepToGrab(world, TOBY_PATCHES[1]);
     world.step();
@@ -1723,7 +1723,7 @@ function admitTalker(
   carried: readonly ItemKindId[],
   quests: readonly Quest[] = [new TobyQuest('done')],
 ): number {
-  const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTRE;
+  const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTER;
   const [first, second] = TOBY_ENDS;
   const away: number = measureDistance(first, second);
   const place: GroundVector = {
@@ -1997,7 +1997,7 @@ describe('a player on the quest of Toby, hurt, who talks to him', () => {
 });
 
 /**
- * Lets a player into a world in front of the door of the apothecary's,
+ * Lets a player into a world in front of the door of the apothecary,
  * facing Basil, with some silver coins and some items.
  *
  * @param {World} world - The world.
@@ -2208,7 +2208,7 @@ describe('a player who puts an item down', () => {
     const player: PlayerState = findPlayer(world, id);
     const [item] = world.describeItems().items;
     expect(item?.kind).toBe('clover');
-    expect(measureDistance(item ?? PATCH_CENTRE, player)).toBeLessThan(0.01);
+    expect(measureDistance(item ?? PATCH_CENTER, player)).toBeLessThan(0.01);
   });
 
   it('closes up the items after the slot it empties', () => {
@@ -2274,7 +2274,7 @@ describe('a player who puts an item down', () => {
     world.step();
     const [item] = world.describeItems().items;
     const picker: number = addPicker(world);
-    turnPlayer(world, picker, item ?? PATCH_CENTRE);
+    turnPlayer(world, picker, item ?? PATCH_CENTER);
     pickItem(world, picker);
     world.step();
     expect(world.describePrivateView(picker)?.inventory).toEqual(['clover']);
@@ -2437,7 +2437,7 @@ describe('a player who uses a healing potion', () => {
 
   it('uses nothing from an empty slot, one out of range, or one that cannot be used', () => {
     const world = new World(createRandom(), RESIDENT_FACTORIES);
-    const carried: ItemKindId[] = ['clover', 'sword', 'leather-armour'];
+    const carried: ItemKindId[] = ['clover', 'sword', 'leather-armor'];
     const id: number = admitCarrier(world, 30, carried);
     for (const slot of [0, 1, 2, 3, INVENTORY_SIZE, 1000]) {
       useItem(world, id, slot);
@@ -2779,7 +2779,7 @@ describe('a world of the cave', () => {
       'clover',
       'clover',
       'healing-potion',
-      'leather-armour',
+      'leather-armor',
       'sword',
     ]);
     expect(silver).toBe(5);
@@ -2844,7 +2844,7 @@ describe('a world of the cave', () => {
   });
 
   it('lets the new items be put down and picked up again', () => {
-    for (const item of ['sword', 'leather-armour', 'healing-potion'] as const) {
+    for (const item of ['sword', 'leather-armor', 'healing-potion'] as const) {
       const [world, id] = enterCave();
       walkToContainer(world, id, findContainer(item));
       pickOnce(world, id);
@@ -2944,7 +2944,7 @@ describe('a world of the cave', () => {
     );
   });
 
-  it('has its dogs wander a little round their homes, in the passage', () => {
+  it('has its dogs wander a little around their homes, in the passage', () => {
     const world = new World(createRandom(), RESIDENT_FACTORIES, {
       map: 'cave',
     });
@@ -3829,7 +3829,7 @@ describe('Martha in the village', () => {
     const player = new Player({
       id: ++lastClimber,
       appearance: 1,
-      mover: new AuthoritativePlayer(createMotion(PLAZA_CENTRE, 0)),
+      mover: new AuthoritativePlayer(createMotion(PLAZA_CENTER, 0)),
       health: PLAYER_HEALTH,
       inventory: [...carried],
       silver: 0,
@@ -4110,7 +4110,7 @@ function admitSpeaker(world: World, id: number, place: GroundVector): number {
  *
  * @param {World} world - The world.
  * @param {number} id - The identifier of the player.
- * @param {number} distance - The distance, in metres.
+ * @param {number} distance - The distance, in meters.
  * @returns {number} The identifier of the player.
  */
 function admitListener(world: World, id: number, distance: number): number {

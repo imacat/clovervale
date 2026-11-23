@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module server/monster-body The body every monster moves about in, as the
- *   server moves it: where it stands and faces, what it does, its health,
+ * @module server/monster-body The body every monster moves around in, as
+ *   the server moves it: where it stands and faces, what it does, its health,
  *   the way it walks along, and its attacks.
  */
 
@@ -70,8 +70,9 @@ const REPATH_STEPS: number = countSteps(MONSTER_REPATH_INTERVAL);
 export type AttackStep = 'none' | 'swing' | 'strike';
 
 /**
- * How a step along the way goes: the monster walks on, has got to the end
- * of its way, or has nowhere to go: no way, or an obstacle that stops it.
+ * How a step along the way goes: the monster walks on, has gotten to the
+ * end of its way, or has nowhere to go: no way, or an obstacle that stops
+ * it.
  */
 export type WalkOutcome = 'walking' | 'arrived' | 'stopped';
 
@@ -341,7 +342,7 @@ export class MonsterBody {
   /**
    * Walks one step along its way, around the obstacles.
    *
-   * @param {number} speed - The speed, in metres per second.
+   * @param {number} speed - The speed, in meters per second.
    * @returns {WalkOutcome} How the step goes.
    */
   walk(speed: number): WalkOutcome {
@@ -387,7 +388,7 @@ export class MonsterBody {
    *
    * @param {GroundVector} target - Where the player stands.
    * @param {number} distance - How near it comes to the player before it
-   *   attacks, from centre to centre, in metres.
+   *   attacks, from center to center, in meters.
    * @returns {boolean} Whether it attacks or has a way to the player,
    *   rather than finding no way to it.
    */

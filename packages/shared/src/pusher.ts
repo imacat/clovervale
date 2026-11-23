@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module shared/pusher A villager who goes about on a fixed course and
+ * @module shared/pusher A villager who moves along a fixed course and
  *   pushes the players in its way aside, as the server and its peers alike
  *   work it out.
  */
@@ -27,14 +27,14 @@ import type { GroundVector } from './movement.ts';
 import type { Terrain } from './terrain.ts';
 
 /**
- * How a villager who goes about on a fixed course gets in the way of the
+ * How a villager who moves along a fixed course gets in the way of the
  * players: where it is at each step, and how it pushes a player aside and
  * stops one that walks into it.
  */
 export interface Pusher {
-  /** The least distance between the centres of it and a player, in metres. */
+  /** The least distance between the centers of it and a player, in meters. */
   readonly reach: number;
-  /** The fastest it goes, in metres per second. */
+  /** The fastest it goes, in meters per second. */
   readonly speed: number;
 
   /**
@@ -65,7 +65,7 @@ export interface Pusher {
   ): GroundVector;
 
   /**
-   * Finds where a player that walks from one point towards another ends up,
+   * Finds where a player that walks from one point toward another ends up,
    * with the obstacles and the villager in its way.
    *
    * @param {GroundVector} from - Where the player stands, clear of the

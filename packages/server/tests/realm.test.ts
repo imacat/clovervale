@@ -69,7 +69,7 @@ import { Realm } from '../src/realm.ts';
 import { RESIDENT_FACTORIES } from '../src/resident-factories.ts';
 import type { World } from '../src/world.ts';
 
-/** How far a walking player goes in one simulation step, in metres. */
+/** How far a walking player goes in one simulation step, in meters. */
 const STEP_DISTANCE: number = WALK_SPEED / SIMULATION_RATE;
 
 /** The number of simulation steps a dead player lies where it fell. */
@@ -304,7 +304,7 @@ function walkInVillage(realm: Realm, id: number, to: GroundVector): void {
 }
 
 /**
- * Turns a player of a realm towards a point, with a single step towards
+ * Turns a player of a realm toward a point, with a single step toward
  * it, and stops it.
  *
  * @param {Realm} realm - The realm.

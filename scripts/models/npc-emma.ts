@@ -25,7 +25,7 @@
 import { Vector3 } from 'three';
 
 import {
-  HEAD_CENTRE,
+  HEAD_CENTER,
   SIDES,
   SKINS,
   addHead,
@@ -173,7 +173,7 @@ function setMaterials(model: Model): void {
   model.setMaterial('cuff', '#b39e74');
   model.setMaterial('apron', '#6b4026');
   model.setMaterial('strap', '#4e2e1a');
-  model.setMaterial('trousers', '#4b4a5a');
+  model.setMaterial('pants', '#4b4a5a');
   model.setMaterial('boot', '#3a2a1e');
   model.setMaterial('handle', '#9a6a3a');
   model.setMaterial('hammerHead', '#5c606b', { roughness: 0.5 });
@@ -181,7 +181,7 @@ function setMaterials(model: Model): void {
 }
 
 /**
- * Adds her head, her hair tied up in a bun, and a kerchief tied round her
+ * Adds her head, her hair tied up in a bun, and a kerchief tied around her
  * head across the brow, knotted at the nape.
  *
  * @param {Model} model - The model, with her materials and bones defined.
@@ -192,7 +192,7 @@ function addHeadAndKerchief(model: Model): void {
   model.add('hair', hair.hair, 'Head');
   model.add('kerchief', hair.accent, 'Head');
   const putOnHead = (shape: Shape): Shape =>
-    place(place(shape, { rot: [-16, 0, 0] }), { pos: HEAD_CENTRE });
+    place(place(shape, { rot: [-16, 0, 0] }), { pos: HEAD_CENTER });
   model.add(
     'kerchief',
     putOnHead(
@@ -212,7 +212,7 @@ function addHeadAndKerchief(model: Model): void {
     model.add(
       'kerchief',
       place(createEllipsoid([0.05, 0.03, 0.022], 0), {
-        pos: [0.045 * x, HEAD_CENTRE[1] + 0.02, -0.33],
+        pos: [0.045 * x, HEAD_CENTER[1] + 0.02, -0.33],
         rot: [10, 0, -40 * x],
       }),
       'Head',
@@ -221,7 +221,7 @@ function addHeadAndKerchief(model: Model): void {
   model.add(
     'kerchief',
     place(createEllipsoid([0.035, 0.03, 0.03], 0), {
-      pos: [0, HEAD_CENTRE[1] + 0.04, -0.325],
+      pos: [0, HEAD_CENTER[1] + 0.04, -0.325],
     }),
     'Head',
   );
@@ -229,7 +229,7 @@ function addHeadAndKerchief(model: Model): void {
 
 /**
  * Adds her broad body: the shirt, the bib of the apron and its straps, and
- * at the hips the trousers, the belt, and the skirt of the apron, down to
+ * at the hips the pants, the belt, and the skirt of the apron, down to
  * the knees.
  *
  * @param {Model} model - The model, with her materials and bones defined.
@@ -285,7 +285,7 @@ function addBody(model: Model): void {
   }
 
   model.add(
-    'trousers',
+    'pants',
     place(
       createLathe(
         [
@@ -572,7 +572,7 @@ function createStrokes(): Strokes {
  * Bakes her clips: hammering the iron, `Work`, and holding the hammer
  * still over it, `Idle`.
  *
- * @param {Model} model - The model, centred on its feet.
+ * @param {Model} model - The model, centered on its feet.
  * @returns {ReadonlyMap<string, ClipReport>} The measurements of the baked
  *   clips, by clip name.
  */
@@ -646,7 +646,7 @@ function animate(model: Model): ReadonlyMap<string, ClipReport> {
 
 /**
  * Builds Emma, the smith: a sturdy, strong-armed woman in a leather apron
- * over her shirt and trousers, her sleeves rolled up and her hair tied up in
+ * over her shirt and pants, her sleeves rolled up and her hair tied up in
  * a bun under a kerchief, with a hammer in her right hand and tongs in her
  * left, who hammers a bar of hot iron on an anvil.
  *
@@ -660,7 +660,7 @@ export function buildNpcEmma(): BuiltModel {
   addHeadAndKerchief(model);
   addBody(model);
   addArms(model);
-  // Her legs, in trousers and boots.
+  // Her legs, in pants and boots.
   addNpcLegs(model, [
     {
       material: 'boot',
@@ -674,8 +674,8 @@ export function buildNpcEmma(): BuiltModel {
   ]);
   addHammer(model);
   addTongs(model);
-  // The model is centred on its feet before it is posed, so that the
+  // The model is centered on its feet before it is posed, so that the
   // hammer lands where it is aimed in the model as it is written.
-  model.centreOn(['FootL', 'FootR']);
+  model.centerOn(['FootL', 'FootR']);
   return { model, report: animate(model) };
 }

@@ -25,14 +25,14 @@
 import { Box3, Group, Sprite, SpriteMaterial } from 'three';
 import type { Object3D } from 'three';
 
-/** The width of a full bar, in metres. */
+/** The width of a full bar, in meters. */
 const BAR_WIDTH = 0.8;
-/** The height of a bar, in metres. */
+/** The height of a bar, in meters. */
 const BAR_HEIGHT = 0.09;
-/** The room between the top of a model and its bar, in metres. */
+/** The room between the top of a model and its bar, in meters. */
 const BAR_MARGIN = 0.25;
-/** The colour of the part of a bar for the health lost. */
-const BACK_COLOUR = '#3a1414';
+/** The color of the part of a bar for the health lost. */
+const BACK_COLOR = '#3a1414';
 /** The order the bars are drawn in, after the models. */
 const BAR_RENDER_ORDER = 10;
 
@@ -40,12 +40,12 @@ const BAR_RENDER_ORDER = 10;
  * Makes one part of a bar, which is drawn over everything, facing the
  * camera.
  *
- * @param {string} colour - The colour.
+ * @param {string} color - The color.
  * @returns {Sprite} The part.
  */
-function createPart(colour: string): Sprite {
+function createPart(color: string): Sprite {
   const sprite = new Sprite(
-    new SpriteMaterial({ color: colour, depthTest: false }),
+    new SpriteMaterial({ color, depthTest: false }),
   );
   sprite.renderOrder = BAR_RENDER_ORDER;
   sprite.scale.set(BAR_WIDTH, BAR_HEIGHT, 1);
@@ -63,15 +63,15 @@ export class HealthBar {
    *
    * @param {Object3D} root - The root of the model, which the bar is added
    *   to.
-   * @param {string} colour - The colour of the part of the bar for the
+   * @param {string} color - The color of the part of the bar for the
    *   health that is left.
    */
-  constructor(root: Object3D, colour: string) {
+  constructor(root: Object3D, color: string) {
     this.#group.position.y =
       new Box3().setFromObject(root).max.y + BAR_MARGIN;
-    this.#fill = createPart(colour);
+    this.#fill = createPart(color);
     this.#fill.renderOrder = BAR_RENDER_ORDER + 1;
-    this.#group.add(createPart(BACK_COLOUR), this.#fill);
+    this.#group.add(createPart(BACK_COLOR), this.#fill);
     root.add(this.#group);
   }
 
@@ -112,7 +112,7 @@ export class HealthBar {
     this.#fraction = Math.min(Math.max(health / fullHealth, 0), 1);
     this.#fill.visible = this.#fraction > 0;
     if (this.#fraction > 0) {
-      // Each part is placed by its centre, so the filled part is moved to
+      // Each part is placed by its center, so the filled part is moved to
       // start where the whole bar does, whichever way the camera looks.
       this.#fill.scale.x = BAR_WIDTH * this.#fraction;
       this.#fill.center.x = 0.5 / this.#fraction;

@@ -28,7 +28,7 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 
 import type { MonsterKindId } from '@clovervale/shared';
 
-import { CHARACTER_FILES, MONSTER_MODELS } from './model-catalogue.ts';
+import { CHARACTER_FILES, MONSTER_MODELS } from './model-catalog.ts';
 import type { LoadedModel } from './model-loader.ts';
 import type { Figure } from './player-figures.ts';
 
@@ -86,8 +86,8 @@ export function createPlayerFigure(
 }
 
 /**
- * Makes a model to show a villager who goes about its map with, ready to
- * stand in it.
+ * Makes a model to show a villager who moves around its map with, ready
+ * to stand in it.
  *
  * @param {readonly LoadedModel[]} models - The models.
  * @param {string} file - The file name of the model of the villager.

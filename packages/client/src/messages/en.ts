@@ -216,23 +216,23 @@ export const EN_MESSAGES = {
   'credits.musicTitle': '“{title}”',
   'credits.musicSource': 'by {author}, from {source}',
   'credits.libraries': 'Libraries',
-  'credits.licence': 'Licence',
-  'credits.gameLicence':
-    'This game project is licensed under the {licence}; the music and the libraries are under their own licences.',
+  'credits.license': 'License',
+  'credits.gameLicense':
+    'This game project is licensed under the {license}; the music and the libraries are under their own licenses.',
   'itemNotice.gained': 'You got {item}',
   'silverNotice.gainedOne': 'You got 1 silver coin',
   'silverNotice.gained': 'You got {count} silver coins',
   'itemAction.use': 'Use',
   'itemAction.drop': 'Drop',
-  'item.clover': 'four-leaved clover',
-  'item.clover.specific': 'the four-leaved clover',
-  'item.clover.received': 'a four-leaved clover',
+  'item.clover': 'four-leaf clover',
+  'item.clover.specific': 'the four-leaf clover',
+  'item.clover.received': 'a four-leaf clover',
   'item.sword': 'short sword',
   'item.sword.specific': 'the short sword',
   'item.sword.received': 'a short sword',
-  'item.leatherArmour': 'leather armour',
-  'item.leatherArmour.specific': 'the leather armour',
-  'item.leatherArmour.received': 'some leather armour',
+  'item.leatherArmor': 'leather armor',
+  'item.leatherArmor.specific': 'the leather armor',
+  'item.leatherArmor.received': 'some leather armor',
   'item.healingPotion': 'healing potion',
   'item.healingPotion.specific': 'the healing potion',
   'item.healingPotion.received': 'a healing potion',
@@ -252,7 +252,7 @@ export const EN_MESSAGES = {
   // The lines of the villagers are written whole, each in one string, so
   // that the values they take are known.
   'villager.nancy.line.1':
-    'Welcome to Clovervale! If you need anything, go and see the village chief. She lives in the biggest house, right at the back.',
+    'Welcome to Clovervale! If you need anything, go see the village chief. She lives in the biggest house, right at the back.',
   'villager.nancy.line.2':
     'There are wild dogs at the village gate, and no one can go out. What are we going to do?',
   'villager.emma.name': 'Blacksmith Emma',
@@ -260,14 +260,14 @@ export const EN_MESSAGES = {
   'villager.emma.line.2': "Don't stand too close, the sparks will catch you.",
   'villager.martha.name': 'Chief Martha',
   'villager.martha.line.1':
-    "Welcome to Clovervale. I'm Martha, the village chief. If you need anything, just come and see me.",
+    "Welcome to Clovervale. I'm Martha, the village chief. If you need anything, just come see me.",
   'villager.martha.line.2':
     'That well dried up long ago, so I boarded it up to keep the children from falling in.',
   'villager.toby.name': 'Toby',
   'villager.toby.line.1':
-    "Mummy says I mustn't go outside. There are wild dogs out there.",
+    "Mommy says I can't go outside. There are wild dogs out there.",
   'villager.toby.line.2':
-    'If you want something, go and see the village chief. She lives in the biggest house!',
+    'If you want something, go see the village chief. She lives in the biggest house!',
   'villager.toby.line.3':
     "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
   'villager.toby.found': 'Found one!',
@@ -291,16 +291,16 @@ export const EN_MESSAGES = {
     "Never mind, I'll write another. Take it to the king, quick. It's urgent. Go!",
   'dialogue.martha.ask': 'Who are you? What were you doing down the well?',
   'dialogue.martha.tellEnvoy':
-    "Chief! There's a royal envoy locked up down the well. Quick, go and save him!",
+    "Chief! There's a royal envoy locked up down the well. Quick, go save him!",
   'dialogue.martha.tellPrisoner':
-    "Chief! There's someone locked up down the well. Quick, go and save them!",
+    "Chief! There's someone locked up down the well. Quick, go save them!",
   'dialogue.martha.confession':
-    "Hmph, so you found out! I'm an enemy spy. That royal envoy tried to sneak off with what he'd learnt, so I caught him and locked him up. Now that you know too, you can stay and keep him company!",
+    "Hmph, so you found out! I'm an enemy spy. That royal envoy tried to sneak off with what he'd learned, so I caught him and locked him up. Now that you know too, you can stay and keep him company!",
   'dialogue.martha.welcome': 'Hello, stranger! What can I do for you?',
   'dialogue.martha.askMedicine':
-    'Toby was playing outside and fell over and hurt himself. Have you got any medicine?',
+    'Toby was playing outside and fell down and hurt himself. Do you have any medicine?',
   'dialogue.martha.ointment':
-    "Oh my goodness! Children, always running about. Is it bad? Here, take this ointment to Toby, quick!",
+    "Oh my goodness! Children, always running around. Is it bad? Here, take this ointment to Toby, quick!",
   'dialogue.martha.hurry': 'Go on, take it to Toby, quick!',
   'dialogue.martha.wonder':
     "How's Toby doing? Did you put the ointment on him?",
@@ -308,9 +308,9 @@ export const EN_MESSAGES = {
   'dialogue.martha.replace':
     "Never mind, I'll fetch you another jar. Here, take it to Toby, quick!",
   'dialogue.toby.hurt':
-    "Waaah… I fell over just now and it really hurts. Mummy and Daddy have both gone to the fields. Mummy said if anything's wrong, I can go to the village chief…",
+    "Waaah… I fell down just now and it really hurts. Mommy and Daddy have both gone to the fields. Mommy said if anything's wrong, I can go to the village chief…",
   'dialogue.toby.promise':
-    "I'll go and ask the village chief. You wait here, and don't wander off.",
+    "I'll go ask the village chief. You wait here, and don't wander off.",
   'dialogue.toby.moan': 'Owww, it hurts…',
   'dialogue.toby.dress':
     "Hold still, I'll put some ointment on it. There, all done. Be careful when you're playing from now on, OK?",
@@ -325,17 +325,17 @@ export const EN_MESSAGES = {
     "Oh, you're a bit short on silver. Sorry, but I've got to eat too…",
   'dialogue.basil.full':
     'Looks like your bag is full. Sort it out a bit and come back!',
-  'dialogue.basil.farewell': 'Okay! Come and find me whenever you need one!',
+  'dialogue.basil.farewell': 'Okay! Come find me whenever you need one!',
 
-  'phrase.herbScent': "What's this herb? It smells lovely.",
-  'phrase.headacheHerb': 'Have you got any herbs for a headache?',
+  'phrase.herbScent': "What's this herb? It smells really good.",
+  'phrase.headacheHerb': 'Do you have any herbs for a headache?',
   'phrase.swordPrice': 'How much for this sword?',
-  'phrase.lighterSword': 'Have you got a lighter one? I can hardly lift this.',
+  'phrase.lighterSword': 'Do you have a lighter one? I can hardly lift this.',
   'phrase.slowDown': "Slow down, little one, or you'll trip.",
   'phrase.stayInside':
     "Don't go running out of the village, now. There are wild dogs out there.",
   'phrase.askInn': 'Is there an inn around here where I could rest?',
-  'phrase.askApothecary': "Excuse me, how do I get to the apothecary's?",
+  'phrase.askApothecary': 'Excuse me, how do I get to the apothecary?',
   'phrase.askEmma': 'Excuse me, where can I find Emma?',
   'phrase.askBasil': 'Excuse me, where can I find Basil?',
   'phrase.askNancy': 'Excuse me, where can I find Nancy?',

@@ -43,7 +43,7 @@ import { Translator } from '../src/translator.ts';
 const EN = new Translator();
 
 /**
- * Makes a list of four-leaved clovers.
+ * Makes a list of four-leaf clovers.
  *
  * @param {number} count - How many.
  * @returns {ItemKindId[]} The clovers.
@@ -355,11 +355,11 @@ describe('the item under the cursor of the bag', () => {
 
   it('follows the items as they close up under the cursor', () => {
     const bag = new InventoryBag();
-    bag.noticeInventory(['clover', 'sword', 'leather-armour']);
+    bag.noticeInventory(['clover', 'sword', 'leather-armor']);
     bag.pressKey('KeyI');
     bag.pressKey('ArrowRight');
-    bag.noticeInventory(['clover', 'leather-armour']);
-    expect(bag.cursorItem).toBe('leather-armour');
+    bag.noticeInventory(['clover', 'leather-armor']);
+    expect(bag.cursorItem).toBe('leather-armor');
   });
 });
 
@@ -368,8 +368,8 @@ describe('describeSlots', () => {
     const slots: SlotView[] = describeSlots(EN, ['clover', 'clover']);
     expect(slots).toHaveLength(INVENTORY_SIZE);
     expect(slots.slice(0, 2)).toEqual([
-      { kind: 'clover', name: 'four-leaved clover' },
-      { kind: 'clover', name: 'four-leaved clover' },
+      { kind: 'clover', name: 'four-leaf clover' },
+      { kind: 'clover', name: 'four-leaf clover' },
     ]);
     expect(slots.slice(2).every((slot: SlotView) => slot.kind === null)).toBe(
       true,

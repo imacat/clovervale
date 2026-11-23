@@ -447,7 +447,7 @@ canvas {
   color: #1a1a1a;
 }
 
-/* An action that cannot be chosen now, greyed out, the cursor on it too. */
+/* An action that cannot be chosen now, grayed out, the cursor on it too. */
 .bag-action.is-disabled {
   color: #8a8a8a;
   cursor: default;
@@ -510,21 +510,21 @@ canvas {
   stroke-width: 1.5;
 }
 
-.bag-armour-body {
+.bag-armor-body {
   fill: #a8703e;
   stroke: #4e2e1a;
   stroke-width: 2;
   stroke-linejoin: round;
 }
 
-.bag-armour-lacing {
+.bag-armor-lacing {
   fill: none;
   stroke: #e8d2a6;
   stroke-width: 2;
   stroke-dasharray: 3 2.5;
 }
 
-.bag-armour-belt {
+.bag-armor-belt {
   fill: none;
   stroke: #4e2e1a;
   stroke-width: 3.5;
@@ -893,12 +893,12 @@ canvas {
   gap: 8px;
 }
 
-/* The buttons and sticks of a control of the gamepad, centred in a line. */
+/* The buttons and sticks of a control of the gamepad, centered in a line. */
 .help-caps.is-pad {
   align-items: center;
 }
 
-/* A cluster of key caps, its lines centred as on a keyboard. */
+/* A cluster of key caps, its lines centered as on a keyboard. */
 .help-cap-cluster {
   display: flex;
   flex-direction: column;
@@ -1010,7 +1010,7 @@ canvas {
   dominant-baseline: middle;
 }
 
-/* A face button of a gamepad, round and coloured as on a Logitech F310. */
+/* A face button of a gamepad, round and colored as on a Logitech F310. */
 .help-pad-face {
   box-sizing: border-box;
   width: 28px;
@@ -1140,7 +1140,7 @@ canvas {
 }
 
 /*
- * The page of the credits, centred as on the scroll of the ending, under
+ * The page of the credits, centered as on the scroll of the ending, under
  * the name of the page instead of a title of its own.
  */
 .help-credits-page {
@@ -1334,7 +1334,7 @@ canvas {
 }
 
 .credits-version,
-.credits-licence {
+.credits-license {
   color: #6a4a26;
   font-size: 13px;
 }

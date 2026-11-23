@@ -65,7 +65,7 @@ import type {
   MonsterState,
   PlayerState,
   ServerMessage,
-  SlashJudgement,
+  SlashJudgment,
 } from '@clovervale/shared';
 import { SLASH_DURATION } from '../../shared/src/actions.ts';
 import type {
@@ -110,10 +110,12 @@ interface TimedSnapshot {
   readonly players: readonly PlayerState[];
   /** The monsters in the snapshot. */
   readonly monsters: readonly MonsterState[];
-  /** How far the player of the peer has got with the inputs of the peer. */
+  /**
+   * How far the player of the peer has gotten with the inputs of the peer.
+   */
   readonly own: InputProgress;
   /** How the latest slash of the player of the peer was judged. */
-  readonly slash: SlashJudgement | null;
+  readonly slash: SlashJudgment | null;
   /** The patches of clover that have their clover, by number. */
   readonly clovers: readonly number[];
   /** The items on the ground. */
@@ -614,7 +616,7 @@ describe('the game server', () => {
     expect((await watcher.receiveSnapshot()).slash).toBeNull();
   });
 
-  it('tells every peer how far its own player has got', async () => {
+  it('tells every peer how far its own player has gotten', async () => {
     const [mover, moverId] = await connectPeer();
     const [watcher, watcherId] = await connectPeer();
     const still: TimedSnapshot = await mover.receiveSnapshot();
@@ -675,7 +677,7 @@ describe('the game server', () => {
     expect(peer.isClosed).toBe(false);
   });
 
-  it('disconnects a peer whose inputs are not numbered upwards', async () => {
+  it('disconnects a peer whose inputs are not numbered upward', async () => {
     const [offender] = await connectPeer();
     const [watcher, watcherId] = await connectPeer();
     await watcher.receiveSnapshotWhere(isPair);
@@ -994,7 +996,7 @@ describe('the game server on a Unix socket file', () => {
     expect(existsSync(socketPath)).toBe(false);
   });
 
-  it('replaces a socket file that nothing listens on any more', async () => {
+  it('replaces a socket file that nothing listens on anymore', async () => {
     // A socket file that is moved away outlives what listened on it.
     const elsewhere: string = path.join(directory, 'moved.sock');
     const crashed: Server = await listenOnFile(elsewhere);

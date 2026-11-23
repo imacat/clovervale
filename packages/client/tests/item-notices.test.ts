@@ -31,7 +31,7 @@ import { wordItemNotice, wordSilverNotice } from '../src/item-notices.ts';
 import { Translator } from '../src/translator.ts';
 
 describe('wordItemNotice', () => {
-  it('names the item got in the language of the page', async () => {
+  it('names the item received in the language of the page', async () => {
     const words: string[] = [wordItemNotice(new Translator(), 'sword')];
     for (const code of ['zh-TW', 'zh-CN', 'ja', 'es'] as const) {
       const translator = new Translator();
@@ -47,16 +47,16 @@ describe('wordItemNotice', () => {
     ]);
   });
 
-  it('words each item got in English as it is received', () => {
+  it('words each item in English as it is received', () => {
     const translator: Translator = new Translator();
     expect(
       ITEM_KINDS.map(({ id }: { readonly id: ItemKindId }) =>
         wordItemNotice(translator, id),
       ),
     ).toEqual([
-      'You got a four-leaved clover',
+      'You got a four-leaf clover',
       'You got a short sword',
-      'You got some leather armour',
+      'You got some leather armor',
       'You got a healing potion',
       'You got the message from Clovervale',
       'You got the token of the Clovervale spy',
@@ -64,7 +64,7 @@ describe('wordItemNotice', () => {
     ]);
   });
 
-  it('words each item got in Spanish as it is received', async () => {
+  it('words each item in Spanish as it is received', async () => {
     const translator: Translator = new Translator();
     await translator.choose('es');
     expect(
@@ -84,7 +84,7 @@ describe('wordItemNotice', () => {
 });
 
 describe('wordSilverNotice', () => {
-  it('tells how many silver coins were got in the language of the page', async () => {
+  it('tells how many silver coins were received in the language of the page', async () => {
     const english: Translator = new Translator();
     const words: string[] = [
       wordSilverNotice(english, 1),

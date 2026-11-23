@@ -19,7 +19,7 @@
 
 /**
  * @module shared/tests/toby Tests for Toby, the child who hunts for
- *   four-leaved clover between the cottage and the village gate.
+ *   four-leaf clover between the cottage and the village gate.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -74,7 +74,7 @@ const CLOVERS: readonly Placement[] = VILLAGE_PLACEMENTS.filter(
 
 /**
  * How far either way from the middle of the gate the earth of the way in
- * through it reaches, in metres.
+ * through it reaches, in meters.
  */
 const WAY_IN_HALF_WIDTH = 2.6;
 
@@ -95,7 +95,7 @@ const COTTAGE_DOOR: GroundVector = placePoint(COTTAGE, { x: 0.9, z: 2.35 });
  *
  * @param {GroundVector} a - One point.
  * @param {GroundVector} b - The other point.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureDistance(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
@@ -104,9 +104,9 @@ function measureDistance(a: GroundVector, b: GroundVector): number {
 /**
  * Finds the way something faces.
  *
- * @param {number} yaw - The turn around the Y axis from facing +Z towards
+ * @param {number} yaw - The turn around the Y axis from facing +Z toward
  *   +X, in degrees.
- * @returns {GroundVector} The way it faces, one metre long.
+ * @returns {GroundVector} The way it faces, one meter long.
  */
 function findFront(yaw: number): GroundVector {
   return turnVector({ x: 0, z: 1 }, findTurn(yaw));
@@ -163,7 +163,7 @@ function findPose(isWanted: (pose: TobyPose) => boolean): TobyPose {
 }
 
 describe('the course of Toby', () => {
-  it('goes round again and again, the same at every loop', () => {
+  it('goes around again and again, the same at every loop', () => {
     for (const step of LOOP) {
       const pose: TobyPose = findTobyPose(step);
       expect(findTobyPose(step + TOBY_LOOP_STEPS)).toEqual(pose);
@@ -171,7 +171,7 @@ describe('the course of Toby', () => {
     }
   });
 
-  it('squats, picks, stands up, turns round and runs, at both ends', () => {
+  it('squats, picks, stands up, turns around and runs, at both ends', () => {
     const order: TobyActivity[] = listStretches().map(
       ({ activity }) => activity,
     );
@@ -200,7 +200,7 @@ describe('the course of Toby', () => {
 
   it('stays on the open ground, clear of everything', () => {
     for (const pose of POSES) {
-      // A quarter of a metre at least between him and anything else, which
+      // A quarter of a meter at least between him and anything else, which
       // he has least of as he passes the end of the fence by the gate.
       expect(
         VILLAGE_TERRAIN.isClear(pose, TOBY_RADIUS + 0.25 - PLAYER_RADIUS),
@@ -218,7 +218,7 @@ describe('the course of Toby', () => {
     }
   });
 
-  it('runs on the side of the cottage towards the gate, off its door', () => {
+  it('runs on the side of the cottage toward the gate, off its door', () => {
     for (const pose of POSES) {
       expect(pose.z - TOBY_RADIUS).toBeGreaterThan(COTTAGE.z);
       expect(measureDistance(pose, COTTAGE_DOOR)).toBeGreaterThan(4);
@@ -305,7 +305,7 @@ describe('the course of Toby', () => {
     expect(places.size).toBe(2);
   });
 
-  it('turns round on the spot, facing the fence side of his run halfway', () => {
+  it('turns around in place, facing the fence side of his run halfway', () => {
     for (const { activity, poses } of listStretches()) {
       if (activity !== 'Turn') {
         continue;
@@ -364,17 +364,17 @@ describe('findTobyGrab', () => {
   it('grabs at the patch in front of him', () => {
     for (const step of GRABS) {
       const { patch }: TobyGrab = findTobyGrab(step);
-      const centre: GroundVector | undefined = CLOVER_PATCHES[patch];
+      const center: GroundVector | undefined = CLOVER_PATCHES[patch];
       const pose: TobyPose = findTobyPose(step);
-      expect(centre).toBeDefined();
+      expect(center).toBeDefined();
       expect(
         Math.min(
           ...TOBY_CLOVERS.map((clover: GroundVector) =>
             measureDistance(clover, pose),
           ),
         ),
-      ).toBeCloseTo(measureDistance(centre ?? pose, pose), 9);
-      expect(measureDistance(centre ?? pose, pose)).toBeLessThan(1);
+      ).toBeCloseTo(measureDistance(center ?? pose, pose), 9);
+      expect(measureDistance(center ?? pose, pose)).toBeLessThan(1);
     }
   });
 
@@ -409,8 +409,8 @@ describe('pushAside', () => {
   /**
    * Finds a point near him.
    *
-   * @param {number} ahead - How far ahead of him, in metres.
-   * @param {number} left - How far to his left, in metres.
+   * @param {number} ahead - How far ahead of him, in meters.
+   * @param {number} left - How far to his left, in meters.
    * @returns {GroundVector} The point.
    */
   const placeNear = (ahead: number, left: number): GroundVector => ({
@@ -446,7 +446,7 @@ describe('pushAside', () => {
     ).toBeLessThan(-0.4);
   });
 
-  it('pushes a player square in his way towards the back of the village', () => {
+  it('pushes a player square in his way toward the back of the village', () => {
     const point: GroundVector = placeNear(0.4, 0);
     const pushed: GroundVector = pushAside(point, RUNNING, VILLAGE_TERRAIN);
     expect(measureDistance(pushed, RUNNING)).toBeCloseTo(REACH, 9);
@@ -554,7 +554,7 @@ describe('resolveWalk', () => {
     expect(walked.z).toBeCloseTo(from.z, 9);
   });
 
-  it('slides a player that walks into him at an angle round him', () => {
+  it('slides a player that walks into him at an angle around him', () => {
     const from: GroundVector = {
       x: SQUATTING.x - 0.2,
       z: SQUATTING.z - REACH - 0.01,
@@ -571,7 +571,7 @@ describe('resolveWalk', () => {
     expect(walked.z).toBeGreaterThan(from.z);
   });
 
-  it('stops a player that would slide round him into a wall', () => {
+  it('stops a player that would slide around him into a wall', () => {
     // A wall stands beside him, too close for a player to pass between.
     const wall: Shape = {
       shape: 'box',

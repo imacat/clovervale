@@ -47,7 +47,7 @@ const HAMMER_MATERIAL = 'hammerHead';
 const IRON_MATERIAL = 'hotIron';
 /**
  * The farthest the face of the hammer may stop above the iron at the blow,
- * or sink into it, in metres.
+ * or sink into it, in meters.
  */
 const STRIKE_TOLERANCE = 0.003;
 

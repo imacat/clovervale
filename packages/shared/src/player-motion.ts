@@ -62,11 +62,11 @@ const INTERACTION_STEPS: Readonly<Record<Interaction, number>> = {
  * and what it is up to.
  */
 export interface PlayerMotion {
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
   /** What the player is doing. */
   readonly action: ActionState;
@@ -92,11 +92,11 @@ export interface PlayerState {
   readonly id: number;
   /** The number of the appearance of the player, from 1. */
   readonly appearance: number;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
   /** What the player is doing. */
   readonly action: ActionState;
@@ -137,7 +137,7 @@ export interface InteractInput {
 
 /**
  * The input that makes a player pick what is within its reach, a
- * four-leaved clover in a patch or an item on the ground.  It changes
+ * four-leaf clover in a patch or an item on the ground.  It changes
  * nothing in the motion of the player; what comes of it is for the server
  * alone to decide.
  */
@@ -208,7 +208,7 @@ export type PlayerInput =
  * Creates the motion of a player that idles, wanting nothing.
  *
  * @param {GroundVector} position - Where the player stands.
- * @param {number} yaw - The turn around the Y axis from facing +Z towards
+ * @param {number} yaw - The turn around the Y axis from facing +Z toward
  *   +X, in degrees.
  * @returns {PlayerMotion} The motion.
  */
@@ -270,7 +270,7 @@ export function applyInput(
  * walks that way, facing it, and idles otherwise.  A walking player does
  * not go through the obstacles of the map, nor through such a villager,
  * nor out of the map: it slides along what it walks into at an angle, and
- * walks on the spot against what it walks straight into.  A dead player
+ * walks in place against what it walks straight into.  A dead player
  * stays exactly as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
@@ -362,7 +362,7 @@ export function killMotion(motion: PlayerMotion): PlayerMotion {
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {GroundVector} position - Where the player is to stand.
- * @param {number} yaw - The turn around the Y axis from facing +Z towards
+ * @param {number} yaw - The turn around the Y axis from facing +Z toward
  *   +X, in degrees.
  * @returns {PlayerMotion} The motion of the player standing there.
  */

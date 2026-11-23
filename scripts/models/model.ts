@@ -26,25 +26,25 @@ import { Vector3 } from 'three';
 import type { Shape, Triangle, Triple } from './geometry.ts';
 import { getItem } from './items.ts';
 
-/** The factors of a material other than its base colour. */
+/** The factors of a material other than its base color. */
 interface MaterialOptions {
   /** The roughness factor. */
   readonly roughness?: number;
   /** The metallic factor. */
   readonly metallic?: number;
-  /** The emissive colour as `#rrggbb`, or `null` for none. */
+  /** The emissive color as `#rrggbb`, or `null` for none. */
   readonly emissive?: string | null;
 }
 
-/** A material in a plain colour. */
+/** A material in a plain color. */
 interface Material {
-  /** The base colour as `#rrggbb`. */
+  /** The base color as `#rrggbb`. */
   readonly hex: string;
   /** The roughness factor. */
   readonly roughness: number;
   /** The metallic factor. */
   readonly metallic: number;
-  /** The emissive colour as `#rrggbb`, or `null` for none. */
+  /** The emissive color as `#rrggbb`, or `null` for none. */
   readonly emissive: string | null;
 }
 
@@ -194,14 +194,14 @@ interface GltfMaterial {
   name: string;
   /** The metallic-roughness factors. */
   pbrMetallicRoughness: {
-    /** The linear base colour and its opacity. */
+    /** The linear base color and its opacity. */
     baseColorFactor: number[];
     /** The metallic factor. */
     metallicFactor: number;
     /** The roughness factor. */
     roughnessFactor: number;
   };
-  /** The linear emissive colour. */
+  /** The linear emissive color. */
   emissiveFactor?: number[];
 }
 
@@ -294,9 +294,9 @@ const ELEMENT_SIZES: Readonly<Record<AccessorType, number>> = {
 };
 
 /**
- * Converts an sRGB hexadecimal colour to linear RGB.
+ * Converts an sRGB hexadecimal color to linear RGB.
  *
- * @param {string} hex - The colour as `#rrggbb`.
+ * @param {string} hex - The color as `#rrggbb`.
  * @returns {number[]} The linear red, green and blue in [0, 1].
  */
 function convertHexToLinear(hex: string): number[] {
@@ -530,7 +530,7 @@ class BufferWriter {
 }
 
 /**
- * A model made of triangles in plain colours, flat-shaded unless a shape
+ * A model made of triangles in plain colors, flat-shaded unless a shape
  * asks to be smooth, optionally bound to a skeleton and animated.
  */
 export class Model {
@@ -558,7 +558,7 @@ export class Model {
    * Defines a material.
    *
    * @param {string} name - The material name.
-   * @param {string} hex - The base colour as `#rrggbb`.
+   * @param {string} hex - The base color as `#rrggbb`.
    * @param {MaterialOptions} [options] - The other factors.
    * @returns {this} This model.
    */
@@ -686,12 +686,12 @@ export class Model {
   }
 
   /**
-   * Moves the model so that its footprint is centred on the origin and its
+   * Moves the model so that its footprint is centered on the origin and its
    * lowest point rests on the ground.
    *
    * @returns {this} This model.
    */
-  centreFootprint(): this {
+  centerFootprint(): this {
     const min = new Vector3(Infinity, Infinity, Infinity);
     const max = new Vector3(-Infinity, -Infinity, -Infinity);
     const corners: Corner[] = this.listCorners();
@@ -709,14 +709,14 @@ export class Model {
   /**
    * Moves the whole model, with its skeleton and its animations, so that
    * the middle of the geometry of the given bones stands over the origin,
-   * and raises it by a millimetre to keep rounding errors above the ground.
+   * and raises it by a millimeter to keep rounding errors above the ground.
    *
-   * @param {readonly string[]} names - The bones whose geometry to centre,
+   * @param {readonly string[]} names - The bones whose geometry to center,
    *   such as the feet; when empty, the model is only raised.
    * @returns {this} This model.
    * @throws {Error} If there is no such bone.
    */
-  centreOn(names: readonly string[]): this {
+  centerOn(names: readonly string[]): this {
     const wanted: number[] = names.map((name: string) => this.findBone(name));
     const min = new Vector3(Infinity, Infinity, Infinity);
     const max = new Vector3(-Infinity, -Infinity, -Infinity);
@@ -756,7 +756,7 @@ export class Model {
   }
 
   /**
-   * Serialises the model.
+   * Serializes the model.
    *
    * @returns {Buffer} The binary glTF 2.0 file.
    */

@@ -51,7 +51,7 @@ const EDWIN_MESSAGE: ItemKindId = 'clovervale-message';
  * What Edwin, the prisoner in the cave, says: to a player he has not told
  * who he is, a plea for help, who he is, and a message to take to the king
  * at once; to a player he has, and who carries the message, a reminder in
- * passing to hurry; and to one who does not carry it any more, the message
+ * passing to hurry; and to one who does not carry it anymore, the message
  * written again.  Whenever he gives the message, he tells of it as
  * `message-given`.
  */
@@ -93,7 +93,7 @@ const EDWIN_SCRIPT: DialogueScript = {
 };
 
 /**
- * What Toby, the child who hunts for four-leaved clover, says of his fall:
+ * What Toby, the child who hunts for four-leaf clover, says of his fall:
  * to a player who has not taken on {@link TOBY_HURT}, that he has fallen
  * and hurt himself, with his parents out in the fields, and that his
  * mother told him to go to the village chief, which he tells of as
@@ -102,11 +102,11 @@ const EDWIN_SCRIPT: DialogueScript = {
  * hurts; and to a player on it with the ointment, that it still hurts,
  * which the player answers by putting the ointment on and telling him to
  * take care, and his promise to, with his thanks, with which he takes the
- * ointment, gives the player a four-leaved clover, and tells of having had
+ * ointment, gives the player a four-leaf clover, and tells of having had
  * the ointment as `ointment-received`.  To a player who has done the
  * quest, he only chatters in passing: one of his lines, or, while the
  * inventory of the player has room, the line with which he gives the player
- * a four-leaved clover as well.
+ * a four-leaf clover as well.
  */
 const TOBY_SCRIPT: DialogueScript = {
   nodes: {

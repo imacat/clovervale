@@ -74,7 +74,7 @@ function findTurn(to: number, from: number): number {
  * @param {number} heading - The heading of the camera at first, in degrees.
  * @param {GroundVector} start - Where the player starts.
  * @param {number | null} yaw - The way the player walks, as the turn from
- *   +Z towards +X in degrees, or `null` to stand still.
+ *   +Z toward +X in degrees, or `null` to stand still.
  * @param {number} seconds - How long the player walks for.
  * @param {Readonly<TrailingCameraSettings>} [settings] - The settings.
  * @param {boolean} [isTouched] - Whether the owner handles the camera all
@@ -130,7 +130,7 @@ describe('TrailingCamera', () => {
     expect(headings.every((heading: number) => heading === 30)).toBe(true);
   });
 
-  it('does not turn before the player has gone forwards a while', () => {
+  it('does not turn before the player has gone forward a while', () => {
     const camera = new TrailingCamera();
     const { headings } = walk(camera, 0, { x: 0, z: 0 }, 45, 10);
     const waiting: number[] = headings.slice(0, SETTINGS.delay / FRAME);
@@ -138,7 +138,7 @@ describe('TrailingCamera', () => {
     expect(headings.at(-1)).toBeGreaterThan(0);
   });
 
-  it('comes round behind a diagonal travel forwards and stays', () => {
+  it('comes around behind a diagonal travel forward and stays', () => {
     const camera = new TrailingCamera();
     const { headings } = walk(camera, 0, { x: 0, z: 0 }, 45, 15);
     // It stays there for the last seconds of the walk.
@@ -174,7 +174,7 @@ describe('TrailingCamera', () => {
     expect(headings.every((heading: number) => heading === 0)).toBe(true);
   });
 
-  it('does not turn when the player goes sideways or towards it', () => {
+  it('does not turn when the player goes sideways or toward it', () => {
     for (const yaw of [90, -90, 120, -150, 180]) {
       const camera = new TrailingCamera();
       const { headings } = walk(camera, 0, { x: 0, z: 0 }, yaw, 10);

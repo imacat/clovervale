@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module shared/toby Toby, the child who hunts for four-leaved clover
+ * @module shared/toby Toby, the child who hunts for four-leaf clover
  *   between the cottage west of the plaza and the gate, and how he gets in
  *   the way of the players.
  *
@@ -39,12 +39,12 @@ import type { Pusher } from './pusher.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
 import type { Pose, Terrain } from './terrain.ts';
 
-/** The radius of the body of Toby on the ground, in metres. */
+/** The radius of the body of Toby on the ground, in meters. */
 export const TOBY_RADIUS = 0.25;
 
 /**
  * The message of the line Toby exclaims to the players nearby as he finds
- * a four-leaved clover.
+ * a four-leaf clover.
  */
 export const TOBY_FOUND_LINE = 'villager.toby.found';
 
@@ -59,7 +59,7 @@ export const TOBY_ACTIVITIES = [
 
 /**
  * What Toby is doing: squatting down at a patch of clover, picking at it,
- * standing up, turning round, or running to the other patch.
+ * standing up, turning around, or running to the other patch.
  */
 export type TobyActivity = (typeof TOBY_ACTIVITIES)[number];
 
@@ -94,27 +94,27 @@ export const TOBY_PATCHES: readonly [number, number] = [
 
 /**
  * How many steps into his picking at a patch of clover Toby's hand grabs
- * at the four-leaved clover of the patch, as his hand reaches into the
+ * at the four-leaf clover of the patch, as his hand reaches into the
  * leaves for the second time.
  */
 export const TOBY_GRAB_STEPS = 40;
 
 /**
  * How many steps into his picking at a patch of clover Toby has put away a
- * four-leaved clover he has grabbed, having lifted it to look at it.
+ * four-leaf clover he has grabbed, having lifted it to look at it.
  */
 export const TOBY_STOW_STEPS = 70;
 
 /**
  * How far ahead of Toby the middle of the patch of clover he picks at lies
- * as he squats, in metres: just beyond his reach, so that he squats at its
+ * as he squats, in meters: just beyond his reach, so that he squats at its
  * edge with the clover in front of him.
  */
 const CLOVER_DISTANCE = 0.625;
 
 /**
- * How far round Toby turns at each end, in degrees, the way the yaw goes:
- * so that he faces the side of his run towards the fence halfway.
+ * How far around Toby turns at each end, in degrees, the way the yaw goes:
+ * so that he faces the side of his run toward the fence halfway.
  */
 const TURN_SWEEPS: readonly [number, number] = [180, -180];
 
@@ -127,7 +127,7 @@ const HALF_LOOP_STEPS: number = TOBY_ACTIVITIES.reduce(
 /** The number of simulation steps of a whole loop of the course of Toby. */
 export const TOBY_LOOP_STEPS: number = 2 * HALF_LOOP_STEPS;
 
-/** The distance between the middles of the two patches, in metres. */
+/** The distance between the middles of the two patches, in meters. */
 const PATCH_DISTANCE: number = Math.sqrt(
   (TOBY_CLOVERS[1].x - TOBY_CLOVERS[0].x) *
     (TOBY_CLOVERS[1].x - TOBY_CLOVERS[0].x) +
@@ -137,7 +137,7 @@ const PATCH_DISTANCE: number = Math.sqrt(
 
 /**
  * The way from the first patch to the second, and so of his run from its
- * first end to its second, one metre long.
+ * first end to its second, one meter long.
  */
 const COURSE: GroundVector = {
   x: (TOBY_CLOVERS[1].x - TOBY_CLOVERS[0].x) / PATCH_DISTANCE,
@@ -148,7 +148,7 @@ const COURSE: GroundVector = {
  * Where Toby squats at each end of his run, at the edge of each patch, on
  * the straight line between them, with the patch in front of him: the end
  * by the cottage first.  He runs between the two in a straight line,
- * slanting from the grass by the cottage towards the gate.
+ * slanting from the grass by the cottage toward the gate.
  */
 export const TOBY_ENDS: readonly [GroundVector, GroundVector] = [
   {
@@ -161,25 +161,25 @@ export const TOBY_ENDS: readonly [GroundVector, GroundVector] = [
   },
 ];
 
-/** The length of the run of Toby from one end to the other, in metres. */
+/** The length of the run of Toby from one end to the other, in meters. */
 const RUN_LENGTH: number = PATCH_DISTANCE - 2 * CLOVER_DISTANCE;
 
-/** The speed Toby runs at, in metres per second. */
+/** The speed Toby runs at, in meters per second. */
 export const TOBY_RUN_SPEED: number =
   RUN_LENGTH / (TOBY_ACTIVITY_STEPS.Run / SIMULATION_RATE);
 
 /**
  * The side Toby pushes a player square in his way to, across his run, one
- * metre long: towards the back of the village.
+ * meter long: toward the back of the village.
  */
 const ASIDE: GroundVector = { x: COURSE.z, z: -COURSE.x };
 
-/** The least distance between the centres of Toby and a player, in metres. */
+/** The least distance between the centers of Toby and a player, in meters. */
 const REACH: number = TOBY_RADIUS + PLAYER_RADIUS;
 
 /**
  * How far a player may reach into Toby and still count as touching him
- * only, in metres, to allow for rounding.
+ * only, in meters, to allow for rounding.
  */
 const OVERLAP_TOLERANCE = 1e-9;
 
@@ -191,7 +191,7 @@ export interface TobyPose extends Pose {
   readonly elapsed: number;
 }
 
-/** A moment Toby's hand grabs at the four-leaved clover of a patch. */
+/** A moment Toby's hand grabs at the four-leaf clover of a patch. */
 export interface TobyGrab {
   /** The number of the step at which his hand grabs. */
   readonly step: number;
@@ -233,11 +233,11 @@ function easeShare(share: number): number {
  * Finds where Toby is, which way he faces and what he is doing at a step of
  * the simulation.
  *
- * He goes round the same loop for ever, from step 0 on, as the server
+ * He goes around the same loop forever, from step 0 on, as the server
  * counts its steps.  At the end of his run by the cottage, he squats down
  * at the edge of a patch of clover, facing it, picks at the leaves for a
- * few seconds, stands up, turns round, through facing the side of his run
- * towards the fence, and runs in a straight line to the other end, where he
+ * few seconds, stands up, turns around, through facing the side of his run
+ * toward the fence, and runs in a straight line to the other end, where he
  * does the same, and runs back.  He stays still but for his run.
  *
  * @param {number} step - The number of the step, which may fall between
@@ -288,7 +288,7 @@ export function findTobyPose(step: number): TobyPose {
 
 /**
  * Finds the latest moment, at a step of the simulation or before it, that
- * Toby's hand grabs at the four-leaved clover of the patch he picks at.
+ * Toby's hand grabs at the four-leaf clover of the patch he picks at.
  *
  * His hand grabs {@link TOBY_GRAB_STEPS} steps into each time he picks at
  * a patch, once at each end of his run, as {@link findTobyPose} has him.
@@ -316,7 +316,7 @@ export function findTobyGrab(step: number): TobyGrab {
  *
  * @param {GroundVector} point - The point.
  * @param {GroundVector} toby - Where Toby is.
- * @returns {number} The distance between the two, in metres.
+ * @returns {number} The distance between the two, in meters.
  */
 function measureFrom(point: GroundVector, toby: GroundVector): number {
   const dx: number = point.x - toby.x;
@@ -329,7 +329,7 @@ function measureFrom(point: GroundVector, toby: GroundVector): number {
  *
  * A player that Toby reaches into is pushed straight out to the side it is
  * on, across his run, until it only touches him; a player square in his
- * way is pushed towards the back of the village.  It is never pushed to the
+ * way is pushed toward the back of the village.  It is never pushed to the
  * other side.  Walls and the edge of the village stop the push as they stop
  * a walk, and a player with no room on its side is left overlapping him
  * rather than pushed into or through anything, even if there is open ground
@@ -368,11 +368,11 @@ export function pushAside(
 }
 
 /**
- * Finds where a player that walks from one point towards another ends up,
+ * Finds where a player that walks from one point toward another ends up,
  * with the obstacles and Toby in its way.
  *
  * Toby stops the player as the obstacles do: a player that walks into him
- * at an angle slides round him, and one that walks straight into him stops.
+ * at an angle slides around him, and one that walks straight into him stops.
  * A player that overlaps him already, having had no room to be pushed out
  * of his way, may walk anywhere that does not take it further into him.
  *
@@ -420,7 +420,7 @@ export function resolveWalk(
  * @param {number} step - The number of the step.
  * @param {number} span - The time, in milliseconds.
  * @returns {number} The furthest he pushes a player as he passes it, in
- *   metres, if the player is near enough to him to have been pushed within
+ *   meters, if the player is near enough to him to have been pushed within
  *   the time, or 0 otherwise.
  */
 export function measurePushReach(

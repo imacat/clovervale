@@ -2,7 +2,7 @@ Clovervale
 ==========
 
 Clovervale (四葉谷) is a small learning MMORPG for studying network state
-synchronisation.
+synchronization.
 
 
 Requirements
@@ -83,7 +83,7 @@ Serves the client at <http://localhost:5173/>.
 
 #### `npm run dev:bots`
 
-Runs bots, players that walk about the village by themselves.  Options
+Runs bots, players that walk around the village by themselves.  Options
 for the bots follow a `--`, as in `npm run dev:bots -- --count 8`.
 
 
@@ -110,7 +110,7 @@ Firefox is run as `firefox`, or as the command in the `FIREFOX`
 environment variable.
 
 
-Licence
+License
 -------
 
 Copyright 2026 imacat.

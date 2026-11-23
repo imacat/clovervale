@@ -29,7 +29,7 @@ import type { ModelId, Placement } from '@clovervale/shared';
 import {
   MODEL_FILES,
   isModelUsed,
-} from '../packages/client/src/model-catalogue.ts';
+} from '../packages/client/src/model-catalog.ts';
 import { checkApothecary } from './check-models/apothecary.ts';
 import { checkCaveFixtures } from './check-models/cave-fixtures.ts';
 import { checkCave } from './check-models/cave.ts';
@@ -121,7 +121,7 @@ async function checkModels(): Promise<boolean> {
     ? await checkApothecary(files)
     : {
         summary: '',
-        failures: [`the apothecary's cannot be checked`],
+        failures: [`the apothecary shop cannot be checked`],
       };
   problems.push(...apothecary.failures);
   const characters: ModelResult[] = results.filter(

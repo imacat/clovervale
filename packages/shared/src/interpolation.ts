@@ -34,17 +34,17 @@ const JUMP_FACTOR = 1.5;
 export interface Placed {
   /** The identifier, unique among its kind. */
   readonly id: number;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
 }
 
 /**
  * Finds the yaw part of the way from one yaw to another, the shorter way
- * round.
+ * around.
  *
  * @param {number} from - The yaw to turn from, in degrees.
  * @param {number} to - The yaw to turn to, in degrees.
@@ -63,7 +63,7 @@ export function interpolateYaw(
 
 /**
  * Places everything part of the way from where one snapshot tells to where
- * the next tells, turned likewise, the shorter way round.  Anything that
+ * the next tells, turned likewise, the shorter way around.  Anything that
  * has moved further than it can walk in the time between them, and than it
  * can have been moved otherwise, stays where the earlier one tells.
  *
@@ -73,7 +73,7 @@ export function interpolateYaw(
  *   from 0 to 1.
  * @param {number} span - The time between them, in milliseconds.
  * @param {(item: T) => number} [findLeeway] - How far beyond its walk each
- *   thing can have been moved in that time, in metres, by where the later
+ *   thing can have been moved in that time, in meters, by where the later
  *   snapshot tells it is.  Nothing is by default.
  * @returns {T[]} Everything the earlier snapshot tells, in its order, and
  *   otherwise as it tells.

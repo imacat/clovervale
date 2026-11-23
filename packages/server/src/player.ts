@@ -34,7 +34,7 @@ import type {
   PhraseCode,
   PlayerState,
   Quest,
-  SlashJudgement,
+  SlashJudgment,
   VillagerId,
 } from '@clovervale/shared';
 
@@ -64,7 +64,7 @@ export interface PlayerSetup {
   readonly acquaintances?: readonly VillagerId[];
   /**
    * The quests the player has opened, in the order it opened them, each at
-   * the stage it has got to, none by default.
+   * the stage it has gotten to, none by default.
    */
   readonly quests?: readonly Quest[];
 }
@@ -87,7 +87,7 @@ export class Player {
   /** The quests the player has opened, as the server keeps them going. */
   readonly book: QuestBook;
   /** The latest slash of the player, as judged, or `null` before its first. */
-  lastSlash: SlashJudgement | null = null;
+  lastSlash: SlashJudgment | null = null;
   /**
    * The number of the step at which the player last said a line or a
    * phrase, or `null` if it has said neither.
@@ -191,7 +191,7 @@ export class Player {
 
   /**
    * The quests the player has opened, in the order it opened them, each at
-   * the stage it has got to.
+   * the stage it has gotten to.
    *
    * @returns {readonly Quest[]} The quests.
    */

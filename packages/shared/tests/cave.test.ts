@@ -52,7 +52,7 @@ import {
 import { NavigationGraph } from '../src/navigation.ts';
 import type { CaveRoom } from '../src/cave.ts';
 
-/** The least room every point a test walks to has, in metres. */
+/** The least room every point a test walks to has, in meters. */
 const ROOM = 0.05;
 
 /**

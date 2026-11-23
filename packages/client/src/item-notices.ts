@@ -30,15 +30,15 @@ import type { Translator } from './translator.ts';
 /** The notices of the items and the silver coins the player gets. */
 export interface ItemNotices {
   /**
-   * Shows a notice of an item got, below those still shown, which fades
-   * out after a few seconds.
+   * Shows a notice of an item received, below those still shown, which
+   * fades out after a few seconds.
    *
    * @param {ItemKindId} kind - The kind of the item.
    */
   readonly show: (kind: ItemKindId) => void;
   /**
-   * Shows a notice of silver coins got, below those still shown, which
-   * fades out after a few seconds.
+   * Shows a notice of silver coins received, below those still shown,
+   * which fades out after a few seconds.
    *
    * @param {number} count - The number of coins, at least one.
    */
@@ -46,7 +46,7 @@ export interface ItemNotices {
 }
 
 /**
- * Words the notice of an item got.
+ * Words the notice of an item received.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {ItemKindId} kind - The kind of the item.
@@ -62,7 +62,7 @@ export function wordItemNotice(
 }
 
 /**
- * Words the notice of silver coins got.
+ * Words the notice of silver coins received.
  *
  * @param {Translator} translator - The translator of the text of the page.
  * @param {number} count - The number of coins.

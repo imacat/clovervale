@@ -53,7 +53,7 @@ interface Leg {
   readonly x: number;
   /** The Z of the paw at rest. */
   readonly z: number;
-  /** Whether the joint between the bones bends backwards. */
+  /** Whether the joint between the bones bends backward. */
   readonly isKneeBackward: boolean;
   /** The phase of the leg in the trot. */
   readonly phase: number;
@@ -71,8 +71,8 @@ const FRONT_Z = 0.29;
 const HIND_Z = -0.29;
 /** The height of the ankles above the soles. */
 const ANKLE = 0.07;
-/** The centre of the head in the rest pose. */
-const HEAD_CENTRE: Triple = [0, 0.84, 0.43];
+/** The center of the head in the rest pose. */
+const HEAD_CENTER: Triple = [0, 0.84, 0.43];
 /** The radii of the head. */
 const HEAD_RADII: Triple = [0.26, 0.23, 0.23];
 /**
@@ -85,7 +85,7 @@ const CHEEK_TUFTS: readonly Triple[] = [
 ];
 /**
  * How long a walk cycle lasts, in seconds, with two trot strides in it: the
- * longest the model check allows, so that the 1.5 metres the check expects
+ * longest the model check allows, so that the 1.5 meters the check expects
  * of a cycle come nearest to the speeds the dog moves at.
  */
 const WALK_DURATION = 1.1;
@@ -99,7 +99,7 @@ const GAIT: Gait = {
   toe: 0.1,
   strike: 6,
   push: 20,
-  centre: 0,
+  center: 0,
 };
 /**
  * The legs.  The paw bones start with `Foot`, as the model check expects
@@ -127,10 +127,10 @@ const LEGS: readonly Leg[] = SIDES.flatMap(
 /**
  * Finds a point on the surface of the head.
  *
- * @param {number} yaw - The angle from the front towards the left, in
+ * @param {number} yaw - The angle from the front toward the left, in
  *   degrees.
  * @param {number} down - The angle below the equator, in degrees.
- * @param {number} factor - The distance from the centre, in head radii.
+ * @param {number} factor - The distance from the center, in head radii.
  * @returns {Triple} The point in model space.
  */
 function findHeadPoint(yaw: number, down: number, factor: number): Triple {
@@ -140,9 +140,9 @@ function findHeadPoint(yaw: number, down: number, factor: number): Triple {
     Math.cos(yaw * DEG) * Math.cos(down * DEG),
   ];
   return [
-    HEAD_CENTRE[0] + direction[0] * HEAD_RADII[0] * factor,
-    HEAD_CENTRE[1] + direction[1] * HEAD_RADII[1] * factor,
-    HEAD_CENTRE[2] + direction[2] * HEAD_RADII[2] * factor,
+    HEAD_CENTER[0] + direction[0] * HEAD_RADII[0] * factor,
+    HEAD_CENTER[1] + direction[1] * HEAD_RADII[1] * factor,
+    HEAD_CENTER[2] + direction[2] * HEAD_RADII[2] * factor,
   ];
 }
 
@@ -159,7 +159,7 @@ function createTuft(size: number): Shape {
 /**
  * Creates the shape of an ear, standing on the origin and pointing up.
  *
- * @param {boolean} isFolded - Whether the tip folds over forwards.
+ * @param {boolean} isFolded - Whether the tip folds over forward.
  * @param {number} scale - The scale of the ear.
  * @returns {Shape} The ear.
  */
@@ -258,7 +258,7 @@ function buildBody(): Model {
 
   model.add(
     'fur',
-    place(createEllipsoid(HEAD_RADII, 2), { pos: HEAD_CENTRE }),
+    place(createEllipsoid(HEAD_RADII, 2), { pos: HEAD_CENTER }),
     'Head',
     { smooth: true },
   );
@@ -733,6 +733,6 @@ function animateBody(model: Model): ReadonlyMap<string, ClipReport> {
 export function buildWildDog(): BuiltModel {
   const model: Model = buildBody();
   const report: ReadonlyMap<string, ClipReport> = animateBody(model);
-  model.centreOn(LEGS.map((leg: Leg) => leg.bones[2]));
+  model.centerOn(LEGS.map((leg: Leg) => leg.bones[2]));
   return { model, report };
 }

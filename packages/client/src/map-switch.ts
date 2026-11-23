@@ -115,8 +115,9 @@ export class MapSwitch {
    * and down on it as steeply as the map has it.
    *
    * @param {MapId} map - The map.
-   * @param {InputProgress} own - How far the player had got with the inputs
-   *   of the page, and the motion of the player there, as the snapshot tells.
+   * @param {InputProgress} own - How far the player had gotten with the
+   *   inputs of the page, and the motion of the player there, as the
+   *   snapshot tells.
    */
   enter(map: MapId, own: InputProgress): void {
     this.#shownMap = map;

@@ -42,7 +42,7 @@ import type {
   Placement,
   Shape,
 } from '@clovervale/shared';
-import { MODEL_FILES } from '../../packages/client/src/model-catalogue.ts';
+import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import { findCavePlacement } from './cave.ts';
 import { FOOTPRINT_TOLERANCE } from './constants.ts';
@@ -58,11 +58,11 @@ import {
 
 /** How closely the prisoner keeps to the bars of his cell. */
 interface Grip {
-  /** The farthest a fist is from the axis of a bar, in metres. */
+  /** The farthest a fist is from the axis of a bar, in meters. */
   readonly loosest: number;
   /**
    * The least room between the axis of a bar and the rest of him, in
-   * metres.
+   * meters.
    */
   readonly closest: number;
 }
@@ -73,14 +73,14 @@ const HAND_MATERIAL = 'hand';
 const BAR_MATERIAL = 'iron';
 /**
  * The farthest the middle of a fist of the prisoner may be from the bar it
- * holds, along the ground, in metres.
+ * holds, along the ground, in meters.
  */
 const GRIP_TOLERANCE = 0.03;
 /** How many times in his idle clip the prisoner is looked at. */
 const EDWIN_SAMPLES = 48;
 /**
  * The least room between the axis of a bar of a cell and anything of the
- * prisoner but his fists, along the ground, in metres: the radius of a bar.
+ * prisoner but his fists, along the ground, in meters: the radius of a bar.
  */
 const BAR_CLEARANCE = 0.036;
 /** The file name of the model of the prisoner in the north cell. */
@@ -212,7 +212,7 @@ async function checkFixtureGround(failures: string[]): Promise<number> {
 
 /**
  * Checks that through his idle clip, both fists of the prisoner close
- * round a bar of his cell, and nothing else of him passes into a bar or
+ * around a bar of his cell, and nothing else of him passes into a bar or
  * through the bars into the passage.
  *
  * @param {string[]} failures - The requirements not met, to add to.
@@ -307,7 +307,7 @@ async function checkEdwinGrip(failures: string[]): Promise<Grip> {
  * in its place, reaches out to the edges of the ground it takes up, and no
  * farther; the bars of each cell run across its whole opening; and the
  * bones lean on the back wall of the south cell.
- * Through his idle clip, both fists of the prisoner close round a bar of
+ * Through his idle clip, both fists of the prisoner close around a bar of
  * his cell, and nothing else of him passes into a bar or through the bars
  * into the passage.
  *

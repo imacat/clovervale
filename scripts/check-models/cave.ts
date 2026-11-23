@@ -36,7 +36,7 @@ import {
   CAVE_FIXTURE_FOOTPRINTS,
   CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
-  CAVE_MODEL_CENTRE,
+  CAVE_MODEL_CENTER,
   CAVE_PASSAGE,
   CAVE_PASSAGE_HALF_WIDTH,
   CAVE_PLACEMENTS,
@@ -54,7 +54,7 @@ import type {
   Placement,
   Shape,
 } from '@clovervale/shared';
-import { MODEL_FILES } from '../../packages/client/src/model-catalogue.ts';
+import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import { modelsDir } from './constants.ts';
 import type { StrikeResult } from './constants.ts';
@@ -67,28 +67,28 @@ interface CaveGround {
   readonly floorCount: number;
   /** How many points of rock there are. */
   readonly rockCount: number;
-  /** The highest the floor stands where a player can walk, in metres. */
+  /** The highest the floor stands where a player can walk, in meters. */
   readonly floorTop: number;
 }
 
 /**
  * The least height the rock and the stonework of the cave stand, where they
- * stand in the way, in metres: above the head of a player.
+ * stand in the way, in meters: above the head of a player.
  */
 const CAVE_WALL_HEIGHT = 2;
 /**
  * The highest anything on the floor of the cave may stand where a player
- * can walk, in metres: no more than a flat stone.
+ * can walk, in meters: no more than a flat stone.
  */
 const CAVE_FLOOR_HEIGHT = 0.05;
 /**
  * How far into what stands in the way of the players in the cave a point
- * must lie for the model to have to stand there, in metres.
+ * must lie for the model to have to stand there, in meters.
  */
 const CAVE_INSIDE = 0.05;
 /**
  * Half the length and half the width of the ground the model of the cave
- * covers, around the middle it stands on, in metres.
+ * covers, around the middle it stands on, in meters.
  */
 const CAVE_HALF_SIZE: readonly [number, number] = [13, 6.5];
 /** The distance between two points the floor of the cave is checked at. */
@@ -216,8 +216,8 @@ function checkCaveGround(cave: GLTF, failures: string[]): CaveGround {
         // Beyond the ground the model covers, nobody ever comes near.
         const [halfLength, halfWidth] = CAVE_HALF_SIZE;
         if (
-          Math.abs(x - CAVE_MODEL_CENTRE.x) < halfLength &&
-          Math.abs(z - CAVE_MODEL_CENTRE.z) < halfWidth
+          Math.abs(x - CAVE_MODEL_CENTER.x) < halfLength &&
+          Math.abs(z - CAVE_MODEL_CENTER.z) < halfWidth
         ) {
           report(`${CAVE_FILE} has nothing`, x, z);
         }
@@ -276,7 +276,7 @@ async function checkTorch(failures: string[]): Promise<void> {
  *
  * @param {readonly string[]} files - The file names of the models there
  *   are.
- * @param {number} floorTop - The highest the floor stands, in metres.
+ * @param {number} floorTop - The highest the floor stands, in meters.
  * @param {string[]} failures - The requirements not met, to add to.
  * @returns {Promise<void>} A promise settled once checked.
  */

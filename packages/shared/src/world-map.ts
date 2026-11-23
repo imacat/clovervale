@@ -40,7 +40,7 @@ import {
   VILLAGE_TERRAIN,
   WELL_STAND,
 } from './village-layout.ts';
-import { PLAZA_CENTRE } from './village.ts';
+import { PLAZA_CENTER } from './village.ts';
 
 /**
  * The maps a player can be in: the village, which every player shares, and
@@ -60,20 +60,20 @@ export const HOME_MAP: MapId = 'village';
 
 /**
  * The farthest a player can stand from the rim of the fountain to drink
- * from it, from the edge of the player to the rim, in metres.
+ * from it, from the edge of the player to the rim, in meters.
  */
 export const FOUNTAIN_REACH = 0.5;
 
 /**
  * The farthest a player can stand from the middle of the burrow of the
  * wild dog, among the spawn stones, to go down into the cave, whichever
- * way it faces, from centre to centre, in metres.
+ * way it faces, from center to center, in meters.
  */
 export const BURROW_REACH = 1.2;
 
 /**
  * The farthest a player can stand from the rope at the bottom of the old
- * well shaft in the cave to climb up it, from centre to centre, in metres.
+ * well shaft in the cave to climb up it, from center to center, in meters.
  */
 export const ROPE_REACH = 1.2;
 
@@ -135,7 +135,7 @@ const VILLAGE: WorldMap = {
       type: 'fountain',
       input: 'interact',
       interaction: 'Drink',
-      centre: PLAZA_CENTRE,
+      center: PLAZA_CENTER,
       reach: FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH,
       nearReach: 0,
       yieldsToSlash: false,
@@ -145,7 +145,7 @@ const VILLAGE: WorldMap = {
     {
       type: 'passage',
       input: 'travel',
-      centre: { x: SPAWN_STONES_POSE.x, z: SPAWN_STONES_POSE.z },
+      center: { x: SPAWN_STONES_POSE.x, z: SPAWN_STONES_POSE.z },
       reach: BURROW_REACH,
       nearReach: BURROW_REACH,
       yieldsToSlash: true,
@@ -176,7 +176,7 @@ const CAVE: WorldMap = {
     {
       type: 'passage',
       input: 'travel',
-      centre: CAVE_ROPE,
+      center: CAVE_ROPE,
       reach: ROPE_REACH,
       nearReach: 0,
       yieldsToSlash: true,

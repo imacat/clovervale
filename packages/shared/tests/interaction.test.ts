@@ -31,7 +31,7 @@ import {
   FOUNTAIN_RIM_RADIUS,
   CLOVER_PATCHES,
   PLAYER_RADIUS,
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   SIMULATION_RATE,
   SLASH_REACH,
   TOBY_LOOP_STEPS,
@@ -73,7 +73,7 @@ import { WELL_STAND } from '../src/village-layout.ts';
 import { BURROW_REACH, ROPE_REACH } from '../src/world-map.ts';
 
 /**
- * The farthest a player can stand from the centre of the fountain to drink
+ * The farthest a player can stand from the center of the fountain to drink
  * from it.
  */
 const REACH: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH;
@@ -135,8 +135,8 @@ const NANCY: Placement = findPlacement('nancy');
 /**
  * Makes the pose of a player some way south of Nancy.
  *
- * @param {number} distance - How far from her it stands, from centre to
- *   centre, in metres.
+ * @param {number} distance - How far from her it stands, from center to
+ *   center, in meters.
  * @param {number} yaw - The way it faces, 180 to face her.
  * @returns {Pose} The pose.
  */
@@ -186,41 +186,41 @@ function listPosesFacingEmma(): Pose[] {
 
 describe('findInteraction', () => {
   it('drinks by the rim of the fountain, facing it', () => {
-    const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
-    expect(findInteraction({ x: PLAZA_CENTRE.x, z, yaw: 180 }, 0)).toBe(
+    const z: number = PLAZA_CENTER.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
+    expect(findInteraction({ x: PLAZA_CENTER.x, z, yaw: 180 }, 0)).toBe(
       'Drink',
     );
   });
 
   it('drinks as far from the rim as the fountain reaches', () => {
-    const x: number = PLAZA_CENTRE.x + REACH - 1e-9;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: -90 }, 0)).toBe(
+    const x: number = PLAZA_CENTER.x + REACH - 1e-9;
+    expect(findInteraction({ x, z: PLAZA_CENTER.z, yaw: -90 }, 0)).toBe(
       'Drink',
     );
   });
 
   it('slashes beyond the reach of the fountain, facing it', () => {
-    const x: number = PLAZA_CENTRE.x + REACH + 0.01;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: -90 }, 0)).toBe(
+    const x: number = PLAZA_CENTER.x + REACH + 0.01;
+    expect(findInteraction({ x, z: PLAZA_CENTER.z, yaw: -90 }, 0)).toBe(
       'Slash',
     );
   });
 
   it('drinks facing to one side of the fountain within the angle', () => {
-    const x: number = PLAZA_CENTRE.x + REACH - 0.1;
+    const x: number = PLAZA_CENTER.x + REACH - 0.1;
     const yaw: number = -90 + INTERACTION_HALF_ANGLE - 1;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw }, 0)).toBe('Drink');
+    expect(findInteraction({ x, z: PLAZA_CENTER.z, yaw }, 0)).toBe('Drink');
   });
 
   it('slashes by the fountain, facing too far to one side of it', () => {
-    const x: number = PLAZA_CENTRE.x + REACH - 0.1;
+    const x: number = PLAZA_CENTER.x + REACH - 0.1;
     const yaw: number = -90 - INTERACTION_HALF_ANGLE - 1;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw }, 0)).toBe('Slash');
+    expect(findInteraction({ x, z: PLAZA_CENTER.z, yaw }, 0)).toBe('Slash');
   });
 
   it('slashes by the fountain, facing away from it', () => {
-    const x: number = PLAZA_CENTRE.x + REACH - 0.1;
-    expect(findInteraction({ x, z: PLAZA_CENTRE.z, yaw: 90 }, 0)).toBe('Slash');
+    const x: number = PLAZA_CENTER.x + REACH - 0.1;
+    expect(findInteraction({ x, z: PLAZA_CENTER.z, yaw: 90 }, 0)).toBe('Slash');
   });
 
   it('slashes away from anything to interact with', () => {
@@ -299,9 +299,9 @@ describe('findVillager', () => {
   });
 
   it('finds nobody by the fountain, facing it', () => {
-    const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
+    const z: number = PLAZA_CENTER.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
     expect(
-      findVillager({ x: PLAZA_CENTRE.x, z, yaw: 180 }, 0, 'village', []),
+      findVillager({ x: PLAZA_CENTER.x, z, yaw: 180 }, 0, 'village', []),
     ).toBeNull();
   });
 });
@@ -425,19 +425,19 @@ describe('findVillager by Toby', () => {
 const PATCH = 6;
 
 /** Where the patch of clover east of the fountain is. */
-const PATCH_CENTRE: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
+const PATCH_CENTER: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
 
 /**
  * Makes the pose of a player some way south of the patch of clover east of
  * the fountain.
  *
- * @param {number} distance - How far from its centre the player stands, in
- *   metres.
+ * @param {number} distance - How far from its center the player stands, in
+ *   meters.
  * @param {number} yaw - The way it faces, 180 to face the patch.
  * @returns {Pose} The pose.
  */
 function standByPatch(distance: number, yaw: number): Pose {
-  return { x: PATCH_CENTRE.x, z: PATCH_CENTRE.z + distance, yaw };
+  return { x: PATCH_CENTER.x, z: PATCH_CENTER.z + distance, yaw };
 }
 
 /**
@@ -497,7 +497,7 @@ describe('findPickTarget', () => {
   });
 
   it('picks an item on the ground in the same way', () => {
-    const at: GroundVector = { x: PATCH_CENTRE.x, z: PATCH_CENTRE.z + 0.5 };
+    const at: GroundVector = { x: PATCH_CENTER.x, z: PATCH_CENTER.z + 0.5 };
     const pose: Pose = standByPatch(1.5, 180);
     expect(
       findPickTarget(
@@ -512,12 +512,12 @@ describe('findPickTarget', () => {
 
   it('picks the nearest of what is within reach', () => {
     const near: GroundItem = layItem(5, {
-      x: PATCH_CENTRE.x,
-      z: PATCH_CENTRE.z + 0.6,
+      x: PATCH_CENTER.x,
+      z: PATCH_CENTER.z + 0.6,
     });
     const far: GroundItem = layItem(4, {
-      x: PATCH_CENTRE.x,
-      z: PATCH_CENTRE.z + 0.3,
+      x: PATCH_CENTER.x,
+      z: PATCH_CENTER.z + 0.3,
     });
     const pose: Pose = standByPatch(1, 180);
     expect(
@@ -541,8 +541,8 @@ describe('findPickTarget', () => {
   });
 
   it('leaves drinking and talking before picking', () => {
-    const z: number = PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
-    const byFountain: Pose = { x: PLAZA_CENTRE.x, z, yaw: 180 };
+    const z: number = PLAZA_CENTER.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS;
+    const byFountain: Pose = { x: PLAZA_CENTER.x, z, yaw: 180 };
     const byNancy: Pose = standByNancy(TALK_REACH - 0.3, 180);
     const items: GroundItem[] = [
       layItem(1, { x: byFountain.x, z: byFountain.z - 0.3 }),
@@ -685,8 +685,8 @@ describe('the spot beside the old well', () => {
 
   it('has the plaza behind it', () => {
     const yaw: number = (WELL_STAND.yaw * Math.PI) / 180;
-    const dx: number = PLAZA_CENTRE.x - WELL_STAND.x;
-    const dz: number = PLAZA_CENTRE.z - WELL_STAND.z;
+    const dx: number = PLAZA_CENTER.x - WELL_STAND.x;
+    const dz: number = PLAZA_CENTER.z - WELL_STAND.z;
     const along: number =
       (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / Math.hypot(dx, dz);
     expect(along).toBeLessThan(0);
@@ -708,7 +708,7 @@ describe('the prisoner in the north cell of the cave', () => {
    * stop there, facing them.
    *
    * @param {number} x - How far east of the foot of the well shaft the
-   *   player walks up to the bars, in metres.
+   *   player walks up to the bars, in meters.
    * @returns {Pose} Where it stops, and which way it faces.
    */
   function walkToBars(x: number): Pose {
@@ -754,7 +754,7 @@ describe('the prisoner in the north cell of the cave', () => {
   });
 
   /**
-   * A player at the bars, turned towards the east, with him still within
+   * A player at the bars, turned toward the east, with him still within
    * reach to talk to.
    */
   const turned: Pose = { ...walkToBars(at.x), yaw: 135 };

@@ -63,8 +63,8 @@ interface TubeRing {
   readonly ring: readonly Vector3[];
   /** The direction of the tube at the cross section. */
   readonly tangent: Vector3;
-  /** The centre of the cross section. */
-  readonly centre: Vector3;
+  /** The center of the cross section. */
+  readonly center: Vector3;
 }
 
 /** One degree, in radians. */
@@ -203,7 +203,7 @@ function pushQuad(
 }
 
 /**
- * Creates a box centred on the origin, optionally tapered towards the top.
+ * Creates a box centered on the origin, optionally tapered toward the top.
  *
  * @param {number} width - The size along X.
  * @param {number} height - The size along Y.
@@ -249,7 +249,7 @@ export function createBox(
 }
 
 /**
- * Creates a box whose base is centred on the origin.
+ * Creates a box whose base is centered on the origin.
  *
  * @param {number} width - The size along X.
  * @param {number} height - The size along Y.
@@ -380,8 +380,8 @@ function createIcosphere(detail: number): Shape {
   }
   const out: Shape = [];
   for (const tri of tris) {
-    const centre: Vector3 = new Vector3().add(tri[0]).add(tri[1]).add(tri[2]);
-    pushTriangle(out, tri, centre);
+    const center: Vector3 = new Vector3().add(tri[0]).add(tri[1]).add(tri[2]);
+    pushTriangle(out, tri, center);
   }
   return out;
 }
@@ -482,7 +482,7 @@ function triangulatePolygon(points: readonly Pair[]): Triple[] {
 }
 
 /**
- * Creates a flat polygon in the XY plane extruded along Z, centred on Z.
+ * Creates a flat polygon in the XY plane extruded along Z, centered on Z.
  *
  * @param {readonly Pair[]} points - The [x, y] outline.
  * @param {number} depth - The thickness along Z.
@@ -536,7 +536,7 @@ export function createExtrusion(points: readonly Pair[], depth: number): Shape {
 /**
  * Creates a tube that follows a path, closed at both ends.
  *
- * @param {readonly Triple[]} path - The points along the centre line.
+ * @param {readonly Triple[]} path - The points along the center line.
  * @param {readonly (number | Pair)[]} radii - The radius at each point, or
  *   its [side, front] pair; zero makes a pointed end.
  * @param {number} sides - The number of sides.
@@ -577,14 +577,14 @@ export function createTube(
           .addScaledVector(front, rf * Math.sin(angle)),
       );
     }
-    return { ring, tangent, centre: p };
+    return { ring, tangent, center: p };
   });
   const out: Shape = [];
   for (let i = 0; i + 1 < rings.length; i++) {
     const a: TubeRing = getItem(rings, i);
     const b: TubeRing = getItem(rings, i + 1);
     const middle: Vector3 = new Vector3()
-      .addVectors(a.centre, b.centre)
+      .addVectors(a.center, b.center)
       .multiplyScalar(0.5);
     for (let k = 0; k < sides; k++) {
       const n: number = (k + 1) % sides;
@@ -594,11 +594,11 @@ export function createTube(
         getItem(b.ring, n),
         getItem(b.ring, k),
       ];
-      const centre = new Vector3();
+      const center = new Vector3();
       for (const p of quad) {
-        centre.addScaledVector(p, 0.25);
+        center.addScaledVector(p, 0.25);
       }
-      pushQuad(out, quad, centre.sub(middle));
+      pushQuad(out, quad, center.sub(middle));
     }
   }
   const ends: (readonly [TubeRing, number])[] = [
@@ -645,7 +645,7 @@ export function createCone(
 }
 
 /**
- * Creates an ellipsoid centred on the origin.
+ * Creates an ellipsoid centered on the origin.
  *
  * @param {Triple} radii - The X, Y and Z radii.
  * @param {number} detail - The number of subdivisions.

@@ -29,7 +29,7 @@ import type { MonsterState, Villager } from '@clovervale/shared';
 
 import { EdwinCall, areDogsDead } from './edwin-call.ts';
 import type { FigureFrame } from './figure-set.ts';
-import { MODEL_FILES } from './model-catalogue.ts';
+import { MODEL_FILES } from './model-catalog.ts';
 import { isOnScreen } from './on-screen.ts';
 import { findStandingHead } from './villager-figure.ts';
 import type { FigureContext, VillagerFigure } from './villager-figure.ts';
@@ -46,8 +46,8 @@ const EDWIN_VILLAGER: Villager = getVillager('edwin');
  * a dialogue.
  */
 export class EdwinFigure implements VillagerFigure {
-  /** Whether Edwin goes about his map, which he does not. */
-  readonly goesAbout = false;
+  /** Whether Edwin moves around his map, which he does not. */
+  readonly movesAround = false;
   /** What the figure is shown with. */
   readonly #context: FigureContext;
   /** What tells when Edwin calls out for help. */

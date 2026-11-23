@@ -177,7 +177,7 @@ export class World extends EventTarget implements QuestWorld {
    * Starts a world without players and with nothing on the ground, with
    * every monster idling at its home at full health, and with every
    * villager of its map placed in it as its factory places it: in the
-   * village, with a four-leaved clover in every patch of clover, and in a
+   * village, with a four-leaf clover in every patch of clover, and in a
    * cave, with every chest and barrel holding what it holds.
    *
    * @param {() => number} drawRandom - Gives a random number from 0 up to
@@ -285,7 +285,7 @@ export class World extends EventTarget implements QuestWorld {
   /**
    * Brings a player from another world into this one, with its health,
    * what it carries, its silver coins, the villagers who have told it who
-   * they are, how far it has got with the quests, and the inputs of its
+   * they are, how far it has gotten with the quests, and the inputs of its
    * peer still to come.  It stops whatever it was
    * doing and idles where it arrives, but still wants to move the way it
    * did, and is told nothing more of what was said within its hearing in the
@@ -477,7 +477,7 @@ export class World extends EventTarget implements QuestWorld {
    * now.
    *
    * @param {number} id - The identifier of the player.
-   * @returns {PrivateView | null} How far the player has got with the
+   * @returns {PrivateView | null} How far the player has gotten with the
    *   inputs of its peer, how its latest slash was judged, or `null` before
    *   its first, what it carries, in the order of the slots, its silver
    *   coins, the dialogue it is in as it stands, or `null` if none, the
@@ -573,7 +573,7 @@ export class World extends EventTarget implements QuestWorld {
    * @returns {WorldItems} The patches of clover that have their clover, the
    *   items on the ground, in the order they were put down, the
    *   containers that have been looted, in ascending order, and, in the
-   *   village, the latest step at which Toby took a four-leaved clover.
+   *   village, the latest step at which Toby took a four-leaf clover.
    */
   describeItems(): WorldItems {
     return this.#residents.reduce(

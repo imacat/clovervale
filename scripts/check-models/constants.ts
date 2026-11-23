@@ -51,12 +51,12 @@ export const modelsDir: string = path.join(
   rootDir,
   'packages/client/public/models',
 );
-/** The greatest difference that counts as none, in metres. */
+/** The greatest difference that counts as none, in meters. */
 export const TOLERANCE = 1e-4;
 /** How many times a second a clip is measured. */
 export const SAMPLE_RATE = 240;
 /**
  * The farthest an edge of what stands in the cave may lie from the edge of
- * the ground it takes up, inside it or out, in metres.
+ * the ground it takes up, inside it or out, in meters.
  */
 export const FOOTPRINT_TOLERANCE = 0.03;

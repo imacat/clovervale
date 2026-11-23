@@ -84,7 +84,7 @@ export interface Panel {
    */
   readonly offerCameraChoices: (choices: readonly CameraChoice[]) => void;
   /**
-   * Shows what is synchronised with the server, for the owner to see.
+   * Shows what is synchronized with the server, for the owner to see.
    *
    * @param {PlayerReadout} readout - What the owner reads.
    */
@@ -98,14 +98,14 @@ export interface Panel {
   readonly showMonster: (readout: MonsterReadout) => void;
   /**
    * Shows how the player of the page is shown, for the owner to compare
-   * with what is synchronised.
+   * with what is synchronized.
    *
    * @param {DisplayReadout} readout - What the owner reads.
    */
   readonly showDisplay: (readout: DisplayReadout) => void;
   /**
    * Shows what is predicted of the player of the page, for the owner to
-   * compare with what is synchronised and with what is shown.
+   * compare with what is synchronized and with what is shown.
    *
    * @param {PredictionReadout} readout - What the owner reads.
    */
@@ -263,7 +263,7 @@ class PanelLabels {
 
 /** What the folders of the readouts of the panel show. */
 interface ReadoutValues {
-  /** What is synchronised with the server. */
+  /** What is synchronized with the server. */
   readonly shown: Record<keyof PlayerReadout, string>;
   /** The monster as the latest snapshot tells it. */
   readonly monster: Record<keyof MonsterReadout, string>;
@@ -348,7 +348,7 @@ function addCameraControls(
 }
 
 /**
- * Adds the controls of the synchronisation with the server: prediction,
+ * Adds the controls of the synchronization with the server: prediction,
  * smoothing, foreseeing the pushes, the delay of the network,
  * interpolation, and lag compensation.
  *
@@ -504,8 +504,8 @@ function addReadoutFolder<K extends string>(
 }
 
 /**
- * Adds the folders of the readouts, with nothing synchronised yet: what is
- * synchronised, the monster, the prediction with what the space bar does,
+ * Adds the folders of the readouts, with nothing synchronized yet: what is
+ * synchronized, the monster, the prediction with what the space bar does,
  * how the player of the page is shown, and its latest slash.
  *
  * @param {GUI} gui - The panel.
@@ -641,7 +641,7 @@ function createProblemList(
 /**
  * Creates the settings panel, in the language of the page, which starts
  * folded up to its title, which opens it when clicked, and with nothing
- * synchronised yet.  Its controls change the settings the client runs by
+ * synchronized yet.  Its controls change the settings the client runs by
  * as the owner sets them, and show the camera setting afresh whenever the
  * page changes it.  The panel names everything in it again in each
  * language the page comes to speak.

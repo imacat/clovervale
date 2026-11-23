@@ -39,14 +39,14 @@ const MARTHA: Villager = getVillager('martha');
 /** What Martha says, in English, in order. */
 const MARTHA_LINES: readonly string[] = [
   "Welcome to Clovervale. I'm Martha, the village chief. If you need " +
-    'anything, just come and see me.',
+    'anything, just come see me.',
   'That well dried up long ago, so I boarded it up to keep the children ' +
     'from falling in.',
 ];
 
 /** What Nancy says first, to welcome a player, in English. */
 const NANCY_WELCOME =
-  'Welcome to Clovervale! If you need anything, go and see the village ' +
+  'Welcome to Clovervale! If you need anything, go see the village ' +
   'chief. She lives in the biggest house, right at the back.';
 
 /** What Nancy says first, to welcome a player, in Traditional Chinese. */

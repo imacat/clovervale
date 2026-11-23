@@ -26,7 +26,7 @@ import { describe, expect, it } from 'vitest';
 import {
   explainProblem,
   reportFailure,
-  summariseModels,
+  summarizeModels,
 } from '../src/model-report.ts';
 import type { ModelProblem } from '../src/model-report.ts';
 import { Translator } from '../src/translator.ts';
@@ -51,27 +51,27 @@ async function createTranslator(
   return translator;
 }
 
-describe('summariseModels', () => {
+describe('summarizeModels', () => {
   it('counts the models when all of them are shown', () => {
-    expect(summariseModels(EN, 20, [])).toBe('20 shown');
+    expect(summarizeModels(EN, 20, [])).toBe('20 shown');
   });
 
   it('counts the problems too', () => {
-    expect(summariseModels(EN, 11, [MISSING])).toBe('11 shown, 1 problem');
-    expect(summariseModels(EN, 0, [MISSING, MISSING])).toBe(
+    expect(summarizeModels(EN, 11, [MISSING])).toBe('11 shown, 1 problem');
+    expect(summarizeModels(EN, 0, [MISSING, MISSING])).toBe(
       '0 shown, 2 problems',
     );
   });
 
   it('counts them in the language of the page', async () => {
     const zhTw: Translator = await createTranslator('zh-TW');
-    expect(summariseModels(zhTw, 20, [])).toBe('已顯示 20 個');
-    expect(summariseModels(zhTw, 11, [MISSING])).toBe(
+    expect(summarizeModels(zhTw, 20, [])).toBe('已顯示 20 個');
+    expect(summarizeModels(zhTw, 11, [MISSING])).toBe(
       '已顯示 11 個，1 個問題',
     );
     const es: Translator = await createTranslator('es');
-    expect(summariseModels(es, 1, [])).toBe('Mostrados: 1');
-    expect(summariseModels(es, 11, [MISSING])).toBe(
+    expect(summarizeModels(es, 1, [])).toBe('Mostrados: 1');
+    expect(summarizeModels(es, 11, [MISSING])).toBe(
       'Mostrados: 11; problemas: 1',
     );
   });

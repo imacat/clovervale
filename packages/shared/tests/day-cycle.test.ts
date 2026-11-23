@@ -69,7 +69,7 @@ describe('findTimeOfDay', () => {
     expect(findTimeOfDay(cycle, 30_000)).toBeCloseTo(0.75, 12);
   });
 
-  it('comes round past midnight to the next day', () => {
+  it('comes around past midnight to the next day', () => {
     const cycle = { origin: 0.9, length: 60_000 };
     expect(findTimeOfDay(cycle, 12_000)).toBeCloseTo(0.1, 12);
     expect(findTimeOfDay(cycle, 6_000 + 60_000 * 1000)).toBeCloseTo(0, 9);
@@ -110,7 +110,7 @@ describe('findDayPhase', () => {
     expect(shares.get('night')).toBeCloseTo(0.4, 3);
   });
 
-  it('centres the day on noon and the night on midnight', () => {
+  it('centers the day on noon and the night on midnight', () => {
     for (const offset of [0.05, 0.13, 0.27]) {
       expect(findDayPhase(NOON - offset).progress).toBeCloseTo(
         1 - findDayPhase(NOON + offset).progress,

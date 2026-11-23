@@ -28,7 +28,7 @@ import {
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
   PLAYER_RADIUS,
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   SPAWN_POINT_COUNT,
   Terrain,
   VILLAGE_PLACEMENTS,
@@ -64,7 +64,7 @@ const OPEN_MODELS: readonly ModelId[] = [
 
 /** A gap in a fence that the way goes through. */
 interface Gate extends GroundVector {
-  /** Half the width of the gap, in metres. */
+  /** Half the width of the gap, in meters. */
   readonly halfWidth: number;
 }
 
@@ -83,17 +83,17 @@ function findGate(): Gate {
     (placement: Placement) =>
       placement.model === 'fence' &&
       placement.yaw === 0 &&
-      placement.z > PLAZA_CENTRE.z &&
+      placement.z > PLAZA_CENTER.z &&
       placement.z < stones.z,
   );
   const left: number = Math.max(
     ...fences
-      .filter((fence: Placement) => fence.x < PLAZA_CENTRE.x)
+      .filter((fence: Placement) => fence.x < PLAZA_CENTER.x)
       .map((fence: Placement) => fence.x + 1),
   );
   const right: number = Math.min(
     ...fences
-      .filter((fence: Placement) => fence.x > PLAZA_CENTRE.x)
+      .filter((fence: Placement) => fence.x > PLAZA_CENTER.x)
       .map((fence: Placement) => fence.x - 1),
   );
   const [fence] = fences;
@@ -108,7 +108,7 @@ function findGate(): Gate {
  *
  * @param {CircleShape} circle - The round footprint.
  * @param {Shape} other - The other footprint.
- * @returns {number} The gap, in metres, negative where they overlap.
+ * @returns {number} The gap, in meters, negative where they overlap.
  */
 function measureGap(circle: CircleShape, other: Shape): number {
   if (other.shape === 'circle') {
@@ -140,15 +140,15 @@ interface GridPoint extends GroundVector {
 /**
  * Walks over a square of points on the ground of the village, a step
  * apart, from its edge to every point a player can walk to from there, from
- * one point to a neighbouring one at a time.
+ * one point to a neighboring one at a time.
  *
- * @param {GroundVector} centre - The middle of the square.
- * @param {number} reach - Half the width of the square, in metres.
- * @param {number} step - The distance between neighbouring points.
+ * @param {GroundVector} center - The middle of the square.
+ * @param {number} reach - Half the width of the square, in meters.
+ * @param {number} step - The distance between neighboring points.
  * @returns {GridPoint[]} The points of the square.
  */
 function walkGrid(
-  centre: GroundVector,
+  center: GroundVector,
   reach: number,
   step: number,
 ): GridPoint[] {
@@ -159,8 +159,8 @@ function walkGrid(
       const column: number = index % count;
       const row: number = Math.floor(index / count);
       const point: GroundVector = {
-        x: centre.x - reach + column * step,
-        z: centre.z - reach + row * step,
+        x: center.x - reach + column * step,
+        z: center.z - reach + row * step,
       };
       return {
         ...point,
@@ -185,14 +185,14 @@ function walkGrid(
   // added to it.
   for (const index of queue) {
     const column: number = index % count;
-    const neighbours: number[] = [
+    const neighbors: number[] = [
       column > 0 ? index - 1 : -1,
       column < count - 1 ? index + 1 : -1,
       index - count,
       index + count,
     ];
     const here: GridPoint | undefined = points[index];
-    for (const other of neighbours) {
+    for (const other of neighbors) {
       const there: GridPoint | undefined = points[other];
       if (
         here !== undefined &&
@@ -219,7 +219,7 @@ const YARD_WALLS: readonly ModelId[] = ['yard-wall', 'yard-wall-end'];
 
 /**
  * How far in front of the chief's house its low wall runs, as the model of
- * the house has it, in metres.
+ * the house has it, in meters.
  */
 const YARD_WALL_LINE = 4.8;
 
@@ -235,7 +235,7 @@ const PORCH_PLACE: GroundVector = { x: 1.1, z: 2.7 };
 
 /**
  * The radius of the ground Martha takes up, as much as Nancy takes up, in
- * metres.
+ * meters.
  */
 const MARTHA_RADIUS = 0.35;
 
@@ -252,7 +252,7 @@ const DOOR_FRONT: GroundVector = { x: 0, z: 2.8 };
 const BEFORE_PORCH: GroundVector = { x: 0, z: 6.25 };
 
 /**
- * Walks a neighbour takes straight into the yard of the chief's house from
+ * Walks a neighbor takes straight into the yard of the chief's house from
  * outside it, as the model of the house has them: what each is, where it
  * starts and where it ends.
  */
@@ -274,7 +274,7 @@ const YARD_WALKS: readonly (readonly [string, GroundVector, GroundVector])[] =
       { x: -1.25, z: 2.9 },
     ],
     [
-      'from beside the weapon shop, round the wall by the well, to its side',
+      'from beside the weapon shop, around the wall by the well, to its side',
       { x: 9.5, z: 0.25 },
       { x: 7.3, z: 3.3 },
     ],
@@ -298,7 +298,7 @@ function placeOnChiefHouse(local: GroundVector): GroundVector {
 
 /**
  * Finds the ground the low wall of the chief's yard takes up, and nothing
- * else: the footprints that lie within a metre of where a piece of the wall
+ * else: the footprints that lie within a meter of where a piece of the wall
  * stands.
  *
  * @returns {Terrain} The ground the wall takes up.
@@ -413,7 +413,7 @@ describe('VILLAGE_TERRAIN', () => {
     const isClear = (x: number, z: number): boolean =>
       VILLAGE_TERRAIN.isClear(placePoint(shop, { x, z }));
     // As the model of the shop has it, the stump of the anvil is an octagon
-    // centred at (3.08, 0.887), 0.34 m from its centre to its corners and
+    // centered at (3.08, 0.887), 0.34 m from its center to its corners and
     // 0.314 m to its sides, and the anvil on it runs along the Z axis from
     // the tip of its horn at z = 0.367 to its heel at z = 1.227, between
     // x = 2.95 and x = 3.21.  A player a little closer than touching either
@@ -450,7 +450,7 @@ describe('VILLAGE_TERRAIN', () => {
     }
   });
 
-  it('leaves a way round the fountain between its rim and the stele', () => {
+  it('leaves a way around the fountain between its rim and the stele', () => {
     const fountain: Placement = findPlacement('fountain');
     const radius: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.05;
     const findPoint = (degrees: number): GroundVector => ({
@@ -533,8 +533,8 @@ describe('Emma the smith', () => {
     );
     expect(front.x * away.x + front.z * away.z).toBeGreaterThan(0.99);
     const toPlaza: GroundVector = {
-      x: PLAZA_CENTRE.x - emma.x,
-      z: PLAZA_CENTRE.z - emma.z,
+      x: PLAZA_CENTER.x - emma.x,
+      z: PLAZA_CENTER.z - emma.z,
     };
     const ahead: number = front.x * toPlaza.x + front.z * toPlaza.z;
     const aside: number = right.x * toPlaza.x + right.z * toPlaza.z;
@@ -548,7 +548,7 @@ describe('Emma the smith', () => {
   });
 
   it('leaves no ground by the smithy to stand on that cannot be reached', () => {
-    // A square of points around the weapon shop, a tenth of a metre apart.
+    // A square of points around the weapon shop, a tenth of a meter apart.
     // From those on its edge, which open onto the rest of the village, a
     // player can walk to every point it can stand on.
     const shop: Placement = findPlacement('weapon-shop');
@@ -581,13 +581,13 @@ describe('Emma the smith', () => {
     // added to it.
     for (const index of queue) {
       const column: number = index % count;
-      const neighbours: number[] = [
+      const neighbors: number[] = [
         column > 0 ? index - 1 : -1,
         column < count - 1 ? index + 1 : -1,
         index - count,
         index + count,
       ];
-      for (const other of neighbours) {
+      for (const other of neighbors) {
         if (
           isClear[other] === true &&
           isReached[other] === false &&
@@ -611,7 +611,7 @@ describe('Emma the smith', () => {
 /**
  * Finds the way the front of the chief's house faces.
  *
- * @returns {GroundVector} The way, a metre long.
+ * @returns {GroundVector} The way, a meter long.
  */
 function findChiefHouseFront(): GroundVector {
   const house: Placement = findPlacement(CHIEF_HOUSE);
@@ -623,7 +623,7 @@ function findChiefHouseFront(): GroundVector {
  *
  * @param {GroundVector} from - The one point.
  * @param {GroundVector} to - The other point.
- * @returns {GroundVector} The way, a metre long.
+ * @returns {GroundVector} The way, a meter long.
  */
 function findWay(from: GroundVector, to: GroundVector): GroundVector {
   const length: number = Math.hypot(to.x - from.x, to.z - from.z);
@@ -633,8 +633,8 @@ function findWay(from: GroundVector, to: GroundVector): GroundVector {
 /**
  * Measures the cosine of the angle between two ways.
  *
- * @param {GroundVector} a - One way, a metre long.
- * @param {GroundVector} b - The other way, a metre long.
+ * @param {GroundVector} a - One way, a meter long.
+ * @param {GroundVector} b - The other way, a meter long.
  * @returns {number} The cosine.
  */
 function measureAlignment(a: GroundVector, b: GroundVector): number {
@@ -645,7 +645,7 @@ describe('the house of the village chief', () => {
   it('stands in place of the cottage at the back on the north-east', () => {
     const house: Placement = findPlacement(CHIEF_HOUSE);
     expect(Math.hypot(house.x - 10.5, house.z + 16.5)).toBeLessThan(1.5);
-    const toPlaza: GroundVector = findWay(house, PLAZA_CENTRE);
+    const toPlaza: GroundVector = findWay(house, PLAZA_CENTER);
     expect(measureAlignment(findChiefHouseFront(), toPlaza)).toBeGreaterThan(
       Math.cos((15 * Math.PI) / 180),
     );
@@ -670,7 +670,7 @@ describe('the house of the village chief', () => {
   });
 
   it.each(YARD_WALKS)(
-    'lets a neighbour walk straight into its yard %s',
+    'lets a neighbor walk straight into its yard %s',
     (_, from: GroundVector, to: GroundVector) => {
       expect(
         VILLAGE_TERRAIN.isPathClear(
@@ -744,7 +744,7 @@ describe('the house of the village chief', () => {
 /**
  * Finds the way Martha faces.
  *
- * @returns {GroundVector} The way, a metre long.
+ * @returns {GroundVector} The way, a meter long.
  */
 function findMarthaFront(): GroundVector {
   return turnVector({ x: 0, z: 1 }, findTurn(findPlacement(MARTHA).yaw));
@@ -754,7 +754,7 @@ describe('Martha the village chief', () => {
   it('faces the plaza', () => {
     const martha: Placement = findPlacement(MARTHA);
     expect(
-      measureAlignment(findMarthaFront(), findWay(martha, PLAZA_CENTRE)),
+      measureAlignment(findMarthaFront(), findWay(martha, PLAZA_CENTER)),
     ).toBeGreaterThan(Math.cos((5 * Math.PI) / 180));
   });
 
@@ -814,7 +814,7 @@ describe('the old well', () => {
     );
   });
 
-  it('stands beside the house of the chief, towards the weapon shop', () => {
+  it('stands beside the house of the chief, toward the weapon shop', () => {
     const well: Placement = findPlacement(WELL);
     const house: Placement = findPlacement(CHIEF_HOUSE);
     const shop: Placement = findPlacement('weapon-shop');
@@ -832,7 +832,7 @@ describe('the old well', () => {
     const well: Placement = findPlacement(WELL);
     const place: GroundVector = placeOnChiefHouse(PORCH_PLACE);
     const toPlace: GroundVector = findWay(well, place);
-    // The stonework of the well is 0.7 m round from its middle.
+    // The stonework of the well reaches 0.7 m out from its middle.
     const reach: number = 0.7 + PLAYER_RADIUS + 0.05;
     const beside: GroundVector = {
       x: well.x + toPlace.x * reach,
@@ -850,14 +850,14 @@ describe('the old well', () => {
   });
 });
 
-/** The model of the apothecary's. */
+/** The model of the apothecary shop. */
 const APOTHECARY: ModelId = 'apothecary';
 
 /** The model of Basil the apothecary. */
 const BASIL: ModelId = 'basil';
 
 /**
- * The models of what stands about the front of the apothecary's: the herb
+ * The models of what stands around the front of the apothecary: the herb
  * rack, the crates, the potted plant and the barrels.
  */
 const APOTHECARY_PROPS: readonly ModelId[] = [
@@ -869,13 +869,13 @@ const APOTHECARY_PROPS: readonly ModelId[] = [
 ];
 
 /**
- * Where a player stands in front of the door of the apothecary's, a step
+ * Where a player stands in front of the door of the apothecary, a step
  * out from its doorstep, as the model of the shop has it.
  */
 const BEFORE_SHOP_DOOR: GroundVector = { x: 0.9, z: 4.1 };
 
 /**
- * Finds where a point of the apothecary's stands in the world.
+ * Finds where a point of the apothecary shop stands in the world.
  *
  * @param {GroundVector} local - The point, as the model of the shop has it
  *   before it is placed.
@@ -903,17 +903,17 @@ function findFootprintsAt(
   );
 }
 
-describe("the apothecary's", () => {
+describe('the apothecary shop', () => {
   it('stands in place of the cottage at the back on the north-west', () => {
     const shop: Placement = findPlacement(APOTHECARY);
     const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(shop.yaw));
-    const toPlaza: GroundVector = findWay(shop, PLAZA_CENTRE);
+    const toPlaza: GroundVector = findWay(shop, PLAZA_CENTER);
     expect(measureAlignment(front, toPlaza)).toBeGreaterThan(
       Math.cos((15 * Math.PI) / 180),
     );
   });
 
-  it('stands its rack and its props about it, in the way', () => {
+  it('stands its rack and its props around it, in the way', () => {
     const shop: Placement = findPlacement(APOTHECARY);
     for (const model of APOTHECARY_PROPS) {
       const props: Placement[] = VILLAGE_PLACEMENTS.filter(
@@ -931,7 +931,7 @@ describe("the apothecary's", () => {
 
   it('stands its herb rack across its front window, clear of the sill', () => {
     // As the model of the shop has it, the front window is 0.95 m wide
-    // round x = -1.1, and its sill reaches 2.12 m out from the middle.
+    // centered on x = -1.1, and its sill reaches 2.12 m out from the middle.
     const rack: Shape[] = findFootprintsAt(
       (placement: Placement) => placement.model === 'herb-rack',
     );

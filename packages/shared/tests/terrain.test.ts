@@ -31,7 +31,7 @@ import { findTurn, placeShape } from '../src/terrain.ts';
 /** A boundary far enough out not to matter. */
 const WIDE: Boundary = { x: 0, z: 0, radius: 1000 };
 
-/** A wall two metres wide and half a metre deep, at the origin. */
+/** A wall two meters wide and half a meter deep, at the origin. */
 const WALL: Shape = {
   shape: 'box',
   x: 0,
@@ -41,16 +41,16 @@ const WALL: Shape = {
   yaw: 0,
 };
 
-/** A post with a radius of one metre, at the origin. */
+/** A post with a radius of one meter, at the origin. */
 const POST: Shape = { shape: 'circle', x: 0, z: 0, radius: 1 };
 
 /**
  * Walks a player from a point in a direction for a number of steps of a
- * tenth of a metre.
+ * tenth of a meter.
  *
  * @param {Terrain} terrain - The ground.
  * @param {GroundVector} from - Where the player starts.
- * @param {GroundVector} direction - The direction, one metre long.
+ * @param {GroundVector} direction - The direction, one meter long.
  * @param {number} steps - The number of steps.
  * @returns {GroundVector} Where the player ends up.
  */

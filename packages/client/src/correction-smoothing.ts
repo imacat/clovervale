@@ -38,7 +38,7 @@ export const SMOOTHING_DURATION = 150;
 
 /**
  * How far the player of the page may be drawn from where it truly is, in
- * metres, which it never reaches.  A correction that moves the player this
+ * meters, which it never reaches.  A correction that moves the player this
  * far or farther is drawn as a jump, whatever is left of the glide before,
  * and so is one that would leave it drawn this far or farther from where
  * it truly is: either is far more than a villager pushes a player between two
@@ -193,8 +193,8 @@ export class CorrectionSmoothing {
  * @param {PlayerPrediction} prediction - The prediction of the player.
  * @param {CorrectionSmoothing} smoothing - The smoothing of its
  *   corrections.
- * @param {InputProgress} progress - How far the server had got with the
- *   inputs of the page, and the motion of the player then.
+ * @param {InputProgress} progress - How far the server had gotten with
+ *   the inputs of the page, and the motion of the player then.
  * @param {number} step - The number of steps the server had taken then.
  * @param {number} time - The time on the clock of the page, in
  *   milliseconds, which is no earlier than any time told before.

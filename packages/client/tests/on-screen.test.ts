@@ -33,7 +33,7 @@ import { describe, expect, it } from 'vitest';
 import { isOnScreen } from '../src/on-screen.ts';
 
 /**
- * Makes a camera looking at the middle of a figure from 10 metres south.
+ * Makes a camera looking at the middle of a figure from 10 meters south.
  *
  * @returns {PerspectiveCamera} The camera.
  */
@@ -47,10 +47,10 @@ function makeCamera(): PerspectiveCamera {
 /**
  * Makes a box.
  *
- * @param {number} width - Its width along X, in metres.
- * @param {number} height - Its height, in metres.
- * @param {number} depth - Its depth along Z, in metres.
- * @param {number} z - Where its middle stands along Z, in metres.
+ * @param {number} width - Its width along X, in meters.
+ * @param {number} height - Its height, in meters.
+ * @param {number} depth - Its depth along Z, in meters.
+ * @param {number} z - Where its middle stands along Z, in meters.
  * @returns {Mesh} The box, its foot on the ground.
  */
 function makeBox(

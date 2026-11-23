@@ -126,9 +126,9 @@ export interface InputDevice extends CameraHold {
    * Resolves the direction the device walks the player in now.
    *
    * @param {number} heading - The way the camera looks along the ground, as
-   *   the turn around the Y axis from +Z towards +X, in degrees, which is
+   *   the turn around the Y axis from +Z toward +X, in degrees, which is
    *   forward.
-   * @returns {GroundVector} The direction, one metre long, or without
+   * @returns {GroundVector} The direction, one meter long, or without
    *   length if the device does not walk the player.
    */
   resolveDirection(heading: number): GroundVector;

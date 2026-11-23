@@ -24,7 +24,7 @@
 
 import type { Object3D } from 'three';
 
-import { REQUIRED_MODEL_FILES, planModels } from './model-catalogue.ts';
+import { REQUIRED_MODEL_FILES, planModels } from './model-catalog.ts';
 import {
   MODEL_INDEX_FILE,
   fetchModelIndex,

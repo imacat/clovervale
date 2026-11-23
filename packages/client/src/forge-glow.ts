@@ -26,16 +26,16 @@ import { Color, Mesh, MeshStandardMaterial } from 'three';
 import type { Material, Object3D } from 'three';
 
 /**
- * The colours the coals and the hot iron glow in, by the names of their
+ * The colors the coals and the hot iron glow in, by the names of their
  * materials in the model of the weapon shop.
  */
-const EMBER_COLOURS: ReadonlyMap<string, string> = new Map<string, string>([
+const EMBER_COLORS: ReadonlyMap<string, string> = new Map<string, string>([
   ['embers', '#ff4a14'],
   ['hotIron', '#ff5a1e'],
 ]);
 /**
  * The names of the materials of the flames in the model, which glow in the
- * colours the model gives them.
+ * colors the model gives them.
  */
 const FLAME_MATERIALS: readonly string[] = ['fire', 'glow'];
 /** The least strength of the glow of the coals and of the hot iron. */
@@ -103,12 +103,12 @@ export class ForgeGlow {
         if (!(material instanceof MeshStandardMaterial)) {
           continue;
         }
-        const colour: string | undefined = EMBER_COLOURS.get(material.name);
+        const color: string | undefined = EMBER_COLORS.get(material.name);
         if (
-          colour !== undefined &&
+          color !== undefined &&
           !this.#embers.some((glowing: Glowing) => glowing.material === material)
         ) {
-          material.emissive = new Color(colour);
+          material.emissive = new Color(color);
           // The iron glows a little out of step with the coals.
           this.#embers.push({ material, phase: this.#embers.length * 0.3 });
         } else if (

@@ -55,8 +55,8 @@ const DURATIONS: Readonly<Record<string, number>> = {
 
 /**
  * Makes up a model of Toby with a right hand and every clip of his, whose
- * clips each raise a bone of their own from nought at their start by a
- * metre a second, which tells how far into each clip it is.
+ * clips each raise a bone of their own from zero at their start by a
+ * meter a second, which tells how far into each clip it is.
  *
  * @returns {{ root: Object3D; hand: Object3D; clips: AnimationClip[] }} The
  *   root of the model, the bone of its right hand, and its clips.

@@ -24,7 +24,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { listModels } from './models/catalogue.ts';
+import { listModels } from './models/catalog.ts';
 
 const rootDir: string = path.resolve(import.meta.dirname, '..');
 const modelsDir: string = path.join(rootDir, 'packages/client/public/models');

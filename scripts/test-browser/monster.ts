@@ -52,17 +52,17 @@ export interface MonsterLook {
 }
 
 /**
- * How far along the X axis the player walks towards the spawn stones, in
- * metres.  Anywhere along the stretch from there to the far side of the
- * stones, the player is less than 1.8 metres from the home of the monster,
- * which never wanders more than 3 metres from its home, so the player is
- * within the 5 metres the monster notices a player from, wherever the
+ * How far along the X axis the player walks toward the spawn stones, in
+ * meters.  Anywhere along the stretch from there to the far side of the
+ * stones, the player is less than 1.8 meters from the home of the monster,
+ * which never wanders more than 3 meters from its home, so the player is
+ * within the 5 meters the monster notices a player from, wherever the
  * monster is.
  */
 const APPROACH_X = 9.7;
 /**
  * How near the monster must come before the player slashes it, from
- * centre to centre, in metres, which is within the reach of a slash.
+ * center to center, in meters, which is within the reach of a slash.
  */
 const MONSTER_NEARNESS = 1.3;
 /** How long a slash may take to show as a hit, in milliseconds. */
@@ -137,9 +137,9 @@ function describeMonsterLook(look: MonsterLook): string {
  * @param {number} id - The identifier of the player.
  * @param {string} key - The character of the key that walks it that way.
  * @param {(look: MonsterLook) => boolean} isThere - Tells whether it has
- *   got there.
+ *   gotten there.
  * @param {string} where - Where it is to get, for the error messages.
- * @returns {Promise<void>} A promise settled once it has got there.
+ * @returns {Promise<void>} A promise settled once it has gotten there.
  * @throws {Error} If it does not get there in time.
  */
 export async function walkUntil(
@@ -176,9 +176,9 @@ export async function walkUntil(
  * @param {string} context - The browsing context of the page.
  * @param {number} id - The identifier of the player.
  * @param {number} least - The least position along the Z axis of the
- *   stretch, in metres.
+ *   stretch, in meters.
  * @param {number} most - The greatest position along the Z axis of the
- *   stretch, in metres.
+ *   stretch, in meters.
  * @param {string} where - Where the player is stepped, for the error
  *   messages.
  * @returns {Promise<void>} A promise settled once it stands there.
@@ -270,7 +270,7 @@ function checkHitsOnce(look: MonsterLook, name: string): void {
  * path to a stretch where its way is clear to the spawn stones of the
  * monster, and right again between the stones until the monster notices
  * it, which it does by then wherever it has wandered.  It slashes as it
- * walks towards the monster, which leaves it facing that way, as a
+ * walks toward the monster, which leaves it facing that way, as a
  * slashing player does not turn.  It walks away along the same stretch.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -318,7 +318,7 @@ export async function checkMonster(
     (look: MonsterLook) =>
       look.monster?.mode === 'chase' ||
       (look.own?.x ?? -Infinity) >= APPROACH_X,
-    'towards the spawn stones',
+    'toward the spawn stones',
   );
   const measure = (look: MonsterLook): number =>
     look.own === null || look.monster === null
@@ -369,7 +369,7 @@ export async function checkMonster(
       ACTION_TIMEOUT,
       (look: MonsterLook) =>
         `With ${keys.join(' and ').toUpperCase()} held down to walk ` +
-        `towards the monster, the first page tells ` +
+        `toward the monster, the first page tells ` +
         `${describeMonsterLook(look)}, facing ${String(look.own?.yaw)} ` +
         'degrees.',
     );

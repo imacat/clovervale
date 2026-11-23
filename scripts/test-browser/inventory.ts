@@ -82,16 +82,16 @@ interface InventoryLook {
 /**
  * The least position along the X axis of the way down the east side of the
  * plaza to the patch of clover east of the fountain, clear of the fountain
- * and of Nancy, in metres.
+ * and of Nancy, in meters.
  */
 const CLOVER_WAY_X = 2.3;
 /** The number of the patch of clover east of the fountain. */
 const CLOVER_PATCH = 6;
 /** What the panel tells the space bar does by a clover to pick. */
-const PICK_KEY = 'pick up the four-leaved clover';
+const PICK_KEY = 'pick up the four-leaf clover';
 /** The prompt a page shows by a clover to pick, facing it. */
-const PICK_PROMPT = 'Press Space to pick up the four-leaved clover';
-/** The actions the menu of a four-leaved clover in the bag lists. */
+const PICK_PROMPT = 'Press Space to pick up the four-leaf clover';
+/** The actions the menu of a four-leaf clover in the bag lists. */
 const CLOVER_ACTIONS: readonly string[] = ['Drop'];
 
 /**
@@ -205,7 +205,7 @@ function describeInventoryLook(look: InventoryLook): string {
 }
 
 /**
- * Counts the filled slots of the bag of a page that hold a four-leaved
+ * Counts the filled slots of the bag of a page that hold a four-leaf
  * clover.
  *
  * @param {InventoryLook} look - How the page shows its slots.
@@ -220,7 +220,7 @@ function countClovers(look: InventoryLook): number {
 
 /**
  * Walks the player of a page down the east side of the plaza until its
- * page tells the space bar picks a four-leaved clover, and waits for it to
+ * page tells the space bar picks a four-leaf clover, and waits for it to
  * stop there.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -272,7 +272,7 @@ async function walkToClover(
 }
 
 /**
- * Checks that a player picks the four-leaved clover of a patch with the
+ * Checks that a player picks the four-leaf clover of a patch with the
  * space bar, and sees it in its slots, while the patch is shown without its
  * clover in both pages and the other page shows nothing in its own slots;
  * that it opens its bag with the I key, moves the cursor of the bag with

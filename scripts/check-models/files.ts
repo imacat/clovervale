@@ -28,7 +28,7 @@ import {
   MONSTER_FILE,
   REQUIRED_MODEL_FILES,
   isModelUsed,
-} from '../../packages/client/src/model-catalogue.ts';
+} from '../../packages/client/src/model-catalog.ts';
 
 /** What a model stands for in the game. */
 export type ModelKind = 'character' | 'npc' | 'monster' | 'static';
@@ -43,7 +43,7 @@ export const SMITH_FILE: string = MODEL_FILES.emma;
 export const ANVIL_FILE: string = MODEL_FILES['weapon-shop'];
 /** The file name of the chief, who stands on the porch of her house. */
 export const CHIEF_FILE: string = MODEL_FILES.martha;
-/** The file name of the apothecary's. */
+/** The file name of the apothecary shop. */
 export const APOTHECARY_FILE: string = MODEL_FILES.apothecary;
 /** The file name of Basil the apothecary. */
 export const BASIL_FILE: string = MODEL_FILES.basil;

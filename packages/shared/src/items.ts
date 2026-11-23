@@ -43,7 +43,7 @@ export interface ItemKind {
   readonly specificNameKey: string;
   /**
    * The message that names an item of the kind for the person at a page,
-   * as one the player has just got.
+   * as one the player has just gotten.
    */
   readonly receivedNameKey: string;
   /**
@@ -69,10 +69,10 @@ export const ITEM_KINDS = [
     receivedNameKey: 'item.sword.received',
   },
   {
-    id: 'leather-armour',
-    nameKey: 'item.leatherArmour',
-    specificNameKey: 'item.leatherArmour.specific',
-    receivedNameKey: 'item.leatherArmour.received',
+    id: 'leather-armor',
+    nameKey: 'item.leatherArmor',
+    specificNameKey: 'item.leatherArmor.specific',
+    receivedNameKey: 'item.leatherArmor.received',
   },
   {
     id: 'healing-potion',
@@ -104,20 +104,20 @@ export const ITEM_KINDS = [
 /** The identifier of a kind of item. */
 export type ItemKindId = (typeof ITEM_KINDS)[number]['id'];
 
-/** The kind of item a patch of clover grows: a four-leaved clover. */
+/** The kind of item a patch of clover grows: a four-leaf clover. */
 export const CLOVER_KIND: ItemKindId = 'clover';
 
 /** The most items a player can carry, one in each slot of its inventory. */
 export const INVENTORY_SIZE = 16;
 
 /**
- * The price of a healing potion at the apothecary's, in silver coins, which
+ * The price of a healing potion at the apothecary, in silver coins, which
  * Basil the apothecary asks and takes for each bottle.
  */
 export const HEALING_POTION_PRICE = 3;
 
 /**
- * How long a patch of clover takes to grow a new four-leaved clover once
+ * How long a patch of clover takes to grow a new four-leaf clover once
  * its clover has been picked, in seconds.
  */
 export const CLOVER_REGROW_DURATION = 30;
@@ -139,16 +139,16 @@ export interface GroundItem {
   readonly id: number;
   /** The kind of the item. */
   readonly kind: ItemKindId;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
 }
 
 /** What there is to pick in the world, as everyone sees it. */
 export interface WorldItems {
   /**
-   * The numbers of the patches of clover that have their four-leaved
+   * The numbers of the patches of clover that have their four-leaf
    * clover, in ascending order.
    */
   readonly clovers: readonly number[];
@@ -160,7 +160,7 @@ export interface WorldItems {
    */
   readonly looted?: readonly number[];
   /**
-   * The number of the latest step at which Toby took the four-leaved
+   * The number of the latest step at which Toby took the four-leaf
    * clover of a patch of clover, or `null` if he has taken none, which he
    * has not if left out.
    */

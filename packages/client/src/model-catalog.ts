@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/model-catalogue Knowing which model files the game uses.
+ * @module client/model-catalog Knowing which model files the game uses.
  */
 
 import { APPEARANCE_COUNT, VILLAGERS } from '@clovervale/shared';
@@ -100,7 +100,7 @@ export const MONSTER_FILE = 'wild-dog.glb';
 export const PITCHFORK_BONE = 'Pitchfork';
 
 /**
- * How high above the ground the number of a hit on a dog starts, in metres,
+ * How high above the ground the number of a hit on a dog starts, in meters,
  * just above its health bar, as the dog is lower than a player.
  */
 const DOG_HIT_HEIGHT = 1.8;
@@ -117,7 +117,7 @@ export interface MonsterModel {
   readonly weaponBone: string | null;
   /**
    * How high above the ground the number of a hit on the monster starts, in
-   * metres, or `null` for as high as on a player.
+   * meters, or `null` for as high as on a player.
    */
   readonly hitHeight: number | null;
 }
@@ -152,7 +152,7 @@ export const MONSTER_MODELS: Readonly<Record<MonsterKindId, MonsterModel>> = {
 export const LYING_PITCHFORK_FILE = 'prop-pitchfork-lying.glb';
 
 /**
- * The name the model of a four-leaved clover lying on the ground goes by
+ * The name the model of a four-leaf clover lying on the ground goes by
  * among the models, which the page draws itself instead of loading it.
  */
 export const LYING_CLOVER_MODEL = 'drawn-lying-clover';
@@ -160,12 +160,12 @@ export const LYING_CLOVER_MODEL = 'drawn-lying-clover';
 /**
  * The names of the models of the items drawn as they lie on the ground, by
  * their kinds: the file names of those loaded, and
- * {@link LYING_CLOVER_MODEL} for the four-leaved clover.
+ * {@link LYING_CLOVER_MODEL} for the four-leaf clover.
  */
 export const LYING_ITEM_MODELS: Readonly<Record<ItemKindId, string>> = {
   clover: LYING_CLOVER_MODEL,
   sword: 'prop-item-sword.glb',
-  'leather-armour': 'prop-item-leather-armour.glb',
+  'leather-armor': 'prop-item-leather-armor.glb',
   'healing-potion': 'prop-item-healing-potion.glb',
   'clovervale-message': 'prop-item-clovervale-message.glb',
   'spy-token': 'prop-item-spy-token.glb',

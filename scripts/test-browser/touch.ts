@@ -57,7 +57,7 @@ const LEAST_TAP_TARGET = 44;
 const TOUCH_PUSH = 60;
 /** How long a finger is held on the stick to walk, in milliseconds. */
 const TOUCH_HOLD_DURATION = 1500;
-/** How far the player is to walk with the stick held, in metres. */
+/** How far the player is to walk with the stick held, in meters. */
 const TOUCH_WALK_DISTANCE = 0.5;
 /** How far the view is to turn with a finger held on the scene, degrees. */
 const TOUCH_ORBIT = 15;
@@ -122,7 +122,7 @@ interface TouchLook {
   readonly help: HelpLook;
   /** How the bag shows the silver coins, or `null` if it shows none. */
   readonly silver: SilverView | null;
-  /** How far the camera is from what it looks at, in metres. */
+  /** How far the camera is from what it looks at, in meters. */
   readonly distance: number;
 }
 
@@ -780,7 +780,7 @@ async function checkTouchZoom(
     throw new Error(
       'With two fingers spread on the scene, the page used by touch moves ' +
         `its camera from ${far.distance.toFixed(2)} to ` +
-        `${near.distance.toFixed(2)} metres away.`,
+        `${near.distance.toFixed(2)} meters away.`,
     );
   }
 }
@@ -884,7 +884,7 @@ async function checkTouchTurn(
  * closes by tapping, and the box of the chat opens with the keyboard on
  * its line, which alone is left the menu of a long press, and closes by
  * tapping, each laid out well, holding the controls while open;
- * and that turning the phone round lays the page out again at once and
+ * and that turning the phone around lays the page out again at once and
  * lets go of a finger held on the stick.  Each layout is saved, if the
  * environment names a directory to.
  *

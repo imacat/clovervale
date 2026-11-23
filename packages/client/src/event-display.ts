@@ -38,16 +38,16 @@ import type {
 import { EventSchedule } from './event-schedule.ts';
 import { HitMarkers } from './hit-markers.ts';
 import type { PlayersView } from './interpolation.ts';
-import { MONSTER_MODELS } from './model-catalogue.ts';
+import { MONSTER_MODELS } from './model-catalog.ts';
 
-/** The colour of the number of a hit on the player of the page. */
-const OWN_HIT_COLOUR = '#ff4b3e';
-/** The colour of the number of a hit on another player. */
-const PLAYER_HIT_COLOUR = '#ff9a3d';
-/** The colour of the number of a hit on a monster. */
-const MONSTER_HIT_COLOUR = '#ffe14d';
-/** The colour of the number of a heal on any player. */
-const HEAL_COLOUR = '#7cf5c0';
+/** The color of the number of a hit on the player of the page. */
+const OWN_HIT_COLOR = '#ff4b3e';
+/** The color of the number of a hit on another player. */
+const PLAYER_HIT_COLOR = '#ff9a3d';
+/** The color of the number of a hit on a monster. */
+const MONSTER_HIT_COLOR = '#ffe14d';
+/** The color of the number of a heal on any player. */
+const HEAL_COLOR = '#7cf5c0';
 /**
  * The most hits, and the most heals, that are remembered as shown, for
  * looking at.
@@ -58,10 +58,10 @@ const SHOWN_HIT_LIMIT = 100;
 interface ShownTarget {
   /** Where it stands, which the number floats up from. */
   readonly spot: GroundVector;
-  /** The colour of the number of a hit on it. */
-  readonly hitColour: string;
+  /** The color of the number of a hit on it. */
+  readonly hitColor: string;
   /**
-   * How high above the ground the number of a hit on it starts, in metres,
+   * How high above the ground the number of a hit on it starts, in meters,
    * or `undefined` for the height every number starts at by default.
    */
   readonly hitHeight: number | undefined;
@@ -102,7 +102,7 @@ const TARGET_KINDS: Readonly<Record<EntityRef['kind'], TargetKind>> = {
         ? null
         : {
             spot: player,
-            hitColour: id === ownId ? OWN_HIT_COLOUR : PLAYER_HIT_COLOUR,
+            hitColor: id === ownId ? OWN_HIT_COLOR : PLAYER_HIT_COLOR,
             hitHeight: undefined,
           };
     },
@@ -116,7 +116,7 @@ const TARGET_KINDS: Readonly<Record<EntityRef['kind'], TargetKind>> = {
         ? null
         : {
             spot: monster,
-            hitColour: MONSTER_HIT_COLOUR,
+            hitColor: MONSTER_HIT_COLOR,
             hitHeight: MONSTER_MODELS[monster.kind].hitHeight ?? undefined,
           };
     },
@@ -157,13 +157,13 @@ export class EventDisplay {
       this.#markers.show(
         target.spot,
         `-${String(event.damage)}`,
-        target.hitColour,
+        target.hitColor,
         target.hitHeight,
       );
       rememberShown(this.#shownHits, event);
     },
     heal: (event: HealEvent, target: ShownTarget): void => {
-      this.#markers.show(target.spot, `+${String(event.amount)}`, HEAL_COLOUR);
+      this.#markers.show(target.spot, `+${String(event.amount)}`, HEAL_COLOR);
       rememberShown(this.#shownHeals, event);
     },
   };

@@ -47,7 +47,7 @@ import { Model } from './model.ts';
 import type { Face, ShapeOptions } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
-/** A lump of leaves: its centre, its radius and its material. */
+/** A lump of leaves: its center, its radius and its material. */
 type Lump = readonly [number, number, number, number, string];
 
 /**
@@ -148,7 +148,7 @@ export function buildGreatTree(): BuiltModel {
       ),
     );
   });
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -178,7 +178,7 @@ export function buildPineTree(): BuiltModel {
     'pineB',
     place(createCone(0.56, 0, 1.2, 6), { pos: [0, 2.35, 0] }),
   );
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -214,7 +214,7 @@ export function buildBush(): BuiltModel {
     );
   }
   flattenUnderside(model);
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -242,12 +242,12 @@ export function buildRock(): BuiltModel {
     }),
   );
   flattenUnderside(model);
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * Builds a two-metre stretch of wooden fence running along X.
+ * Builds a two-meter stretch of wooden fence running along X.
  *
  * @returns {BuiltModel} The model.
  */
@@ -275,7 +275,7 @@ export function buildFence(): BuiltModel {
       rot: [0, 0, -1.5],
     }),
   );
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -325,15 +325,15 @@ function createMossPatch(
 
 /**
  * The height of the body of the old low stone wall of the yard of the
- * chief's house, under the slabs that cap it, in metres.
+ * chief's house, under the slabs that cap it, in meters.
  */
 const YARD_WALL_HEIGHT = 0.55;
 
-/** The depth of the body of the low wall of the chief's yard, in metres. */
+/** The depth of the body of the low wall of the chief's yard, in meters. */
 const YARD_WALL_DEPTH = 0.32;
 
 /**
- * Builds a two-metre stretch of the old low stone wall of the yard of the
+ * Builds a two-meter stretch of the old low stone wall of the yard of the
  * chief's house, running along X: a body of rough stone, thigh-high on a
  * player, capped with flat slabs, one of them chipped and sunk, with a few
  * stones standing out of its faces and ragged moss on its top and its
@@ -395,7 +395,7 @@ export function buildYardWall(): BuiltModel {
       rot: [90, 0, 0],
     }),
   );
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -502,7 +502,7 @@ export function buildYardWallEnd(): BuiltModel {
     }),
   );
   flattenUnderside(model);
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -514,7 +514,7 @@ const CLOVER_LEAFLET_COUNT = 3;
 
 /**
  * The outline of a clover leaflet, from where it joins the stem to its
- * notched tip along +Y, in metres.
+ * notched tip along +Y, in meters.
  */
 const LEAFLET_OUTLINE: readonly Pair[] = [
   [0, 0],
@@ -529,7 +529,7 @@ const LEAFLET_OUTLINE: readonly Pair[] = [
 const CLOVER_LEAVES: readonly string[] = ['leafA', 'leafB', 'leafC'];
 
 /**
- * Builds a low patch of three-leaved clover.
+ * Builds a low patch of three-leaf clover.
  *
  * @returns {BuiltModel} The model.
  */
@@ -572,7 +572,7 @@ export function buildClover(): BuiltModel {
       );
     }
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -585,7 +585,7 @@ const BURROW_YAW = 108;
 
 /**
  * The broken pieces left of the old slab, each as the [angle, radius]
- * corners around it, in degrees and metres from the middle of the ring.
+ * corners around it, in degrees and meters from the middle of the ring.
  */
 const SLAB_PIECES: readonly (readonly Pair[])[] = [
   [
@@ -628,7 +628,7 @@ const CARVED_ARCS: readonly Pair[] = [
  * Creates a flat piece lying on the ground.
  *
  * @param {readonly Pair[]} corners - The [angle, radius] corners around
- *   the piece, in degrees and metres from the origin.
+ *   the piece, in degrees and meters from the origin.
  * @param {number} height - The thickness of the piece.
  * @returns {Shape} The piece.
  */
@@ -709,7 +709,7 @@ export function buildSpawnStones(): BuiltModel {
       options,
     );
   };
-  // The hollow: a low bank of earth around a hole that darkens towards
+  // The hollow: a low bank of earth around a hole that darkens toward
   // its far end, where it goes under a heap of earth by the stone.
   const hollow: Triple = [0.85, 1, 1];
   addToBurrow(
@@ -865,7 +865,7 @@ export function buildSpawnStones(): BuiltModel {
     }
   }
   flattenUnderside(model);
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -888,10 +888,10 @@ function createRoundCross(
   /**
    * Finds points along a quarter of a circle.
    *
-   * @param {Pair} centre - The centre of the circle.
+   * @param {Pair} center - The center of the circle.
    * @param {number} radius - The radius of the circle.
    * @param {number} from - The angle the points start at, in quarter turns.
-   * @param {number} way - 1 to go anticlockwise, -1 to go clockwise.
+   * @param {number} way - 1 to go counterclockwise, -1 to go clockwise.
    * @returns {Pair[]} The points, the ends included.
    */
   const findArc = (
@@ -904,7 +904,7 @@ function createRoundCross(
       const angle: number = (Math.PI / 2) * (from + (way * i) / 3);
       return [x + radius * Math.cos(angle), y + radius * Math.sin(angle)];
     });
-  // The arm that points up, from its right side round its end, and the
+  // The arm that points up, from its right side around its end, and the
   // rounded corner between it and the arm to its left.
   const arm: Pair[] = [
     ...findArc([halfWidth - corner, reach - corner], corner, 0, 1),
@@ -928,13 +928,13 @@ const STELE_FACE_LEAN = 12;
 /**
  * Where the face struck off the front of the healing stele crosses the YZ
  * plane, as a height and how far forward of the middle of the boulder it
- * lies there, in metres.  A negative distance lies behind the middle.
+ * lies there, in meters.  A negative distance lies behind the middle.
  */
 const STELE_FACE_POINT: Pair = [0.3, -0.02];
 
 /**
  * Shapes a point of a lumpy ball of about radius one into the boulder of
- * the healing stele: broad at the foot, narrowing unevenly towards a blunt
+ * the healing stele: broad at the foot, narrowing unevenly toward a blunt
  * top that leans over to the right and a little back.
  *
  * @param {Vector3} point - The point, changed in place.
@@ -1011,7 +1011,7 @@ export function buildHealingStele(): BuiltModel {
       rot: [-STELE_FACE_LEAN, 0, 0],
     }),
   );
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -1044,7 +1044,7 @@ function createHeartOutline(length: number): Pair[] {
 }
 
 /**
- * Creates a four-leaved clover in the XY plane around the origin, extruded
+ * Creates a four-leaf clover in the XY plane around the origin, extruded
  * along Z: four heart-shaped leaflets turned out on the diagonals, and a
  * short stalk that curves down from their middle.
  *
@@ -1092,7 +1092,7 @@ export function createFourLeafClover(
 }
 
 /**
- * Defines the materials of the four-leaved clover that the village sign
+ * Defines the materials of the four-leaf clover that the village sign
  * bears: `leaf` for its leaflets and `stalk` for its stalk.
  *
  * @param {Model} model - The model.
@@ -1104,7 +1104,7 @@ export function setCloverMaterials(model: Model): void {
 
 /**
  * The rough-hewn outline of the board of the village sign, with its ends
- * chipped and cut at a slant, in metres from its middle.
+ * chipped and cut at a slant, in meters from its middle.
  */
 const SIGN_BOARD_OUTLINE: readonly Pair[] = [
   [-0.5, 0.2],
@@ -1125,7 +1125,7 @@ const SIGN_BOARD_OUTLINE: readonly Pair[] = [
 
 /**
  * The grain worn into the face of the board of the village sign, each line
- * as its outline, in metres from the middle of the board.
+ * as its outline, in meters from the middle of the board.
  */
 const SIGN_BOARD_GRAIN: readonly (readonly Pair[])[] = [
   [
@@ -1147,7 +1147,7 @@ const SIGN_BOARD_GRAIN: readonly (readonly Pair[])[] = [
  * board, near the eye level of a player, nailed a little crooked across the
  * front of a crooked stake that sticks out above it, with the stub of a
  * branch lower down.  The front of the board, which faces +Z, bears a green
- * four-leaved clover.
+ * four-leaf clover.
  *
  * @returns {BuiltModel} The model.
  */
@@ -1214,17 +1214,17 @@ export function buildVillageSign(): BuiltModel {
     );
   }
   flattenUnderside(model);
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
-/** The radius of the stonework of the old well, in metres. */
+/** The radius of the stonework of the old well, in meters. */
 const WELL_RADIUS = 0.7;
 
 /**
  * The patches of moss on the old well: the angle around the well, in
  * degrees, how far the middle of each lies from the middle of the well and
- * how high, and its size along the wall, upwards and outwards.  They lie
+ * how high, and its size along the wall, upward and outward.  They lie
  * on the top of the wall, against its side and at its foot, all within the
  * reach of the stonework and the roof.
  */
@@ -1254,7 +1254,7 @@ export function buildOldWell(): BuiltModel {
   model.setMaterial('boardDark', '#7f6142');
   model.setMaterial('post', '#6c5139');
   const sides = 10;
-  // The wall, each course set half a stone round from the one below.
+  // The wall, each course set half a stone farther around than the one below.
   const course = 0.19;
   for (let i = 0; i < 3; i++) {
     model.add(
@@ -1321,7 +1321,7 @@ export function buildOldWell(): BuiltModel {
       }),
     );
   }
-  // A ragged patch of moss towards one end of the roof, on its front.
+  // A ragged patch of moss toward one end of the roof, on its front.
   model.add(
     'moss',
     place(createMossPatch(72, 0.42, 0.3, 0.035), {
@@ -1346,6 +1346,6 @@ export function buildOldWell(): BuiltModel {
     },
   );
   flattenUnderside(model);
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

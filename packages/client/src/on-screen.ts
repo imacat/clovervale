@@ -58,13 +58,13 @@ export function isOnScreen(
     ),
   );
   const eye: Vector3 = new Vector3().setFromMatrixPosition(camera.matrixWorld);
-  const centre: Vector3 = box.getCenter(new Vector3());
+  const center: Vector3 = box.getCenter(new Vector3());
   const raycaster = new Raycaster();
   return SIGHT_HEIGHTS.some((share: number): boolean => {
     const point = new Vector3(
-      centre.x,
+      center.x,
       box.min.y + (box.max.y - box.min.y) * share,
-      centre.z,
+      center.z,
     );
     if (!frustum.containsPoint(point)) {
       return false;

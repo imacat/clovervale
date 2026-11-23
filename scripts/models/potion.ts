@@ -32,7 +32,7 @@ const SIDES = 10;
 
 /**
  * The outline of the lower part of the round belly of the bottle, drawn in
- * the red of the liquid it holds, as [radius, height] pairs in metres, from
+ * the red of the liquid it holds, as [radius, height] pairs in meters, from
  * the middle of its bottom up to where the glass above it starts.
  */
 const LIQUID_PROFILE: readonly Pair[] = [
@@ -45,7 +45,7 @@ const LIQUID_PROFILE: readonly Pair[] = [
 
 /**
  * The outline of the glass above the liquid, as [radius, height] pairs in
- * metres: the shoulder of the belly, the narrow neck and the lip round its
+ * meters: the shoulder of the belly, the narrow neck and the lip around its
  * mouth.
  */
 const GLASS_PROFILE: readonly Pair[] = [
@@ -61,7 +61,7 @@ const GLASS_PROFILE: readonly Pair[] = [
 
 /**
  * The outline of the cork that stops the mouth of the bottle, as
- * [radius, height] pairs in metres, a little wider at its top.
+ * [radius, height] pairs in meters, a little wider at its top.
  */
 const CORK_PROFILE: readonly Pair[] = [
   [0, 0.2],
@@ -84,6 +84,6 @@ export function buildItemHealingPotion(): BuiltModel {
   model.add('liquid', createLathe(LIQUID_PROFILE, SIDES));
   model.add('glass', createLathe(GLASS_PROFILE, SIDES));
   model.add('cork', createLathe(CORK_PROFILE, SIDES));
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

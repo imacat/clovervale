@@ -67,7 +67,7 @@ interface LegOptions {
   readonly pitch?: number;
   /** The heading of the foot and the knee in degrees. */
   readonly yaw?: number;
-  /** Whether the knee points backwards, as the hock of a dog does. */
+  /** Whether the knee points backward, as the hock of a dog does. */
   readonly isKneeBackward?: boolean;
 }
 
@@ -91,9 +91,9 @@ interface ArmOptions {
 
 /** What was measured while baking a clip. */
 export interface ClipReport {
-  /** The most a frame was lifted to stay above the ground, in metres. */
+  /** The most a frame was lifted to stay above the ground, in meters. */
   lift: number;
-  /** The most a limb target was beyond the reach of the limb, in metres. */
+  /** The most a limb target was beyond the reach of the limb, in meters. */
   overreach?: number;
 }
 
@@ -184,7 +184,7 @@ export class Pose {
   }
 
   /**
-   * Blends this pose towards another one.
+   * Blends this pose toward another one.
    *
    * @param {Pose} other - The other pose.
    * @param {number} weight - The weight of the other pose in [0, 1].
@@ -319,7 +319,7 @@ export class Rig {
    * @param {number} yaw - The heading of the end bone and of the bend in
    *   degrees.
    * @param {boolean} isBentBackward - Whether the joint between the upper
-   *   and the lower bone points backwards.
+   *   and the lower bone points backward.
    * @returns {number} How far the target is beyond the reach of the limb.
    * @throws {Error} If there is no such bone.
    */
@@ -474,7 +474,7 @@ export class Rig {
    * Notes the most a limb target was beyond the reach of its limb in a clip.
    *
    * @param {string} name - The name of a baked clip.
-   * @param {number} overreach - The distance, in metres.
+   * @param {number} overreach - The distance, in meters.
    * @throws {Error} If no such clip is baked.
    */
   noteOverreach(name: string, overreach: number): void {

@@ -19,7 +19,7 @@
 
 /**
  * @module scripts/models/npc-toby Toby, the small boy who hunts for
- *   four-leaved clover west of the village gate.
+ *   four-leaf clover west of the village gate.
  */
 
 import {
@@ -82,7 +82,7 @@ const SQUAT_DURATION: number = TOBY_ACTIVITY_STEPS.Squat / SIMULATION_RATE;
 const RISE_DURATION: number = TOBY_ACTIVITY_STEPS.Rise / SIMULATION_RATE;
 
 /**
- * How long he takes to turn round, in seconds, as long as his course gives
+ * How long he takes to turn around, in seconds, as long as his course gives
  * him for it.
  */
 const TURN_DURATION: number = TOBY_ACTIVITY_STEPS.Turn / SIMULATION_RATE;
@@ -94,21 +94,21 @@ const RUN_FPS = 90;
 const PICK_DURATION = 2;
 
 /**
- * How long his picking lasts when he finds a four-leaved clover, in
+ * How long his picking lasts when he finds a four-leaf clover, in
  * seconds, as long as his course gives him for picking.
  */
 const FIND_DURATION: number = TOBY_ACTIVITY_STEPS.Pick / SIMULATION_RATE;
 
 /**
- * How far into his picking his right hand grabs at a four-leaved clover,
+ * How far into his picking his right hand grabs at a four-leaf clover,
  * in seconds, as his course has it: as it reaches into the leaves at the
  * start of a round of picking.
  */
 const GRAB_TIME: number = TOBY_GRAB_STEPS / SIMULATION_RATE;
 
 /**
- * How far into his picking he has put a four-leaved clover he found away
- * in the pocket of his short trousers, in seconds, as his course has it.
+ * How far into his picking he has put a four-leaf clover he found away
+ * in the pocket of his shorts, in seconds, as his course has it.
  */
 const STOW_TIME: number = TOBY_STOW_STEPS / SIMULATION_RATE;
 
@@ -116,7 +116,7 @@ const STOW_TIME: number = TOBY_STOW_STEPS / SIMULATION_RATE;
 const IDLE_DURATION = 2.4;
 
 /** Where his head sits, and how big it is next to that of a grown-up. */
-const HEAD: HeadFit = { centre: [0, 0.83, 0], scale: 0.88 };
+const HEAD: HeadFit = { center: [0, 0.83, 0], scale: 0.88 };
 
 /**
  * The height of the ankles above the ground with the soles flat on it,
@@ -151,7 +151,7 @@ const RUN_GAIT: Gait = {
   toe: 0.105,
   strike: 8,
   push: 26,
-  centre: 0.02,
+  center: 0.02,
 };
 
 /** The bones of the legs. */
@@ -214,14 +214,14 @@ function createShoe(): Shape {
 }
 
 /**
- * Creates a stretch of a strap of his braces, lying along the line
+ * Creates a stretch of a strap of his suspenders, lying along the line
  * between two points down one side of his front or his back.
  *
- * @param {number} x - How far to the side the strap runs, in metres.
+ * @param {number} x - How far to the side the strap runs, in meters.
  * @param {readonly [number, number]} from - The height and the depth of
- *   one end, in metres.
+ *   one end, in meters.
  * @param {readonly [number, number]} to - The height and the depth of the
- *   other end, in metres.
+ *   other end, in meters.
  * @returns {Shape} The stretch of the strap.
  */
 function createStrap(
@@ -243,8 +243,8 @@ function createStrap(
  * Builds the mesh and the skeleton of Toby: a small boy of five or so,
  * about two thirds the height of a grown-up and plainly a child, with a
  * big round head of short, tousled chestnut hair and freckles across his
- * nose, in a straw-coloured shirt with short sleeves and a round collar,
- * brown short trousers held up by blue braces, his knees bare, and white
+ * nose, in a straw-colored shirt with short sleeves and a round collar,
+ * brown shorts held up by blue suspenders, his knees bare, and white
  * socks in small brown shoes.
  *
  * @returns {Model} The model without animations.
@@ -258,7 +258,7 @@ function buildBody(): Model {
   model.setMaterial('shirt', '#f1dc9a');
   model.setMaterial('collar', '#fbf5e4');
   model.setMaterial('shorts', '#6e4b2e');
-  model.setMaterial('braces', '#2f5d93');
+  model.setMaterial('suspenders', '#2f5d93');
   model.setMaterial('button', '#d8b35a', { roughness: 0.6 });
   model.setMaterial('sock', '#eee9dd');
   model.setMaterial('shoe', '#5b3923');
@@ -307,7 +307,7 @@ function buildBody(): Model {
   model.add('hair', fitToHead(hair.accent, HEAD), 'Head');
 
   // The shirt over his round belly, with its round collar and two buttons
-  // down the front, and the braces over it, front and back.
+  // down the front, and the suspenders over it, front and back.
   const flat: Placement = { scale: [1, 1, 0.9] };
   model.add(
     'skin',
@@ -382,20 +382,20 @@ function buildBody(): Model {
         ],
       ] as const) {
         model.add(
-          'braces',
+          'suspenders',
           createStrap(0.062 * x, [from[0], from[1] * z], [to[0], to[1] * z]),
           'Chest',
         );
       }
     }
     model.add(
-      'braces',
+      'suspenders',
       place(createBox(0.026, 0.014, 0.08), { pos: [0.062 * x, 0.598, 0] }),
       'Chest',
     );
   }
 
-  // The short trousers, with the buttons the braces fasten to.
+  // The shorts, with the buttons the suspenders fasten to.
   model.add(
     'shorts',
     place(
@@ -424,7 +424,7 @@ function buildBody(): Model {
   }
 
   // The short, chubby arms, in short sleeves, and the short, chubby legs,
-  // in the legs of the short trousers, bare at the knee, with white socks
+  // in the legs of the shorts, bare at the knee, with white socks
   // and small shoes.
   for (const [side, x] of SIDES) {
     const moveAside = (shape: Shape, px = SHOULDER_X): Shape =>
@@ -560,7 +560,7 @@ function buildBody(): Model {
  * Bakes the animation clips of Toby: idling; running, in step with the
  * ground he covers at the speed of his run; squatting down from his run at
  * the edge of the clover; picking at it, over and over; standing up; and
- * turning round on the spot to set off on his run again.  Each clip that
+ * turning around in place to set off on his run again.  Each clip that
  * leads into another ends on the very pose the other starts from.
  *
  * @param {Model} model - The model of Toby.
@@ -621,7 +621,7 @@ function animateBody(model: Model): Rig {
     };
   };
 
-  // Idling: he breathes, swings his arms a little and looks about.
+  // Idling: he breathes, swings his arms a little and looks around.
   const poseIdle = (t: number): Pose => {
     const angle: number = (2 * Math.PI * t) / IDLE_DURATION;
     const breath: number = (1 - Math.cos(angle)) / 2;
@@ -713,10 +713,10 @@ function animateBody(model: Model): Rig {
     { loop: true },
   );
 
-  // Finding a four-leaved clover: he picks at the leaves as ever until his
+  // Finding a four-leaf clover: he picks at the leaves as ever until his
   // right hand grabs at the clover, as it reaches into the leaves; then he
   // lifts it up close to his face and looks at it, his head raised, puts
-  // it away in the right pocket of his short trousers, and reaches into the
+  // it away in the right pocket of his shorts, and reaches into the
   // leaves again, as he does when he picks.
   const leaves: Triple = [-0.09, 0.13, 0.175];
   const face: Triple = [-0.06, 0.37, 0.25];
@@ -849,7 +849,7 @@ function animateBody(model: Model): Rig {
     return { pose: placeFeet(body, stepIn(1, 0.25), stepIn(-1, 0.55)) };
   });
 
-  // Turning round on the spot: two quick little steps, as he turns, lean
+  // Turning around in place: two quick little steps, as he turns, lean
   // him into the first stride of his run.
   bake('Turn', TURN_DURATION, (t: number): PoseSample => {
     if (t <= 0) {
@@ -894,7 +894,7 @@ function animateBody(model: Model): Rig {
 /**
  * Builds Toby, a small boy of five or so, cheerful and simply dressed, who
  * runs between two patches of clover and squats at each to hunt for a
- * four-leaved one.
+ * four-leaf one.
  *
  * @returns {BuiltModel} The animated model and the measurements taken while
  *   baking.
@@ -902,6 +902,6 @@ function animateBody(model: Model): Rig {
 export function buildNpcToby(): BuiltModel {
   const model: Model = buildBody();
   const rig: Rig = animateBody(model);
-  model.centreOn(['FootL', 'FootR']);
+  model.centerOn(['FootL', 'FootR']);
   return { model, report: rig.report };
 }

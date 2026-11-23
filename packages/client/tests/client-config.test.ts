@@ -70,7 +70,7 @@ describe('parseClientConfig', () => {
   });
 
   it('skips the settings it does not know', () => {
-    expect(parseClientConfig('COLOUR=green\n')).toEqual({ serverUrl: null });
+    expect(parseClientConfig('COLOR=green\n')).toEqual({ serverUrl: null });
   });
 
   it('refuses a file that is not made of settings', () => {

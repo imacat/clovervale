@@ -52,7 +52,7 @@ interface CameraView {
 }
 
 /**
- * How far the camera is to go round its player while the left arrow is
+ * How far the camera is to go around its player while the left arrow is
  * held down in the check, in degrees.
  */
 const KEY_ORBIT = 30;
@@ -213,7 +213,7 @@ export async function checkCamera(
 
 /**
  * Checks that the left arrow held down in a page orbits its camera to the
- * right round its own player, which turns the way the camera looks to the
+ * right around its own player, which turns the way the camera looks to the
  * left, without walking the player.
  *
  * @param {BidiSession} session - The session with the browser.

@@ -38,13 +38,13 @@ describe('interpolateYaw', () => {
     expect(interpolateYaw(180, 180, 0.5)).toBe(180);
   });
 
-  it('turns the shorter way round, across the back', () => {
+  it('turns the shorter way around, across the back', () => {
     expect(interpolateYaw(170, -170, 0.25)).toBeCloseTo(175);
     expect(interpolateYaw(170, -170, 0.75)).toBeCloseTo(-175);
     expect(interpolateYaw(-170, 170, 0.25)).toBeCloseTo(-175);
   });
 
-  it('turns the shorter way round between yaws counted from 0 to 360', () => {
+  it('turns the shorter way around between yaws counted from 0 to 360', () => {
     expect(interpolateYaw(350, 10, 0.5) % 360).toBeCloseTo(0);
     expect(interpolateYaw(10, 350, 0.25)).toBeCloseTo(5);
   });

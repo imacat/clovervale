@@ -34,7 +34,7 @@ import { prepareModel } from './figure-copies.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
 import type { MapScene } from './map-scene.ts';
-import { MODEL_FILES } from './model-catalogue.ts';
+import { MODEL_FILES } from './model-catalog.ts';
 import { findModelRoot } from './model-library.ts';
 import type { LoadedModel } from './model-loader.ts';
 import { createModelPlacer } from './model-placement.ts';
@@ -44,7 +44,7 @@ import { layoutVillage } from './village-layout.ts';
 import { WindowGlow } from './window-glow.ts';
 
 /**
- * A patch of bare earth: its centre, its radii along X and Z, and its turn
+ * A patch of bare earth: its center, its radii along X and Z, and its turn
  * around the Y axis, in degrees.
  */
 type Patch = readonly [
@@ -60,7 +60,7 @@ type Patch = readonly [
  * connected, once they are shown.
  */
 export interface VillageScene extends MapScene {
-  /** The light and the colours of the village through the day. */
+  /** The light and the colors of the village through the day. */
   readonly daylight: Daylight;
   /**
    * Stands the models that have a place in the village there, as far as
@@ -88,16 +88,16 @@ export interface VillageScene extends MapScene {
   readonly showTimeOfDay: (time: number) => void;
 }
 
-/** The colour of the grass. */
-const GRASS_COLOUR = '#8cc65c';
-/** The colour of the bare earth. */
-const EARTH_COLOUR = '#d2995f';
-/** The radius of the ground, which reaches under every mountain, in metres. */
+/** The color of the grass. */
+const GRASS_COLOR = '#8cc65c';
+/** The color of the bare earth. */
+const EARTH_COLOR = '#d2995f';
+/** The radius of the ground, which reaches under every mountain, in meters. */
 const GROUND_RADIUS = 440;
-/** How far from the camera the fog starts, in metres. */
+/** How far from the camera the fog starts, in meters. */
 const FOG_NEAR = 70;
 /**
- * How far from the camera the fog hides everything, in metres: beyond the
+ * How far from the camera the fog hides everything, in meters: beyond the
  * farthest mountain, so that the mountains pale with distance, but none is
  * lost in it.
  */
@@ -123,22 +123,22 @@ const PATCHES: readonly Patch[] = [
 ];
 
 /**
- * Creates a flat disc lying on the ground.
+ * Creates a flat disk lying on the ground.
  *
- * @param {string} colour - The colour of the disc.
- * @param {number} height - The height of the disc above the ground, in
- *   metres.
- * @returns {Mesh} The disc, one metre in radius.
+ * @param {string} color - The color of the disk.
+ * @param {number} height - The height of the disk above the ground, in
+ *   meters.
+ * @returns {Mesh} The disk, one meter in radius.
  */
-function createDisc(colour: string, height: number): Mesh {
-  const disc = new Mesh(
+function createDisk(color: string, height: number): Mesh {
+  const disk = new Mesh(
     new CircleGeometry(1, 48),
-    new MeshStandardMaterial({ color: colour, roughness: 1 }),
+    new MeshStandardMaterial({ color, roughness: 1 }),
   );
-  disc.rotation.x = -Math.PI / 2;
-  disc.position.y = height;
-  disc.receiveShadow = true;
-  return disc;
+  disk.rotation.x = -Math.PI / 2;
+  disk.position.y = height;
+  disk.receiveShadow = true;
+  return disk;
 }
 
 /**
@@ -152,12 +152,12 @@ export function createVillageScene(): VillageScene {
   const fog = new Fog(0, FOG_NEAR, FOG_FAR);
   scene.fog = fog;
 
-  const ground: Mesh = createDisc(GRASS_COLOUR, 0);
+  const ground: Mesh = createDisk(GRASS_COLOR, 0);
   ground.scale.setScalar(GROUND_RADIUS);
   scene.add(ground);
   PATCHES.forEach(([x, z, radiusX, radiusZ, yaw]: Patch, index: number) => {
     // Each patch lies a little higher than the last, so that none flickers.
-    const patch: Mesh = createDisc(EARTH_COLOUR, 0.004 + index * 0.001);
+    const patch: Mesh = createDisk(EARTH_COLOR, 0.004 + index * 0.001);
     patch.position.x = x;
     patch.position.z = z;
     patch.scale.set(radiusX, radiusZ, 1);

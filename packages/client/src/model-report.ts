@@ -50,7 +50,7 @@ export type ModelProblem =
  *   shown.
  * @returns {string} The summary.
  */
-export function summariseModels(
+export function summarizeModels(
   translator: Translator,
   shownCount: number,
   problems: readonly ModelProblem[],

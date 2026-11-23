@@ -30,7 +30,7 @@ import type { Translator } from './translator.ts';
 /**
  * How a message names an item: plainly, as the inventory shows it; as the
  * one in question, as a prompt to pick it up does; or as one the player
- * has just got.
+ * has just gotten.
  */
 export type ItemWording = 'plain' | 'specific' | 'received';
 

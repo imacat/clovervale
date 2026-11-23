@@ -38,13 +38,13 @@ import type {
   Terrain,
 } from '@clovervale/shared';
 
-/** The colour of the outline of an obstacle. */
-const OBSTACLE_COLOUR = '#d6283c';
-/** The colour of the outline of the boundary. */
-const BOUNDARY_COLOUR = '#1f4fd8';
-/** The height of the outlines above the ground, in metres. */
+/** The color of the outline of an obstacle. */
+const OBSTACLE_COLOR = '#d6283c';
+/** The color of the outline of the boundary. */
+const BOUNDARY_COLOR = '#1f4fd8';
+/** The height of the outlines above the ground, in meters. */
 const OUTLINE_HEIGHT = 0.02;
-/** The length of a side of the outline of a circle at most, in metres. */
+/** The length of a side of the outline of a circle at most, in meters. */
 const ARC_LENGTH = 0.25;
 /** The fewest sides of the outline of a circle. */
 const MIN_ARC_COUNT = 16;
@@ -52,12 +52,12 @@ const MIN_ARC_COUNT = 16;
 /**
  * Lists the corners of the outline of a circle.
  *
- * @param {GroundVector} centre - The centre of the circle.
+ * @param {GroundVector} center - The center of the circle.
  * @param {number} radius - The radius of the circle.
  * @returns {GroundVector[]} The corners, all on the circle.
  */
 function listCirclePoints(
-  centre: GroundVector,
+  center: GroundVector,
   radius: number,
 ): GroundVector[] {
   const count: number = Math.max(
@@ -67,8 +67,8 @@ function listCirclePoints(
   return Array.from({ length: count }, (_, index: number) => {
     const angle: number = (2 * Math.PI * index) / count;
     return {
-      x: centre.x + radius * Math.sin(angle),
-      z: centre.z + radius * Math.cos(angle),
+      x: center.x + radius * Math.sin(angle),
+      z: center.z + radius * Math.cos(angle),
     };
   });
 }
@@ -115,7 +115,7 @@ function createOutline(
 
 /**
  * Creates the outlines on the ground of the obstacles of a piece of ground,
- * each in one colour, and of its boundary, in another, which show through
+ * each in one color, and of its boundary, in another, which show through
  * whatever stands on them.
  *
  * @param {Terrain} terrain - The ground.
@@ -124,7 +124,7 @@ function createOutline(
 export function createObstacleOutlines(terrain: Terrain): Group {
   const group = new Group();
   const obstacleMaterial = new LineBasicMaterial({
-    color: OBSTACLE_COLOUR,
+    color: OBSTACLE_COLOR,
     depthTest: false,
   });
   for (const shape of terrain.shapes) {
@@ -134,7 +134,7 @@ export function createObstacleOutlines(terrain: Terrain): Group {
   group.add(
     createOutline(
       listCirclePoints(boundary, boundary.radius),
-      new LineBasicMaterial({ color: BOUNDARY_COLOUR, depthTest: false }),
+      new LineBasicMaterial({ color: BOUNDARY_COLOR, depthTest: false }),
     ),
   );
   return group;

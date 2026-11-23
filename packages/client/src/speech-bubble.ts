@@ -47,7 +47,7 @@ import type { Translator } from './translator.ts';
 
 /** How long a bubble takes to fade away at its end, in seconds. */
 const FADE_DURATION = 0.5;
-/** The room between the top of the head and the bubble, in metres. */
+/** The room between the top of the head and the bubble, in meters. */
 const BUBBLE_MARGIN = 0.15;
 
 /** What a bubble shows, and where. */
@@ -56,11 +56,11 @@ export interface SpeechView {
   readonly name: string;
   /** What the villager says. */
   readonly line: string;
-  /** The position of the foot of the bubble along the X axis, in metres. */
+  /** The position of the foot of the bubble along the X axis, in meters. */
   readonly x: number;
-  /** The height of the foot of the bubble, in metres. */
+  /** The height of the foot of the bubble, in meters. */
   readonly y: number;
-  /** The position of the foot of the bubble along the Z axis, in metres. */
+  /** The position of the foot of the bubble along the Z axis, in meters. */
   readonly z: number;
   /**
    * The size of the words on the screen, in CSS pixels, or `null` before
@@ -81,11 +81,11 @@ export interface SaidView {
   readonly player: number;
   /** What the player says. */
   readonly line: string;
-  /** The position of the foot of the bubble along the X axis, in metres. */
+  /** The position of the foot of the bubble along the X axis, in meters. */
   readonly x: number;
-  /** The height of the foot of the bubble, in metres. */
+  /** The height of the foot of the bubble, in meters. */
   readonly y: number;
-  /** The position of the foot of the bubble along the Z axis, in metres. */
+  /** The position of the foot of the bubble along the Z axis, in meters. */
   readonly z: number;
   /**
    * Whether the bubble is to be seen, which it is not while the player is
@@ -271,9 +271,9 @@ export class SpeechBubble {
 
   /**
    * Moves the bubble of a player, if it has one, to just above its head,
-   * where the head is now, as it goes on speaking while it goes about, or
-   * keeps the bubble from being seen while the player is off the screen.
-   * The bubble goes on ageing unseen.
+   * where the head is now, as it goes on speaking while it moves around,
+   * or keeps the bubble from being seen while the player is off the screen.
+   * The bubble goes on aging unseen.
    *
    * @param {number} player - The identifier of the player.
    * @param {Vector3 | null} head - The top of the head of the player, or
@@ -352,7 +352,7 @@ export class SpeechBubble {
   /**
    * Moves the bubble of a villager to just above its head, where the head
    * is now, if the bubble being shown is that of the villager, as it goes
-   * on speaking while it goes about.
+   * on speaking while it moves around.
    *
    * @param {Villager} villager - The villager.
    * @param {Vector3} head - The top of the head of the villager.
@@ -373,7 +373,7 @@ export class SpeechBubble {
   relabel(): void {
     for (const shown of this.#listShown()) {
       const { villager, lineId, words } = shown;
-      const relabelled: SpeechWords =
+      const relabeled: SpeechWords =
         villager === null
           ? this.#lines.describePlayerLine(words.line, lineId)
           : this.#lines.describeVillagerLine(
@@ -381,7 +381,7 @@ export class SpeechBubble {
               shown.lineIndex,
               lineId,
             );
-      this.#repaint(shown, relabelled);
+      this.#repaint(shown, relabeled);
     }
   }
 

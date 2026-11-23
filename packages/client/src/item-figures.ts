@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/item-figures Showing the four-leaved clovers in the
+ * @module client/item-figures Showing the four-leaf clovers in the
  *   patches of clover, and the items that lie on the ground, each as what
  *   it is.
  */
@@ -40,7 +40,7 @@ import { CLOVER_PATCHES } from '@clovervale/shared';
 import type { GroundItem, WorldItems } from '@clovervale/shared';
 
 import type { FigureFrame, FigureSet } from './figure-set.ts';
-import { LYING_CLOVER_MODEL, LYING_ITEM_MODELS } from './model-catalogue.ts';
+import { LYING_CLOVER_MODEL, LYING_ITEM_MODELS } from './model-catalog.ts';
 import type { LoadedModel } from './model-loader.ts';
 
 /** What is shown of the items in the world. */
@@ -53,7 +53,7 @@ export interface ItemsView {
 
 /**
  * The outline of a leaflet of clover, as the model of a patch of clover has
- * it, from where it joins the stalk to its notched tip along +Y, in metres.
+ * it, from where it joins the stalk to its notched tip along +Y, in meters.
  */
 const LEAFLET_OUTLINE: readonly (readonly [number, number])[] = [
   [0, 0],
@@ -65,43 +65,43 @@ const LEAFLET_OUTLINE: readonly (readonly [number, number])[] = [
 ];
 
 /**
- * How much larger than a leaflet of the patch a leaflet of a four-leaved
+ * How much larger than a leaflet of the patch a leaflet of a four-leaf
  * clover is drawn, so that it stands out among them.
  */
 const LEAFLET_SCALE = 2;
 
-/** The thickness of a leaflet, in metres, as the patch has it. */
+/** The thickness of a leaflet, in meters, as the patch has it. */
 const LEAFLET_DEPTH = 0.006;
 
 /** How far a leaflet tilts up from lying flat, in degrees. */
 const LEAFLET_TILT = 12;
 
 /**
- * The height of the stalk of a four-leaved clover in a patch, in metres,
+ * The height of the stalk of a four-leaf clover in a patch, in meters,
  * a little above the tallest sprigs of the patch.
  */
 const STALK_HEIGHT = 0.24;
 
-/** The colour of the leaves, the lightest the patch has. */
-const LEAF_COLOUR = '#5aa746';
+/** The color of the leaves, the lightest the patch has. */
+const LEAF_COLOR = '#5aa746';
 
-/** The colour of the stalk, as the patch has it. */
-const STALK_COLOUR = '#6aa84a';
+/** The color of the stalk, as the patch has it. */
+const STALK_COLOR = '#6aa84a';
 
 /**
- * How large a four-leaved clover held in a hand is drawn next to one in a
+ * How large a four-leaf clover held in a hand is drawn next to one in a
  * patch, so that it fits the hand of a child yet is seen from afar.
  */
 const HELD_SCALE = 0.6;
 
-/** How high above the ground the leaves of a lying clover are, in metres. */
+/** How high above the ground the leaves of a lying clover are, in meters. */
 const LYING_HEIGHT = 0.02;
 
 /** The turn from one item on the ground to the next, in degrees. */
 const LYING_TURN = 137.5;
 
 /**
- * Builds the four leaflets of a four-leaved clover around the top of its
+ * Builds the four leaflets of a four-leaf clover around the top of its
  * stalk, at the origin.
  *
  * @returns {BufferGeometry} The leaflets.
@@ -123,7 +123,7 @@ function buildLeaves(): BufferGeometry {
   return mergeGeometries(leaflets);
 }
 
-/** What every four-leaved clover is drawn with. */
+/** What every four-leaf clover is drawn with. */
 interface CloverParts {
   /** The four leaflets around the top of the stalk, at the origin. */
   readonly leaves: BufferGeometry;
@@ -136,7 +136,7 @@ interface CloverParts {
 }
 
 /**
- * Builds what every four-leaved clover is drawn with, once for them all.
+ * Builds what every four-leaf clover is drawn with, once for them all.
  *
  * @returns {CloverParts} The parts.
  */
@@ -149,11 +149,11 @@ function buildCloverParts(): CloverParts {
       0,
     ),
     leafMaterial: new MeshStandardMaterial({
-      color: LEAF_COLOUR,
+      color: LEAF_COLOR,
       roughness: 0.8,
     }),
     stalkMaterial: new MeshStandardMaterial({
-      color: STALK_COLOUR,
+      color: STALK_COLOR,
       roughness: 0.9,
     }),
   };
@@ -177,7 +177,7 @@ function createMesh(
 }
 
 /**
- * Makes a four-leaved clover that stands up among the sprigs of a patch.
+ * Makes a four-leaf clover that stands up among the sprigs of a patch.
  *
  * @param {CloverParts} parts - What it is drawn with.
  * @returns {Group} The clover, standing at the origin.
@@ -191,7 +191,7 @@ function createStandingClover(parts: CloverParts): Group {
 }
 
 /**
- * Makes a four-leaved clover that lies on the ground, its stalk along the
+ * Makes a four-leaf clover that lies on the ground, its stalk along the
  * ground.
  *
  * @param {CloverParts} parts - What it is drawn with.
@@ -209,7 +209,7 @@ function createLyingClover(parts: CloverParts): Group {
 }
 
 /**
- * Makes a four-leaved clover to be held in a hand, by its stalk.
+ * Makes a four-leaf clover to be held in a hand, by its stalk.
  *
  * @returns {Group} The clover, the foot of its stalk at the origin and its
  *   leaves up the Y axis, about two thirds as large as one that
@@ -222,7 +222,7 @@ export function createHeldClover(): Group {
 }
 
 /**
- * The four-leaved clovers of the patches of clover, and the items on the
+ * The four-leaf clovers of the patches of clover, and the items on the
  * ground, as the server last told of them.
  */
 export class ItemFigures implements FigureSet {
@@ -231,7 +231,7 @@ export class ItemFigures implements FigureSet {
   readonly #patches: Group[];
   readonly #lying = new Map<number, [GroundItem, Group]>();
   /**
-   * The model of a four-leaved clover lying on the ground, which the page
+   * The model of a four-leaf clover lying on the ground, which the page
    * draws itself.
    */
   readonly #lyingClover: LoadedModel;
@@ -239,7 +239,7 @@ export class ItemFigures implements FigureSet {
   #models: readonly LoadedModel[];
 
   /**
-   * Starts with a four-leaved clover drawn in no patch, and nothing on the
+   * Starts with a four-leaf clover drawn in no patch, and nothing on the
    * ground.
    *
    * @param {Object3D} parent - What the clovers are added to.
@@ -264,7 +264,7 @@ export class ItemFigures implements FigureSet {
   /**
    * Draws the items on the ground from now on with the models of their
    * kinds among the models, as {@link LYING_ITEM_MODELS} names them, and
-   * those already on the ground at once.  A four-leaved clover is drawn
+   * those already on the ground at once.  A four-leaf clover is drawn
    * whatever the models.
    *
    * @param {readonly LoadedModel[]} models - The models.
@@ -278,7 +278,7 @@ export class ItemFigures implements FigureSet {
   }
 
   /**
-   * Shows a four-leaved clover standing in each patch of clover that has
+   * Shows a four-leaf clover standing in each patch of clover that has
    * its clover, and each item on the ground lying there as what it is, as
    * the model of its kind, where the item lies now, even if an item of the
    * same number lay elsewhere before, and nothing else.  An item whose

@@ -100,7 +100,7 @@ export class StoryFigures implements FigureSet {
    * Shows the villagers at a frame, as the players are shown, as
    * {@link VillagerFigure.show} tells, with what a villager says once the
    * player of the page starts to talk to it, and the bubbles of the
-   * villagers who go about their maps kept above their heads.
+   * villagers who move around their maps kept above their heads.
    *
    * @param {FigureFrame} frame - How things are shown at the frame.
    */
@@ -180,16 +180,16 @@ export class StoryFigures implements FigureSet {
   }
 
   /**
-   * Keeps the bubbles of the villagers who go about their maps above their
-   * heads, as {@link VillagerFigure.goesAbout} tells, as far as their
-   * figures find their heads.
+   * Keeps the bubbles of the villagers who move around their maps above
+   * their heads, as {@link VillagerFigure.movesAround} tells, as far as
+   * their figures find their heads.
    *
    * @param {number | null} shownStep - The step the page shows, or `null`
    *   while it shows none.
    */
   #followHeads(shownStep: number | null): void {
     for (const figure of this.#figures.values()) {
-      const head: Vector3 | null = figure.goesAbout
+      const head: Vector3 | null = figure.movesAround
         ? figure.findHeadTop(shownStep, this.#shownMonsters)
         : null;
       if (head !== null) {

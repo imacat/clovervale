@@ -59,18 +59,18 @@ export interface Villager {
   readonly map: MapId;
   /**
    * Where the villager stands in its map, and which way it faces, unless
-   * it goes about, as Toby does; for a villager who fights as a monster,
+   * it moves around, as Toby does; for a villager who fights as a monster,
    * where it stands while it is not among the monsters of its map.
    */
   readonly post?: Pose;
   /**
-   * For a villager who goes about, as Toby does, running his course, finds
-   * where it is, and which way it faces, at a step of the simulation, which
-   * may fall between two steps.
+   * For a villager who moves around, as Toby does, running his course,
+   * finds where it is, and which way it faces, at a step of the simulation,
+   * which may fall between two steps.
    */
   readonly course?: (step: number) => Pose;
   /**
-   * For a villager who goes about and pushes the players in its way aside,
+   * For a villager who moves around and pushes the players in its way aside,
    * as Toby does, how it gets in their way.  There is no more than one such
    * villager in a map.
    */

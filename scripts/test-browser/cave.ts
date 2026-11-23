@@ -128,7 +128,10 @@ interface CaveLook {
    * be chosen, or `null` if no menu is open.
    */
   readonly menu: readonly MenuActionView[] | null;
-  /** The notices of the items got that the page shows, the earliest first. */
+  /**
+   * The notices of the items received that the page shows, the earliest
+   * first.
+   */
   readonly notices: readonly string[];
   /** The latest heals the page has shown, the latest last. */
   readonly heals: readonly HealEvent[];
@@ -136,7 +139,7 @@ interface CaveLook {
 
 /**
  * The farthest east the player walks on its way to the burrow among the
- * spawn stones, in metres, which has it well within reach of the burrow.
+ * spawn stones, in meters, which has it well within reach of the burrow.
  */
 const BURROW_X = 10.8;
 /** What the panel tells the space bar does in the burrow. */
@@ -201,7 +204,7 @@ const EDWIN_CALL: SpeechWordsView = {
   name: 'Prisoner',
   line: 'Help! Is anyone there?',
 };
-/** The notice of the message from Clovervale got from Edwin. */
+/** The notice of the message from Clovervale received from Edwin. */
 const MESSAGE_NOTICE = 'You got the message from Clovervale';
 /** What the panel tells the space bar does before a shut chest. */
 const OPEN_CHEST_KEY = 'open the chest';
@@ -222,7 +225,7 @@ const SKELETON_TURN = -0.25;
 const STEEP_TILT = 0.15;
 /**
  * The farthest from the middle of the passage a player is taken to be on
- * it, across it, in metres.
+ * it, across it, in meters.
  */
 const ON_PASSAGE = 0.15;
 /** How long the view takes to clear after the player changes maps, in ms. */
@@ -231,12 +234,12 @@ const FADE_DURATION = 1000;
 const CAVE_LEAST_BRIGHTNESS = 6;
 /** How many turns of the mouse wheel bring the camera close to a torch. */
 const CLOSE_ZOOM_TURNS = 8;
-/** How near a player is shown to where it arrives, in metres. */
+/** How near a player is shown to where it arrives, in meters. */
 const ARRIVAL_NEARNESS = 0.3;
-/** The notice of the sword got from a chest. */
+/** The notice of the sword found in a chest. */
 const SWORD_NOTICE = 'You got a short sword';
-/** The notice of the leather armour got, in Traditional Chinese. */
-const ZH_TW_ARMOUR_NOTICE = '取得皮甲';
+/** The notice of the leather armor received, in Traditional Chinese. */
+const ZH_TW_ARMOR_NOTICE = '取得皮甲';
 /** The name of the sword in Traditional Chinese. */
 const ZH_TW_SWORD = '短劍';
 /** The expression that clicks the slot of the sword in the bag of a page. */
@@ -273,7 +276,7 @@ const POTION_SLOT_CLICK_EXPRESSION = `(() => {
 })()`;
 /** The silver coins in the barrel of the north store room of the cave. */
 const BARREL_SILVER = 5;
-/** The notice of those coins got, in English. */
+/** The notice of those coins received, in English. */
 const BARREL_SILVER_NOTICE = `You got ${String(BARREL_SILVER)} silver coins`;
 /** The number of the chest at the back of the north store room. */
 const NORTH_CHEST = 0;
@@ -446,14 +449,15 @@ async function saveCaveViews(
 
 /**
  * Walks the player of a page in the cave with a key held down, until the
- * page tells it has got where it is to be, and waits until it idles there.
+ * page tells it has gotten where it is to be, and waits until it idles
+ * there.
  *
  * @param {BidiSession} session - The session with the browser.
  * @param {string} context - The browsing context of the page.
  * @param {number} id - The identifier of the player.
  * @param {string} key - The character of the key that walks it that way.
- * @param {(look: CaveLook) => boolean} isThere - Tells whether it has got
- *   there.
+ * @param {(look: CaveLook) => boolean} isThere - Tells whether it has
+ *   gotten there.
  * @param {string} where - Where it is to get, for the error messages.
  * @returns {Promise<CaveLook>} How the page shows it once it idles there.
  * @throws {Error} If it does not get there in time.
@@ -951,7 +955,7 @@ async function lootNorthStoreRoom(
 /**
  * Has the player of a page in its cave, in the north store room, loot the
  * chest and the barrel of the healing potion of the south store room, as
- * {@link checkCaveChambers} tells, the notice of the leather armour checked
+ * {@link checkCaveChambers} tells, the notice of the leather armor checked
  * in Traditional Chinese.
  *
  * @param {BidiSession} session - The session with the browser.
@@ -969,7 +973,7 @@ async function lootSouthStoreRoom(
 ): Promise<void> {
   const look = (): Promise<CaveLook> => readCaveLook(session, context, id);
 
-  // The chest at the back of the south store room, with the armour.
+  // The chest at the back of the south store room, with the armor.
   const south: CaveContainer | undefined = CAVE_CONTAINERS[SOUTH_CHEST];
   await walkInCave(
     session,
@@ -999,10 +1003,10 @@ async function lootSouthStoreRoom(
   await chooseLanguage(session, context, LANGUAGE_CONTROL, ZH_TW_NAME);
   await waitFor(
     look,
-    (seen: CaveLook) => seen.notices.includes(ZH_TW_ARMOUR_NOTICE),
+    (seen: CaveLook) => seen.notices.includes(ZH_TW_ARMOR_NOTICE),
     ACTION_TIMEOUT,
     (seen: CaveLook) =>
-      `With the leather armour looted and "${ZH_TW_NAME}" chosen, the ` +
+      `With the leather armor looted and "${ZH_TW_NAME}" chosen, the ` +
       `first page tells ${describeCaveLook(seen)}.`,
   );
   await sleep(VIEW_SETTLE_DURATION);
@@ -1063,7 +1067,7 @@ async function checkLootInBag(
   await tapKey(session, context, 'i');
   const isShown = (seen: CaveLook): boolean =>
     seen.isBagOpen &&
-    ['sword', 'leather-armour', 'clover'].every((kind: string) =>
+    ['sword', 'leather-armor', 'clover'].every((kind: string) =>
       seen.slots.includes(kind),
     );
   await waitFor(look, isShown, ACTION_TIMEOUT, (seen: CaveLook) =>
@@ -1189,14 +1193,14 @@ async function checkPotionUse(
  * whose five silver coins the bag counts beside its coin, told in a notice
  * and filling no slot, and the chest of the south store
  * room and the barrel with the healing potion in its corner, and opens its
- * bag, which shows the sword, the leather armour and a clover, worded in
+ * bag, which shows the sword, the leather armor and a clover, worded in
  * Traditional Chinese for a moment, with the name of the sword under the
  * slots once its slot is clicked.  Once the slot of the potion is clicked,
  * the menu of the potion offers to use it and to drop it.  If the fights
  * have left the player hurt, both can be chosen, and with Enter, the potion
  * is gone from the bag, and the player gets health back, as much as a
  * potion gives or as it lacks, shown as a heal.  If they have not, using
- * it is greyed out, and Enter leaves the potion in the bag, the menu open
+ * it is grayed out, and Enter leaves the potion in the bag, the menu open
  * and the player at full health.  It closes the bag.  Each
  * item looted is told in a notice, in Traditional Chinese too once it is
  * chosen.  It ends on the middle of the passage, before the store rooms.
@@ -1247,7 +1251,7 @@ async function checkCaveChambers(
  * the page tells the dog is dead.  The player stands where it is, and
  * presses the space bar for a slash whenever the page tells it is not
  * slashing already and the dog stands alive within the reach of a slash,
- * after a tap of the keys that turn it towards the dog if it does not face
+ * after a tap of the keys that turn it toward the dog if it does not face
  * it.  A dog that comes to the player is never out of the reach of its
  * slashes for long, as the dog stops in front of it to bite.
  *
@@ -1311,7 +1315,7 @@ async function fightCaveDog(
       const isFacing: boolean =
         Math.abs(((own.yaw - turn * 45 + 540) % 360) - 180) <= 45;
       if (!isFacing) {
-        // The camera looks west, which turns the keys a quarter round
+        // The camera looks west, which turns the keys by a quarter turn
         // from the first view of the village.
         const keys: readonly string[] = TURN_KEYS[(turn + 6) % 8] ?? [];
         for (const key of keys) {

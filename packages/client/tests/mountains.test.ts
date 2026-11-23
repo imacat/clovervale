@@ -44,10 +44,10 @@ import { CAMERA_FAR, CAMERA_MAX_DISTANCE } from '../src/viewport.ts';
 const BOUNDARY: Boundary = VILLAGE_TERRAIN.boundary;
 /**
  * How far from the ground what the camera looks at can be, at most, in
- * metres.
+ * meters.
  */
 const FOCUS_SLACK = 2;
-/** The least room between the camera and the mountains, in metres. */
+/** The least room between the camera and the mountains, in meters. */
 const CAMERA_CLEARANCE = 10;
 /** The most fog any part of a mountain may be drawn in, from 0 to 1. */
 const MOST_FOG = 0.9;
@@ -55,11 +55,11 @@ const MOST_FOG = 0.9;
 const SKYLINE_DIRECTIONS = 360;
 /** The number of directions every ridge is looked for in. */
 const GAP_DIRECTIONS = 1440;
-/** The height above the ground the gaps are looked for at, in metres. */
+/** The height above the ground the gaps are looked for at, in meters. */
 const GAP_HEIGHT = 3;
 /** The least number of peaks a ridge has. */
 const LEAST_PEAKS = 5;
-/** How far round a peak stands above its neighbours, in degrees. */
+/** How far around a peak stands above its neighbors, in degrees. */
 const PEAK_WINDOW = 8;
 
 /**
@@ -119,7 +119,7 @@ function listCorners(ridge: Mesh): Vector3[] {
  * ground.
  *
  * @param {Vector3} point - The point.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureReach(point: Vector3): number {
   return Math.hypot(point.x - BOUNDARY.x, point.z - BOUNDARY.z);
@@ -130,7 +130,7 @@ function measureReach(point: Vector3): number {
  * boundary along the ground, on average.
  *
  * @param {Mesh} ridge - The ridge.
- * @returns {number} The mean distance, in metres.
+ * @returns {number} The mean distance, in meters.
  */
 function measureMeanReach(ridge: Mesh): number {
   const corners: Vector3[] = listCorners(ridge);
@@ -146,7 +146,7 @@ function measureMeanReach(ridge: Mesh): number {
  * players and the camera go.
  *
  * @param {Vector3} point - The point.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureFarthestView(point: Vector3): number {
   const focus: number = Math.hypot(
@@ -160,7 +160,7 @@ function measureFarthestView(point: Vector3): number {
  * Tells how much fog a point at a depth is drawn in, as three.js draws it.
  *
  * @param {Fog} fog - The fog.
- * @param {number} depth - The depth of the point from the camera, in metres.
+ * @param {number} depth - The depth of the point from the camera, in meters.
  * @returns {number} The amount of fog, from 0 to 1.
  */
 function measureFog(fog: Fog, depth: number): number {
@@ -208,7 +208,7 @@ function measureSkyline(ridge: Mesh, degrees: number): number {
  * point near them.
  *
  * @param {readonly number[]} skyline - The heights of the skyline, one a
- *   degree round.
+ *   degree around.
  * @returns {number[]} The heights of the peaks.
  */
 function findPeaks(skyline: readonly number[]): number[] {
@@ -256,8 +256,8 @@ describe('the mountains around the valley', () => {
     const sky: Color = scene.background as Color;
     const distances: number[] = ridges.map((ridge: Mesh) => {
       expect(ridge.material).toBeInstanceOf(MeshStandardMaterial);
-      const colour: Color = (ridge.material as MeshStandardMaterial).color;
-      return Math.hypot(colour.r - sky.r, colour.g - sky.g, colour.b - sky.b);
+      const color: Color = (ridge.material as MeshStandardMaterial).color;
+      return Math.hypot(color.r - sky.r, color.g - sky.g, color.b - sky.b);
     });
     for (let index = 1; index < distances.length; index++) {
       expect(distances[index]).toBeLessThan(distances[index - 1] ?? 0);
@@ -325,11 +325,11 @@ describe('the mountains around the valley', () => {
 
 describe('tintMountains', () => {
   /**
-   * Lists the colours of the ridges of fresh mountains, and their glow.
+   * Lists the colors of the ridges of fresh mountains, and their glow.
    *
-   * @param {Color} sky - The colour of the sky to tint them with.
+   * @param {Color} sky - The color of the sky to tint them with.
    * @param {number} share - How far to tint them.
-   * @returns {[Color[], Color[], Color[]]} The colours of the ridges as
+   * @returns {[Color[], Color[], Color[]]} The colors of the ridges as
    *   created and as tinted, and the light they give off by themselves,
    *   nearest first.
    */
@@ -350,24 +350,24 @@ describe('tintMountains', () => {
     ];
   }
 
-  it('leaves the mountains in their own colours when untinted', () => {
+  it('leaves the mountains in their own colors when untinted', () => {
     const [own, tinted, glow] = tint(new Color('#e2643c'), 0);
     expect(tinted).toEqual(own);
-    for (const colour of glow) {
-      expect(colour.equals(new Color(0, 0, 0))).toBe(true);
+    for (const color of glow) {
+      expect(color.equals(new Color(0, 0, 0))).toBe(true);
     }
   });
 
-  it('gives them the colour of the sky, nearer ones a little darker', () => {
+  it('gives them the color of the sky, nearer ones a little darker', () => {
     const sky = new Color('#0e1a3c');
     const [, tinted, glow] = tint(sky, 1);
-    for (const colour of tinted) {
-      expect(colour.equals(new Color(0, 0, 0))).toBe(true);
+    for (const color of tinted) {
+      expect(color.equals(new Color(0, 0, 0))).toBe(true);
     }
-    const shades: number[] = glow.map((colour: Color) => {
-      const shade: number = colour.b / sky.b;
-      expect(colour.r).toBeCloseTo(sky.r * shade, 9);
-      expect(colour.g).toBeCloseTo(sky.g * shade, 9);
+    const shades: number[] = glow.map((color: Color) => {
+      const shade: number = color.b / sky.b;
+      expect(color.r).toBeCloseTo(sky.r * shade, 9);
+      expect(color.g).toBeCloseTo(sky.g * shade, 9);
       return shade;
     });
     for (let index = 0; index < shades.length; index++) {

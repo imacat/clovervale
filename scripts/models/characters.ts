@@ -69,7 +69,7 @@ export interface Hair {
   readonly hair: Shape;
   /**
    * The ribbons and other ornaments in the hair, or the streaks of another
-   * colour in it.
+   * color in it.
    */
   readonly accent: Shape;
 }
@@ -79,8 +79,8 @@ export interface Hair {
  * next to the head of a grown-up.
  */
 export interface HeadFit {
-  /** The centre of the head in the rest pose. */
-  readonly centre: Triple;
+  /** The center of the head in the rest pose. */
+  readonly center: Triple;
   /** The size of the head next to that of a grown-up. */
   readonly scale: number;
 }
@@ -89,15 +89,15 @@ export interface HeadFit {
 interface Look {
   /** The hairstyle. */
   readonly style: HairStyle;
-  /** The hair colour as `#rrggbb`. */
+  /** The hair color as `#rrggbb`. */
   readonly hair: string;
-  /** The ribbon colour as `#rrggbb`. */
+  /** The ribbon color as `#rrggbb`. */
   readonly accent: string;
   /** The skin tone. */
   readonly skin: keyof typeof SKINS;
-  /** The tunic colour as `#rrggbb`. */
+  /** The tunic color as `#rrggbb`. */
   readonly tunic: string;
-  /** The trim colour as `#rrggbb`. */
+  /** The trim color as `#rrggbb`. */
   readonly trim: string;
 }
 
@@ -120,7 +120,7 @@ export interface Gait {
   /** The foot pitch in degrees at lift-off. */
   readonly push: number;
   /** The middle of the ground contact. */
-  readonly centre: number;
+  readonly center: number;
 }
 
 /** Where a walking foot is. */
@@ -149,7 +149,7 @@ export interface NpcArm {
 export interface ShinLayer {
   /** The material name. */
   readonly material: string;
-  /** The [radius, height] profile of the layer, turned round the shin. */
+  /** The [radius, height] profile of the layer, turned around the shin. */
   readonly profile: readonly Pair[];
 }
 
@@ -170,8 +170,8 @@ export const SIDES: readonly (readonly [string, number])[] = [
   ['R', -1],
 ];
 
-/** The centre of the head in the rest pose. */
-export const HEAD_CENTRE: Triple = [0, 1.27, 0];
+/** The center of the head in the rest pose. */
+export const HEAD_CENTER: Triple = [0, 1.27, 0];
 
 /** The radii of the head. */
 const HEAD_RADII: Triple = [0.3, 0.285, 0.285];
@@ -261,10 +261,10 @@ export const VARIANTS: readonly Look[] = [
 /**
  * Finds a point on the surface of the head.
  *
- * @param {number} yaw - The angle from the front towards the left, in
+ * @param {number} yaw - The angle from the front toward the left, in
  *   degrees.
  * @param {number} down - The angle below the equator, in degrees.
- * @param {number} factor - The distance from the centre, in head radii.
+ * @param {number} factor - The distance from the center, in head radii.
  * @returns {Triple} The point in model space.
  */
 export function findHeadPoint(
@@ -278,9 +278,9 @@ export function findHeadPoint(
     Math.cos(yaw * DEG) * Math.cos(down * DEG),
   ];
   return [
-    HEAD_CENTRE[0] + direction[0] * HEAD_RADII[0] * factor,
-    HEAD_CENTRE[1] + direction[1] * HEAD_RADII[1] * factor,
-    HEAD_CENTRE[2] + direction[2] * HEAD_RADII[2] * factor,
+    HEAD_CENTER[0] + direction[0] * HEAD_RADII[0] * factor,
+    HEAD_CENTER[1] + direction[1] * HEAD_RADII[1] * factor,
+    HEAD_CENTER[2] + direction[2] * HEAD_RADII[2] * factor,
   ];
 }
 
@@ -294,9 +294,9 @@ export function findHeadPoint(
  * @returns {Shape} The shape on the other head, in model space.
  */
 export function fitToHead(shape: Shape, fit: HeadFit): Shape {
-  const [x, y, z] = HEAD_CENTRE;
+  const [x, y, z] = HEAD_CENTER;
   return place(place(shape, { pos: [-x, -y, -z] }), {
-    pos: fit.centre,
+    pos: fit.center,
     scale: fit.scale,
   });
 }
@@ -320,7 +320,7 @@ export function addHead(model: Model, fit: HeadFit | null = null): void {
   };
   add(
     'skin',
-    place(createEllipsoid(HEAD_RADII, 2), { pos: HEAD_CENTRE }),
+    place(createEllipsoid(HEAD_RADII, 2), { pos: HEAD_CENTER }),
     true,
   );
   for (const side of [1, -1]) {
@@ -366,7 +366,7 @@ export function addHead(model: Model, fit: HeadFit | null = null): void {
  *
  * @param {readonly number[]} lines - How far down the hair reaches, in
  *   degrees from the crown, at nine steps from the front to the back.
- * @param {number} flare - How much the hair stands off the head towards
+ * @param {number} flare - How much the hair stands off the head toward
  *   its lower edge, in head radii.
  * @returns {Shape} The cap in model space.
  */
@@ -380,9 +380,9 @@ function createHairCap(lines: readonly number[], flare: number): Shape {
     const low: number = Math.min(Math.max((phi / DEG - 60) / 60, 0), 1);
     const factor: number = inner ? 0.96 : 1.075 + flare * low * low;
     return new Vector3(
-      HEAD_CENTRE[0] + HEAD_RADII[0] * factor * Math.sin(phi) * Math.sin(theta),
-      HEAD_CENTRE[1] + 0.012 + HEAD_RADII[1] * factor * Math.cos(phi),
-      HEAD_CENTRE[2] -
+      HEAD_CENTER[0] + HEAD_RADII[0] * factor * Math.sin(phi) * Math.sin(theta),
+      HEAD_CENTER[1] + 0.012 + HEAD_RADII[1] * factor * Math.cos(phi),
+      HEAD_CENTER[2] -
         0.012 +
         HEAD_RADII[2] * factor * Math.sin(phi) * Math.cos(theta),
     );
@@ -421,13 +421,13 @@ function createHairCap(lines: readonly number[], flare: number): Shape {
 }
 
 /**
- * Moves shapes given relative to the head centre into model space.
+ * Moves shapes given relative to the head center into model space.
  *
  * @param {readonly Shape[]} shapes - The shapes.
  * @returns {Shape} The merged shape in model space.
  */
 function liftToHead(shapes: readonly Shape[]): Shape {
-  return place(shapes.flat(), { pos: HEAD_CENTRE });
+  return place(shapes.flat(), { pos: HEAD_CENTER });
 }
 
 /**
@@ -711,7 +711,7 @@ export function createHair(style: HairStyle): Hair {
       };
     }
     case 'tufts': {
-      // Short, thick hair cut round the ears, with a ragged fringe over the
+      // Short, thick hair cut around the ears, with ragged bangs over the
       // brow, tufts that stick up all over the crown, and a cowlick standing
       // up at the back of it.
       const spots: Pair[] = [
@@ -788,7 +788,7 @@ export function createHair(style: HairStyle): Hair {
  * Defines the materials every humanoid face needs.
  *
  * @param {Model} model - The model.
- * @param {string} skin - The skin colour as `#rrggbb`.
+ * @param {string} skin - The skin color as `#rrggbb`.
  */
 export function setFaceMaterials(model: Model, skin: string): void {
   model.setMaterial('skin', skin);
@@ -835,11 +835,11 @@ export function addNpcBones(model: Model, arm: NpcArm = NPC_ARM): void {
 }
 
 /**
- * Adds the legs of a grown-up NPC on either side: trousers over the thigh,
+ * Adds the legs of a grown-up NPC on either side: pants over the thigh,
  * the given layers over the shin, and a boot on the foot.
  *
  * @param {Model} model - The model, with the bones of
- *   {@link addNpcBones} and the materials `trousers` and `boot` defined,
+ *   {@link addNpcBones} and the materials `pants` and `boot` defined,
  *   and those of the layers.
  * @param {readonly ShinLayer[]} shin - What covers the shin, from the
  *   first layer added to the last.
@@ -849,7 +849,7 @@ export function addNpcLegs(model: Model, shin: readonly ShinLayer[]): void {
     const moveAside = (shape: Shape): Shape =>
       place(shape, { pos: [NPC_LEG_X * x, 0, 0] });
     model.add(
-      'trousers',
+      'pants',
       moveAside(
         createLathe(
           [
@@ -1236,9 +1236,9 @@ function buildBody(name: string, look: Look): Model {
  * @returns {Step} The ankle position and the foot pitch.
  */
 function computeStance(v: number, gait: Gait): Step {
-  const { duty, stride, ankle, heel, toe, strike, push, centre } = gait;
+  const { duty, stride, ankle, heel, toe, strike, push, center } = gait;
   const travel: number = stride * duty;
-  const contact: number = centre + travel / 2 - (travel * v) / duty;
+  const contact: number = center + travel / 2 - (travel * v) / duty;
   let pitch = 0;
   if (v < 0.25 * duty) {
     pitch = -strike * (1 - v / (0.25 * duty));
@@ -1255,7 +1255,7 @@ function computeStance(v: number, gait: Gait): Step {
  * Computes where a walking foot is at a point of its cycle.
  *
  * The foot lands at phase zero, rolls from the heel to the toe while it
- * moves backwards on the ground at the walking speed, then swings forward.
+ * moves backward on the ground at the walking speed, then swings forward.
  *
  * @param {number} phase - The phase of the cycle; any real number.
  * @param {Gait} gait - The gait.
@@ -1293,7 +1293,7 @@ const GAIT: Gait = {
   toe: 0.17,
   strike: 14,
   push: 32,
-  centre: 0.02,
+  center: 0.02,
 };
 const STANCE = { x: 0.105, yaw: 9 };
 const LEGS: Readonly<Record<'L' | 'R', LegBones>> = {
@@ -1580,6 +1580,6 @@ export function buildCharacter(index: number): BuiltModel {
   );
   const { animations, report } = bakeSharedClips();
   model.animations = animations;
-  model.centreOn(['FootL', 'FootR']);
+  model.centerOn(['FootL', 'FootR']);
   return { model, report };
 }

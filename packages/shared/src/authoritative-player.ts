@@ -60,7 +60,7 @@ export interface InputStamp {
 /** An input of a player, placed in time by its peer. */
 export type StampedInput = PlayerInput & InputStamp;
 
-/** How far a player has got with the inputs of its peer. */
+/** How far a player has gotten with the inputs of its peer. */
 export interface InputProgress {
   /**
    * The number of the last input that has come into effect, or 0 before
@@ -119,7 +119,7 @@ export class AuthoritativePlayer {
   }
 
   /**
-   * How far the player has got with the inputs of its peer by now.
+   * How far the player has gotten with the inputs of its peer by now.
    *
    * @returns {InputProgress} The progress.
    */
@@ -174,7 +174,7 @@ export class AuthoritativePlayer {
    * waiting for their turn still come into effect when it comes.
    *
    * @param {GroundVector} position - Where the player is to stand.
-   * @param {number} yaw - The turn around the Y axis from facing +Z towards
+   * @param {number} yaw - The turn around the Y axis from facing +Z toward
    *   +X, in degrees.
    */
   relocate(position: GroundVector, yaw: number): void {

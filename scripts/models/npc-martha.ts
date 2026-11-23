@@ -149,7 +149,7 @@ const GUARD_GRIP: ForkGrip = {
 const SIT_HIPS = -80;
 
 /**
- * How far she sinks as she sits beaten, in metres, with her hips tipped
+ * How far she sinks as she sits beaten, in meters, with her hips tipped
  * back, to sit on the ground, her skirt resting on its hem.
  */
 const SIT_DROP = 0.1;
@@ -179,8 +179,8 @@ const SIT_HANDS: ForkGrip = {
  * Finds where Martha holds her pitchfork as she thrusts it: level at her
  * waist, pointing forward, her hands a little apart along it.
  *
- * @param {number} reach - How far forward her hands are, in metres.
- * @param {number} rise - How far up her hands are, in metres.
+ * @param {number} reach - How far forward her hands are, in meters.
+ * @param {number} rise - How far up her hands are, in meters.
  * @returns {ForkGrip} Where she holds it.
  */
 function findThrustGrip(reach: number, rise: number): ForkGrip {
@@ -282,7 +282,7 @@ class MarthaPoser {
   readonly rig: Rig;
   /**
    * How far her hands have fallen short of where they were to be since it
-   * was last set to 0, in metres.
+   * was last set to 0, in meters.
    */
   overreach = 0;
   /**
@@ -296,7 +296,7 @@ class MarthaPoser {
   readonly #hand: number;
   /** The index of the bone of the pitchfork. */
   readonly #fork: number;
-  /** Where she looks about her as she idles. */
+  /** Where she looks around her as she idles. */
   readonly #looks: PoseKey[];
 
   /**
@@ -366,7 +366,7 @@ class MarthaPoser {
 
   /**
    * Puts both her hands on the shaft of the pitchfork, her right hand
-   * where it is gripped and her left further along it, towards its head,
+   * where it is gripped and her left further along it, toward its head,
    * which points on from her right hand past her left.
    *
    * @param {Pose} pose - The pose.
@@ -483,7 +483,7 @@ function setMaterials(model: Model): void {
   model.setMaterial('brow', '#4a403c');
   model.setMaterial('lid', '#e8b98f');
   model.setMaterial('blouse', '#f4ecd9');
-  model.setMaterial('waistcoat', '#7b4a2b');
+  model.setMaterial('vest', '#7b4a2b');
   model.setMaterial('button', '#c99a45', { roughness: 0.6 });
   model.setMaterial('belt', '#4a3020');
   model.setMaterial('skirt', '#46597a');
@@ -611,7 +611,7 @@ function addSkirt(model: Model): void {
 }
 
 /**
- * Adds her broad body: the blouse, the waistcoat over it, open down the
+ * Adds her broad body: the blouse, the vest over it, open down the
  * front of the blouse, with brass buttons down its edges, and the clover
  * pinned to it.
  *
@@ -665,7 +665,7 @@ function addBody(model: Model): void {
     'Chest',
   );
   model.add(
-    'waistcoat',
+    'vest',
     place(
       createLathe(
         [
@@ -922,16 +922,16 @@ function bakeSit(poser: MarthaPoser, guardStart: Pose): void {
 
 /**
  * Builds Martha, the village chief: a sturdy woman of mature years, her
- * greying hair gone silver at the temples and coiled in a low knot, in a
- * long skirt and a buttoned waistcoat over a blouse with its sleeves
+ * graying hair gone silver at the temples and coiled in a low knot, in a
+ * long skirt and a buttoned vest over a blouse with its sleeves
  * rolled to the elbows, a small clover pinned to her breast, who stands at
- * ease with her hands on her hips, shifts her weight and looks about her.
+ * ease with her hands on her hips, shifts her weight and looks around her.
  * She walks with her arms swinging.  Holding a pitchfork, which hangs on a
  * bone of its own, `Pitchfork`, for the game to show only while she holds
  * it, she stands and walks on her guard, holding it diagonally across her
  * body in both hands, its tines forward and a little up, in clips of
  * their own, `IdleArmed` and `WalkArmed`; she
- * thrusts it forward with both hands, its tines reaching two metres in
+ * thrusts it forward with both hands, its tines reaching two meters in
  * front of her; and she sits down on the ground, beaten, for a breather,
  * her skirt spread before her, bent a little forward with her hands on her
  * knees and her head bowed, catching her breath, as she has dropped the
@@ -958,6 +958,6 @@ export function buildNpcMartha(): BuiltModel {
   bakeAttack(poser, guardStart);
   bakeSit(poser, guardStart);
   const report: ReadonlyMap<string, ClipReport> = poser.rig.report;
-  model.centreOn([]);
+  model.centerOn([]);
   return { model, report };
 }

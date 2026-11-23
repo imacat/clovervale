@@ -37,28 +37,28 @@ import type { Placement } from './village-layout.ts';
 
 /** A stretch of floor on the ground, square with the axes of the cave. */
 export interface CaveRoom {
-  /** The least extent along X, in metres. */
+  /** The least extent along X, in meters. */
   readonly west: number;
-  /** The greatest extent along X, in metres. */
+  /** The greatest extent along X, in meters. */
   readonly east: number;
-  /** The least extent along Z, in metres. */
+  /** The least extent along Z, in meters. */
   readonly north: number;
-  /** The greatest extent along Z, in metres. */
+  /** The greatest extent along Z, in meters. */
   readonly south: number;
 }
 
-/** The length of the passage, from the foot of the well shaft, in metres. */
+/** The length of the passage, from the foot of the well shaft, in meters. */
 const CAVE_PASSAGE_LENGTH = 20;
 
-/** Half the width of the passage, in metres. */
+/** Half the width of the passage, in meters. */
 export const CAVE_PASSAGE_HALF_WIDTH = 1.5;
 
-/** How deep each side chamber reaches from the passage, in metres. */
+/** How deep each side chamber reaches from the passage, in meters. */
 export const CAVE_CHAMBER_DEPTH = 3.5;
 
 /**
  * The radius of the round bottom of the old well shaft at the west end of
- * the passage, around the foot of the shaft, in metres.
+ * the passage, around the foot of the shaft, in meters.
  */
 export const CAVE_SHAFT_RADIUS: number = CAVE_PASSAGE_HALF_WIDTH;
 
@@ -77,8 +77,8 @@ export const CAVE_PASSAGE: CaveRoom = {
  * Makes the pair of side chambers that open off the passage between two
  * distances from the foot of the well shaft, one on either side.
  *
- * @param {number} west - The distance of their west walls, in metres.
- * @param {number} east - The distance of their east walls, in metres.
+ * @param {number} west - The distance of their west walls, in meters.
+ * @param {number} east - The distance of their east walls, in meters.
  * @returns {readonly [CaveRoom, CaveRoom]} The chamber on the north side,
  *   and the one on the south side.
  */
@@ -119,7 +119,7 @@ export const CAVE_LANDING: Pose = { x: 18.2, z: 0, yaw: -90 };
 
 /**
  * Where the wild dogs of the cave live and come back to life, and which way
- * each faces there: on the middle of the passage, facing east towards the
+ * each faces there: on the middle of the passage, facing east toward the
  * landing, the first by the cells, near enough to the landing to notice a
  * player who arrives there, and the second on the narrow stretch between
  * the cells and the store rooms.
@@ -132,22 +132,22 @@ export const CAVE_DOG_HOMES: readonly Pose[] = [
 /** Where the rope hangs down the old well shaft to the floor. */
 export const CAVE_ROPE: GroundVector = { x: 0, z: 0 };
 
-/** The radius of the coil of the rope on the floor, in metres. */
+/** The radius of the coil of the rope on the floor, in meters. */
 const ROPE_RADIUS = 0.12;
 
-/** The height of the flames of the torches above the floor, in metres. */
+/** The height of the flames of the torches above the floor, in meters. */
 export const CAVE_FLAME_HEIGHT = 1.95;
 
 /**
  * How far a torch stands out from the wall it hangs on, from the wall to
- * the front of its bracket, in metres.  Its model stands at the middle of
+ * the front of its bracket, in meters.  Its model stands at the middle of
  * that.
  */
 export const CAVE_TORCH_DEPTH = 0.3;
 
 /**
  * How far in front of the middle of its model the flame of a torch burns,
- * in metres.
+ * in meters.
  */
 export const CAVE_FLAME_AHEAD = 0.06;
 
@@ -164,9 +164,9 @@ export const CAVE_MOUTH: GroundVector = { x: 23, z: 0 };
 /**
  * The outline of the opening of the mouth of the burrow in the face of the
  * rock, as it is seen from down the slope: points across the passage, from
- * north to south, and their heights, in metres, round the opening from the
- * foot of its north side over its top to the foot of its south side, the
- * foot lying on the top of the slope.
+ * north to south, and their heights, in meters, going around the opening
+ * from the foot of its north side over its top to the foot of its south
+ * side, the foot lying on the top of the slope.
  */
 export const CAVE_MOUTH_OUTLINE: readonly (readonly [
   across: number,
@@ -186,19 +186,19 @@ export const CAVE_MOUTH_OUTLINE: readonly (readonly [
 
 /**
  * How far the bars of a cell reach to either side of the edge of the
- * passage they stand on, in metres.
+ * passage they stand on, in meters.
  */
 const CAVE_BARS_HALF_DEPTH = 0.05;
 
 /**
  * How far behind the bars of his cell the prisoner stands, from their
- * middle to his, in metres: close enough for his hands to hold them.
+ * middle to his, in meters: close enough for his hands to hold them.
  */
 export const CAVE_EDWIN_BEHIND_BARS = 0.42;
 
 /**
  * Half the depth of the bones of the dead prisoner, from the middle of
- * their model to the back wall they lean on, in metres.
+ * their model to the back wall they lean on, in meters.
  */
 const SKELETON_HALF_DEPTH = 0.385;
 
@@ -234,7 +234,7 @@ export const CAVE_CONTAINER_MODELS: Readonly<
   barrel: { closed: 'cave-barrel', open: 'cave-barrel-open' },
 };
 
-/** The radius of a barrel, round the widest of its belly, in metres. */
+/** The radius of a barrel, at the widest of its belly, in meters. */
 const BARREL_RADIUS = 0.3;
 
 /** Half the width of a chest, from its middle to the end of a handle. */
@@ -244,7 +244,7 @@ const CHEST_HALF_WIDTH = 0.52;
 const CHEST_HALF_DEPTH = 0.3;
 
 /**
- * Finds the way the front of a barrel in a corner faces: towards the middle
+ * Finds the way the front of a barrel in a corner faces: toward the middle
  * of its store room.
  *
  * @param {GroundVector} at - Where the barrel stands.
@@ -262,12 +262,12 @@ function faceMiddle(at: GroundVector, room: CaveRoom): number {
  * The containers in the store rooms, numbered by their place in the list,
  * from 0, each along a wall with room to walk up to it: in the north store
  * room, a chest with a sword against its back wall, a barrel with a
- * four-leaved clover in its corner to the west of the chest, and a barrel
+ * four-leaf clover in its corner to the west of the chest, and a barrel
  * with no item but five silver coins against its east wall near the
  * passage; in the south store room,
- * a chest with a leather armour against its back wall, a barrel with a
+ * a chest with some leather armor against its back wall, a barrel with a
  * healing potion in its corner to the east of the chest, and a barrel with
- * a four-leaved clover against its west wall near the passage.
+ * a four-leaf clover against its west wall near the passage.
  */
 export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
   const [north, south] = CAVE_STORE_ROOMS;
@@ -300,7 +300,7 @@ export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
       x: middle,
       z: chestZ,
       yaw: 180,
-      item: 'leather-armour',
+      item: 'leather-armor',
     },
     {
       kind: 'barrel',
@@ -318,7 +318,7 @@ export const CAVE_CONTAINERS: readonly CaveContainer[] = (() => {
  * on: from 2.75 m west of the foot of the well shaft to 23.25 m east of
  * it, and 6.5 m either side of the passage.
  */
-export const CAVE_MODEL_CENTRE: GroundVector = { x: 10.25, z: 0 };
+export const CAVE_MODEL_CENTER: GroundVector = { x: 10.25, z: 0 };
 
 /**
  * Where each torch on the walls of the passage stands, as the wall it hangs
@@ -338,7 +338,7 @@ const TORCH_SPOTS: readonly Pose[] = TORCH_DISTANCES.flatMap(
 
 /**
  * Where Edwin, the prisoner in the north cell, stands, and which way he
- * faces: right behind the bars of his cell, half way along them, facing
+ * faces: right behind the bars of his cell, halfway along them, facing
  * the passage.
  */
 export const CAVE_EDWIN_POST: Pose = {
@@ -351,7 +351,7 @@ export const CAVE_EDWIN_POST: Pose = {
  * Where the models of the cave stand, but for its containers: the rock,
  * the floor and the stonework in one; the torches on the walls of the
  * passage; the bars across the opening of each cell, along the edge of the
- * passage; the prisoner in the north cell, right behind its bars, half way
+ * passage; the prisoner in the north cell, right behind its bars, halfway
  * along them, facing the passage; and the bones of a dead prisoner in the
  * south cell, slumped against its back wall, facing the passage.
  */
@@ -362,8 +362,8 @@ export const CAVE_PLACEMENTS: readonly Placement[] = (() => {
   return [
     {
       model: 'cave',
-      x: CAVE_MODEL_CENTRE.x,
-      z: CAVE_MODEL_CENTRE.z,
+      x: CAVE_MODEL_CENTER.x,
+      z: CAVE_MODEL_CENTER.z,
       yaw: 0,
     },
     ...TORCH_SPOTS.map(
@@ -417,7 +417,7 @@ function makeBox(
 /**
  * Makes the square of rock that rounds off a corner of the bottom of the
  * well shaft, turned to face the foot of the shaft, its face meeting the
- * round of the shaft.
+ * curve of the shaft.
  *
  * @param {number} side - -1 for the corner on the north, 1 for the one on
  *   the south.
@@ -436,12 +436,12 @@ function makeShaftCorner(side: number): Shape {
   };
 }
 
-/** How far the rock reaches out from the cave on every side, in metres. */
+/** How far the rock reaches out from the cave on every side, in meters. */
 const ROCK_REACH = 4;
 
 /**
  * The ground the models of the cave take up where nobody can walk, in the
- * frame of the cave: the rock all round the passage and its side chambers,
+ * frame of the cave: the rock all around the passage and its side chambers,
  * the stonework at the bottom of the well shaft, the slope up to the
  * burrow, which rises too steeply to climb, and the coil of the rope on
  * the floor.  The torches hang above the heads of the players.

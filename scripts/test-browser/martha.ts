@@ -81,7 +81,7 @@ interface MarthaLook {
   readonly dialogue: DialogueShown | null;
   /** The kinds of the items in the slots of the bag. */
   readonly slots: readonly string[];
-  /** The notices of the items got. */
+  /** The notices of the items received. */
   readonly notices: readonly string[];
 }
 
@@ -95,7 +95,7 @@ const MARTHA_ASK: DialogueShown = {
   name: 'Chief Martha',
   line: 'Who are you? What were you doing down the well?',
   replies: [
-    "Chief! There's a royal envoy locked up down the well. Quick, go and " +
+    "Chief! There's a royal envoy locked up down the well. Quick, go " +
       'save him!',
   ],
   cursor: 0,
@@ -105,7 +105,7 @@ const MARTHA_CONFESSION: DialogueShown = {
   name: 'Chief Martha',
   line:
     "Hmph, so you found out! I'm an enemy spy. That royal envoy tried to " +
-    "sneak off with what he'd learnt, so I caught him and locked him up. " +
+    "sneak off with what he'd learned, so I caught him and locked him up. " +
     'Now that you know too, you can stay and keep him company!',
   replies: [],
   cursor: 0,
@@ -117,7 +117,7 @@ const THRUST_VIEW_COUNT = 10;
 /** How long after each other the views of a thrust are saved, in ms. */
 const THRUST_VIEW_INTERVAL = 60;
 /**
- * How far the camera is turned round the player to look at Martha from
+ * How far the camera is turned around the player to look at Martha from
  * the side, the side of the well, away from the great tree, as a share of
  * the height of the view to drag across.
  */
@@ -367,7 +367,7 @@ export async function checkMartha(
       const isFacing: boolean =
         Math.abs(((own.yaw - turn * 45 + 540) % 360) - 180) <= 45;
       const isNear: boolean = apart <= SLASH_REACH - 0.1;
-      // The player steps towards her while she is out of its reach, and
+      // The player steps toward her while she is out of its reach, and
       // turns to face her where it is not facing her.
       if (!isNear || !isFacing) {
         // The keys walk the way they do as the camera looks, which a key

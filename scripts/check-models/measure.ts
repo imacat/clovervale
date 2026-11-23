@@ -58,7 +58,7 @@ export interface ClipMeasurements {
   readonly footSpeeds: ReadonlyMap<string, number>;
   /**
    * The lowest point the hands reach, and how far in front of the feet the
-   * hands are then, in metres, if the model has hands.
+   * hands are then, in meters, if the model has hands.
    */
   readonly handReach: readonly [low: number, ahead: number] | null;
 }
@@ -79,7 +79,7 @@ export interface ModelMeasurements {
 
 /**
  * The speed each clip in which the feet tread the ground stands for, in
- * metres per second, by the length of the clip in seconds: a `Walk` cycle
+ * meters per second, by the length of the clip in seconds: a `Walk` cycle
  * stands for 1.5 m, and a `Run` of Toby for his speed.
  */
 export const TREADING_SPEEDS: Readonly<
@@ -89,17 +89,17 @@ export const TREADING_SPEEDS: Readonly<
    * Finds the speed a `Walk` cycle stands for.
    *
    * @param {number} duration - The length of the cycle, in seconds.
-   * @returns {number} The speed, in metres per second.
+   * @returns {number} The speed, in meters per second.
    */
   Walk: (duration: number) => 1.5 / duration,
   /**
    * Finds the speed a `Run` of Toby stands for.
    *
-   * @returns {number} The speed, in metres per second.
+   * @returns {number} The speed, in meters per second.
    */
   Run: () => TOBY_RUN_SPEED,
 };
-/** The greatest height of a point that touches the ground, in metres. */
+/** The greatest height of a point that touches the ground, in meters. */
 const CONTACT_HEIGHT = 0.004;
 
 /**

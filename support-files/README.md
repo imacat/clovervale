@@ -2,7 +2,7 @@ Clovervale
 ==========
 
 Clovervale (四葉谷) is a small learning MMORPG for studying network state
-synchronisation.  This is a ready-to-run release.  The programs are
+synchronization.  This is a ready-to-run release.  The programs are
 bundled with their dependencies, so there is nothing to install except
 [Node.js] 24 or later.
 
@@ -15,8 +15,8 @@ Contents
 | `client/`                  | The browser client, as static files.        |
 | `bots/bots.cjs`            | The headless bots.                          |
 | `support-files/`           | Example files for deploying on a web site.  |
-| `LICENSE`                  | The licence of Clovervale.                  |
-| `THIRD-PARTY-LICENSES.txt` | The licences of the bundled dependencies.   |
+| `LICENSE`                  | The license of Clovervale.                  |
+| `THIRD-PARTY-LICENSES.txt` | The licenses of the bundled dependencies.   |
 
 Running
 -------

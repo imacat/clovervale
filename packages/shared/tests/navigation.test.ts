@@ -25,7 +25,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   Terrain,
   VILLAGE_TERRAIN,
   findSpawnPoint,
@@ -34,7 +34,7 @@ import {
 import type { GroundVector, Shape } from '../src/index.ts';
 import { NavigationGraph } from '../src/navigation.ts';
 
-/** A wall six metres wide across the Z axis, at the origin. */
+/** A wall six meters wide across the Z axis, at the origin. */
 const WALL: Shape = {
   shape: 'box',
   x: 0,
@@ -116,7 +116,7 @@ describe('NavigationGraph.findPath', () => {
 
 describe('findMapPath in the village', () => {
   it('goes around the fountain, from the spawn points to behind it', () => {
-    const behind: GroundVector = { x: PLAZA_CENTRE.x, z: PLAZA_CENTRE.z - 2.7 };
+    const behind: GroundVector = { x: PLAZA_CENTER.x, z: PLAZA_CENTER.z - 2.7 };
     for (let index = 0; index < 8; index++) {
       const from: GroundVector = findSpawnPoint(index);
       const path: GroundVector[] | null = findMapPath('village', from, behind);

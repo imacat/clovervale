@@ -26,7 +26,7 @@ import { Vector3 } from 'three';
 
 import { SIMULATION_RATE, TOBY_ACTIVITY_STEPS } from '@clovervale/shared';
 import type { TobyActivity } from '@clovervale/shared';
-import { MODEL_FILES } from '../../packages/client/src/model-catalogue.ts';
+import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import { TOLERANCE } from './constants.ts';
 import type { Check } from './constants.ts';
@@ -99,9 +99,9 @@ const CHILD_ACTIVITY_DURATIONS: Readonly<Record<TobyActivity, number>> = {
 };
 /**
  * The shortest and the longest each clip of Toby may last, in seconds:
- * squatting down, standing up and turning round each as long as his course
+ * squatting down, standing up and turning around each as long as his course
  * gives them, no round of picking or stride of his run longer than his
- * picking or his run, and his picking when he finds a four-leaved clover
+ * picking or his run, and his picking when he finds a four-leaf clover
  * as long as his picking.
  */
 const CHILD_CLIP_DURATIONS: Readonly<
@@ -136,13 +136,13 @@ const CHILD_CLIP_CHAIN: Readonly<
 };
 /**
  * The highest the hands of Toby must come down to as he picks at the
- * clover, in metres: among its leaves, a centimetre below the tops of the
+ * clover, in meters: among its leaves, a centimeter below the tops of the
  * tallest, which reach up to 13 cm.
  */
 const CLOVER_HEIGHT = 0.12;
 /**
  * The least distance in front of the middle of his feet the hands of Toby
- * must reach down at as he picks, in metres: over the patch of clover,
+ * must reach down at as he picks, in meters: over the patch of clover,
  * whose edge lies just in front of his toes.
  */
 const CLOVER_AHEAD = 0.12;
@@ -236,11 +236,11 @@ function checkTobyClips(measured: ModelMeasurements, check: Check): void {
     'Run does not set both feet on the ground',
   );
   const reach = measured.clips.get('Pick')?.handReach ?? null;
-  const centre: number = measured.feet?.getCenter(new Vector3()).z ?? 0;
+  const center: number = measured.feet?.getCenter(new Vector3()).z ?? 0;
   check(
     reach !== null &&
       reach[0] <= CLOVER_HEIGHT &&
-      reach[1] - centre >= CLOVER_AHEAD,
+      reach[1] - center >= CLOVER_AHEAD,
     'Pick does not reach down into the clover in front of him',
   );
 }

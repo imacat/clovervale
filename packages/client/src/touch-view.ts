@@ -107,7 +107,7 @@ function isCoarsePointer(): boolean {
  * finger on the stick walks the player, one on the scene turns the view
  * and two there zoom, as {@link TouchControls} tells; a finger on the scene
  * is kept from the mouse controls of the camera.  The action button is
- * carried out as it is pressed.  Turning the device round lets go of every
+ * carried out as it is pressed.  Turning the device around lets go of every
  * finger.  No long press opens a menu while the page is used by touch, but
  * on the line of the box of the chat, where the menu of the browser
  * selects, copies, cuts and pastes as in any line of text.

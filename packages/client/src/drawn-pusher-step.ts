@@ -67,7 +67,7 @@ export class DrawnPusherStep {
    * reckons from when the server takes in its inputs.  It goes on evenly
    * with the clock of the page, whether the player walks or rests.  When
    * the page reckons differently, it catches up little by little, running a
-   * little faster or slower, and never backwards, unless it is far off, when
+   * little faster or slower, and never backward, unless it is far off, when
    * it starts over at once.
    *
    * @param {number} time - The time on the clock of the page, in

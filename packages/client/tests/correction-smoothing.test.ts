@@ -60,7 +60,7 @@ const FRAME = 16;
 
 /**
  * The most the drawn player may move from one frame to the next while it
- * rests and corrections move it, in metres.
+ * rests and corrections move it, in meters.
  */
 const FRAME_STEP_BOUND = 0.1;
 
@@ -78,7 +78,7 @@ const AFTER: PlayerMotion = createMotion({ x: 2.3, z: -3 }, 180);
  *
  * @param {GroundVector} a - One place.
  * @param {GroundVector} b - The other place.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureApart(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
@@ -88,8 +88,8 @@ function measureApart(a: GroundVector, b: GroundVector): number {
  * Moves a motion to another place, keeping everything else.
  *
  * @param {PlayerMotion} motion - The motion.
- * @param {number} x - The position along the X axis, in metres.
- * @param {number} z - The position along the Z axis, in metres.
+ * @param {number} x - The position along the X axis, in meters.
+ * @param {number} z - The position along the Z axis, in meters.
  * @returns {PlayerMotion} The motion at that place.
  */
 function moveTo(motion: PlayerMotion, x: number, z: number): PlayerMotion {
@@ -108,7 +108,7 @@ interface RestingRun {
   readonly lastCorrection: number | null;
   /** The number of corrections. */
   readonly correctionCount: number;
-  /** How far the largest correction moved the player, in metres. */
+  /** How far the largest correction moved the player, in meters. */
   readonly largestCorrection: number;
   /**
    * Whether the prediction, set right with its corrections smoothed, told
@@ -124,7 +124,7 @@ interface RestingRun {
  * @param {number} latency - How long a snapshot takes to reach the page,
  *   in whole milliseconds.
  * @param {number} offRun - How far off the line of his run the player
- *   rests, in metres.
+ *   rests, in meters.
  * @returns {RestingRun} How the player was drawn.
  */
 function playResting(latency: number, offRun: number): RestingRun {

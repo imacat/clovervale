@@ -21,7 +21,7 @@
  * @module shared/movement Movement rules applied by the server and its peers.
  */
 
-/** The speed a character walks at, in metres per second. */
+/** The speed a character walks at, in meters per second. */
 export const WALK_SPEED = 1.5;
 
 /** The number of steps the simulation of the world takes every second. */
@@ -53,7 +53,7 @@ export function countSteps(seconds: number): number {
  *
  * @param {GroundVector} a - One point.
  * @param {GroundVector} b - The other point.
- * @returns {number} The distance between them, in metres.
+ * @returns {number} The distance between them, in meters.
  */
 export function measureDistance(a: GroundVector, b: GroundVector): number {
   const dx: number = a.x - b.x;
@@ -94,7 +94,7 @@ export function movePosition(
  * Finds the yaw of a character that faces a direction.
  *
  * @param {GroundVector} direction - The direction to face.
- * @returns {number} The turn around the Y axis from facing +Z towards +X, in
+ * @returns {number} The turn around the Y axis from facing +Z toward +X, in
  *   degrees, above -180 and up to 180.
  */
 export function findYaw(direction: GroundVector): number {

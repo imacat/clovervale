@@ -32,20 +32,20 @@ import type { MouthLight } from '../src/cave-scene.ts';
 const MIDNIGHT = 0;
 
 /**
- * Finds the brightest channel of the colour of the mouth of the burrow.
+ * Finds the brightest channel of the color of the mouth of the burrow.
  *
  * @param {MouthLight} light - The light at the mouth.
  * @returns {number} The brightest channel, from 0.
  */
 function findBrightest(light: MouthLight): number {
-  const { r, g, b } = light.colour;
+  const { r, g, b } = light.color;
   return Math.max(r, g, b);
 }
 
 describe('findMouthLight', () => {
   it('shows white daylight at noon, at full strength', () => {
     const light: MouthLight = findMouthLight(NOON);
-    const { r, g, b } = light.colour;
+    const { r, g, b } = light.color;
     expect(Math.min(r, g, b)).toBeGreaterThan(0.8 * findBrightest(light));
     expect(light.strength).toBe(1);
   });
@@ -54,7 +54,7 @@ describe('findMouthLight', () => {
     const noon: MouthLight = findMouthLight(NOON);
     for (const phase of ['dusk', 'dawn'] as const) {
       const light: MouthLight = findMouthLight(findPhaseTime(phase, 0.5));
-      expect(light.colour.r).toBeGreaterThan(light.colour.b * 1.2);
+      expect(light.color.r).toBeGreaterThan(light.color.b * 1.2);
       expect(findBrightest(light)).toBeLessThan(findBrightest(noon));
       expect(light.strength).toBeLessThan(noon.strength);
     }
@@ -63,7 +63,7 @@ describe('findMouthLight', () => {
   it('shows dim blue moonlight at night, dimmer than at dusk', () => {
     const night: MouthLight = findMouthLight(MIDNIGHT);
     const dusk: MouthLight = findMouthLight(findPhaseTime('dusk', 0.5));
-    expect(night.colour.b).toBeGreaterThan(night.colour.r);
+    expect(night.color.b).toBeGreaterThan(night.color.r);
     expect(findBrightest(night)).toBeGreaterThan(0);
     expect(findBrightest(night)).toBeLessThan(findBrightest(dusk));
     expect(night.strength).toBeLessThan(dusk.strength);

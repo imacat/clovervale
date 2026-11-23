@@ -28,12 +28,12 @@
 
 import type { GroundVector } from './movement.ts';
 
-/** The radius of the body of a player on the ground, in metres. */
+/** The radius of the body of a player on the ground, in meters. */
 export const PLAYER_RADIUS = 0.3;
 
 /**
  * How far a player may reach into an obstacle and still count as touching
- * it only, in metres, to allow for rounding.
+ * it only, in meters, to allow for rounding.
  */
 const OVERLAP_TOLERANCE = 1e-9;
 
@@ -53,11 +53,11 @@ export interface Turn {
 
 /** Where something stands on the ground, and which way it faces. */
 export interface Pose {
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
 }
 
@@ -65,27 +65,27 @@ export interface Pose {
 export interface CircleShape {
   /** The shape discriminator. */
   readonly shape: 'circle';
-  /** The centre along the X axis, in metres. */
+  /** The center along the X axis, in meters. */
   readonly x: number;
-  /** The centre along the Z axis, in metres. */
+  /** The center along the Z axis, in meters. */
   readonly z: number;
-  /** The radius, in metres. */
+  /** The radius, in meters. */
   readonly radius: number;
 }
 
-/** A rectangle on the ground, turned around its centre. */
+/** A rectangle on the ground, turned around its center. */
 export interface BoxShape {
   /** The shape discriminator. */
   readonly shape: 'box';
-  /** The centre along the X axis, in metres. */
+  /** The center along the X axis, in meters. */
   readonly x: number;
-  /** The centre along the Z axis, in metres. */
+  /** The center along the Z axis, in meters. */
   readonly z: number;
-  /** Half the size along its own X axis, in metres. */
+  /** Half the size along its own X axis, in meters. */
   readonly halfWidth: number;
-  /** Half the size along its own Z axis, in metres. */
+  /** Half the size along its own Z axis, in meters. */
   readonly halfDepth: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
 }
 
@@ -94,11 +94,11 @@ export type Shape = CircleShape | BoxShape;
 
 /** The circle on the ground that players cannot leave. */
 export interface Boundary {
-  /** The centre along the X axis, in metres. */
+  /** The center along the X axis, in meters. */
   readonly x: number;
-  /** The centre along the Z axis, in metres. */
+  /** The center along the Z axis, in meters. */
   readonly z: number;
-  /** The radius, in metres. */
+  /** The radius, in meters. */
   readonly radius: number;
 }
 
@@ -108,15 +108,15 @@ interface Obstacle {
   readonly shape: Shape;
   /** The turn of the shape, for a box. */
   readonly turn: Turn;
-  /** The distance from the centre of the shape to its farthest point. */
+  /** The distance from the center of the shape to its farthest point. */
   readonly reach: number;
 }
 
 /** A point, as the position of a player that can be changed in place. */
 interface Spot {
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   z: number;
 }
 
@@ -189,11 +189,11 @@ export function placePoint(pose: Pose, local: GroundVector): GroundVector {
  * @returns {Shape} The shape in the world.
  */
 export function placeShape(pose: Pose, shape: Shape): Shape {
-  const centre: GroundVector = placePoint(pose, shape);
+  const center: GroundVector = placePoint(pose, shape);
   if (shape.shape === 'circle') {
-    return { ...shape, x: centre.x, z: centre.z };
+    return { ...shape, x: center.x, z: center.z };
   }
-  return { ...shape, x: centre.x, z: centre.z, yaw: pose.yaw + shape.yaw };
+  return { ...shape, x: center.x, z: center.z, yaw: pose.yaw + shape.yaw };
 }
 
 /**
@@ -325,7 +325,7 @@ export class Terrain {
   }
 
   /**
-   * Finds where a player that walks from one point towards another ends
+   * Finds where a player that walks from one point toward another ends
    * up, with the obstacles in its way.
    *
    * A player that walks into an obstacle at an angle slides along it, and
@@ -366,7 +366,7 @@ export class Terrain {
    *
    * @param {GroundVector} point - The point.
    * @param {number} [clearance] - The least room the player must have
-   *   between itself and every obstacle and the boundary, in metres, or
+   *   between itself and every obstacle and the boundary, in meters, or
    *   none by default, when merely touching is clear.
    * @returns {boolean} Whether the player has that room there.
    */
@@ -403,7 +403,7 @@ export class Terrain {
    * @param {GroundVector} to - Where the walk ends.
    * @param {number} [clearance] - The least room the player must have
    *   along the way between itself and every obstacle and the boundary, in
-   *   metres, or none by default, when merely touching is clear.
+   *   meters, or none by default, when merely touching is clear.
    * @returns {boolean} Whether the player has that room all the way.
    */
   isPathClear(
@@ -442,7 +442,7 @@ export class Terrain {
 }
 
 /**
- * Turns an offset from the centre of a box into the frame of the box.
+ * Turns an offset from the center of a box into the frame of the box.
  *
  * @param {number} dx - The offset along the X axis of the world.
  * @param {number} dz - The offset along the Z axis of the world.
@@ -491,8 +491,8 @@ function measureSegmentFromBox(
  *
  * @param {GroundVector} point - The point.
  * @param {Boundary} boundary - The boundary.
- * @param {number} least - The room the centre of the player must have from
- *   the boundary, in metres.
+ * @param {number} least - The room the center of the player must have from
+ *   the boundary, in meters.
  * @returns {boolean} Whether it has.
  */
 function isWithin(

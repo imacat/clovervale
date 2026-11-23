@@ -55,7 +55,7 @@ import type {
   MonsterState,
   PlayerState,
   Quest,
-  SlashJudgement,
+  SlashJudgment,
   SnapshotMessage,
 } from '../src/index.ts';
 
@@ -103,7 +103,7 @@ const HEAL: HealEvent = {
   amount: 30,
 };
 
-/** How far the player of a peer has got, to put in snapshots. */
+/** How far the player of a peer has gotten, to put in snapshots. */
 const OWN: InputProgress = {
   sequence: 12,
   steps: 3,
@@ -147,7 +147,7 @@ const DIALOGUE: DialogueView = {
 const ITEM: GroundItem = { id: 4, kind: 'clover', x: 2.5, z: -9.25 };
 
 /** How a slash was judged, to put in snapshots. */
-const SLASH: SlashJudgement = { step: 40, rewind: 312.5, isHit: true };
+const SLASH: SlashJudgment = { step: 40, rewind: 312.5, isHit: true };
 
 /**
  * Creates a snapshot message that tells of the players, the monsters and
@@ -158,8 +158,8 @@ const SLASH: SlashJudgement = { step: 40, rewind: 312.5, isHit: true };
  *   taken.
  * @param {readonly PlayerState[]} players - The players.
  * @param {readonly MonsterState[]} monsters - The monsters.
- * @param {InputProgress} own - How far the player of the peer has got with
- *   the inputs of the peer.
+ * @param {InputProgress} own - How far the player of the peer has gotten
+ *   with the inputs of the peer.
  * @returns {SnapshotMessage} The snapshot message.
  */
 function createPlainSnapshot(
@@ -615,7 +615,7 @@ describe('the server message codec', () => {
     ['looks back by a negative time', { slash: { ...SLASH, rewind: -1 } }],
     ['looks back by no number', { slash: { ...SLASH, rewind: '1' } }],
     ['tells no hit or miss', { slash: { ...SLASH, isHit: 1 } }],
-  ])('rejects a snapshot whose judgement of a slash %s', (_, flaw) => {
+  ])('rejects a snapshot whose judgment of a slash %s', (_, flaw) => {
     const data = JSON.stringify({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -715,7 +715,7 @@ describe('the server message codec', () => {
       view: {
         own: OWN,
         slash: null,
-        inventory: ['sword', 'leather-armour', 'clover'],
+        inventory: ['sword', 'leather-armor', 'clover'],
         silver: 0,
         dialogue: null,
         acquaintances: [],
@@ -725,7 +725,7 @@ describe('the server message codec', () => {
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
       type: 'snapshot',
       looted: [0, 4],
-      inventory: ['sword', 'leather-armour', 'clover'],
+      inventory: ['sword', 'leather-armor', 'clover'],
     });
   });
 
@@ -872,7 +872,7 @@ describe('the server message codec', () => {
     expect(() => decodeServerMessage(data)).toThrow();
   });
 
-  it('decodes a snapshot message that tells how far the quests have got', () => {
+  it('decodes a snapshot message that tells how far the quests have gotten', () => {
     const message = createSnapshotMessage({
       step: 4,
       players: [PLAYER],

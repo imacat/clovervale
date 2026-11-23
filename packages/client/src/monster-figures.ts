@@ -30,11 +30,11 @@ import type { MonsterKindId, MonsterState } from '@clovervale/shared';
 import { Actor } from './actor.ts';
 import type { FigureFrame, FigureSet } from './figure-set.ts';
 import { HealthBar } from './health-bar.ts';
-import { MONSTER_MODELS } from './model-catalogue.ts';
+import { MONSTER_MODELS } from './model-catalog.ts';
 import type { Figure } from './player-figures.ts';
 
-/** The colour of the health bars of the monsters. */
-const HEALTH_COLOUR = '#e0453a';
+/** The color of the health bars of the monsters. */
+const HEALTH_COLOR = '#e0453a';
 
 /**
  * Makes the model to show a monster of a kind with.
@@ -48,11 +48,11 @@ export type MonsterSource = (kind: MonsterKindId) => Figure | null;
 export interface MonsterView {
   /** The identifier of the monster. */
   readonly id: number;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
   /** The name of the clip the monster plays, or `null` if it has none. */
   readonly clip: string | null;
@@ -211,7 +211,7 @@ export class MonsterFigures implements FigureSet {
     const shown: ShownMonster = {
       root: figure.root,
       actor: new Actor(figure.root, figure.clips),
-      bar: new HealthBar(figure.root, HEALTH_COLOUR),
+      bar: new HealthBar(figure.root, HEALTH_COLOR),
       weapon: bone === null ? null : (figure.root.getObjectByName(bone) ?? null),
       actionCount: monster.actionCount,
       isArmed: monster.isArmed === true,

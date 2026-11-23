@@ -28,7 +28,7 @@ import path from 'node:path';
 
 import { Vector3 } from 'three';
 
-import { MODEL_FILES } from '../../packages/client/src/model-catalogue.ts';
+import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import { checkClips } from './clips.ts';
 import { TOLERANCE, modelsDir } from './constants.ts';
@@ -86,7 +86,7 @@ const validator = createRequire(import.meta.url)(
 ) as Validator;
 
 /**
- * The bounds of the height of Toby, in metres: clearly shorter than the
+ * The bounds of the height of Toby, in meters: clearly shorter than the
  * grown-ups, which stand 1.5 m to 1.8 m tall.
  */
 const CHILD_HEIGHT: readonly [number, number] = [1, 1.2];
@@ -94,7 +94,7 @@ const CHILD_HEIGHT: readonly [number, number] = [1, 1.2];
 const SEVERITIES: readonly string[] = ['error', 'warning', 'info', 'hint'];
 
 /**
- * Checks the size of a static model: that its origin is the centre of its
+ * Checks the size of a static model: that its origin is the center of its
  * footprint, and that the models the village has a size for are that
  * size.
  *
@@ -112,7 +112,7 @@ function checkStaticSize(
   const height: number = max.y;
   check(
     Math.abs(min.x + max.x) < 2e-3 && Math.abs(min.z + max.z) < 2e-3,
-    'origin is not the centre of the footprint',
+    'origin is not the center of the footprint',
   );
   if (file === MODEL_FILES['weapon-shop']) {
     check(
@@ -132,14 +132,14 @@ function checkStaticSize(
   if (file === MODEL_FILES['chief-house']) {
     // The largest house of the village: much wider than a cottage, which
     // is 5.5 m across under its roof and 5.4 m tall, and with its two
-    // storeys well above it, yet under a roof of a gentle pitch that does
+    // stories well above it, yet under a roof of a gentle pitch that does
     // not tower, and not so large as to crowd its corner.
     check(height >= 7 && height <= 8.2, `height ${String(height)}`);
     check(size.x >= 7.5 && size.x <= 9, `width ${String(size.x)}`);
     check(size.z <= 8, `depth ${String(size.z)}`);
   }
   if (file === MODEL_FILES['yard-wall']) {
-    // A two-metre stretch that reaches a little past each end, about
+    // A two-meter stretch that reaches a little past each end, about
     // thigh-high on a player, low enough to see the porch over.
     check(size.x >= 2 && size.x <= 2.4, `length ${String(size.x)}`);
     check(height >= 0.6 && height <= 0.8, `height ${String(height)}`);
@@ -195,10 +195,10 @@ function checkOriginAndSize(
     checkStaticSize(file, measured, check);
   }
   if (measured.feet !== null) {
-    const centre: Vector3 = measured.feet.getCenter(new Vector3());
+    const center: Vector3 = measured.feet.getCenter(new Vector3());
     check(
-      Math.abs(centre.x) < 2e-3 && Math.abs(centre.z) < 2e-3,
-      'origin is not the centre of the feet',
+      Math.abs(center.x) < 2e-3 && Math.abs(center.z) < 2e-3,
+      'origin is not the center of the feet',
     );
   }
   const front: Vector3 | undefined =

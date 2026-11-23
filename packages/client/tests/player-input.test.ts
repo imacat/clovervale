@@ -51,7 +51,7 @@ import {
   findKeyCommand,
 } from '../src/player-input.ts';
 
-/** The heading of a camera that looks towards -Z, in degrees. */
+/** The heading of a camera that looks toward -Z, in degrees. */
 const NORTHWARD = 180;
 
 /**
@@ -188,9 +188,9 @@ describe('chooseSpaceInput by the ways into and out of the cave', () => {
   const IN_BURROW: PlayerMotion = createMotion(BURROW, 180);
 
   /**
-   * Makes the wild dog, a metre from the burrow.
+   * Makes the wild dog, a meter from the burrow.
    *
-   * @param {number} z - How far south of the burrow it stands, in metres.
+   * @param {number} z - How far south of the burrow it stands, in meters.
    * @param {boolean} isDead - Whether it lies dead.
    * @returns {MonsterState} The dog.
    */
@@ -260,7 +260,7 @@ describe('MoveKeys', () => {
     expect(resolveKeys(['KeyW'], NORTHWARD)).toEqual({ x: 0, z: -1 });
   });
 
-  it('moves towards the camera with the backward keys', () => {
+  it('moves toward the camera with the backward keys', () => {
     expect(resolveKeys(['KeyS'], NORTHWARD)).toEqual({ x: 0, z: 1 });
   });
 
@@ -270,14 +270,14 @@ describe('MoveKeys', () => {
   });
 
   it('follows the heading of the camera', () => {
-    // A camera that looks towards +X has +Z on its right.
+    // A camera that looks toward +X has +Z on its right.
     expect(resolveKeys(['KeyW'], 90)).toEqual({ x: 1, z: 0 });
     expect(resolveKeys(['KeyD'], 90)).toEqual({ x: 0, z: 1 });
     expect(resolveKeys(['KeyW'], 0)).toEqual({ x: 0, z: 1 });
     expect(resolveKeys(['KeyD'], 0)).toEqual({ x: -1, z: 0 });
   });
 
-  it('moves diagonally, one metre long, with two keys', () => {
+  it('moves diagonally, one meter long, with two keys', () => {
     const direction = resolveKeys(['KeyW', 'KeyD'], NORTHWARD);
     expect(direction).toEqual({ x: 0.707, z: -0.707 });
   });

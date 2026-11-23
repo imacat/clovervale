@@ -27,7 +27,7 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 
 import type { Placement } from '@clovervale/shared';
 
-import { MODEL_FILES } from './model-catalogue.ts';
+import { MODEL_FILES } from './model-catalog.ts';
 import type { LoadedModel } from './model-loader.ts';
 
 /**

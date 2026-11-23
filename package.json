@@ -2,7 +2,7 @@
   "name": "clovervale",
   "version": "0.1.0",
   "private": true,
-  "description": "Clovervale (四葉谷): a small learning MMORPG for studying network state synchronisation.",
+  "description": "Clovervale (四葉谷): a small learning MMORPG for studying network state synchronization.",
   "license": "Apache-2.0",
   "author": "imacat <imacat@mail.imacat.idv.tw>",
   "type": "module",

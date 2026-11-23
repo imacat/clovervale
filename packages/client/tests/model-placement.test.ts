@@ -25,7 +25,7 @@
 import { Object3D, Scene } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { MODEL_FILES } from '../src/model-catalogue.ts';
+import { MODEL_FILES } from '../src/model-catalog.ts';
 import type { LoadedModel } from '../src/model-loader.ts';
 import { createModelPlacer } from '../src/model-placement.ts';
 import type { ModelPlacer } from '../src/model-placement.ts';

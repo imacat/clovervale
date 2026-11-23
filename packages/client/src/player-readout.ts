@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/player-readout Telling the owner what is synchronised.
+ * @module client/player-readout Telling the owner what is synchronized.
  */
 
 import {
@@ -30,7 +30,7 @@ import type {
   GroundVector,
   MonsterState,
   PlayerState,
-  SlashJudgement,
+  SlashJudgment,
 } from '@clovervale/shared';
 
 import type { PlayersView } from './interpolation.ts';
@@ -102,7 +102,7 @@ export interface PredictionSummary {
   /** The number of times the server has contradicted the prediction. */
   readonly correctionCount: number;
   /**
-   * How far the last correction moved the player, in metres, or `null`
+   * How far the last correction moved the player, in meters, or `null`
    * before the first correction.
    */
   readonly lastCorrection: number | null;
@@ -266,13 +266,13 @@ export function describePrediction(
  * judged it, in the language of the page.
  *
  * @param {Translator} translator - The translator of the text of the page.
- * @param {SlashJudgement | null} slash - How the slash was judged, or
+ * @param {SlashJudgment | null} slash - How the slash was judged, or
  *   `null` before the first slash.
  * @returns {SlashReadout} What the owner reads.
  */
 export function describeSlash(
   translator: Translator,
-  slash: SlashJudgement | null,
+  slash: SlashJudgment | null,
 ): SlashReadout {
   if (slash === null) {
     return { result: UNKNOWN, judgedBack: UNKNOWN };

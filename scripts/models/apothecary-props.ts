@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/apothecary-props What stands about the front of
- *   the apothecary's: the herb rack, a crate of potion bottles, a crate
+ * @module scripts/models/apothecary-props What stands around the front
+ *   of the apothecary: the herb rack, a crate of potion bottles, a crate
  *   planted with herbs, a potted plant and a barrel.
  */
 
@@ -37,19 +37,19 @@ import { getItem } from './items.ts';
 import { Model } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
-/** The colours of the herbs that grow in the pots and the crates. */
-const HERB_COLOURS: Readonly<Record<string, string>> = {
+/** The colors of the herbs that grow in the pots and the crates. */
+const HERB_COLORS: Readonly<Record<string, string>> = {
   herbA: '#4f9a45',
   herbB: '#7cb64e',
   herbC: '#3f7f5a',
 };
 
 /** The names of the materials of the herbs, in the order they are used. */
-const HERB_MATERIALS: readonly string[] = Object.keys(HERB_COLOURS);
+const HERB_MATERIALS: readonly string[] = Object.keys(HERB_COLORS);
 
 /**
  * The outline of a small clay pot of herbs, as [radius, height] pairs in
- * metres: narrow at its foot, flaring to a thick rim.
+ * meters: narrow at its foot, flaring to a thick rim.
  */
 const HERB_POT_PROFILE: readonly Pair[] = [
   [0, 0],
@@ -61,8 +61,8 @@ const HERB_POT_PROFILE: readonly Pair[] = [
 ];
 
 /**
- * The outline of the belly of a potion bottle, drawn in the colour of what
- * it holds, as [radius, height] pairs in metres, from the middle of its
+ * The outline of the belly of a potion bottle, drawn in the color of what
+ * it holds, as [radius, height] pairs in meters, from the middle of its
  * bottom up.
  */
 const POTION_LIQUID_PROFILE: readonly Pair[] = [
@@ -75,7 +75,7 @@ const POTION_LIQUID_PROFILE: readonly Pair[] = [
 
 /**
  * The outline of the glass of a potion bottle above what it holds, as
- * [radius, height] pairs in metres: the shoulder, the neck and the lip.
+ * [radius, height] pairs in meters: the shoulder, the neck and the lip.
  */
 const POTION_BOTTLE_PROFILE: readonly Pair[] = [
   [0.066, 0.076],
@@ -96,7 +96,7 @@ const POTION_CORK_PROFILE: readonly Pair[] = [
   [0, 0.21],
 ];
 
-/** The outline of a barrel, as [radius, height] pairs in metres. */
+/** The outline of a barrel, as [radius, height] pairs in meters. */
 const BARREL_PROFILE: readonly Pair[] = [
   [0, 0],
   [0.3, 0],
@@ -113,8 +113,8 @@ const BARREL_PROFILE: readonly Pair[] = [
  * @param {Model} model - The model.
  */
 function setHerbMaterials(model: Model): void {
-  for (const [name, colour] of Object.entries(HERB_COLOURS)) {
-    model.setMaterial(name, colour);
+  for (const [name, color] of Object.entries(HERB_COLORS)) {
+    model.setMaterial(name, color);
   }
 }
 
@@ -166,8 +166,8 @@ function addCrate(model: Model, size: Triple): void {
 }
 
 /**
- * Builds the herb rack of the apothecary's, which stands in front of the
- * front window, about two metres wide: a wooden frame of three shelves of
+ * Builds the herb rack of the apothecary, which stands in front of the
+ * front window, about two meters wide: a wooden frame of three shelves of
  * small clay pots of herbs, with a post in its middle, and bunches of dried
  * herbs hung upside down from a bar across the front of its top.  Its
  * front faces +Z.
@@ -274,12 +274,12 @@ export function buildHerbRack(): BuiltModel {
       }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * Builds the crate of potion bottles of the apothecary's: an open wooden
+ * Builds the crate of potion bottles of the apothecary: an open wooden
  * crate bedded with straw, in which stand six corked bottles, most of them
  * red with healing potion.
  *
@@ -319,12 +319,12 @@ export function buildPotionCrate(): BuiltModel {
     model.add('bottle', place(createLathe(POTION_BOTTLE_PROFILE, 8), { pos }));
     model.add('cork', place(createLathe(POTION_CORK_PROFILE, 8), { pos }));
   });
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * Builds the crate planted with herbs of the apothecary's: an open wooden
+ * Builds the crate planted with herbs of the apothecary: an open wooden
  * crate filled with earth, in which grow two rows of herbs, a few of them
  * in flower.
  *
@@ -364,12 +364,12 @@ export function buildHerbCrate(): BuiltModel {
       );
     }
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * Builds the potted plant of the apothecary's: a round, leafy plant in a
+ * Builds the potted plant of the apothecary: a round, leafy plant in a
  * big clay pot with a thick rim.
  *
  * @returns {BuiltModel} The model.
@@ -419,12 +419,12 @@ export function buildPottedPlant(): BuiltModel {
       }),
     );
   });
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * Builds a barrel of the apothecary's: wooden staves bound by two iron
+ * Builds a barrel of the apothecary: wooden staves bound by two iron
  * hoops, with a lid sunk a little into its top.
  *
  * @returns {BuiltModel} The model.
@@ -461,6 +461,6 @@ export function buildBarrel(): BuiltModel {
       ),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

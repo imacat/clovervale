@@ -30,8 +30,8 @@ import { Actor } from './actor.ts';
 import type { FigureFrame, FigureSet } from './figure-set.ts';
 import { HealthBar } from './health-bar.ts';
 
-/** The colour of the health bars of the players. */
-const HEALTH_COLOUR = '#4fd04a';
+/** The color of the health bars of the players. */
+const HEALTH_COLOR = '#4fd04a';
 
 /** A model to show a player with. */
 export interface Figure {
@@ -56,11 +56,11 @@ export interface FigureView {
   readonly id: number;
   /** The number of the appearance the player is shown with. */
   readonly appearance: number;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
   /** The name of the clip the player plays, or `null` if it has none. */
   readonly clip: string | null;
@@ -203,7 +203,7 @@ export class PlayerFigures implements FigureSet {
       appearance: player.appearance,
       root: figure.root,
       actor: new Actor(figure.root, figure.clips),
-      bar: new HealthBar(figure.root, HEALTH_COLOUR),
+      bar: new HealthBar(figure.root, HEALTH_COLOR),
       actionCount: player.actionCount,
     };
     shown.actor.play(player.action);

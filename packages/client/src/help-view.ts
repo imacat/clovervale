@@ -48,7 +48,7 @@ export interface HelpView {
 interface ControlRow {
   /**
    * The key caps of the control, in clusters side by side, each cluster in
-   * lines, centred one above another as on a keyboard, and each line a list
+   * lines, centered one above another as on a keyboard, and each line a list
    * of the labels of its caps; or `mouse` for the mouse.
    */
   readonly caps: readonly (readonly (readonly string[])[])[] | 'mouse';
@@ -58,7 +58,7 @@ interface ControlRow {
 
 /**
  * A button or a stick of a gamepad, as the sheet draws it: a face button,
- * coloured as on a Logitech F310, a shoulder button, Start, or a stick.
+ * colored as on a Logitech F310, a shoulder button, Start, or a stick.
  */
 type PadBadge =
   | { readonly kind: 'face'; readonly label: 'A' | 'B' | 'Y' }
@@ -155,7 +155,7 @@ const PAGE_NAMES: readonly PlainMessageId[] = [
 ];
 
 /**
- * The arrows of the four ways a stick is pushed or a finger dragged, round
+ * The arrows of the four ways a stick is pushed or a finger dragged, around
  * the edge of a picture.
  */
 const ARROWS_PATH =
@@ -269,7 +269,7 @@ function drawCaps(row: ControlRow): HTMLDivElement {
 
 /**
  * Draws a stick of a gamepad from above, with arrows of the ways it is
- * pushed round it, and the side it is on in the middle.
+ * pushed around it, and the side it is on in the middle.
  *
  * @param {'L' | 'R'} label - The side of the stick.
  * @returns {SVGElement} The stick.

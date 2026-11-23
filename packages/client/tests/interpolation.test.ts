@@ -75,8 +75,8 @@ const OWN: InputProgress = {
  *   taken.
  * @param {readonly PlayerState[]} players - The players.
  * @param {readonly MonsterState[]} monsters - The monsters.
- * @param {InputProgress} own - How far the player of the peer has got with
- *   the inputs of the peer.
+ * @param {InputProgress} own - How far the player of the peer has gotten
+ *   with the inputs of the peer.
  * @returns {SnapshotMessage} The snapshot message.
  */
 function createPlainSnapshot(
@@ -308,7 +308,7 @@ describe('SnapshotTimeline', () => {
     });
   });
 
-  it('turns a player the shorter way round', () => {
+  it('turns a player the shorter way around', () => {
     const timeline = new SnapshotTimeline();
     receiveAtOnce(timeline, 2, [{ ...PLAYER, yaw: 170 }]);
     receiveAtOnce(timeline, 4, [{ ...PLAYER, yaw: -170 }]);

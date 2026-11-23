@@ -52,11 +52,11 @@ const PATROL: PatrolSettings = {
 };
 
 /**
- * Tells how far a player resting at a point has got with its inputs.
+ * Tells how far a player resting at a point has gotten with its inputs.
  *
  * @param {GroundVector} position - Where the player rests.
  * @param {number} sequence - The number of its last input in effect.
- * @returns {InputProgress} How far it has got.
+ * @returns {InputProgress} How far it has gotten.
  */
 function describeRest(
   position: GroundVector,
@@ -66,10 +66,10 @@ function describeRest(
 }
 
 /**
- * Tells how far a player that has died has got with its inputs.
+ * Tells how far a player that has died has gotten with its inputs.
  *
- * @param {InputProgress} progress - How far it had got before it died.
- * @returns {InputProgress} How far it has got.
+ * @param {InputProgress} progress - How far it had gotten before it died.
+ * @returns {InputProgress} How far it has gotten.
  */
 function describeDeath(progress: InputProgress): InputProgress {
   return { ...progress, motion: { ...progress.motion, action: 'Die' } };

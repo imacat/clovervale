@@ -76,7 +76,7 @@ interface HeardPhrase {
   readonly player: number;
   /** The code of the phrase. */
   readonly code: PhraseCode;
-  /** The number of snapshots the watcher had got by then. */
+  /** The number of snapshots the watcher had gotten by then. */
   readonly snapshotCount: number;
 }
 

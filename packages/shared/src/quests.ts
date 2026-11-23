@@ -19,8 +19,8 @@
 
 /**
  * @module shared/quests The quests a player goes on: the errand Toby sends
- *   it on and the main plot, how far it has got with each, what each waits
- *   for to move on, and how each is told on the wire.
+ *   it on and the main plot, how far it has gotten with each, what each
+ *   waits for to move on, and how each is told on the wire.
  */
 
 import {
@@ -50,8 +50,9 @@ export type TobyStage = (typeof TOBY_STAGES)[number];
 
 /**
  * The stages of the main plot: the player has gone down into the cave; has
- * then got one of its two goals, in either order, the message of Edwin or
- * the token of Martha, the enemy spy, by beating her; and has got both.
+ * then gotten one of its two goals, in either order, the message of Edwin
+ * or the token of Martha, the enemy spy, by beating her; and has gotten
+ * both.
  */
 export const CLOVERVALE_STAGES = [
   'entered',
@@ -137,18 +138,18 @@ export interface QuestType {
 export interface QuestJSON {
   /** The quest. */
   readonly id: QuestId;
-  /** The stage the player has got to. */
+  /** The stage the player has gotten to. */
   readonly stage: QuestStage;
 }
 
 /**
- * A quest a player has opened, and how far it has got with it.  A quest
+ * A quest a player has opened, and how far it has gotten with it.  A quest
  * moves on as the events it waits for happen, and never goes back.
  */
 export interface Quest {
   /** The quest. */
   readonly id: QuestId;
-  /** The stage the player has got to. */
+  /** The stage the player has gotten to. */
   readonly stage: QuestStage;
   /** Whether the player has done the quest. */
   readonly isDone: boolean;
@@ -160,8 +161,8 @@ export interface Quest {
   /**
    * What the quest asks of a villager for the player whenever it arrives
    * somewhere in particular in the map of that villager, as one that climbs
-   * out of the well does, at the stage the quest has got to, or `null` for
-   * nothing.
+   * out of the well does, at the stage the quest has gotten to, or `null`
+   * for nothing.
    */
   readonly request: StoryRequest | null;
 
@@ -270,7 +271,7 @@ export class TobyQuest implements Quest {
   }
 
   /**
-   * The stage the player has got to.
+   * The stage the player has gotten to.
    *
    * @returns {TobyStage} The stage.
    */
@@ -369,7 +370,7 @@ export class ClovervaleQuest implements Quest {
   }
 
   /**
-   * The stage the player has got to.
+   * The stage the player has gotten to.
    *
    * @returns {ClovervaleStage} The stage.
    */

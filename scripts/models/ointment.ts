@@ -27,13 +27,13 @@ import type { Pair } from './geometry.ts';
 import { Model } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
-/** The number of sides of the jar, its cover and the string round it. */
+/** The number of sides of the jar, its cover and the string around it. */
 const SIDES = 8;
 
 /**
- * The outline of the jar, as [radius, height] pairs in metres, from the
+ * The outline of the jar, as [radius, height] pairs in meters, from the
  * middle of its bottom up: a squat round belly, a short neck and a thick
- * rolled lip round its mouth.
+ * rolled lip around its mouth.
  */
 const JAR_PROFILE: readonly Pair[] = [
   [0, 0],
@@ -50,8 +50,8 @@ const JAR_PROFILE: readonly Pair[] = [
 ];
 
 /**
- * The outline of the band of darker clay round the shoulder of the jar,
- * standing a little proud of it, as [radius, height] pairs in metres.
+ * The outline of the band of darker clay around the shoulder of the jar,
+ * raised slightly above its surface, as [radius, height] pairs in meters.
  */
 const BAND_PROFILE: readonly Pair[] = [
   [0.074, 0.082],
@@ -63,7 +63,7 @@ const BAND_PROFILE: readonly Pair[] = [
 
 /**
  * The outline of the cloth tied over the mouth of the jar, as
- * [radius, height] pairs in metres: a skirt hanging over the lip, flaring
+ * [radius, height] pairs in meters: a skirt hanging over the lip, flaring
  * a little at its hem, and a puffed top.
  */
 const CLOTH_PROFILE: readonly Pair[] = [
@@ -77,8 +77,8 @@ const CLOTH_PROFILE: readonly Pair[] = [
 ];
 
 /**
- * The outline of the string tied round the neck of the jar over the cloth,
- * as [radius, height] pairs in metres.
+ * The outline of the string tied around the neck of the jar over the cloth,
+ * as [radius, height] pairs in meters.
  */
 const STRING_PROFILE: readonly Pair[] = [
   [0.054, 0.112],
@@ -90,8 +90,8 @@ const STRING_PROFILE: readonly Pair[] = [
 
 /**
  * Builds the jar of Martha's ointment, standing on the ground: a small
- * squat earthenware jar with a band of darker clay round its shoulder, its
- * mouth covered with a cloth tied round the neck with string, knotted at
+ * squat earthenware jar with a band of darker clay around its shoulder, its
+ * mouth covered with a cloth tied around the neck with string, knotted at
  * one side with its two ends hanging down.
  *
  * @returns {BuiltModel} The model.
@@ -122,6 +122,6 @@ export function buildItemMarthaOintment(): BuiltModel {
       }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

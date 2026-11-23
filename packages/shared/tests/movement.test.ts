@@ -56,16 +56,16 @@ describe('findYaw', () => {
     expect(findYaw({ x: 0, z: 1 })).toBeCloseTo(0);
   });
 
-  it('turns towards +X by a quarter to face it', () => {
+  it('turns toward +X by a quarter to face it', () => {
     expect(findYaw({ x: 2, z: 0 })).toBeCloseTo(90);
     expect(findYaw({ x: -2, z: 0 })).toBeCloseTo(-90);
   });
 
-  it('turns half way round to face -Z', () => {
+  it('turns halfway around to face -Z', () => {
     expect(findYaw({ x: 0, z: -3 })).toBeCloseTo(180);
   });
 
-  it('faces a diagonal half way between its axes', () => {
+  it('faces a diagonal halfway between its axes', () => {
     expect(findYaw({ x: 1, z: 1 })).toBeCloseTo(45);
   });
 });

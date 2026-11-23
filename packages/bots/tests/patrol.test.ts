@@ -97,7 +97,7 @@ function walkLeg(from: GroundVector, leg: Leg): GroundVector {
  *
  * @param {GroundVector} a - One point.
  * @param {GroundVector} b - The other point.
- * @returns {number} The distance between them, in metres.
+ * @returns {number} The distance between them, in meters.
  */
 function measureDistance(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
@@ -109,7 +109,7 @@ function measureDistance(a: GroundVector, b: GroundVector): number {
  *
  * @param {GroundVector} point - The point.
  * @returns {number} The least distance between the point and the run, in
- *   metres.
+ *   meters.
  */
 function measureFromTobyRun(point: GroundVector): number {
   const [start, end] = TOBY_ENDS;
@@ -150,7 +150,7 @@ function traceRoute(from: GroundVector, legs: readonly Leg[]): GroundVector[] {
   return trace;
 }
 
-/** The least distance between the centres of Toby and a player. */
+/** The least distance between the centers of Toby and a player. */
 const TOBY_REACH: number = TOBY_RADIUS + PLAYER_RADIUS;
 
 describe('POINTS_OF_INTEREST', () => {

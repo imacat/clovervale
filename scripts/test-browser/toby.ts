@@ -24,7 +24,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import {
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   SAY_RANGE,
   STEP_MILLISECONDS,
   TOBY_ACTIVITIES,
@@ -75,7 +75,7 @@ interface TobyFindLook {
   readonly toby: TobyView | null;
   /** What the bubble shown says, and who says it, or `null` for none. */
   readonly speech: SpeechView | null;
-  /** The numbers of the patches shown with their four-leaved clover. */
+  /** The numbers of the patches shown with their four-leaf clover. */
   readonly clovers: readonly number[];
 }
 
@@ -85,7 +85,7 @@ interface TobyFindLook {
  * snapshot takes to reach each page.
  */
 const SAME_TOBY_STEPS = 5;
-/** What Toby exclaims as he finds a four-leaved clover, in English. */
+/** What Toby exclaims as he finds a four-leaf clover, in English. */
 const TOBY_FOUND_LINE = 'Found one!';
 /**
  * How long Toby may take to be seen to move, in milliseconds: more than
@@ -294,7 +294,7 @@ function describeTobyFindLook(look: TobyFindLook): string {
 
 /**
  * Checks that a page behind a slow connection, and another page, show
- * Toby finding a four-leaved clover alike: holding it in his hand as he
+ * Toby finding a four-leaf clover alike: holding it in his hand as he
  * picks, from his grab until he puts it away, and never otherwise, while
  * the patch is shown without its clover, wherever their players stand, and
  * that the page goes on showing so as the server tells it of the find,
@@ -373,30 +373,30 @@ export async function checkTobyFind(
 }
 
 /**
- * Where a player stands to hear Toby from behind its camera: two metres
+ * Where a player stands to hear Toby from behind its camera: two meters
  * within the range of what is said from where he squats at the patch of
- * clover by the gate, towards the fountain, which is within that range of
+ * clover by the gate, toward the fountain, which is within that range of
  * where he squats at the other patch as well.
  */
 const WITHIN_TOBY_HEARING: GroundVector = (() => {
   const apart: number = Math.hypot(
-    PLAZA_CENTRE.x - TOBY_SQUAT.x,
-    PLAZA_CENTRE.z - TOBY_SQUAT.z,
+    PLAZA_CENTER.x - TOBY_SQUAT.x,
+    PLAZA_CENTER.z - TOBY_SQUAT.z,
   );
   const share: number = (SAY_RANGE - 2) / apart;
   return {
-    x: TOBY_SQUAT.x + (PLAZA_CENTRE.x - TOBY_SQUAT.x) * share,
-    z: TOBY_SQUAT.z + (PLAZA_CENTRE.z - TOBY_SQUAT.z) * share,
+    x: TOBY_SQUAT.x + (PLAZA_CENTER.x - TOBY_SQUAT.x) * share,
+    z: TOBY_SQUAT.z + (PLAZA_CENTER.z - TOBY_SQUAT.z) * share,
   };
 })();
 /**
- * How far from its player the camera is zoomed in to, in metres, to leave
+ * How far from its player the camera is zoomed in to, in meters, to leave
  * Toby behind it as it looks away from him.
  */
 const TOBY_UNSEEN_CAMERA_DISTANCE = 3;
 
 /**
- * Checks that a page shows what Toby exclaims as he finds a four-leaved
+ * Checks that a page shows what Toby exclaims as he finds a four-leaf
  * clover only while he is on its screen: that, with its player within
  * hearing of him and its camera looking away from him, the page shows him
  * holding the clover he finds without any bubble, and that, with its
@@ -455,7 +455,7 @@ export async function checkTobyExclamation(
   );
   await zoomTo(TOBY_UNSEEN_CAMERA_DISTANCE);
   const away =
-    `With its player ${String(SAY_RANGE - 2)} metres from Toby and its ` +
+    `With its player ${String(SAY_RANGE - 2)} meters from Toby and its ` +
     'camera looking away from him, the first page';
   try {
     await waitFor(

@@ -35,12 +35,12 @@ import type {
 
 import { DIALOGUE_SCRIPTS } from './dialogue-scripts.ts';
 
-/** How far a player must have got with a quest. */
+/** How far a player must have gotten with a quest. */
 export interface QuestCondition {
   /** The quest. */
   readonly id: QuestId;
   /**
-   * The stages the player must have got to one of, among which `null`
+   * The stages the player must have gotten to one of, among which `null`
    * stands for not having opened the quest.
    */
   readonly stages: readonly (QuestStage | null)[];
@@ -62,7 +62,7 @@ export interface DialogueCondition {
   readonly lacks?: ItemKindId;
   /** Another villager who must have told the player who it is. */
   readonly knows?: VillagerId;
-  /** How far the player must have got with a quest. */
+  /** How far the player must have gotten with a quest. */
   readonly quest?: QuestCondition;
   /** The fewest silver coins the player must have. */
   readonly hasSilver?: number;
@@ -159,7 +159,9 @@ export interface Listener {
   readonly inventory: readonly ItemKindId[];
   /** The villagers who have told the player who they are. */
   readonly acquaintances: readonly VillagerId[];
-  /** The quests the player has opened, each at the stage it has got to. */
+  /**
+   * The quests the player has opened, each at the stage it has gotten to.
+   */
   readonly quests: readonly Quest[];
   /** The number of silver coins the player has. */
   readonly silver: number;

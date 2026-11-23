@@ -67,7 +67,7 @@ const MARTHA_HOME: Pose = MARTHA_POST;
 
 /**
  * The farthest a player can be from Martha for a thrust of her pitchfork
- * to hit, from centre to centre, in metres: farther than a slash of a
+ * to hit, from center to center, in meters: farther than a slash of a
  * player reaches.
  */
 const MARTHA_STRIKE_REACH = 2;
@@ -77,7 +77,7 @@ const SPY_TOKEN: ItemKindId = 'spy-token';
 
 /**
  * How near Martha comes to the player she fights before she stops and
- * thrusts, from centre to centre, in metres: well within the reach of a
+ * thrusts, from center to center, in meters: well within the reach of a
  * slash of a player, so that the two can trade blows where they stand,
  * and well short of her own reach, so that a player that steps back as
  * she thrusts is still hit.
@@ -86,7 +86,7 @@ const MARTHA_ATTACK_DISTANCE = 1.4;
 
 /**
  * How near Martha comes to a player she walks up to before she talks with
- * it, from centre to centre, in metres.
+ * it, from center to center, in meters.
  */
 const MARTHA_GREETING_DISTANCE = 1.2;
 
@@ -100,9 +100,9 @@ const SIT_STEPS: number = countSteps(KIND.respawnDelay);
 interface Suspect {
   /** The identifier of the player. */
   readonly id: number;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
   /** Whether the player is alive. */
   readonly isAlive: boolean;
@@ -115,7 +115,7 @@ interface Suspect {
 /**
  * What Martha does to a player at a step: opens a dialogue with it, as
  * she has come up to it; strikes at it with her pitchfork; or loses it in a
- * fight, as it has got away or died, so that she hunts it from then on.
+ * fight, as it has gotten away or died, so that she hunts it from then on.
  */
 interface MarthaDeed {
   /** What she does. */
@@ -236,10 +236,10 @@ export class Martha
 
   /**
    * The farthest a player can be from Martha for a thrust of her pitchfork
-   * to hit, from centre to centre: farther than a slash of a player
+   * to hit, from center to center: farther than a slash of a player
    * reaches.
    *
-   * @returns {number} The reach, 2 metres.
+   * @returns {number} The reach, 2 meters.
    */
   get strikeReach(): number {
     return MARTHA_STRIKE_REACH;
@@ -706,7 +706,7 @@ export class Martha
   }
 
   /**
-   * Walks one step towards a point, around the obstacles, finding the way
+   * Walks one step toward a point, around the obstacles, finding the way
    * there whenever she has none, or is stopped.
    *
    * @param {GroundVector} point - The point.

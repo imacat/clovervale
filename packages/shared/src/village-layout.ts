@@ -32,7 +32,7 @@ import {
   turnVector,
 } from './terrain.ts';
 import type { Boundary, Pose, Shape } from './terrain.ts';
-import { PLAZA_CENTRE } from './village.ts';
+import { PLAZA_CENTER } from './village.ts';
 
 /** Where a model stands on the ground, and which way it faces. */
 export interface Placement extends Pose {
@@ -67,7 +67,7 @@ const CHIEF_HOUSE_SPOT: Spot = [9.75, -17, -60];
  * on the right of it as one faces the house, on the side of the well,
  * between the front wall and the posts of the porch, close enough to the
  * door that the post on the side of the well does not hide her face from
- * the middle of the plaza, turned a little towards the well so that she
+ * the middle of the plaza, turned a little toward the well so that she
  * faces the plaza.
  */
 const CHIEF_ON_PORCH: Spot = [1.1, 2.7, 7];
@@ -111,19 +111,19 @@ const WELL_IN_YARD: Spot = [5.6, 3.1, 0];
 const BESIDE_WELL: Spot = [4.4, 3.9, -120];
 
 /**
- * Where the whole two-metre stretches of the old low stone wall of the yard
+ * Where the whole two-meter stretches of the old low stone wall of the yard
  * of the chief's house stand, as the model of the house has it, every other
- * one in a run turned about so that their worn stones do not repeat.  The
+ * one in a run turned around so that their worn stones do not repeat.  The
  * wall stands in short runs with wide gaps between, so that the yard is
  * open on every side.  One stretch runs along the front, between the house
  * and the plaza, 3 m in front of the front wall of the house: it stands in
  * front of the well, so that the well stands behind the wall as seen from
- * the plaza, and reaches on past it, by more than a metre, towards the
+ * the plaza, and reaches on past it, by more than a meter, toward the
  * weapon shop.  One stretch runs along the side of the well, behind it, on
  * the side of the weapon shop.  At the corner behind the house away from
  * the well, one stretch runs along the back and two along the side; and at
  * the other corner behind it, one runs along the back and one slants
- * forward towards the side of the well.
+ * forward toward the side of the well.
  */
 const YARD_WALL_ON_HOUSE: readonly Spot[] = [
   [6.24, 4.8, 0],
@@ -141,10 +141,10 @@ const YARD_WALL_ON_HOUSE: readonly Spot[] = [
  * the whole stretch, with the broad opening in front of the porch, 5.15 m
  * wide, between them.  The short stretch on the left as one faces the house
  * is a ragged end alone, in front of the left part of the house, broken
- * down towards the opening, with its tall end beside the path to the back
+ * down toward the opening, with its tall end beside the path to the back
  * of the village.  On the right, a ragged end stands in front of the right
  * part of the house, with its tall end beside the opening, broken down
- * towards a gap of a metre, wide enough to walk through, between it and the
+ * toward a gap of a meter, wide enough to walk through, between it and the
  * whole stretch in front of the well.
  */
 const YARD_WALL_ENDS_ON_HOUSE: readonly Spot[] = [
@@ -153,7 +153,7 @@ const YARD_WALL_ENDS_ON_HOUSE: readonly Spot[] = [
 ];
 
 /**
- * The spot of the apothecary's, the cottage at the back of the village on
+ * The spot of the apothecary shop, the cottage at the back of the village on
  * the north-west, facing the plaza.
  */
 const APOTHECARY_SPOT: Spot = [-10.5, -16.5, 55];
@@ -161,12 +161,12 @@ const APOTHECARY_SPOT: Spot = [-10.5, -16.5, 55];
 /**
  * Where Basil the apothecary stands outside his shop, and which way he
  * faces, as the model of the shop has it: just off the step in front of the
- * closed door, on the side of the herb rack, half turned towards it.
+ * closed door, on the side of the herb rack, half turned toward it.
  */
 const APOTHECARY_AT_DOOR: Spot = [0.55, 2.95, -35];
 
 /**
- * Where the herb rack of the apothecary's stands, as the model of the shop
+ * Where the herb rack of the apothecary stands, as the model of the shop
  * has it: in front of the front window, from near the front corner of the
  * house up to the step of the door, its back clear of the sill of the
  * window, so that the window shows over its top and between its shelves.
@@ -174,7 +174,7 @@ const APOTHECARY_AT_DOOR: Spot = [0.55, 2.95, -35];
 const HERB_RACK_ON_SHOP: Spot = [-0.96, 2.36, 0];
 
 /**
- * Where the crate of potion bottles of the apothecary's stands, as the
+ * Where the crate of potion bottles of the apothecary stands, as the
  * model of the shop has it: on the ground at the end of the herb rack away
  * from the door, in front of the corner of the house.
  */
@@ -278,7 +278,7 @@ export const MARTHA_POST: Pose = makePose(
 
 /** The spots of the models the village has a place for. */
 const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
-  fountain: [[PLAZA_CENTRE.x, PLAZA_CENTRE.z, 0]],
+  fountain: [[PLAZA_CENTER.x, PLAZA_CENTER.z, 0]],
   'weapon-shop': [WEAPON_SHOP_SPOT],
   nancy: [makeSpot(NANCY_POST)],
   emma: [makeSpot(EMMA_POST)],
@@ -421,8 +421,8 @@ export const PITCHFORK_STAND: GroundVector = (() => {
 /**
  * Makes a round footprint.
  *
- * @param {number} x - The centre along the X axis of the model.
- * @param {number} z - The centre along the Z axis of the model.
+ * @param {number} x - The center along the X axis of the model.
+ * @param {number} z - The center along the Z axis of the model.
  * @param {number} radius - The radius.
  * @returns {Shape} The footprint.
  */
@@ -457,14 +457,14 @@ function makeBox(
 
 /**
  * The radius of the rim of the basin of the fountain, inside the low step
- * around it, in metres.
+ * around it, in meters.
  */
 export const FOUNTAIN_RIM_RADIUS = 1.6;
 
 /**
  * The ground each model takes up where nobody can walk, as the model has it
  * before it is placed.  The clover, which anyone can step over, takes up
- * none, and neither does Martha, who goes about as the monsters do, and
+ * none, and neither does Martha, who moves around as the monsters do, and
  * stands in nobody's way, as they do not.
  */
 const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
@@ -484,7 +484,7 @@ const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
   ],
   nancy: [makeCircle(0, 0, 0.35)],
   emma: [makeCircle(0, 0, 0.3)],
-  // The five standing stones, and not the burrow they stand round.
+  // The five standing stones, and not the burrow they stand around.
   'spawn-stones': Array.from({ length: 5 }, (_, index: number) => {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));
     return makeCircle(x, z, 0.35);

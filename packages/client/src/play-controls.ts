@@ -339,8 +339,8 @@ export class PlayControls {
   /**
    * Shows the ending sheet as it unrolls and rolls up, and opens it with the
    * ending, as {@link EndingController.update} tells, as the page knows how
-   * far its player has got with the main plot, and where it is.  From then
-   * on, the help sheet offers the credits on a page of their own.
+   * far its player has gotten with the main plot, and where it is.  From
+   * then on, the help sheet offers the credits on a page of their own.
    *
    * @param {boolean} isPlotDone - Whether the server has told that the
    *   player of the page is done with the main plot.

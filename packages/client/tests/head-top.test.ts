@@ -34,7 +34,7 @@ import { findFigureTop, findHeadTop } from '../src/head-top.ts';
 /** Nancy the villager. */
 const NANCY: Villager = getVillager('nancy');
 
-/** Toby, the child who goes about by the gate. */
+/** Toby, the child who runs around by the gate. */
 const TOBY: Villager = getVillager('toby');
 
 /** Where Nancy stands. */

@@ -108,7 +108,7 @@ export class ServerClock {
   readonly #slewed = new SlewedClock(CLOCK_SLEW, CLOCK_RESYNC);
 
   /**
-   * Takes note of a time of the server and of when the page learnt of it.
+   * Takes note of a time of the server and of when the page learned of it.
    *
    * @param {number} serverTime - The time on the clock of the server, in
    *   milliseconds.
@@ -126,7 +126,7 @@ export class ServerClock {
    * Tells the time of the server.
    *
    * A clock that finds itself a little off catches up little by little, from
-   * one reading to the next, without ever running backwards.  One that is
+   * one reading to the next, without ever running backward.  One that is
    * far off starts over at once.
    *
    * @param {number} localTime - The time on the clock of the page, in
@@ -251,7 +251,7 @@ export class SnapshotTimeline {
    *
    * Between two snapshots, a player stands part of the way from where the
    * earlier one tells to where the later one tells, by the time that has
-   * passed between them, and is turned likewise, the shorter way round.  It
+   * passed between them, and is turned likewise, the shorter way around.  It
    * does what the earlier one tells, and is there only if the earlier one
    * tells so.  A player that has moved further than it can walk, and than
    * a villager can have pushed it, stays where it was until the time of the later

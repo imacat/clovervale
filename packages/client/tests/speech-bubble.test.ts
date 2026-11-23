@@ -69,7 +69,7 @@ const MARTHA: Villager = getVillager('martha');
 /** What Martha says, in English, in order. */
 const MARTHA_LINES: readonly string[] = [
   "Welcome to Clovervale. I'm Martha, the village chief. If you need " +
-    'anything, just come and see me.',
+    'anything, just come see me.',
   'That well dried up long ago, so I boarded it up to keep the children ' +
     'from falling in.',
 ];
@@ -80,12 +80,12 @@ const MARTHA_LINES_ZH_TW: readonly string[] = [
   '那口井早就乾了，我就封起來了，免得小孩掉下去。',
 ];
 
-/** Toby, the child who goes about by the gate, who has three lines. */
+/** Toby, the child who runs around by the gate, who has three lines. */
 const TOBY: Villager = getVillager('toby');
 
 /** What Nancy says first, to welcome a player, in English. */
 const NANCY_WELCOME =
-  'Welcome to Clovervale! If you need anything, go and see the village ' +
+  'Welcome to Clovervale! If you need anything, go see the village ' +
   'chief. She lives in the biggest house, right at the back.';
 
 /** What Nancy says first, to welcome a player, in Traditional Chinese. */
@@ -450,9 +450,9 @@ interface DrawnBubble {
  * however far away it is, its foot at its position, with a tail as a
  * sprite of its own added to it, the tip of the tail at its position.
  *
- * @param {number} width - The width of the bubble, in metres at one metre.
- * @param {number} height - The height of the bubble, in metres at one
- *   metre.
+ * @param {number} width - The width of the bubble, in meters at one meter.
+ * @param {number} height - The height of the bubble, in meters at one
+ *   meter.
  * @returns {Sprite} The bubble.
  */
 function makeBlankBubble(width: number, height: number): Sprite {
@@ -469,7 +469,7 @@ function makeBlankBubble(width: number, height: number): Sprite {
 /**
  * Finds where a point of a sprite is drawn in a view, as three.js draws a
  * sprite that is as large on the screen however far away it is: about
- * where its position is seen, by its scale and its centre.
+ * where its position is seen, by its scale and its center.
  *
  * @param {Object3D} sprite - The sprite.
  * @param {PerspectiveCamera} camera - The camera, its matrices up to date.
@@ -558,7 +558,7 @@ function createCamera(view: ViewArea, fieldOfView: number): PerspectiveCamera {
 }
 
 /**
- * Finds the point ten metres from a camera that it shows at a place in
+ * Finds the point ten meters from a camera that it shows at a place in
  * its view.
  *
  * @param {PerspectiveCamera} camera - The camera.
@@ -612,7 +612,7 @@ describe('SpeechBubble on the screen', () => {
   const PORTRAIT: ViewArea = { width: 384, height: 832 };
   /** The view of a desktop window, in CSS pixels. */
   const DESKTOP: ViewArea = { width: 1280, height: 800 };
-  /** The height of a bubble as it is drawn, in metres at one metre. */
+  /** The height of a bubble as it is drawn, in meters at one meter. */
   const PAINTED_HEIGHT = 0.15;
 
   /**
@@ -705,7 +705,7 @@ describe('SpeechBubble on the screen', () => {
     expect(widths).toHaveLength(2);
   });
 
-  it('stands centred above the head of a villager in mid view', () => {
+  it('stands centered above the head of a villager in mid view', () => {
     for (const view of [PORTRAIT, DESKTOP]) {
       const drawn: DrawnBubble = showAt(view, view.width / 2, view.height / 2);
       expectWithin(drawn, view);
@@ -919,7 +919,7 @@ describe('SpeechBubble with players who speak', () => {
     expect(parent.children).toEqual([]);
   });
 
-  it('follows its player as it goes about', () => {
+  it('follows its player as it moves around', () => {
     const { bubble } = createBubble();
     bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
     bubble.sayAs(createTyped(8, 'Two.'), OTHER_HEAD);
@@ -941,7 +941,7 @@ describe('SpeechBubble with players who speak', () => {
     expect(parent.children[0]?.visible).toBe(true);
   });
 
-  it('goes on ageing while it is not seen', () => {
+  it('goes on aging while it is not seen', () => {
     const { bubble } = createBubble();
     bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
     bubble.followPlayer(7, null);
@@ -993,7 +993,7 @@ describe('SpeechBubble with players who speak', () => {
     const told: SaidView[] = bubble.describeSaid();
     expectToldAsDrawn(told[0]?.screen, left);
     expectToldAsDrawn(told[1]?.screen, right);
-    // Each bubble is shifted inwards from above the head of its player.
+    // Each bubble is shifted inward from above the head of its player.
     expect(left.left).toBeGreaterThan(0);
     expect(left.footX).toBeLessThan(left.left);
     expect(right.right).toBeLessThan(view.width);

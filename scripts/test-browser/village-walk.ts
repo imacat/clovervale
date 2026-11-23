@@ -18,8 +18,8 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/test-browser/village-walk Walks a player about the village,
- *   and looks at it there.
+ * @module scripts/test-browser/village-walk Walks a player around the
+ *   village, and looks at it there.
  */
 
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -53,10 +53,10 @@ const QUEST_WALK_TIMEOUT = 40_000;
 const QUEST_STEER_INTERVAL = 50;
 /**
  * How near a player walked across the village comes to a point on its way
- * before it walks on to the next, in metres.
+ * before it walks on to the next, in meters.
  */
 const QUEST_WAY_NEARNESS = 0.4;
-/** How near a player walked across the village stops to its end, in metres. */
+/** How near a player walked across the village stops to its end, in meters. */
 const QUEST_STOP_NEARNESS = 0.15;
 /**
  * The most degrees a player turned to face a point may face away from the
@@ -87,7 +87,7 @@ export interface QuestLook {
   readonly speech: SpeechWordsView | null;
   /** The kinds of the items in the slots of the bag. */
   readonly slots: readonly string[];
-  /** The notices of the items got. */
+  /** The notices of the items received. */
   readonly notices: readonly string[];
   /** Whether the bag is open. */
   readonly isBagOpen: boolean;
@@ -207,7 +207,7 @@ function findWalkKeys(heading: number, way: GroundVector): readonly string[] {
 
 /**
  * Walks the player of a page to a point of the village around the
- * obstacles, holding down the keys that walk it towards the next point on
+ * obstacles, holding down the keys that walk it toward the next point on
  * its way as the page draws it, and waits for it to stop there, facing the
  * way it walked last.
  *
@@ -368,7 +368,7 @@ function findTurnBetween(to: number, from: number): number {
 }
 
 /**
- * Turns the camera of a page round its player until it looks a way, as
+ * Turns the camera of a page around its player until it looks a way, as
  * near as its turns go.
  *
  * @param {BidiSession} session - The session with the browser.

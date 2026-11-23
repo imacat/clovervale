@@ -75,19 +75,19 @@ const LEGS: Readonly<Record<'L' | 'R', LegBones>> = {
  */
 const ANKLE_HEIGHT = 0.082;
 
-/** How far either ankle stands out to the side of the middle, in metres. */
+/** How far either ankle stands out to the side of the middle, in meters. */
 const STANCE = 0.11;
 
 /**
- * How far out to the side the bars he holds stand, in metres, as the cave
+ * How far out to the side the bars he holds stand, in meters, as the cave
  * stands him: the first bar on either side of the middle of the row.
  */
 const BAR_X = 1 / 6;
 
 /**
  * Where the left wrist holds its bar, in model space; the right wrist holds
- * the mirror bar.  The fist, a little in front of the wrist and in towards
- * the middle with the hand turned forward, closes round the bar, a little
+ * the mirror bar.  The fist, a little in front of the wrist and in toward
+ * the middle with the hand turned forward, closes around the bar, a little
  * above the shoulder.
  */
 const WRIST_ON_BAR: Triple = [
@@ -108,7 +108,7 @@ const ELBOW_YAW = -70;
 
 /**
  * How far forward of where they stand at rest he leans his hips, standing
- * straight, to hold the bars, in metres.
+ * straight, to hold the bars, in meters.
  */
 const LEAN = 0.14;
 
@@ -156,7 +156,7 @@ function setMaterials(model: Model): void {
   model.setMaterial('linen', '#cbc2ad');
   model.setMaterial('cloak', '#6b5038');
   model.setMaterial('leather', '#4a3222');
-  model.setMaterial('trousers', '#565049');
+  model.setMaterial('pants', '#565049');
   model.setMaterial('boot', '#3e2c1f');
   model.setMaterial('dust', '#7d6a4f');
 }
@@ -211,7 +211,7 @@ function addFace(model: Model): void {
 /**
  * Adds his body: the tabard over the shirt, the crown on its breast, the
  * strap across it to the pouch, and the short cloak about the shoulders;
- * and at the hips the trousers, the belt, the skirt of the tabard down to
+ * and at the hips the pants, the belt, the skirt of the tabard down to
  * the middle of the thighs, its hem stained with the dust of the road, and
  * the empty pouch on the belt.
  *
@@ -303,7 +303,7 @@ function addBody(model: Model): void {
   );
 
   model.add(
-    'trousers',
+    'pants',
     place(
       createLathe(
         [
@@ -431,7 +431,7 @@ function addArms(model: Model): void {
  * foot to the other, looks along the passage one way and then the other,
  * and breathes.
  *
- * @param {Model} model - The model, centred on its feet.
+ * @param {Model} model - The model, centered on its feet.
  * @returns {ReadonlyMap<string, ClipReport>} The measurements of the baked
  *   clips, by clip name.
  */
@@ -511,7 +511,7 @@ function animate(model: Model): ReadonlyMap<string, ClipReport> {
  * travel-stained clothes of his errand: a faded blue tabard with the crown
  * of his kingdom on its breast, over a linen shirt, a short brown cloak
  * about his shoulders, a belt with a strap across him to an empty pouch,
- * trousers, and boots caked with dust.  He has no armour and no weapon.
+ * pants, and boots caked with dust.  He has no armor and no weapon.
  * He stands right at the bars of his cell, holding two of them, leaning in
  * on straight arms; he shifts his weight from one foot to the other, and
  * looks along the passage one way and then the other, and breathes.
@@ -526,7 +526,7 @@ export function buildNpcEdwin(): BuiltModel {
   addFace(model);
   addBody(model);
   addArms(model);
-  // His legs, in trousers and dusty boots.
+  // His legs, in pants and dusty boots.
   addNpcLegs(model, [
     {
       material: 'boot',
@@ -547,8 +547,8 @@ export function buildNpcEdwin(): BuiltModel {
       ],
     },
   ]);
-  // The model is centred on its feet before it is posed, so that his hands
+  // The model is centered on its feet before it is posed, so that his hands
   // close on the bars where the cave stands them.
-  model.centreOn(['FootL', 'FootR']);
+  model.centerOn(['FootL', 'FootR']);
   return { model, report: animate(model) };
 }

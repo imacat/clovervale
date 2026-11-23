@@ -27,8 +27,8 @@ import type { Material, Object3D } from 'three';
 
 /** The name of the material of the glass of the windows in the models. */
 const GLASS_MATERIAL = 'glass';
-/** The colour of the light in the windows. */
-const LAMPLIGHT_COLOUR = '#ffb45c';
+/** The color of the light in the windows. */
+const LAMPLIGHT_COLOR = '#ffb45c';
 /** How strongly the windows glow when they are fully lit. */
 const LAMPLIGHT_STRENGTH = 1.1;
 
@@ -68,7 +68,7 @@ export class WindowGlow {
           material.name === GLASS_MATERIAL &&
           !this.#glass.includes(material)
         ) {
-          material.emissive = new Color(LAMPLIGHT_COLOUR);
+          material.emissive = new Color(LAMPLIGHT_COLOR);
           this.#glass.push(material);
         }
       }

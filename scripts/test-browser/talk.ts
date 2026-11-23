@@ -77,22 +77,22 @@ interface TalkLook {
   readonly judgedBack: string;
 }
 
-/** Where Nancy the villager stands along the X axis, in metres. */
+/** Where Nancy the villager stands along the X axis, in meters. */
 const NANCY_X = 3.2;
-/** Where Nancy the villager stands along the Z axis, in metres. */
+/** Where Nancy the villager stands along the Z axis, in meters. */
 const NANCY_Z = -6.4;
 /**
  * The least position along the Z axis of the stretch a player is stepped
- * to, before it walks along the X axis towards Nancy from the side of the
- * fountain, in metres.  Along the whole stretch, the way to her is clear,
+ * to, before it walks along the X axis toward Nancy from the side of the
+ * fountain, in meters.  Along the whole stretch, the way to her is clear,
  * and she stands straight ahead of the player.
  */
 const TALK_LEAST_Z = -6.55;
-/** The greatest position along the Z axis of that stretch, in metres. */
+/** The greatest position along the Z axis of that stretch, in meters. */
 const TALK_MOST_Z = -6.25;
 /**
  * The furthest the foot of the bubble of what Nancy says may be from where
- * she stands along the ground, in metres.
+ * she stands along the ground, in meters.
  */
 const SPEECH_NEARNESS = 0.05;
 
@@ -427,22 +427,22 @@ const MOST_SPEECH_SHARE = 0.9;
 const CAMERA_FIELD_OF_VIEW = 40;
 /**
  * The farthest a player walks to either side of Nancy to bring her to an
- * edge of the view, the camera brought near enough for that, in metres.
+ * edge of the view, the camera brought near enough for that, in meters.
  */
 const SPEECH_SIDE_REACH = 3.5;
 /**
  * The position along the Z axis a player steps south to, at least, to walk
- * along the open stretch there to either side of Nancy, in metres.
+ * along the open stretch there to either side of Nancy, in meters.
  */
 const SPEECH_SIDE_Z = -5.6;
 /**
  * The position along the Z axis a player steps back north to, at most,
- * before stepping level with Nancy, in metres.
+ * before stepping level with Nancy, in meters.
  */
 const SPEECH_RETURN_Z = -6.2;
 /**
  * How far short of where it brings Nancy to the edge of the view a player
- * lets go of the key that walks it there, in metres, which is further than
+ * lets go of the key that walks it there, in meters, which is further than
  * it walks on before the key is let go of.
  */
 const SPEECH_STOP_SHORT = 0.4;
@@ -539,7 +539,7 @@ export async function checkSpeechEdges(
       });
       await sleep(VIEW_SETTLE_DURATION);
       const { width, height } = await readPageState(session, context);
-      // How many CSS pixels a metre across, a metre from the camera, takes.
+      // How many CSS pixels a meter across, a meter from the camera, takes.
       const scale: number =
         height / (2 * Math.tan((CAMERA_FIELD_OF_VIEW * Math.PI) / 360));
       await zoomTo(

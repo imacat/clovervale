@@ -125,7 +125,7 @@ const SOCKET_FILE_MODE = 0o660;
  * it is welcomed with and steers with its messages, and which leaves the
  * world it is in when the peer disconnects.  The welcome also tells the
  * peer how the day goes.  A peer that sends anything but well-formed
- * client messages, or inputs that are not numbered upwards, or more inputs
+ * client messages, or inputs that are not numbered upward, or more inputs
  * than can wait for their turn, is disconnected.  A line or a phrase a
  * peer has its player say is heard as {@link Realm.receiveChat} tells.
  * Every peer is sent what
@@ -142,7 +142,7 @@ const SOCKET_FILE_MODE = 0o660;
  * far behind with what it is sent, as the limits tell.
  *
  * A Unix socket file is created for its owner and its group to connect to.
- * A socket file that nothing listens on any more is replaced.
+ * A socket file that nothing listens on anymore is replaced.
  *
  * @param {number | string} target - The TCP port to listen on, or 0 for any
  *   free port, or the path of the Unix socket file to listen on.
@@ -226,7 +226,7 @@ export async function startServer(
 }
 
 /**
- * Removes a Unix socket file that nothing listens on any more.
+ * Removes a Unix socket file that nothing listens on anymore.
  *
  * @param {string} socketPath - The path of the socket file, which need not
  *   exist.

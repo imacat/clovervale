@@ -23,7 +23,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { PLAZA_CENTRE, findSpawnPoint } from '../src/index.ts';
+import { PLAZA_CENTER, findSpawnPoint } from '../src/index.ts';
 import type { GroundVector } from '../src/index.ts';
 
 /**
@@ -31,7 +31,7 @@ import type { GroundVector } from '../src/index.ts';
  *
  * @param {GroundVector} a - One point.
  * @param {GroundVector} b - The other point.
- * @returns {number} The distance between them, in metres.
+ * @returns {number} The distance between them, in meters.
  */
 function measureDistance(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
@@ -53,20 +53,20 @@ describe('findSpawnPoint', () => {
 
   it('puts the spawn points in front of the fountain, clear of it', () => {
     for (const point of points) {
-      expect(point.z).toBeGreaterThan(PLAZA_CENTRE.z);
-      expect(measureDistance(point, PLAZA_CENTRE)).toBeGreaterThan(4);
+      expect(point.z).toBeGreaterThan(PLAZA_CENTER.z);
+      expect(measureDistance(point, PLAZA_CENTER)).toBeGreaterThan(4);
     }
   });
 
   it('puts the first spawn points on the plaza', () => {
     for (const point of points.slice(0, 8)) {
-      expect(measureDistance(point, PLAZA_CENTRE)).toBeLessThan(8);
+      expect(measureDistance(point, PLAZA_CENTER)).toBeLessThan(8);
     }
   });
 
   it('starts by the middle of the plaza', () => {
     const [first, second] = points;
-    expect(Math.abs((first?.x ?? NaN) - PLAZA_CENTRE.x)).toBeLessThan(1);
-    expect(Math.abs((second?.x ?? NaN) - PLAZA_CENTRE.x)).toBeLessThan(1);
+    expect(Math.abs((first?.x ?? NaN) - PLAZA_CENTER.x)).toBeLessThan(1);
+    expect(Math.abs((second?.x ?? NaN) - PLAZA_CENTER.x)).toBeLessThan(1);
   });
 });

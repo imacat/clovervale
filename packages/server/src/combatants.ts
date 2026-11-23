@@ -76,7 +76,7 @@ export interface Striker {
   readonly biteDamage: number;
   /**
    * The farthest a player can be from it for its strike to hit, from
-   * centre to centre, in metres.
+   * center to center, in meters.
    */
   readonly strikeReach: number;
 

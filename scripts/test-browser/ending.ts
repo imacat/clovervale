@@ -446,7 +446,7 @@ async function checkEndingStory(
 ): Promise<void> {
   const look = (): Promise<EndingLook> => readEndingLook(session, context);
   // The view is a desktop's before the scroll unrolls, a second after the
-  // token is got.
+  // token is received.
   await session.send('browsingContext.setViewport', {
     context,
     viewport: DESKTOP_VIEWPORT,
@@ -785,7 +785,7 @@ async function checkHelpCredits(
  * to it; that Space rolls it up, a press of Esc meanwhile doing nothing,
  * and it unrolls again with the credits, with the version of the game from
  * its package, its author without an address, the AI that assisted, the
- * music, the libraries and the licences; that on a desktop the credits fit
+ * music, the libraries and the licenses; that on a desktop the credits fit
  * and stand still, while on a phone held on its side they do not, and
  * roll up by themselves after a moment, until the wheel scrolls them,
  * which stops them, and a drag of the mouse scrolls them too, neither

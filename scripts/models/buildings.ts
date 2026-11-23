@@ -19,7 +19,7 @@
 
 /**
  * @module scripts/models/buildings The weapon shop, the fountain, a cottage,
- *   the apothecary's and the house of the village chief.
+ *   the apothecary shop and the house of the village chief.
  */
 
 import {
@@ -45,9 +45,9 @@ type Wall = 'front' | 'back' | 'left' | 'right';
 interface HouseWindow {
   /** The wall the window is in. */
   readonly wall: Wall;
-  /** The distance of the centre of the window along the wall. */
+  /** The distance of the center of the window along the wall. */
   readonly u: number;
-  /** The height of the centre of the window. */
+  /** The height of the center of the window. */
   readonly y: number;
   /** The width of the window. */
   readonly w: number;
@@ -57,7 +57,7 @@ interface HouseWindow {
 
 /** The plan of a timber-framed house. */
 interface HousePlan {
-  /** The centre of the house along X. */
+  /** The center of the house along X. */
   readonly x: number;
   /** The size of the house along X. */
   readonly width: number;
@@ -68,15 +68,15 @@ interface HousePlan {
   /** The height of the walls. */
   readonly wall: number;
   /**
-   * The number of storeys the walls rise through, each as tall as the
+   * The number of stories the walls rise through, each as tall as the
    * others, or one if not given.
    */
-  readonly storeys?: number;
+  readonly stories?: number;
   /** The height of the roof. */
   readonly rise: number;
-  /** The offset of the door from the centre of the front wall. */
+  /** The offset of the door from the center of the front wall. */
   readonly door: number;
-  /** The [x, z] offset of the chimney from the centre of the house. */
+  /** The [x, z] offset of the chimney from the center of the house. */
   readonly chimney: Pair;
   /** The windows. */
   readonly windows: readonly HouseWindow[];
@@ -104,8 +104,8 @@ const DEG: number = Math.PI / 180;
  * Defines the materials of a timber-framed house.
  *
  * @param {Model} model - The model.
- * @param {string} roof - The main roof colour as `#rrggbb`.
- * @param {string} roofShade - The colour of the alternate tile rows.
+ * @param {string} roof - The main roof color as `#rrggbb`.
+ * @param {string} roofShade - The color of the alternate tile rows.
  */
 function setHouseMaterials(
   model: Model,
@@ -134,11 +134,11 @@ function setHouseMaterials(
 function addHouse(model: Model, plan: HousePlan): PutOnWall {
   const { x, width: w, depth: d, base, wall, rise } = plan;
   const eaves: number = base + wall;
-  const storeys: number = plan.storeys ?? 1;
-  const storey: number = wall / storeys;
+  const stories: number = plan.stories ?? 1;
+  const story: number = wall / stories;
   const floors: number[] = Array.from(
-    { length: storeys - 1 },
-    (_, i: number) => base + (i + 1) * storey,
+    { length: stories - 1 },
+    (_, i: number) => base + (i + 1) * story,
   );
   const putOnWall: PutOnWall = (
     shape: Shape,
@@ -287,8 +287,8 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
     }
   }
   const addBrace = (side: Wall, u: number, lean: number): void => {
-    const span: number = storey * 0.5 - 0.2;
-    for (let i = 0; i < storeys; i++) {
+    const span: number = story * 0.5 - 0.2;
+    for (let i = 0; i < stories; i++) {
       model.add(
         'timber',
         putOnWall(
@@ -297,7 +297,7 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
           }),
           side,
           u,
-          base + i * storey + 0.2 + span / 2,
+          base + i * story + 0.2 + span / 2,
           0.03,
         ),
       );
@@ -925,7 +925,7 @@ export function buildWeaponShop(): BuiltModel {
       }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -983,7 +983,7 @@ export function buildCottage(): BuiltModel {
       ),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -1115,7 +1115,7 @@ function addMortarSign(model: Model, putOnWall: PutOnWall): void {
 }
 
 /**
- * Builds the apothecary's: a cottage like the others, with its windows
+ * Builds the apothecary shop: a cottage like the others, with its windows
  * where a cottage has them, under a roof of green-glazed tiles, its gable
  * window made into the sign of the shop, a mortar and pestle.  The front
  * window has no box of flowers under it, as the herb rack stands in front
@@ -1147,12 +1147,12 @@ export function buildApothecary(): BuiltModel {
   };
   const putOnWall: PutOnWall = addHouse(model, plan);
   addMortarSign(model, putOnWall);
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * The outline of the banner of the village chief, in metres from the middle
+ * The outline of the banner of the village chief, in meters from the middle
  * of its top edge: a length of cloth with its lower end cut into two tails.
  */
 const BANNER_OUTLINE: readonly Pair[] = [
@@ -1165,15 +1165,15 @@ const BANNER_OUTLINE: readonly Pair[] = [
 
 /**
  * Builds the house of the village chief: a cottage grown wider, deeper and
- * two storeys tall, each storey as tall as the one of a cottage, with the
+ * two stories tall, each story as tall as the one of a cottage, with the
  * same walls under a broad roof of a gentler pitch, laid with clay tiles
  * of a deeper red-brown than those of a cottage, and a porch added in
  * front of the middle of it under a little roof of the same tiles.  The
  * door, as large as the door of a cottage, opens onto the middle of the
  * porch.  From the left end of the front beam of the porch, as one faces
- * the house, hangs a small banner bearing the green four-leaved clover of
+ * the house, hangs a small banner bearing the green four-leaf clover of
  * the village sign; to the right of the door, on the porch, is room for
- * someone to stand.  The front faces +Z, and the windows of both storeys
+ * someone to stand.  The front faces +Z, and the windows of both stories
  * and the window in the gable, as large as those of a cottage, hold glass.
  *
  * @returns {BuiltModel} The model.
@@ -1195,7 +1195,7 @@ export function buildChiefHouse(): BuiltModel {
     depth: 5,
     base: 0.4,
     wall: 4.6,
-    storeys: 2,
+    stories: 2,
     rise: 2.1,
     door: 0,
     chimney: [-2, -1.2],
@@ -1253,7 +1253,7 @@ export function buildChiefHouse(): BuiltModel {
   // The porch, added in front of the stone base across the middle of the
   // front: a low wooden floor, two posts along its front, braced to the
   // beam they hold up, and the little roof, which slopes down from the
-  // wall just above the floor of the upper storey.
+  // wall just above the floor of the upper story.
   const porch = 1.9;
   const post = 2;
   const postZ: number = front + 1.65;
@@ -1355,7 +1355,7 @@ export function buildChiefHouse(): BuiltModel {
     putOnWall(leaflets, 'front', banner, clover, face + 0.004),
   );
   model.add('stalk', putOnWall(stalk, 'front', banner, clover, face + 0.002));
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -1530,6 +1530,6 @@ export function buildFountain(): BuiltModel {
       }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

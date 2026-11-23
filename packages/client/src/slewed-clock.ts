@@ -28,7 +28,7 @@
  *
  * A clock that finds itself a little off catches up little by little, from
  * one reading to the next, running at most a share of the time that passes
- * faster or slower, and never backwards.  One that is far off, or read for
+ * faster or slower, and never backward.  One that is far off, or read for
  * the first time, starts over at once.
  */
 export class SlewedClock {

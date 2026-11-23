@@ -30,7 +30,7 @@ import type { MapId } from './world-map.ts';
 
 /**
  * The least room a player has between itself and anything in its way, as
- * it walks from one waypoint to another, in metres.
+ * it walks from one waypoint to another, in meters.
  */
 export const WAYPOINT_CLEARANCE = 0.1;
 
@@ -49,7 +49,7 @@ interface Node {
 interface Link {
   /** The index of the waypoint walked to. */
   readonly index: number;
-  /** The length of the walk, in metres. */
+  /** The length of the walk, in meters. */
   readonly distance: number;
 }
 

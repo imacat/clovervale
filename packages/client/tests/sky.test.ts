@@ -111,12 +111,12 @@ describe('Sky', () => {
     }
   });
 
-  it('keeps the sky round the camera, without turning with it', () => {
+  it('keeps the sky around the camera, without turning with it', () => {
     const scene = new Scene();
     const sky = new Sky(scene);
     const camera: PerspectiveCamera = createCamera();
     const stars: Points = findStars(scene);
-    sky.centreOn(camera);
+    sky.centerOn(camera);
     expect(stars.position.distanceTo(CAMERA_POSITION)).toBeLessThan(1e-9);
     expect(stars.quaternion.equals(camera.quaternion)).toBe(false);
     expect(stars.rotation.toArray().slice(0, 3)).toEqual([0, 0, 0]);
@@ -162,18 +162,18 @@ describe('Sky', () => {
     const scene = new Scene();
     const sky = new Sky(scene);
     const camera: PerspectiveCamera = createCamera();
-    const discs: Mesh[] = scene.children.filter(
+    const disks: Mesh[] = scene.children.filter(
       (object: Object3D): object is Mesh => object instanceof Mesh,
     );
-    expect(discs).toHaveLength(2);
+    expect(disks).toHaveLength(2);
     for (const time of [NOON, 0, findPhaseTime('dusk', 0.3)]) {
       const look: DaylightLook = findDaylight(time);
       sky.show(look);
-      sky.centreOn(camera);
+      sky.centerOn(camera);
       const shown: Vector3[] = [];
-      for (const disc of discs) {
-        if (disc.visible) {
-          shown.push(disc.position.clone().sub(CAMERA_POSITION).normalize());
+      for (const disk of disks) {
+        if (disk.visible) {
+          shown.push(disk.position.clone().sub(CAMERA_POSITION).normalize());
         }
       }
       // Only one of them is up at a time.

@@ -86,7 +86,7 @@ function findStepCount(event: KeyboardEvent | MouseEvent): number {
 
 /**
  * Tells how many steps a turn of the wheel moves the hour by, up and to the
- * right counting forwards.
+ * right counting forward.
  *
  * @param {WheelEvent} event - The turn of the wheel.
  * @returns {number} The number of steps.

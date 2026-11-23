@@ -95,7 +95,7 @@ interface InputRecord {
  * before it first learns the step at which the server took in an input that
  * did not wait for the steps before it: the first input, or one that came
  * into effect later than the steps it was to come after allowed, the page
- * having learnt the step of the input before it as well.  After that, it is
+ * having learned the step of the input before it as well.  After that, it is
  * at most a step off, and right to the step once the server has taken in
  * enough inputs for the page to tell.
  */
@@ -182,7 +182,7 @@ export class PlayerPrediction {
   }
 
   /**
-   * How far the last correction moved the player, in metres, or `null`
+   * How far the last correction moved the player, in meters, or `null`
    * before the first correction.
    *
    * @returns {number | null} The distance.
@@ -297,12 +297,12 @@ export class PlayerPrediction {
    * Sets the player right by what the server tells of it.
    *
    * The player becomes what the server tells, moved on by the inputs the
-   * server had not got to, and by the steps the page has taken that the
+   * server had not gotten to, and by the steps the page has taken that the
    * server had not, which are the steps of the server that follow.  If that
    * is not what was predicted, it is a correction, which shows at once.
    *
-   * @param {InputProgress} progress - How far the server had got with the
-   *   inputs of the page, and the motion of the player then.
+   * @param {InputProgress} progress - How far the server had gotten with
+   *   the inputs of the page, and the motion of the player then.
    * @param {number} step - The number of steps the server had taken then.
    * @param {number} time - The time on the clock of the page, in
    *   milliseconds, which is no earlier than any time told before.
@@ -310,7 +310,7 @@ export class PlayerPrediction {
   reconcile(progress: InputProgress, step: number, time: number): void {
     this.advance(time);
     this.#arrival.learn(progress, step, time);
-    // The server may have got to an input before the page has.
+    // The server may have gotten to an input before the page has.
     while ((this.#waiting[0]?.sequence ?? Infinity) <= progress.sequence) {
       const input: StampedInput | undefined = this.#waiting.shift();
       if (input !== undefined) {
@@ -368,7 +368,7 @@ export class PlayerPrediction {
    * it there, once the server has told that the player is in that map.
    *
    * The player becomes what the server tells, moved on by the inputs the
-   * server had not got to and by the steps the page has taken that the
+   * server had not gotten to and by the steps the page has taken that the
    * server had not, as in {@link PlayerPrediction.reconcile}, but by the
    * rules and on the ground of that map, as it goes on moving from then on.
    * That is no correction, and the player is drawn there at once, without
@@ -376,8 +376,9 @@ export class PlayerPrediction {
    * they were.
    *
    * @param {MapId} map - The map the player is in now.
-   * @param {InputProgress} progress - How far the server had got with the
-   *   inputs of the page, and the motion of the player then, in that map.
+   * @param {InputProgress} progress - How far the server had gotten with
+   *   the inputs of the page, and the motion of the player then, in that
+   *   map.
    * @param {number} step - The number of steps the server had taken then.
    * @param {number} time - The time on the clock of the page, in
    *   milliseconds, which is no earlier than any time told before.
@@ -433,7 +434,7 @@ export class PlayerPrediction {
    * Tells the player as it is to be drawn at a time.
    *
    * Between two steps, the player glides from where it was before its
-   * last step to where it is, turning likewise, the shorter way round.  It
+   * last step to where it is, turning likewise, the shorter way around.  It
    * does what it does after the step.
    *
    * @param {number} time - The time on the clock of the page, in

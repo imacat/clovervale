@@ -28,7 +28,7 @@ import {
   CAVE_CHAMBER_DEPTH,
   CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
-  CAVE_MODEL_CENTRE,
+  CAVE_MODEL_CENTER,
   CAVE_MOUTH,
   CAVE_MOUTH_OUTLINE,
   CAVE_PASSAGE,
@@ -58,38 +58,38 @@ type Rect = readonly [west: number, east: number, north: number, south: number];
 
 /**
  * Half the length of the ground the model of the cave covers, along X, in
- * metres, around the middle it stands on.
+ * meters, around the middle it stands on.
  */
 const HALF_LENGTH = 13;
 
 /** Half the width of the ground the model of the cave covers, along Z. */
 const HALF_WIDTH = 6.5;
 
-/** The lowest the rock walls stand, in metres. */
+/** The lowest the rock walls stand, in meters. */
 const WALL_HEIGHT = 2.1;
 
 /** How much higher than the lowest a stretch of rock may stand. */
 const WALL_RISE = 0.4;
 
-/** The longest a stretch of rock wall runs before the next, in metres. */
+/** The longest a stretch of rock wall runs before the next, in meters. */
 const WALL_PIECE = 1.6;
 
-/** The height of the stonework of the old well shaft, in metres. */
+/** The height of the stonework of the old well shaft, in meters. */
 const SHAFT_HEIGHT = 3.2;
 
 /** The number of courses of stones in the stonework of the shaft. */
 const SHAFT_COURSES = 4;
 
-/** The number of stones in each course, round the west half of the shaft. */
+/** The number of stones in each course, around the west half of the shaft. */
 const SHAFT_STONES = 8;
 
-/** How far the stonework of the shaft reaches into the rock, in metres. */
+/** How far the stonework of the shaft reaches into the rock, in meters. */
 const SHAFT_DEPTH = 0.75;
 
-/** The height the rope hangs down from, in metres. */
+/** The height the rope hangs down from, in meters. */
 const ROPE_TOP = 4.4;
 
-/** The height the face of the rock round the mouth of the burrow rises to. */
+/** The height the face of the rock around the mouth of the burrow rises to. */
 const MOUTH_ROCK_TOP = 4.9;
 
 /** The height the slope from the burrow rises to, at its east end. */
@@ -104,8 +104,8 @@ const SLOPE_HEIGHT = 3.4;
  * @returns {Rect[]} The stretches.
  */
 function listRock(): Rect[] {
-  const west: number = CAVE_MODEL_CENTRE.x - HALF_LENGTH;
-  const east: number = CAVE_MODEL_CENTRE.x + HALF_LENGTH;
+  const west: number = CAVE_MODEL_CENTER.x - HALF_LENGTH;
+  const east: number = CAVE_MODEL_CENTER.x + HALF_LENGTH;
   const edge: number = CAVE_PASSAGE_HALF_WIDTH;
   const far: number = edge + CAVE_CHAMBER_DEPTH;
   const rock: Rect[] = [
@@ -164,8 +164,8 @@ function addRock(model: Model, rect: Rect, random: () => number): void {
 
 /**
  * Adds the stonework at the bottom of the old well shaft: courses of stones
- * round the west half of the round end of the passage, each course set
- * half a stone round from the one below.
+ * around the west half of the round end of the passage, each course set
+ * half a stone farther around than the one below.
  *
  * @param {Model} model - The model.
  */
@@ -237,7 +237,7 @@ function addShaft(model: Model): void {
  */
 function addSlope(model: Model, random: () => number): void {
   const foot: number = CAVE_PASSAGE.east;
-  const top: number = CAVE_MODEL_CENTRE.x + HALF_LENGTH;
+  const top: number = CAVE_MODEL_CENTER.x + HALF_LENGTH;
   const rise: number = SLOPE_HEIGHT / (top - foot);
   model.add(
     'earth',
@@ -267,13 +267,13 @@ function addSlope(model: Model, random: () => number): void {
 /**
  * Adds the face of the rock at the top of the slope, with the mouth of the
  * burrow open through it onto the world outside: two halves of rock, each
- * round one half of the opening, standing on the top of the slope and
+ * around one half of the opening, standing on the top of the slope and
  * rising above the walls around it.
  *
  * @param {Model} model - The model.
  */
 function addMouth(model: Model): void {
-  const top: number = CAVE_MODEL_CENTRE.x + HALF_LENGTH;
+  const top: number = CAVE_MODEL_CENTER.x + HALF_LENGTH;
   const reach: number = CAVE_PASSAGE_HALF_WIDTH + 0.1;
   const foot: number = SLOPE_HEIGHT - 0.5;
   for (const side of [-1, 1]) {
@@ -311,7 +311,7 @@ function addFloor(model: Model, random: () => number): void {
   model.add(
     'floor',
     place(createBlock(2 * HALF_LENGTH, 0.01, 2 * HALF_WIDTH), {
-      pos: [CAVE_MODEL_CENTRE.x, 0, CAVE_MODEL_CENTRE.z],
+      pos: [CAVE_MODEL_CENTER.x, 0, CAVE_MODEL_CENTER.z],
     }),
   );
   for (let index = 0; index < 18; index++) {
@@ -354,14 +354,14 @@ export function buildCave(): BuiltModel {
   addShaft(model);
   addSlope(model, random);
   // Nothing reaches beyond the ground the model covers, nor below it.
-  const west: number = CAVE_MODEL_CENTRE.x - HALF_LENGTH;
-  const east: number = CAVE_MODEL_CENTRE.x + HALF_LENGTH;
+  const west: number = CAVE_MODEL_CENTER.x - HALF_LENGTH;
+  const east: number = CAVE_MODEL_CENTER.x + HALF_LENGTH;
   for (const { point } of model.listCorners()) {
     point.x = Math.min(Math.max(point.x, west), east);
     point.z = Math.min(Math.max(point.z, -HALF_WIDTH), HALF_WIDTH);
     point.y = Math.max(point.y, 0);
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -389,7 +389,7 @@ export function buildCaveTorch(): BuiltModel {
       pos: [0, 0, back + 0.04],
     }),
   );
-  // The bracket: a broad band round the post, and an arm out past the
+  // The bracket: a broad band around the post, and an arm out past the
   // torch, which it holds in a ring.
   model.add(
     'iron',
@@ -434,6 +434,6 @@ export function buildCaveTorch(): BuiltModel {
       pos: [0, flameBase, CAVE_FLAME_AHEAD],
     }),
   );
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

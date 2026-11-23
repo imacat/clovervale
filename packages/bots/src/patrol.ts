@@ -26,7 +26,7 @@ import {
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
   PLAYER_RADIUS,
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   SIMULATION_RATE,
   TOBY_ENDS,
   WALK_SPEED,
@@ -52,8 +52,8 @@ export interface PointOfInterest {
 }
 
 /**
- * Where Toby's run lies: the middle of it, facing along it towards the
- * gate, so that its right-hand side is the side towards the inside of the
+ * Where Toby's run lies: the middle of it, facing along it toward the
+ * gate, so that its right-hand side is the side toward the inside of the
  * village, with open ground, and its left-hand side the side of the fence.
  */
 const TOBY_RUN: Pose = {
@@ -82,7 +82,7 @@ type Visit = readonly [
  * the villagers: in front of the middle of the stall of the weapon shop,
  * out of the way of Emma at her anvil; at the rim of the fountain on the
  * side of the spawn points of the players; in front of the middle of the
- * herb rack of the apothecary's, away from Basil at the door; beside the
+ * herb rack of the apothecary, away from Basil at the door; beside the
  * middle of Toby's run, on the side of the open ground, far enough from it
  * that he never pushes a player there; on the open ground in front of
  * Martha's porch, before her; and by the stones that mark the spawn point
@@ -161,7 +161,7 @@ export function choosePhrase(
   return code;
 }
 
-/** How far a walking player goes in one simulation step, in metres. */
+/** How far a walking player goes in one simulation step, in meters. */
 export const STEP_DISTANCE: number = WALK_SPEED / SIMULATION_RATE;
 
 /** A walk in a straight line. */
@@ -222,13 +222,13 @@ export function planRoute(
  * the fountain, on the side of the spawn points of the players.
  */
 export const DRINKING_SPOT: GroundVector = {
-  x: PLAZA_CENTRE.x,
-  z: PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH / 2,
+  x: PLAZA_CENTER.x,
+  z: PLAZA_CENTER.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH / 2,
 };
 
 /**
  * The point from which a bot makes its last walk to {@link DRINKING_SPOT},
- * straight towards the fountain, so that it faces the fountain there.
+ * straight toward the fountain, so that it faces the fountain there.
  */
 const DRINKING_APPROACH: GroundVector = {
   x: DRINKING_SPOT.x,

@@ -56,12 +56,12 @@ import {
 } from './village-walk.ts';
 import type { QuestLook } from './village-walk.ts';
 
-/** Where the apothecary's stands, and which way it faces. */
+/** Where the apothecary shop stands, and which way it faces. */
 const APOTHECARY_PLACE = findPlacement('apothecary');
 /** Where Basil the apothecary stands. */
 const BASIL_SPOT: GroundVector = findPlacement('basil');
 /**
- * Where a player stands in front of the door of the apothecary's to talk to
+ * Where a player stands in front of the door of the apothecary to talk to
  * Basil, a step out from its doorstep.
  */
 const BEFORE_SHOP_DOOR: GroundVector = placePoint(APOTHECARY_PLACE, {
@@ -69,7 +69,7 @@ const BEFORE_SHOP_DOOR: GroundVector = placePoint(APOTHECARY_PLACE, {
   z: 4.1,
 });
 /**
- * Where a player stands on the plaza to look at the apothecary's: out in
+ * Where a player stands on the plaza to look at the apothecary shop: out in
  * front of it, off to the side of the gate, so that the great tree is not
  * between the camera and the shop.
  */
@@ -77,7 +77,7 @@ const SHOP_VIEWPOINT: GroundVector = placePoint(APOTHECARY_PLACE, {
   x: -3.7,
   z: 5.3,
 });
-/** Where the herb rack of the apothecary's stands. */
+/** Where the herb rack of the apothecary stands. */
 const RACK_SPOT: GroundVector = findPlacement('herb-rack');
 /**
  * Where a player stands to look at the herb rack and the props: in front of
@@ -117,7 +117,7 @@ const BASIL_SHORT: DialogueShown = {
 /** The dialogue box as Basil bids a player who buys nothing farewell. */
 const BASIL_FAREWELL: DialogueShown = {
   name: 'Basil',
-  line: 'Okay! Come and find me whenever you need one!',
+  line: 'Okay! Come find me whenever you need one!',
   replies: [],
   cursor: 0,
 };
@@ -134,7 +134,7 @@ const BASIL_CLOSE_ZOOM = -800;
 const GABLE_TILT = -0.12;
 
 /**
- * Saves the views of the apothecary's and of Basil for the owner to look
+ * Saves the views of the apothecary shop and of Basil for the owner to look
  * at, if the environment names a directory for the views: the shop seen
  * from the plaza by day and at midnight, its gable sign close up, the herb
  * rack and the props by the door, and Basil from the front, from three
@@ -226,7 +226,7 @@ async function saveApothecaryViews(
  * Checks that a player buys healing potions from Basil the apothecary, by
  * the door of his shop, until it has too few silver coins.
  *
- * The player walks to the front of the door of the apothecary's, facing
+ * The player walks to the front of the door of the apothecary, facing
  * Basil, and is prompted to talk to him.  Talked to, he says nothing in
  * passing; the dialogue box shows him offer a healing potion for three
  * silver coins, with the replies to buy one or not.  Each time Enter buys

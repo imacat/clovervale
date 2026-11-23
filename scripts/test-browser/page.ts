@@ -150,7 +150,7 @@ export const PANEL_ACTION_EXPRESSION = `(() => {
 
 /**
  * Makes the expression that types a value into a number field of the
- * panel, and gives what the field holds afterwards.
+ * panel, and gives what the field holds afterward.
  *
  * @param {string} name - The name of the field.
  * @param {number | string} value - The value, as a number, or as the
@@ -479,7 +479,7 @@ export async function tapKey(
 
 /**
  * Makes the expression that sets a switch of the panel, and gives whether
- * it is set afterwards, as `true` or `false`.
+ * it is set afterward, as `true` or `false`.
  *
  * @param {string} name - The name of the switch.
  * @param {boolean} isEnabled - Whether to switch it on.

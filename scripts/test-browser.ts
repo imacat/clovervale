@@ -97,12 +97,12 @@ import { checkTouch } from './test-browser/touch.ts';
  * which shows the hit once, that a hurt player that drinks from the
  * fountain gets health back in both pages, each of which shows the heal
  * once, without a correction behind a slow connection, that both pages
- * show Toby going round his course alike, and finding a four-leaved clover
+ * show Toby going around his course alike, and finding a four-leaf clover
  * alike, behind a slow connection or not, that a player that talks to
  * Nancy sees what she says above her head in its own page alone, for a
  * while, without a slash or a correction, that a page words its text in
  * the language chosen in its panel at once, that a player that picks a
- * four-leaved clover sees it in its slots, and that once it puts the clover
+ * four-leaf clover sees it in its slots, and that once it puts the clover
  * down, the player of the other page sees it on the ground, picks it up and
  * sees it in its own slots, that a player plays the quest of Toby, hurt,
  * through, taking Martha's ointment to him, that a player that holds

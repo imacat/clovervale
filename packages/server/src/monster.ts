@@ -90,13 +90,13 @@ const MONSTER_MAX_IDLE = 5;
 
 /**
  * The farthest a player can be from a monster for its attack to hit, from
- * centre to centre, in metres.
+ * center to center, in meters.
  */
 export const MONSTER_ATTACK_REACH = 1.4;
 
 /**
  * How near a monster comes to the player it chases before it stops and
- * attacks, from centre to centre, in metres.
+ * attacks, from center to center, in meters.
  */
 export const MONSTER_APPROACH_DISTANCE = 1.1;
 
@@ -113,9 +113,9 @@ const CORPSE_STEPS: number = countSteps(MONSTER_CORPSE_DURATION);
 export interface Quarry {
   /** The identifier of the player. */
   readonly id: number;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
 }
 
@@ -215,7 +215,7 @@ export class Monster implements Target, Striker {
    * The farthest a player can be from the monster for its attack to hit,
    * {@link MONSTER_ATTACK_REACH}.
    *
-   * @returns {number} The reach, in metres.
+   * @returns {number} The reach, in meters.
    */
   get strikeReach(): number {
     return MONSTER_ATTACK_REACH;

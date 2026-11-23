@@ -31,19 +31,19 @@ import type { BuiltModel } from './rig.ts';
 /** The number of sides of the band and of the bezel of the ring. */
 const SIDES = 16;
 
-/** The radius of the hole in the band of the ring, in metres. */
+/** The radius of the hole in the band of the ring, in meters. */
 const INNER = 0.034;
 
-/** The outer radius of the band of the ring, in metres. */
+/** The outer radius of the band of the ring, in meters. */
 const OUTER = 0.054;
 
-/** The width of the band of the ring, in metres. */
+/** The width of the band of the ring, in meters. */
 const WIDTH = 0.032;
 
-/** The radius of the bezel of the ring, across the band, in metres. */
+/** The radius of the bezel of the ring, across the band, in meters. */
 const BEZEL = 0.036;
 
-/** The thickness of the bezel of the ring, in metres. */
+/** The thickness of the bezel of the ring, in meters. */
 const BEZEL_THICKNESS = 0.022;
 
 /**
@@ -128,6 +128,6 @@ export function buildItemSpyToken(): BuiltModel {
       }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

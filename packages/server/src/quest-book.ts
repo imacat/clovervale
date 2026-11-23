@@ -103,7 +103,7 @@ interface AskedVillager {
  * needs of it, as {@link Quest.request} tells.  Once the quest moves on to
  * ask that villager for another need, the request is replaced; once it
  * moves on to ask nothing, the request is taken back, unless the event of
- * that villager moved it on, which fulfils the request.  Once the book is
+ * that villager moved it on, which fulfills the request.  Once the book is
  * taken out of the world, nothing there moves the quests on, and every
  * request is taken back.
  */
@@ -333,7 +333,7 @@ export class QuestBook {
    * Changes the request of a quest that has moved on, if it has one out:
    * replaces it if the quest asks the same villager for another need,
    * forgets it if the quest asks nothing and the event of that villager
-   * moved it on, which fulfils it, and takes it back otherwise, if the
+   * moved it on, which fulfills it, and takes it back otherwise, if the
    * quest no longer asks it.
    *
    * @param {Quest} quest - The quest.

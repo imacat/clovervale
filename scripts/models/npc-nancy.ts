@@ -25,7 +25,7 @@
 import type { Quaternion } from 'three';
 
 import {
-  HEAD_CENTRE,
+  HEAD_CENTER,
   SIDES,
   SKINS,
   addHead,
@@ -79,7 +79,7 @@ export function buildNpcNancy(): BuiltModel {
   model.add('hair', hair.hair, 'Head');
   model.add('green', hair.accent, 'Head');
   const putOnHead = (shape: Shape): Shape =>
-    place(place(shape, { rot: [-14, 0, 0] }), { pos: HEAD_CENTRE });
+    place(place(shape, { rot: [-14, 0, 0] }), { pos: HEAD_CENTER });
   model.add(
     'straw',
     putOnHead(
@@ -414,6 +414,6 @@ export function buildNpcNancy(): BuiltModel {
     },
     { loop: true },
   );
-  model.centreOn([]);
+  model.centerOn([]);
   return { model, report: rig.report };
 }

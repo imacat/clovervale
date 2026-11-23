@@ -64,7 +64,7 @@ import { PlayerPrediction, placeOwnPlayer } from '../src/prediction.ts';
 /** How long one step of the simulation lasts, in milliseconds. */
 const STEP: number = 1000 / SIMULATION_RATE;
 
-/** How far a player walks in one step, in metres. */
+/** How far a player walks in one step, in meters. */
 const STEP_LENGTH: number = WALK_SPEED / SIMULATION_RATE;
 
 /** The number of simulation steps a dead player lies where it fell. */
@@ -86,7 +86,7 @@ const START: PlayerMotion = createMotion({ x: 2, z: -3 }, 180);
 interface SentSnapshot {
   /** The number of steps the server had taken when it was taken. */
   readonly step: number;
-  /** How far the player had got with the inputs of the page then. */
+  /** How far the player had gotten with the inputs of the page then. */
   readonly progress: InputProgress;
 }
 
@@ -146,7 +146,7 @@ interface Outcome {
    * snapshots.
    */
   readonly lead: number;
-  /** The least room the player of the server ever had from Toby, in metres. */
+  /** The least room the player of the server ever had from Toby, in meters. */
   readonly leastRoom: number;
   /**
    * Whether the server ever had the player where the step before would
@@ -164,7 +164,7 @@ interface Outcome {
   readonly nextSteps: readonly number[];
   /** The step of the server Toby was drawn at, frame by frame. */
   readonly drawnSteps: readonly DrawnStep[];
-  /** How far the largest correction moved the player, in metres. */
+  /** How far the largest correction moved the player, in meters. */
   readonly largestCorrection: number;
   /** What the latest snapshot the page heard told of the player. */
   readonly latestTold: InputProgress | null;
@@ -536,7 +536,7 @@ const BY_TOBY_SPAWN: PlayerMotion = createMotion(findSpawnPoint(30), SPAWN_YAW);
  */
 const FAR_SPAWN: PlayerMotion = createMotion(findSpawnPoint(31), SPAWN_YAW);
 
-/** The way Toby runs from the end of his run by the cottage, one metre long. */
+/** The way Toby runs from the end of his run by the cottage, one meter long. */
 const RUN_WAY: GroundVector = (() => {
   const [first, second] = TOBY_ENDS;
   const length: number = Math.hypot(second.x - first.x, second.z - first.z);
@@ -547,8 +547,8 @@ const RUN_WAY: GroundVector = (() => {
 })();
 
 /**
- * The way square to his run towards the back of the village, away from the
- * fence, one metre long.
+ * The way square to his run toward the back of the village, away from the
+ * fence, one meter long.
  */
 const OFF_RUN: GroundVector = { x: RUN_WAY.z, z: -RUN_WAY.x };
 
@@ -556,7 +556,7 @@ const OFF_RUN: GroundVector = { x: RUN_WAY.z, z: -RUN_WAY.x };
  * Makes the input that steers a player along the run of Toby and square to
  * it.
  *
- * @param {number} along - How much of the way goes along his run, towards
+ * @param {number} along - How much of the way goes along his run, toward
  *   the gate.
  * @param {number} off - How much goes square to it, away from the fence.
  * @returns {PlayerInput} The input.
@@ -573,7 +573,7 @@ function steerByRun(along: number, off: number): PlayerInput {
  * side away from the fence.
  *
  * @param {GroundVector} point - The point.
- * @returns {number} The distance, in metres, negative on the side of the
+ * @returns {number} The distance, in meters, negative on the side of the
  *   fence.
  */
 function measureOffRun(point: GroundVector): number {
@@ -595,12 +595,12 @@ const ALONG_HIS_RUN: readonly TimedInput[] = [
 ];
 
 /**
- * A walk from the spawn point in his way along his run towards the gate,
- * with a slash by the way, and back towards the cottage, into him as he
- * runs the other way, and towards the gate again with a talk to him where
+ * A walk from the spawn point in his way along his run toward the gate,
+ * with a slash by the way, and back toward the cottage, into him as he
+ * runs the other way, and toward the gate again with a talk to him where
  * he picks at the clover there.
  */
-const ABOUT_HIM: readonly TimedInput[] = [
+const AROUND_HIM: readonly TimedInput[] = [
   { time: 300, input: steerByRun(1, 0) },
   { time: 1300, input: INTERACT },
   { time: 4000, input: steerByRun(-1, 0) },
@@ -1234,7 +1234,7 @@ describe('a prediction set right by the server', () => {
     expect(prediction.correctionCount).toBe(1);
   });
 
-  it('moves what the server tells on by the inputs it has not got to', () => {
+  it('moves what the server tells on by the inputs it has not gotten to', () => {
     const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput(steer(1, 0), 1000);
     prediction.issueInput(steer(0, 1), 1120);
@@ -1302,7 +1302,7 @@ describe('a prediction that goes into another map', () => {
     expect(prediction.step).toBe(30);
   });
 
-  it('moves the player on by the inputs the server has not got to there', () => {
+  it('moves the player on by the inputs the server has not gotten to there', () => {
     const prediction = new PlayerPrediction(START, 0, 0, 'village');
     prediction.issueInput({ type: 'travel' }, 1000);
     prediction.issueInput(steer(1, 0), 1100);
@@ -1375,7 +1375,7 @@ describe('a prediction that goes into another map', () => {
 describe('a prediction set right by the server, by Toby', () => {
   it.each([
     ['a walk along his run', ALONG_HIS_RUN, 11_000],
-    ['a walk about him, with a talk or a slash', ABOUT_HIM, 12_800],
+    ['a walk around him, with a talk or a slash', AROUND_HIM, 12_800],
   ])(
     'never needs a correction over a steady link, for %s',
     (_: string, inputs: readonly TimedInput[], duration: number) => {
@@ -1419,7 +1419,7 @@ describe('a prediction set right by the server, by Toby', () => {
       };
       // A walk from the spawn point in his way to rest beside his run, out
       // of his way, and a walk across his way from there, at any point of
-      // his course, on towards the fence.
+      // his course, on toward the fence.
       const [first] = TOBY_ENDS;
       const along: number = 0.8 + random() * 2.8;
       const beside: GroundVector = {

@@ -32,7 +32,7 @@ import {
   INVENTORY_SIZE,
   NO_WORLD_ITEMS,
   PLAYER_RADIUS,
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   TOBY_LOOP_STEPS,
   VILLAGERS,
   VILLAGE_TERRAIN,
@@ -93,8 +93,8 @@ function findAction(
 /** A player against the rim of the fountain, facing it. */
 const BY_FOUNTAIN: PlayerMotion = createMotion(
   {
-    x: PLAZA_CENTRE.x,
-    z: PLAZA_CENTRE.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS,
+    x: PLAZA_CENTER.x,
+    z: PLAZA_CENTER.z + FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS,
   },
   180,
 );
@@ -428,11 +428,11 @@ describe('describePrompt by a patch of clover', () => {
         [],
         false,
       ),
-    ).toBe('Press Space to pick up the four-leaved clover');
+    ).toBe('Press Space to pick up the four-leaf clover');
     expect(
       describeSpaceKey(EN, findAction(BY_PATCH, { world: WITH_CLOVER })),
     ).toBe(
-      'pick up the four-leaved clover',
+      'pick up the four-leaf clover',
     );
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
@@ -481,7 +481,7 @@ describe('describePrompt by a patch of clover', () => {
         false,
       ),
     ).toBe(
-      'Your inventory is full, so you cannot pick up the four-leaved clover',
+      'Your inventory is full, so you cannot pick up the four-leaf clover',
     );
     expect(
       describeSpaceKey(
@@ -548,7 +548,7 @@ describe('describePrompt by a patch of clover', () => {
     };
     expect(
       describePrompt(EN, findAction(BY_PATCH, { world }), [], false),
-    ).toBe('Press Space to pick up the four-leaved clover');
+    ).toBe('Press Space to pick up the four-leaf clover');
   });
 
   it('tells the player it can pick up a clover at its feet, facing any way', () => {
@@ -573,7 +573,7 @@ describe('describePrompt by a patch of clover', () => {
             false,
           ),
           `${String(dx)}, ${String(dz)} facing ${String(yaw)}`,
-        ).toBe('Press Space to pick up the four-leaved clover');
+        ).toBe('Press Space to pick up the four-leaf clover');
       }
     }
   });
@@ -615,7 +615,7 @@ describe('describePrompt by the ways into and out of the cave', () => {
     -90,
   );
 
-  /** The wild dog, alive, a metre in front of a player in the burrow. */
+  /** The wild dog, alive, a meter in front of a player in the burrow. */
   const DOG: MonsterState = {
     id: 1,
     kind: 'village-dog',
@@ -1008,11 +1008,11 @@ describe('describePrompt in the cave', () => {
     expect(
       describePrompt(
         EN,
-        findAction(motion, { world: world('leather-armour'), map: 'cave' }),
+        findAction(motion, { world: world('leather-armor'), map: 'cave' }),
         [],
         false,
       ),
-    ).toBe('Press Space to pick up the leather armour');
+    ).toBe('Press Space to pick up the leather armor');
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
       describePrompt(
@@ -1025,7 +1025,7 @@ describe('describePrompt in the cave', () => {
     expect(
       describePrompt(
         zhTw,
-        findAction(motion, { world: world('leather-armour'), map: 'cave' }),
+        findAction(motion, { world: world('leather-armor'), map: 'cave' }),
         [],
         false,
       ),

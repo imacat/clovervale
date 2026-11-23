@@ -129,7 +129,7 @@ const LANGUAGE_LOOK_EXPRESSION = `(() => {
 
 /**
  * Makes the expression that chooses a language in the language control of
- * the panel, and gives the language chosen afterwards, or `missing`.
+ * the panel, and gives the language chosen afterward, or `missing`.
  *
  * @param {string} control - The name of the language control, in the
  *   language the page speaks.

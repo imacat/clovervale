@@ -74,7 +74,7 @@ export {
   CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
   CAVE_LANDING,
-  CAVE_MODEL_CENTRE,
+  CAVE_MODEL_CENTER,
   CAVE_MOUTH,
   CAVE_MOUTH_OUTLINE,
   CAVE_PASSAGE,
@@ -211,7 +211,7 @@ export type {
   SaidMessage,
   SayMessage,
   ServerMessage,
-  SlashJudgement,
+  SlashJudgment,
   SnapshotContents,
   SnapshotMessage,
 } from './protocol.ts';
@@ -254,7 +254,7 @@ export {
 } from './village-layout.ts';
 export type { Placement } from './village-layout.ts';
 export {
-  PLAZA_CENTRE,
+  PLAZA_CENTER,
   SPAWN_POINT_COUNT,
   SPAWN_YAW,
   findSpawnPoint,

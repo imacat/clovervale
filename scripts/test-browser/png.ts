@@ -30,15 +30,15 @@ export interface Pixels {
   readonly width: number;
   /** The height of the image, in pixels. */
   readonly height: number;
-  /** The number of colour channels of every pixel. */
+  /** The number of color channels of every pixel. */
   readonly channels: number;
   /** The channels of the pixels, row by row from the top. */
   readonly data: Uint8Array;
 }
 
-/** The least a colour channel of a lit pixel can be, from 0 to 255. */
+/** The least a color channel of a lit pixel can be, from 0 to 255. */
 const LIT_CHANNEL = 96;
-/** The least change of a colour channel that changes a pixel, to 255. */
+/** The least change of a color channel that changes a pixel, to 255. */
 const CHANGED_CHANNEL = 48;
 
 /**
@@ -142,7 +142,7 @@ export function measureBrightness(image: Pixels): number {
  *
  * @param {Pixels} before - One image.
  * @param {Pixels} after - The other image.
- * @returns {number} The number of pixels of which a colour channel differs
+ * @returns {number} The number of pixels of which a color channel differs
  *   clearly.
  * @throws {Error} If the images differ in size.
  */

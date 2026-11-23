@@ -25,7 +25,7 @@
 
 import {
   AI_ASSISTANCE,
-  GAME_LICENCE,
+  GAME_LICENSE,
   GAME_VERSION,
   LIBRARY_CREDITS,
   MUSIC_CREDITS,
@@ -62,11 +62,11 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
 }
 
 /**
- * Draws the credits of the game, centred: their title, the name and the
+ * Draws the credits of the game, centered: their title, the name and the
  * version of the game, its author, the AI that assisted, the music, the
- * libraries the client comes with, each under its licence, and the licence
+ * libraries the client comes with, each under its license, and the license
  * of the game.  The names of people, of works, of libraries and of
- * licences are the same in every language, and the rest is worded in the
+ * licenses are the same in every language, and the rest is worded in the
  * language the page speaks.
  *
  * @param {Translator} translator - The translator of the text of the page.
@@ -149,7 +149,7 @@ export function drawCredits(translator: Translator): CreditsView {
                 source: music.source,
               }),
           ],
-          ['credits-line credits-licence', () => music.licence],
+          ['credits-line credits-license', () => music.license],
         ],
       ),
     ),
@@ -158,15 +158,15 @@ export function drawCredits(translator: Translator): CreditsView {
       'credits.libraries',
       LIBRARY_CREDITS.map((library: LibraryCredit): [string, () => string] => [
         'credits-line',
-        () => `${library.name} — ${library.licence}`,
+        () => `${library.name} — ${library.license}`,
       ]),
     ),
-    addSection('is-licence', 'credits.licence', [
+    addSection('is-license', 'credits.license', [
       [
         'credits-line',
         () =>
-          translator.translate('credits.gameLicence', {
-            licence: GAME_LICENCE,
+          translator.translate('credits.gameLicense', {
+            license: GAME_LICENSE,
           }),
       ],
     ]),

@@ -71,7 +71,7 @@ import { WORLD_MAPS, isMapId } from './world-map.ts';
 import type { MapId, WorldMap } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 33;
+export const PROTOCOL_VERSION = 34;
 
 /**
  * The most patches of clover any map has, which a snapshot, which does not
@@ -143,7 +143,7 @@ export interface HealEvent {
 export type GameEvent = HitEvent | HealEvent;
 
 /** How the server judged a slash of a player. */
-export interface SlashJudgement {
+export interface SlashJudgment {
   /** The simulation step at which the slash started, and was judged. */
   readonly step: number;
   /**
@@ -174,14 +174,14 @@ export interface WelcomeMessage {
 
 /**
  * What a snapshot tells the peer of a player alone, of that player: how
- * far it has got with the inputs of the peer, how its latest slash was
+ * far it has gotten with the inputs of the peer, how its latest slash was
  * judged, what it carries, its silver coins, the dialogue it is in, the
- * villagers who have told it who they are, and how far it has got with the
- * quests.
+ * villagers who have told it who they are, and how far it has gotten with
+ * the quests.
  */
 export interface PrivateView {
   /**
-   * How far the player of the peer had got with the inputs of the peer
+   * How far the player of the peer had gotten with the inputs of the peer
    * when the snapshot was taken.
    */
   readonly own: InputProgress;
@@ -189,7 +189,7 @@ export interface PrivateView {
    * The latest slash of the player of the peer, as the server judged it,
    * or `null` before its first.
    */
-  readonly slash: SlashJudgement | null;
+  readonly slash: SlashJudgment | null;
   /**
    * The items the player of the peer carries, one for each filled slot of
    * its inventory, in the order of the slots.
@@ -212,7 +212,8 @@ export interface PrivateView {
   readonly acquaintances: readonly VillagerId[];
   /**
    * The quests the player of the peer has opened, in the order it opened
-   * them, each at the stage it has got to, which only the server moves on.
+   * them, each at the stage it has gotten to, which only the server moves
+   * on.
    */
   readonly quests: readonly Quest[];
 }
@@ -235,7 +236,7 @@ export interface SnapshotMessage extends PrivateView {
   /** Every monster in the world that is to be seen. */
   readonly monsters: readonly MonsterState[];
   /**
-   * The numbers of the patches of clover that have their four-leaved
+   * The numbers of the patches of clover that have their four-leaf
    * clover, in ascending order.
    */
   readonly clovers: readonly number[];
@@ -247,7 +248,7 @@ export interface SnapshotMessage extends PrivateView {
    */
   readonly looted: readonly number[];
   /**
-   * The number of the latest step at which Toby took the four-leaved
+   * The number of the latest step at which Toby took the four-leaf
    * clover of a patch of clover, or `null` if he has taken none, as he
    * never has outside the village.  Every snapshot tells it again, so that
    * a peer learns of each clover he takes from any snapshot taken after,
@@ -266,7 +267,7 @@ export interface SnapshotContents {
   readonly monsters: readonly MonsterState[];
   /**
    * What there is to pick in the world, which containers have been looted
-   * there, and when Toby last took a four-leaved clover there.
+   * there, and when Toby last took a four-leaf clover there.
    */
   readonly world: WorldItems;
   /** What the peer alone is told of its own player. */
@@ -839,7 +840,7 @@ function parseSnapshotMessage(
     players: parseList(value.players, parsePlayerState),
     monsters,
     own: parseInputProgress(value.own),
-    slash: parseNullable(value.slash, parseSlashJudgement),
+    slash: parseNullable(value.slash, parseSlashJudgment),
     clovers: parseNumberList(value.clovers, MOST_CLOVER_PATCHES),
     items: parseList(value.items, parseGroundItem),
     looted: parseNumberList(value.looted, MOST_CONTAINERS),
@@ -903,7 +904,7 @@ function parsePlayerMotion(value: unknown): PlayerMotion {
 }
 
 /**
- * Parses a decoded value that tells how far a player has got with the
+ * Parses a decoded value that tells how far a player has gotten with the
  * inputs of its peer.
  *
  * @param {unknown} value - The value to parse.
@@ -986,10 +987,10 @@ function parseMonsterState(value: unknown): MonsterState {
  * Parses a decoded value that tells how a slash was judged.
  *
  * @param {unknown} value - The value to parse.
- * @returns {SlashJudgement} A copy of what it tells.
+ * @returns {SlashJudgment} A copy of what it tells.
  * @throws {Error} If the value does not tell that.
  */
-function parseSlashJudgement(value: unknown): SlashJudgement {
+function parseSlashJudgment(value: unknown): SlashJudgment {
   const record: Record<string, unknown> = parseRecord(value);
   const rewind: number = parseFinite(record.rewind);
   if (rewind < 0) {

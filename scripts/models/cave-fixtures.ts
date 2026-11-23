@@ -40,33 +40,33 @@ import type { BuiltModel } from './rig.ts';
 
 /**
  * About the distance between two bars of a cell, from axis to axis, in
- * metres: the bars are spread evenly across the opening, as near this
+ * meters: the bars are spread evenly across the opening, as near this
  * apart as they fit.
  */
 const BAR_SPACING = 0.34;
 
-/** The radius of a bar of a cell, in metres. */
+/** The radius of a bar of a cell, in meters. */
 const BAR_RADIUS = 0.036;
 
-/** The height of the bars of a cell, in metres. */
+/** The height of the bars of a cell, in meters. */
 const BAR_HEIGHT = 2.2;
 
-/** The heights of the flat iron bands across the bars, in metres. */
+/** The heights of the flat iron bands across the bars, in meters. */
 const BAND_HEIGHTS: readonly number[] = [0.12, 1.5, 2.08];
 
-/** The width of a chest, its body without its handles, in metres. */
+/** The width of a chest, its body without its handles, in meters. */
 const CHEST_WIDTH = 0.96;
 
-/** The depth of the body of a chest, in metres. */
+/** The depth of the body of a chest, in meters. */
 const CHEST_DEPTH = 0.56;
 
-/** The height of the body of a chest, below its lid, in metres. */
+/** The height of the body of a chest, below its lid, in meters. */
 const CHEST_BODY = 0.42;
 
-/** The height of the lid of a chest, in metres. */
+/** The height of the lid of a chest, in meters. */
 const CHEST_LID = 0.14;
 
-/** How far the iron straps of a chest stand out of its wood, in metres. */
+/** How far the iron straps of a chest stand out of its wood, in meters. */
 const STRAP = 0.012;
 
 /** How far the lid of an open chest stands up from shut, in degrees. */
@@ -144,7 +144,7 @@ export function buildCaveBars(): BuiltModel {
       place(createBox(2 * half, 0.1, 0.09), { pos: [0, y, 0] }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -180,14 +180,14 @@ function addLongBone(
  * Adds a ring of iron, such as a shackle or the handle of a lantern.
  *
  * @param {Model} model - The model.
- * @param {Triple} centre - The middle of the ring.
+ * @param {Triple} center - The middle of the ring.
  * @param {number} radius - The radius of the ring.
  * @param {Triple} turn - How the ring is turned from lying flat, in
  *   degrees.
  */
 function addRing(
   model: Model,
-  centre: Triple,
+  center: Triple,
   radius: number,
   turn: Triple,
 ): void {
@@ -204,7 +204,7 @@ function addRing(
         ],
         8,
       ),
-      { pos: centre, rot: turn },
+      { pos: center, rot: turn },
     ),
   );
 }
@@ -456,27 +456,27 @@ export function buildCaveSkeleton(): BuiltModel {
     point.y = Math.max(point.y, 0);
     point.z = Math.max(point.z, wall);
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * Makes the iron straps of a chest round a box of it, over its top and its
+ * Makes the iron straps of a chest around a box of it, over its top and its
  * front, and its back if told, near either end.
  *
- * @param {Triple} centre - The middle of the box.
+ * @param {Triple} center - The middle of the box.
  * @param {number} height - The height of the box.
  * @param {number} depth - The depth of the box.
  * @param {boolean} hasBack - Whether the straps run down its back too.
  * @returns {Shape[]} The straps.
  */
 function createStraps(
-  centre: Triple,
+  center: Triple,
   height: number,
   depth: number,
   hasBack: boolean,
 ): Shape[] {
-  const [cx, cy, cz] = centre;
+  const [cx, cy, cz] = center;
   const straps: Shape[] = [];
   for (const x of [-0.3, 0.3]) {
     straps.push(
@@ -613,7 +613,7 @@ function buildChest(isOpen: boolean): BuiltModel {
       : atHinge;
     model.add(material, place(turned, { pos: [0, hingeY, hingeZ] }));
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
@@ -719,7 +719,7 @@ function buildBarrel(isOpen: boolean): BuiltModel {
       ),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 

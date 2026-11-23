@@ -32,7 +32,7 @@ import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import type { Placement } from '@clovervale/shared';
 
-import { MODEL_FILES } from '../../packages/client/src/model-catalogue.ts';
+import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 import { getItem } from '../models/items.ts';
 import { modelsDir } from './constants.ts';
 

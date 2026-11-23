@@ -37,7 +37,7 @@ import type { MapId, WorldMap } from './world-map.ts';
 
 /**
  * The widest something a player interacts with can be to either side of
- * the way the player faces, from its centre, in degrees.
+ * the way the player faces, from its center, in degrees.
  */
 export const INTERACTION_HALF_ANGLE = 60;
 
@@ -49,26 +49,26 @@ export const FOUNTAIN_HEALING = 30;
 
 /**
  * The farthest a player can stand from a villager to talk to it, from
- * centre to centre, in metres.
+ * center to center, in meters.
  */
 export const TALK_REACH = 1.6;
 
 /**
- * The farthest a player can stand from a four-leaved clover in a patch, or
- * from an item on the ground, to pick it, from centre to centre, in metres.
+ * The farthest a player can stand from a four-leaf clover in a patch, or
+ * from an item on the ground, to pick it, from center to center, in meters.
  */
 export const PICK_REACH = 1.2;
 
 /**
  * The farthest a player can stand from a chest or a barrel in the cave to
- * loot it, from centre to centre, in metres.
+ * loot it, from center to center, in meters.
  */
 export const LOOT_REACH = 1.2;
 
 /**
- * The farthest something a player picks can lie from the centre of the
+ * The farthest something a player picks can lie from the center of the
  * player to be at its feet, which the player can pick whichever way it
- * faces, in metres.
+ * faces, in meters.
  */
 export const FEET_REACH = 0.1;
 
@@ -84,16 +84,16 @@ export type InteractionInput = 'interact' | 'travel' | 'pick';
 interface Reachable {
   /** The input of the player that uses it. */
   readonly input: InteractionInput;
-  /** Where its centre stands at the step it is found at. */
-  readonly centre: GroundVector;
+  /** Where its center stands at the step it is found at. */
+  readonly center: GroundVector;
   /**
-   * The farthest a player can stand from its centre to use it, facing it
-   * closely enough, from centre to centre, in metres.
+   * The farthest a player can stand from its center to use it, facing it
+   * closely enough, from center to center, in meters.
    */
   readonly reach: number;
   /**
-   * The farthest a player can stand from its centre to use it whichever
-   * way the player faces, from centre to centre, in metres, which is 0 for
+   * The farthest a player can stand from its center to use it whichever
+   * way the player faces, from center to center, in meters, which is 0 for
    * something the player must face.
    */
   readonly nearReach: number;
@@ -141,7 +141,7 @@ export interface Passage extends Reachable {
   readonly arrival: Pose;
 }
 
-/** A four-leaved clover in a patch of clover, or an item on the ground. */
+/** A four-leaf clover in a patch of clover, or an item on the ground. */
 export interface ItemTarget extends Reachable {
   /** Whether it grows in a patch of clover or lies on the ground. */
   readonly type: 'patch' | 'ground';
@@ -165,7 +165,7 @@ export interface ContainerTarget extends Reachable {
   readonly containerKind: CaveContainerKind;
   /**
    * The kind of item the player gets, or `null` for a container that holds
-   * no item, or nothing any more.
+   * no item, or nothing anymore.
    */
   readonly kind: ItemKindId | null;
   /** The silver coins the player gets, which are none once looted. */
@@ -177,7 +177,7 @@ export type PickTarget = ItemTarget | ContainerTarget;
 
 /**
  * Something a player can interact with: the fountain, a villager, a way
- * into another map, a four-leaved clover in a patch, an item on the
+ * into another map, a four-leaf clover in a patch, an item on the
  * ground, or a container in the cave.
  */
 export type Interactable = Fountain | Talkable | Passage | PickTarget;
@@ -198,13 +198,13 @@ export interface Surroundings {
  * there is to pick there as they are.
  *
  * Something is within reach of the player if the player stands within its
- * near reach of its centre, whichever way the player faces, or within its
- * reach of its centre, with the centre no more than
+ * near reach of its center, whichever way the player faces, or within its
+ * reach of its center, with the center no more than
  * {@link INTERACTION_HALF_ANGLE} to either side of the way the player
  * faces: a fountain and a way into another map within their reaches, as
  * {@link WorldMap.fountains} and {@link WorldMap.passages} tell; a villager
  * within {@link TALK_REACH} of where the villager is at the step; a
- * four-leaved clover in a patch, or an item on the ground, within
+ * four-leaf clover in a patch, or an item on the ground, within
  * {@link PICK_REACH}, or within {@link FEET_REACH} whichever way the player
  * faces; and a chest or a barrel in the cave within {@link LOOT_REACH}.
  *
@@ -370,7 +370,7 @@ function listTalkables(
       input: 'interact',
       interaction: 'Talk',
       villager,
-      centre: locateVillager(villager, step, monsters),
+      center: locateVillager(villager, step, monsters),
       reach: TALK_REACH,
       nearReach: 0,
       yieldsToSlash: true,
@@ -391,8 +391,8 @@ function listPickTargets(map: MapId, items: WorldItems): PickTarget[] {
   const looted = new Set<number>(items.looted ?? []);
   return [
     ...items.clovers.flatMap((patch: number): ItemTarget[] => {
-      const centre: GroundVector | undefined = cloverPatches[patch];
-      return centre === undefined
+      const center: GroundVector | undefined = cloverPatches[patch];
+      return center === undefined
         ? []
         : [
             {
@@ -400,7 +400,7 @@ function listPickTargets(map: MapId, items: WorldItems): PickTarget[] {
               input: 'pick',
               id: patch,
               kind: CLOVER_KIND,
-              centre,
+              center,
               reach: PICK_REACH,
               nearReach: FEET_REACH,
               yieldsToSlash: false,
@@ -413,7 +413,7 @@ function listPickTargets(map: MapId, items: WorldItems): PickTarget[] {
         input: 'pick',
         id: item.id,
         kind: item.kind,
-        centre: { x: item.x, z: item.z },
+        center: { x: item.x, z: item.z },
         reach: PICK_REACH,
         nearReach: FEET_REACH,
         yieldsToSlash: false,
@@ -429,7 +429,7 @@ function listPickTargets(map: MapId, items: WorldItems): PickTarget[] {
           containerKind: container.kind,
           kind: isLooted ? null : container.item,
           silver: isLooted ? 0 : (container.silver ?? 0),
-          centre: { x: container.x, z: container.z },
+          center: { x: container.x, z: container.z },
           reach: LOOT_REACH,
           nearReach: 0,
           yieldsToSlash: false,
@@ -461,8 +461,8 @@ function choosePickTarget(
     let nearest = Infinity;
     for (const target of targets) {
       const distance: number = Math.hypot(
-        target.centre.x - pose.x,
-        target.centre.z - pose.z,
+        target.center.x - pose.x,
+        target.center.z - pose.z,
       );
       const isHeld: boolean = target.kind !== null || target.silver > 0;
       if (isHeld === isFull && distance < nearest) {
@@ -500,12 +500,12 @@ function isMonsterWithinSlash(
  * @param {Pose} pose - Where the player stands, and which way it faces.
  * @param {Interactable} target - What it is to interact with.
  * @returns {boolean} Whether the player stands within the reach of its
- *   centre, facing it closely enough, or within its near reach.
+ *   center, facing it closely enough, or within its near reach.
  */
 function isWithinReach(pose: Pose, target: Interactable): boolean {
-  const { centre, reach, nearReach } = target;
-  const dx: number = centre.x - pose.x;
-  const dz: number = centre.z - pose.z;
+  const { center, reach, nearReach } = target;
+  const dx: number = center.x - pose.x;
+  const dz: number = center.z - pose.z;
   const distance: number = Math.hypot(dx, dz);
   if (distance > reach) {
     return false;

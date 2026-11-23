@@ -29,11 +29,11 @@ import type { GroundVector } from '@clovervale/shared';
 
 /** How long a number floats, in seconds. */
 const MARKER_DURATION = 1;
-/** How high above the ground a number starts by default, in metres. */
+/** How high above the ground a number starts by default, in meters. */
 const START_HEIGHT = 2.3;
-/** How fast a number rises, in metres per second. */
+/** How fast a number rises, in meters per second. */
 const RISE_SPEED = 0.8;
-/** The height of a number, in metres. */
+/** The height of a number, in meters. */
 const MARKER_HEIGHT = 0.45;
 /** The width of the picture a number is drawn on, in pixels. */
 const CANVAS_WIDTH = 128;
@@ -69,14 +69,14 @@ export class HitMarkers {
    *
    * @param {GroundVector} position - Where the one hit or healed stands.
    * @param {string} text - The number, with its sign.
-   * @param {string} colour - The colour of the number.
+   * @param {string} color - The color of the number.
    * @param {number} [height] - How high above the ground the number starts,
-   *   in metres.
+   *   in meters.
    */
   show(
     position: GroundVector,
     text: string,
-    colour: string,
+    color: string,
     height = START_HEIGHT,
   ): void {
     const canvas: HTMLCanvasElement = document.createElement('canvas');
@@ -89,7 +89,7 @@ export class HitMarkers {
       context.textBaseline = 'middle';
       context.lineWidth = 6;
       context.strokeStyle = '#000000';
-      context.fillStyle = colour;
+      context.fillStyle = color;
       context.strokeText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
       context.fillText(text, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }

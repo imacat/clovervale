@@ -84,7 +84,7 @@ function feedSnapshots(
 }
 
 /**
- * Measures how far apart two times of day are, the shorter way round.
+ * Measures how far apart two times of day are, the shorter way around.
  *
  * @param {number} a - One time of day.
  * @param {number} b - The other time of day.
@@ -117,7 +117,7 @@ describe('DayClock', () => {
     expect(clock.read(1000)).toBeNull();
   });
 
-  it('tells a held time of day at once and for ever', () => {
+  it('tells a held time of day at once and forever', () => {
     const clock = new DayClock();
     clock.start({ origin: 0.5, length: null });
     expect(clock.read(1000)).toBe(0.5);
@@ -125,7 +125,7 @@ describe('DayClock', () => {
     expect(clock.read(9_000_000)).toBe(0.5);
   });
 
-  it('reckons the time of day onwards from the latest snapshot', () => {
+  it('reckons the time of day onward from the latest snapshot', () => {
     const clock = new DayClock();
     clock.start(SHORT_DAY);
     clock.observe(6000 / STEP, 20_000);
@@ -134,7 +134,7 @@ describe('DayClock', () => {
     expect(clock.read(29_000)).toBeCloseTo(0.25 + 15_000 / 60_000, 9);
   });
 
-  it('comes round past midnight', () => {
+  it('comes around past midnight', () => {
     const clock = new DayClock();
     clock.start({ origin: 0.95, length: 60_000 });
     clock.observe(0, 0);
@@ -173,7 +173,7 @@ describe('DayClock', () => {
     const last: number = readings.at(-1) ?? NaN;
     const truth: number = (0.1 + (hours * 3.6e6) / 1_200_000) % 1;
     expect(measureGap(last, truth)).toBeLessThan(1e-4);
-    // It never turns back either, which would move the sun backwards.
+    // It never turns back either, which would move the sun backward.
     readings.slice(1).forEach((reading: number, index: number) => {
       const step: number = reading - (readings[index] ?? 0);
       expect(step < 0 ? step + 1 : step).toBeLessThan(0.01);

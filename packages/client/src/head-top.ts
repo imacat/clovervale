@@ -28,7 +28,7 @@ import type { Object3D } from 'three';
 import { locateVillager } from '@clovervale/shared';
 import type { MonsterState, Villager } from '@clovervale/shared';
 
-/** The height of the top of a villager whose model is missing, in metres. */
+/** The height of the top of a villager whose model is missing, in meters. */
 const DEFAULT_HEAD_TOP = 1.8;
 
 /**

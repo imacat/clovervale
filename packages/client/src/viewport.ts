@@ -42,7 +42,7 @@ export interface Viewport {
    * Tells which way the camera looks along the ground.
    *
    * @returns {number} The turn around the Y axis, measured from looking
-   *   along +Z and positive towards +X, in degrees.
+   *   along +Z and positive toward +X, in degrees.
    */
   readonly getHeading: () => number;
   /**
@@ -77,14 +77,14 @@ export interface Viewport {
    * Shows another scene from now on, with the camera at once on what it
    * looks at there, looking along a heading, at the distance it had, and
    * looking down on it at {@link SWITCH_ELEVATION} at least, so that what
-   * stands about it hides it seldom.  The trailing camera starts afresh,
+   * stands around it hides it seldom.  The trailing camera starts afresh,
    * so that nothing it did in the scene before carries over.
    *
    * @param {Scene} scene - The scene to show.
    * @param {GroundVector} focus - Where what the camera looks at stands in
    *   that scene.
    * @param {number} heading - The way the camera is to look along the
-   *   ground, as the turn around the Y axis from +Z towards +X, in degrees.
+   *   ground, as the turn around the Y axis from +Z toward +X, in degrees.
    * @param {number} leastElevation - The least angle the camera is to look
    *   down at what it looks at from then on, in degrees.
    */
@@ -98,10 +98,10 @@ export interface Viewport {
 
 /**
  * The farthest the camera can be from what it looks at, zoomed out, in
- * metres.
+ * meters.
  */
 export const CAMERA_MAX_DISTANCE = 90;
-/** The farthest from the camera anything is drawn, in metres. */
+/** The farthest from the camera anything is drawn, in meters. */
 export const CAMERA_FAR = 600;
 
 /**
@@ -117,7 +117,7 @@ export const VILLAGE_LEAST_ELEVATION: number = (0.03 * 180) / Math.PI;
  */
 export const SWITCH_ELEVATION = 45;
 
-/** The height above the ground the camera looks at, in metres. */
+/** The height above the ground the camera looks at, in meters. */
 const FOCUS_HEIGHT = 1.2;
 
 /**
@@ -126,8 +126,8 @@ const FOCUS_HEIGHT = 1.2;
  * Dragging with the left mouse button orbits around what the camera looks
  * at, as do the arrow keys held and the other holds of the camera, within
  * the same limits, and the wheel zooms.  While the trailing camera is
- * switched on, the camera also turns softly round behind the way what it
- * looks at goes forwards, while the owner leaves it alone, neither
+ * switched on, the camera also turns softly around behind the way what it
+ * looks at goes forward, while the owner leaves it alone, neither
  * dragging it nor holding it otherwise.
  *
  * @param {Scene} scene - The scene to show at first.
@@ -216,7 +216,7 @@ export function showScene(
     if (steered === heading) {
       return;
     }
-    // The camera swings round what it looks at, keeping its distance and
+    // The camera swings around what it looks at, keeping its distance and
     // its height.
     const turn: number = ((steered - heading) * Math.PI) / 180;
     const x: number = camera.position.x - controls.target.x;

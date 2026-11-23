@@ -34,7 +34,7 @@ import {
 import type { StampedInput } from '../src/index.ts';
 import { WAITING_INPUT_LIMIT } from '../src/authoritative-player.ts';
 
-/** How far a player walks in one step, in metres. */
+/** How far a player walks in one step, in meters. */
 const STEP_LENGTH: number = WALK_SPEED / SIMULATION_RATE;
 
 /**
@@ -195,7 +195,7 @@ describe('a player moved elsewhere', () => {
     expect(player.motion.action).toBe('Idle');
   });
 
-  it('keeps how far it has got with the inputs of its peer', () => {
+  it('keeps how far it has gotten with the inputs of its peer', () => {
     const player: AuthoritativePlayer = createPlayer();
     player.receiveInput(steer(1, 0, 1));
     stepTimes(player, 3);

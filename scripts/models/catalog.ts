@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/catalogue The list of every model to generate.
+ * @module scripts/models/catalog The list of every model to generate.
  */
 
 import {
@@ -27,7 +27,7 @@ import {
   LYING_PITCHFORK_FILE,
   MODEL_FILES,
   MONSTER_FILE,
-} from '../../packages/client/src/model-catalogue.ts';
+} from '../../packages/client/src/model-catalog.ts';
 import {
   buildBarrel,
   buildHerbCrate,
@@ -52,7 +52,7 @@ import {
 } from './cave-fixtures.ts';
 import { buildCave, buildCaveTorch } from './cave.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
-import { buildItemLeatherArmour, buildItemSword } from './gear.ts';
+import { buildItemLeatherArmor, buildItemSword } from './gear.ts';
 import { buildItemClovervaleMessage } from './message.ts';
 import { buildNpcBasil } from './npc-basil.ts';
 import { buildNpcEmma } from './npc-emma.ts';
@@ -144,8 +144,8 @@ export function listModels(): ModelEntry[] {
     { file: MODEL_FILES['cave-barrel-open'], build: buildCaveBarrelOpen },
     { file: LYING_ITEM_MODELS.sword, build: buildItemSword },
     {
-      file: LYING_ITEM_MODELS['leather-armour'],
-      build: buildItemLeatherArmour,
+      file: LYING_ITEM_MODELS['leather-armor'],
+      build: buildItemLeatherArmor,
     },
     {
       file: LYING_ITEM_MODELS['healing-potion'],

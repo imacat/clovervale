@@ -95,7 +95,7 @@ export class ItemKeeper {
     };
 
   /**
-   * Starts with nothing on the ground: in the village, with a four-leaved
+   * Starts with nothing on the ground: in the village, with a four-leaf
    * clover in every patch of clover, and in a cave, with every chest and
    * barrel holding what it holds.
    *
@@ -144,7 +144,7 @@ export class ItemKeeper {
   }
 
   /**
-   * Takes the four-leaved clover of a patch of clover for a villager, if
+   * Takes the four-leaf clover of a patch of clover for a villager, if
    * the patch has its clover, which is then gone from the patch until it
    * regrows {@link CLOVER_REGROW_DURATION} seconds later.
    *
@@ -164,7 +164,7 @@ export class ItemKeeper {
   /**
    * Has a player pick something, if it has room for the item it is to get,
    * if any; silver coins need no room, and come with what else a container
-   * holds.  A four-leaved clover so picked is gone from its patch until it
+   * holds.  A four-leaf clover so picked is gone from its patch until it
    * regrows {@link CLOVER_REGROW_DURATION} seconds later, an item picked up
    * from the ground is gone from there, and a container so looted holds
    * nothing from then on.  A container that holds nothing gives nothing.
@@ -241,7 +241,7 @@ export class ItemKeeper {
  * Rounds where an item is put down along an axis, so that it takes few
  * digits to tell.
  *
- * @param {number} value - The position along the axis, in metres.
+ * @param {number} value - The position along the axis, in meters.
  * @returns {number} The rounded position.
  */
 function roundPlace(value: number): number {

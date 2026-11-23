@@ -29,33 +29,33 @@ import type { BuiltModel } from './rig.ts';
 
 /**
  * How far below where it is gripped the butt of the shaft of the pitchfork
- * ends, in metres: it is gripped near its butt, so that it reaches far.
+ * ends, in meters: it is gripped near its butt, so that it reaches far.
  */
 const PITCHFORK_BUTT = 0.2;
 
-/** The length of the wooden shaft of the pitchfork, in metres. */
+/** The length of the wooden shaft of the pitchfork, in meters. */
 const SHAFT_LENGTH = 1.6;
 
 /**
  * How far above where it is gripped the bar across the head of the
- * pitchfork is, in metres, at the top of its shaft.
+ * pitchfork is, in meters, at the top of its shaft.
  */
 const HEAD: number = SHAFT_LENGTH - PITCHFORK_BUTT + 0.02;
 
 /**
- * How far the pitchfork leans from upright, back towards the wall it leans
+ * How far the pitchfork leans from upright, back toward the wall it leans
  * against, in degrees: its butt on the floor of the porch of Martha's
- * house, a little more than a quarter of a metre out from the wall, clear
+ * house, a little more than a quarter of a meter out from the wall, clear
  * of the stone base of the house, and the tips of its tines against the
  * wall.
  */
 const LEAN = 8.25;
 
-/** The colour of the wood of the shaft. */
-const WOOD_COLOUR = '#7a5532';
+/** The color of the wood of the shaft. */
+const WOOD_COLOR = '#7a5532';
 
-/** The colour of the iron of the head. */
-const IRON_COLOUR = '#5d6166';
+/** The color of the iron of the head. */
+const IRON_COLOR = '#5d6166';
 
 /**
  * Lists the parts of the pitchfork, standing upright, with the point where
@@ -100,7 +100,7 @@ function listParts(): [string, Shape][] {
 
 /**
  * Adds the pitchfork to a model, in its materials `wood` and `iron`,
- * attached to a bone, level, with its tines forward, towards +Z, and the
+ * attached to a bone, level, with its tines forward, toward +Z, and the
  * point where it is gripped at a point of the model.
  *
  * @param {Model} model - The model, which defines neither material yet.
@@ -108,8 +108,8 @@ function listParts(): [string, Shape][] {
  * @param {Triple} grip - Where it is gripped, in model space at rest.
  */
 export function addPitchfork(model: Model, bone: string, grip: Triple): void {
-  model.setMaterial('wood', WOOD_COLOUR);
-  model.setMaterial('iron', IRON_COLOUR, { roughness: 0.5, metallic: 0.4 });
+  model.setMaterial('wood', WOOD_COLOR);
+  model.setMaterial('iron', IRON_COLOR, { roughness: 0.5, metallic: 0.4 });
   for (const [material, shape] of listParts()) {
     model.add(material, place(shape, { pos: grip, rot: [90, 0, 0] }), bone);
   }
@@ -118,15 +118,15 @@ export function addPitchfork(model: Model, bone: string, grip: Triple): void {
 /**
  * Builds the pitchfork as it leans against the front wall of Martha's
  * house, while she does not hold it: its butt on the ground, and its head
- * leaning back, towards -Z, against the wall, with no tilt to either side,
+ * leaning back, toward -Z, against the wall, with no tilt to either side,
  * and with the middle of the ground it stands over at the origin.
  *
  * @returns {BuiltModel} The model.
  */
 export function buildPropPitchfork(): BuiltModel {
   const model = new Model('PropPitchfork');
-  model.setMaterial('wood', WOOD_COLOUR);
-  model.setMaterial('iron', IRON_COLOUR, { roughness: 0.5, metallic: 0.4 });
+  model.setMaterial('wood', WOOD_COLOR);
+  model.setMaterial('iron', IRON_COLOR, { roughness: 0.5, metallic: 0.4 });
   for (const [material, shape] of listParts()) {
     model.add(
       material,
@@ -135,24 +135,24 @@ export function buildPropPitchfork(): BuiltModel {
       }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
  * Builds the pitchfork as it lies on the ground where Martha has dropped
- * it, beaten: flat, its tines forward, towards +Z, with the middle of the
+ * it, beaten: flat, its tines forward, toward +Z, with the middle of the
  * ground it lies on at the origin.
  *
  * @returns {BuiltModel} The model.
  */
 export function buildPropPitchforkLying(): BuiltModel {
   const model = new Model('PropPitchforkLying');
-  model.setMaterial('wood', WOOD_COLOUR);
-  model.setMaterial('iron', IRON_COLOUR, { roughness: 0.5, metallic: 0.4 });
+  model.setMaterial('wood', WOOD_COLOR);
+  model.setMaterial('iron', IRON_COLOR, { roughness: 0.5, metallic: 0.4 });
   for (const [material, shape] of listParts()) {
     model.add(material, place(shape, { rot: [90, 0, 0] }));
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

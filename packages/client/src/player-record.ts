@@ -26,7 +26,7 @@ import { NO_WORLD_ITEMS } from '@clovervale/shared';
 import type {
   ItemKindId,
   Quest,
-  SlashJudgement,
+  SlashJudgment,
   SnapshotMessage,
   VillagerId,
   WorldItems,
@@ -38,14 +38,14 @@ import type { WorldNews } from './toby-finds.ts';
 /**
  * What the server last told the page of its player: who it is, what it
  * carries, its silver coins, how its latest slash was judged, the villagers
- * who have told it who they are, how far it has got with the quests, and
- * what there is to pick in the world.
+ * who have told it who they are, how far it has gotten with the quests,
+ * and what there is to pick in the world.
  */
 export class PlayerRecord {
   /** The identifier of the player of the page, once the server has told it. */
   #playerId: number | null = null;
   /** How the server judged the latest slash of the player of the page. */
-  #slash: SlashJudgement | null = null;
+  #slash: SlashJudgment | null = null;
   /**
    * What there is to pick in the world, and the step of the snapshot that
    * told it.
@@ -74,9 +74,9 @@ export class PlayerRecord {
    * How the server judged the latest slash of the player of the page, or
    * `null` while it has told of none.
    *
-   * @returns {SlashJudgement | null} The judgement.
+   * @returns {SlashJudgment | null} The judgment.
    */
-  get slash(): SlashJudgement | null {
+  get slash(): SlashJudgment | null {
     return this.#slash;
   }
 
@@ -123,7 +123,7 @@ export class PlayerRecord {
 
   /**
    * The quests the player of the page has opened, each at the stage it has
-   * got to, none while no snapshot has told it.
+   * gotten to, none while no snapshot has told it.
    *
    * @returns {readonly Quest[]} The quests.
    */

@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/tests/model-catalogue Tests for knowing the model files.
+ * @module client/tests/model-catalog Tests for knowing the model files.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -31,7 +31,7 @@ import {
   REQUIRED_MODEL_FILES,
   isModelUsed,
   planModels,
-} from '../src/model-catalogue.ts';
+} from '../src/model-catalog.ts';
 
 describe('isModelUsed', () => {
   it('knows the required models', () => {

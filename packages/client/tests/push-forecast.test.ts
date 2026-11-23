@@ -66,7 +66,7 @@ import {
 } from '../src/push-forecast.ts';
 import type { PushForecastSettings } from '../src/push-forecast.ts';
 
-/** The fastest the forecast draws the player pushed, in metres a second. */
+/** The fastest the forecast draws the player pushed, in meters a second. */
 const PUSH_SPEED: number = PUSH_SPEED_RATIO * TOBY_RUN_SPEED;
 
 /** How long one step of the simulation lasts, in milliseconds. */
@@ -78,7 +78,7 @@ const SNAPSHOT_STEPS: number = SIMULATION_RATE / SNAPSHOT_RATE;
 /** The number of frames the page draws in a second. */
 const FRAME_RATE = 60;
 
-/** The least distance between the centres of Toby and a player, in metres. */
+/** The least distance between the centers of Toby and a player, in meters. */
 const REACH: number = TOBY_RADIUS + PLAYER_RADIUS;
 
 /** How far apart two places may be and still count as one, for rounding. */
@@ -86,7 +86,7 @@ const PLACE_TOLERANCE = 1e-9;
 
 /**
  * How much farther from where the server has the player it may be drawn
- * than without the forecast as it glides over a correction, in metres: the
+ * than without the forecast as it glides over a correction, in meters: the
  * glide the forecast takes over by may start a frame after the one it takes
  * over from.
  */
@@ -99,7 +99,7 @@ const GLIDE_SLACK = 0.01;
 const DRAWN_STEP_SLEW = 0.1;
 
 /**
- * How far the player resting in his way may be drawn into Toby, in metres:
+ * How far the player resting in his way may be drawn into Toby, in meters:
  * as he first touches it, he runs on into it faster than the forecast
  * draws it pushed aside, until it is pushed far enough to the side.  Drawn
  * moving square to his run at {@link PUSH_SPEED} from where he first
@@ -114,7 +114,7 @@ const SINK_BOUND: number = (() => {
 
 /**
  * How much farther the player may be drawn moving from one frame to the
- * next than without the forecast, in metres: a frame's share of
+ * next than without the forecast, in meters: a frame's share of
  * {@link PUSH_SPEED}, or of a glide over as far as Toby pushes a player,
  * whichever is more, and a little to spare.
  */
@@ -132,7 +132,7 @@ const PREDICTED: Readonly<PredictionSettings> = { isEnabled: true };
 /** The latencies the tests play over, each way, in milliseconds. */
 const LATENCIES: readonly number[] = [0, 80, 150, 300];
 
-/** The way Toby runs from the end of his run by the cottage, one metre long. */
+/** The way Toby runs from the end of his run by the cottage, one meter long. */
 const RUN_WAY: GroundVector = (() => {
   const [first, second] = TOBY_ENDS;
   const length: number = Math.hypot(second.x - first.x, second.z - first.z);
@@ -142,15 +142,15 @@ const RUN_WAY: GroundVector = (() => {
   };
 })();
 
-/** The length of the run of Toby, in metres. */
+/** The length of the run of Toby, in meters. */
 const RUN_LENGTH: number = Math.hypot(
   TOBY_ENDS[1].x - TOBY_ENDS[0].x,
   TOBY_ENDS[1].z - TOBY_ENDS[0].z,
 );
 
 /**
- * The way square to his run towards the back of the village, away from the
- * fence, one metre long.
+ * The way square to his run toward the back of the village, away from the
+ * fence, one meter long.
  */
 const OFF_RUN: GroundVector = { x: RUN_WAY.z, z: -RUN_WAY.x };
 
@@ -167,8 +167,8 @@ const FIRST_RUN_STEP: number = (() => {
 })();
 
 /**
- * The places along his run the player rests at, in metres from the end by
- * the cottage, and off its line, in metres, on the side away from the
+ * The places along his run the player rests at, in meters from the end by
+ * the cottage, and off its line, in meters, on the side away from the
  * fence, or on the side of the fence when negative: all with room for the
  * server to push the player until it just touches him.
  */
@@ -297,7 +297,7 @@ interface Run {
   readonly frames: readonly Frame[];
   /** The inputs as the page stamped them, in order. */
   readonly stamps: readonly StampedInput[];
-  /** How far each correction moved the player, in order, in metres. */
+  /** How far each correction moved the player, in order, in meters. */
   readonly corrections: readonly number[];
   /** The number of corrections the prediction counted. */
   readonly correctionCount: number;
@@ -309,7 +309,7 @@ interface Run {
  * Makes the input that steers a player along the run of Toby and square to
  * it.
  *
- * @param {number} along - How much of the way goes along his run, towards
+ * @param {number} along - How much of the way goes along his run, toward
  *   the gate.
  * @param {number} off - How much goes square to it, away from the fence.
  * @returns {PlayerInput} The input.
@@ -329,9 +329,9 @@ function steerByRun(along: number, off: number): PlayerInput {
  * unless a player can stand there.
  *
  * @param {number} along - How far along his run, from the end by the
- *   cottage, in metres.
+ *   cottage, in meters.
  * @param {number} off - How far off its line, away from the fence, in
- *   metres.
+ *   meters.
  * @returns {GroundVector} The place.
  */
 function placeByRun(along: number, off: number): GroundVector {
@@ -352,7 +352,7 @@ function placeByRun(along: number, off: number): GroundVector {
  * cottage.
  *
  * @param {GroundVector} point - The point.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureAlongRun(point: GroundVector): number {
   const [first] = TOBY_ENDS;
@@ -364,7 +364,7 @@ function measureAlongRun(point: GroundVector): number {
  * side away from the fence.
  *
  * @param {GroundVector} point - The point.
- * @returns {number} The distance, in metres, negative on the side of the
+ * @returns {number} The distance, in meters, negative on the side of the
  *   fence.
  */
 function measureOffRun(point: GroundVector): number {
@@ -377,7 +377,7 @@ function measureOffRun(point: GroundVector): number {
  *
  * @param {GroundVector} a - One place.
  * @param {GroundVector} b - The other place.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureApart(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
@@ -400,7 +400,7 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
  * @param {GroundVector} point - The point.
  * @param {GroundVector} from - One end of the stretch.
  * @param {GroundVector} to - The other end.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureFromStretch(
   point: GroundVector,
@@ -431,7 +431,7 @@ function measureFromStretch(
  * drawn then.
  *
  * @param {Frame} frame - The frame.
- * @returns {number} How far, in metres, or 0 if it does not reach into him.
+ * @returns {number} How far, in meters, or 0 if it does not reach into him.
  */
 function measureDepth(frame: Frame): number {
   const toby: TobyPose = findTobyPose(frame.pusherStep);
@@ -439,10 +439,10 @@ function measureDepth(frame: Frame): number {
 }
 
 /**
- * Finds when the page draws Toby, on his first run towards the gate,
+ * Finds when the page draws Toby, on his first run toward the gate,
  * square on a place along his run.
  *
- * @param {number} along - How far along his run, in metres.
+ * @param {number} along - How far along his run, in meters.
  * @param {number} latency - How long a message takes either way, in whole
  *   milliseconds.
  * @returns {number} The time on the clock of the page, in whole
@@ -608,7 +608,7 @@ function playBoth(scenario: Scenario): [Run, Run] {
  * @param {number} latency - How long a message takes either way, in whole
  *   milliseconds.
  * @param {readonly [number, number]} place - Where it rests: how far along
- *   his run and how far off its line, in metres.
+ *   his run and how far off its line, in meters.
  * @param {boolean} isForeseen - Whether the page foresees his pushes.
  * @returns {Run} What came of it.
  */
@@ -757,7 +757,7 @@ function expectNoOvershoot(on: Run, off: Run, told: string): void {
  * @param {Run} run - What came of playing the player.
  * @param {GroundVector} point - The point.
  * @param {number} pusherStep - The step Toby is drawn at.
- * @returns {number} The distance, in metres.
+ * @returns {number} The distance, in meters.
  */
 function measureFromServer(
   run: Run,
@@ -779,11 +779,11 @@ function measureFromServer(
 /**
  * Checks that the player resting in a span of a run is drawn only where the
  * server has it at some step up to the one after the step Toby is drawn
- * at, or between two such steps, and never back towards his run.
+ * at, or between two such steps, and never back toward his run.
  *
  * @param {Run} run - What came of it.
  * @param {number} side - The side of his run the player is pushed to: 1
- *   away from the fence, -1 towards it.
+ *   away from the fence, -1 toward it.
  * @param {number} from - When the span starts, in milliseconds; it ends
  *   with the run.
  * @param {string} told - The name of the run, for the messages.
@@ -915,7 +915,7 @@ describe('the forecast of the pushes of Toby', () => {
             const setOff: number = passTime + delay;
             const told = `${nameRun(latency, place)}, set off ${String(
               delay,
-            )} ms from his pass towards ${String(along)}, ${String(off)}`;
+            )} ms from his pass toward ${String(along)}, ${String(off)}`;
             const [on, without]: [Run, Run] = playBoth({
               latency,
               start: placeByRun(...place),

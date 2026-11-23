@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/trailing-camera Turning the camera softly round behind the
+ * @module client/trailing-camera Turning the camera softly around behind the
  *   way the player it follows goes.
  */
 
@@ -28,7 +28,7 @@ import type { GroundVector } from '@clovervale/shared';
 /** How the owner has the camera turn after the player it follows. */
 export interface TrailingCameraSettings {
   /**
-   * Whether the camera comes round behind the way the player goes, rather
+   * Whether the camera comes around behind the way the player goes, rather
    * than keeping its heading.
    */
   isEnabled: boolean;
@@ -75,7 +75,7 @@ export const MAX_DEAD_ZONE = 60;
 export const MAX_EASE_TIME = 3;
 /**
  * The widest angle limit the owner can set, in degrees: the camera never
- * turns after a player that goes sideways or towards it.
+ * turns after a player that goes sideways or toward it.
  */
 export const MAX_ANGLE_LIMIT = 90;
 /** The longest delay the owner can set, in seconds. */
@@ -91,7 +91,7 @@ const TRAVEL_SMOOTHING = 0.2;
 const MIN_TRAVEL_SPEED: number = WALK_SPEED / 3;
 /**
  * The farthest the player may move from one frame to the next for that to
- * count as travel rather than a jump, in metres.
+ * count as travel rather than a jump, in meters.
  */
 const JUMP_DISTANCE = 1;
 /**
@@ -104,13 +104,13 @@ const FADE_SPAN = 30;
  * The heading of the camera as it trails behind the player it follows, like
  * a balloon pulled along on a string.
  *
- * Once the player has gone forwards or diagonally forwards, as the camera
+ * Once the player has gone forward or diagonally forward, as the camera
  * sees it, for the delay, with the camera left alone, the camera turns
- * towards looking the way the player goes, if that is beyond the dead zone,
+ * toward looking the way the player goes, if that is beyond the dead zone,
  * easing in and out of a turn no faster than the turning rate, and without
  * overshooting.  It turns ever more weakly as the way the player goes nears
  * the angle limit, and not at all from there on, so a player that goes
- * sideways or towards the camera does not turn it.  While the player stands
+ * sideways or toward the camera does not turn it.  While the player stands
  * still, or the owner handles the camera, it does not start to turn, and
  * the delay starts again.
  */
@@ -125,7 +125,7 @@ export class TrailingCamera {
    * Turns the camera after the player it follows, for one frame.
    *
    * @param {number} heading - The way the camera looks along the ground
-   *   now, as the turn around the Y axis from +Z towards +X, in degrees.
+   *   now, as the turn around the Y axis from +Z toward +X, in degrees.
    * @param {GroundVector} focus - Where the player the camera follows is
    *   shown in this frame.
    * @param {number} seconds - The time since the last frame, in seconds.

@@ -115,8 +115,8 @@ export class InputArrival {
    * step.  What the server tells that cannot be, as the time an input takes
    * to reach the server changes, takes the place of what came before.
    *
-   * @param {InputProgress} progress - How far the server had got with the
-   *   inputs of the page.
+   * @param {InputProgress} progress - How far the server had gotten with
+   *   the inputs of the page.
    * @param {number} step - The number of steps the server had taken then.
    * @param {number} time - When the page heard of it, on its clock, in
    *   milliseconds.

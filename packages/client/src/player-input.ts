@@ -119,7 +119,7 @@ export class MoveKeys {
     this.#held.delete(code);
   }
 
-  /** Notes that no key is held down any more. */
+  /** Notes that no key is held down anymore. */
   releaseAllKeys(): void {
     this.#held.clear();
   }
@@ -130,8 +130,8 @@ export class MoveKeys {
    * Forward is the way the camera looks, and opposite keys cancel out.
    *
    * @param {number} heading - The way the camera looks along the ground, as
-   *   the turn around the Y axis from +Z towards +X, in degrees.
-   * @returns {GroundVector} The direction, one metre long and rounded to a
+   *   the turn around the Y axis from +Z toward +X, in degrees.
+   * @returns {GroundVector} The direction, one meter long and rounded to a
    *   few decimal places, or without length if the player is to stand
    *   still.
    */
@@ -150,14 +150,14 @@ export class MoveKeys {
 }
 
 /**
- * Resolves the direction a walk forwards or backwards and aside moves the
+ * Resolves the direction a walk forward or backward and aside moves the
  * player in, as the walking keys do.  Forward is the way the camera looks.
  *
- * @param {number} ahead - How far forwards, negative backwards.
+ * @param {number} ahead - How far forward, negative backward.
  * @param {number} aside - How far to the right, negative to the left.
  * @param {number} heading - The way the camera looks along the ground, as
- *   the turn around the Y axis from +Z towards +X, in degrees.
- * @returns {GroundVector} The direction, one metre long and rounded to a
+ *   the turn around the Y axis from +Z toward +X, in degrees.
+ * @returns {GroundVector} The direction, one meter long and rounded to a
  *   few decimal places, or without length if the player is to stand
  *   still.
  */

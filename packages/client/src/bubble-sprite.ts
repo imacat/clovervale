@@ -45,8 +45,8 @@ const BUBBLE_RENDER_ORDER = 30;
  */
 const PIXEL_RATIO = 2;
 /**
- * How big each pixel a bubble is laid out in is drawn, in metres at one
- * metre from the camera, whatever the distance of the bubble.
+ * How big each pixel a bubble is laid out in is drawn, in meters at one
+ * meter from the camera, whatever the distance of the bubble.
  */
 const LAYOUT_PIXEL_SIZE = 0.001;
 /**
@@ -82,14 +82,14 @@ const CORNER_RADIUS = 12;
 const TAIL_SIZE = 12;
 /** The width of the outline of a bubble, in pixels. */
 const OUTLINE_WIDTH = 2;
-/** The colour of a bubble. */
-const BUBBLE_COLOUR = '#fffdf4';
-/** The colour of the outline of a bubble. */
-const OUTLINE_COLOUR = '#4a3a28';
-/** The colour of the name of the one who speaks. */
-const NAME_COLOUR = '#9a4a12';
-/** The colour of the words. */
-const TEXT_COLOUR = '#1e1e1e';
+/** The color of a bubble. */
+const BUBBLE_COLOR = '#fffdf4';
+/** The color of the outline of a bubble. */
+const OUTLINE_COLOR = '#4a3a28';
+/** The color of the name of the one who speaks. */
+const NAME_COLOR = '#9a4a12';
+/** The color of the words. */
+const TEXT_COLOR = '#1e1e1e';
 
 /** The view the bubbles are seen in. */
 export interface ViewSize {
@@ -186,14 +186,14 @@ function paintTail(width: number, height: number): Sprite {
     context.lineTo(middle, tip);
     context.lineTo(middle - TAIL_SIZE, edge);
     context.closePath();
-    context.fillStyle = BUBBLE_COLOUR;
+    context.fillStyle = BUBBLE_COLOR;
     context.fill();
     context.beginPath();
     context.moveTo(middle + TAIL_SIZE, edge);
     context.lineTo(middle, tip);
     context.lineTo(middle - TAIL_SIZE, edge);
     context.lineWidth = OUTLINE_WIDTH;
-    context.strokeStyle = OUTLINE_COLOUR;
+    context.strokeStyle = OUTLINE_COLOR;
     context.stroke();
   }
   const texture = new CanvasTexture(canvas);
@@ -253,17 +253,17 @@ export function paintSpeech(words: SpeechWords, widest: number): Sprite {
   if (context !== null) {
     context.scale(PIXEL_RATIO, PIXEL_RATIO);
     traceBubble(context, width, height);
-    context.fillStyle = BUBBLE_COLOUR;
+    context.fillStyle = BUBBLE_COLOR;
     context.fill();
     context.lineWidth = OUTLINE_WIDTH;
-    context.strokeStyle = OUTLINE_COLOUR;
+    context.strokeStyle = OUTLINE_COLOR;
     context.stroke();
     context.textBaseline = 'middle';
     context.font = nameFont;
-    context.fillStyle = NAME_COLOUR;
+    context.fillStyle = NAME_COLOR;
     context.fillText(words.name, PADDING, PADDING + LINE_HEIGHT / 2);
     context.font = textFont;
-    context.fillStyle = TEXT_COLOUR;
+    context.fillStyle = TEXT_COLOR;
     lines.forEach((line: string, index: number) => {
       const y: number = PADDING + LINE_HEIGHT * (index + nameLines + 0.5);
       context.fillText(line, PADDING, y);
@@ -419,12 +419,12 @@ function fitWithin(start: number, size: number, room: number): number {
  * Places a bubble on the screen as a camera shows it in a view.
  *
  * A bubble stands above the head of the one who speaks, but shifts
- * inwards as far as it must to stay wholly within the view, at least 8
+ * inward as far as it must to stay wholly within the view, at least 8
  * pixels from its edges, its top kept in view before its foot in a view
  * too short for it.  Its tail hangs from its foot, under the one who
  * speaks as far as it reaches along the foot, which it does to within the
  * round corners.  Once the one who speaks is beyond the edge of the view,
- * the bubble stays at that edge, its tail towards it.  Once the one who
+ * the bubble stays at that edge, its tail toward it.  Once the one who
  * speaks is behind the camera, the bubble is not seen, and is not placed.
  *
  * @param {Sprite} sprite - The bubble, its foot at its position, drawn at
@@ -449,7 +449,7 @@ export function placeBubble(
   foot.applyMatrix4(camera.projectionMatrix);
   const x: number = ((foot.x + 1) / 2) * view.width;
   const y: number = ((1 - foot.y) / 2) * view.height;
-  // How many CSS pixels a metre at one metre from the camera is drawn.
+  // How many CSS pixels a meter at one meter from the camera is drawn.
   const scale: number =
     view.height / (2 * Math.tan(MathUtils.degToRad(view.fieldOfView) / 2));
   const width: number = sprite.scale.x * scale;

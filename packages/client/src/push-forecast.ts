@@ -62,7 +62,7 @@ export const FORECAST_HORIZON = 3;
 
 /**
  * How far a player may reach into a villager who pushes it and still count
- * as touching it only, in metres, to allow for rounding.
+ * as touching it only, in meters, to allow for rounding.
  */
 const OVERLAP_TOLERANCE = 1e-9;
 
@@ -160,7 +160,7 @@ class PushCourse {
    *
    * It is drawn at the place the server has it at the step the villager
    * who pushes it is drawn at, or between that and the next, as far
-   * towards the next as it takes to keep it clear of the villager, if that
+   * toward the next as it takes to keep it clear of the villager, if that
    * does, but never further back along the course than it was drawn
    * before, and no faster than {@link PUSH_SPEED_RATIO} times the speed of
    * the villager from frame to frame.
@@ -175,7 +175,7 @@ class PushCourse {
     const span: number =
       this.#time === null ? 0 : (time - this.#time) / 1000;
     this.#time = time;
-    this.#moveTowards(
+    this.#moveToward(
       this.#findTarget(pusherStep),
       PUSH_SPEED_RATIO * this.#pusher.speed * span,
     );
@@ -213,13 +213,13 @@ class PushCourse {
   }
 
   /**
-   * Moves the player drawn along the course towards a point on it, by no
+   * Moves the player drawn along the course toward a point on it, by no
    * more than a distance.
    *
    * @param {number} target - How far along the point is, in steps.
-   * @param {number} budget - The distance, in metres.
+   * @param {number} budget - The distance, in meters.
    */
-  #moveTowards(target: number, budget: number): void {
+  #moveToward(target: number, budget: number): void {
     let left: number = budget;
     while (this.#progress < target) {
       const step: number = Math.floor(this.#progress);
@@ -288,14 +288,14 @@ class PushCourse {
 }
 
 /**
- * Finds the first point from a share of the way between two places onwards
+ * Finds the first point from a share of the way between two places onward
  * that is clear of a villager who pushes the players aside.
  *
  * @param {GroundVector} from - The place the way starts at.
  * @param {GroundVector} to - The place it ends at.
  * @param {GroundVector} at - Where the villager is.
- * @param {number} reach - The least distance between the centres of the
- *   villager and a player, in metres.
+ * @param {number} reach - The least distance between the centers of the
+ *   villager and a player, in meters.
  * @param {number} share - The share of the way to look from, from 0 to 1.
  * @returns {number} The share of the way to the first point no nearer the
  *   villager than a player may be, from the given one to 1, or 1 if there
@@ -330,7 +330,7 @@ function findClearShare(
  * The player glides at an even pace from where it was drawn to where it is
  * to be drawn, which it reaches {@link SMOOTHING_DURATION} after the hand-
  * over, moving all the while as it is to be drawn as well, but never beyond
- * both: as where it is to be drawn moves towards where it was drawn, it
+ * both: as where it is to be drawn moves toward where it was drawn, it
  * glides no further that way than where it was drawn, and once where it is
  * to be drawn passes that, it is drawn there.  A hand-over that comes as it
  * glides takes it on from where it is drawn then.  It is drawn where it is
@@ -416,7 +416,7 @@ class HandoverGlide {
    *   glide.
    * @param {number} time - The time on the clock of the page, in
    *   milliseconds.
-   * @returns {GroundVector} How far from the place it is drawn, in metres
+   * @returns {GroundVector} How far from the place it is drawn, in meters
    *   along each axis: none once the glide is over, or when there is
    *   nothing to glide over.
    */
@@ -462,7 +462,7 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
  * course has it at each of its steps.  The forecast draws the player at the
  * places the server pushes it to as the pusher is drawn: between the place
  * after the step the pusher is drawn at and the place after the next, as
- * far towards the latter as it takes to keep clear of the pusher, but never
+ * far toward the latter as it takes to keep clear of the pusher, but never
  * back along those places, and no faster than {@link PUSH_SPEED_RATIO}
  * times as fast as the pusher runs, setting out from where the snapshot has
  * it.  A snapshot that tells of a push the forecast foresaw leaves the
@@ -472,7 +472,7 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
  * So, while the player rests, it is drawn only at places the server has it
  * at, or between two it has it at one step after the other, at a step no
  * later than the one after the step the pusher is drawn at, and it never
- * moves back towards the run of the pusher but as the server moves it.  It
+ * moves back toward the run of the pusher but as the server moves it.  It
  * reaches into the pusher only for the first few frames the pusher touches
  * it, as the pusher pushes it faster than the forecast draws it, and where
  * the server itself leaves it reaching into the pusher, by a wall or the
@@ -500,7 +500,7 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
  *
  * What the forecast gives up: the prediction knows nothing of the pushes
  * the forecast has drawn until a snapshot tells of them, so a player that
- * sets off drawn pushed glides back towards where the prediction has it, and
+ * sets off drawn pushed glides back toward where the prediction has it, and
  * the push of the server then shows as a correction, as without the
  * forecast.  A player that has just stopped is drawn as without the
  * forecast, reaching into the pusher if it runs into the player, until a

@@ -24,7 +24,7 @@
 import { VILLAGERS, VILLAGE_PLACEMENTS } from '@clovervale/shared';
 import type { Placement, Villager } from '@clovervale/shared';
 
-import { MODEL_FILES } from './model-catalogue.ts';
+import { MODEL_FILES } from './model-catalog.ts';
 
 export type { Placement } from '@clovervale/shared';
 
@@ -42,7 +42,7 @@ const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
  * Arranges the models into a village.
  *
  * The fountain stands in the middle of a plaza, in front of the great tree,
- * and the cottage, the apothecary's, the weapon shop and the house of the
+ * and the cottage, the apothecary shop, the weapon shop and the house of the
  * village chief, in its open yard with the old well, stand around the
  * plaza, each facing it.  Nancy the villager is by the fountain, as is the
  * healing stele, Emma the smith works at the anvil by the forge of the
@@ -52,7 +52,7 @@ const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
  * are a little way outside.  The characters and the monster have no place
  * of their own, as they stand wherever the server has them, and neither
  * has Martha the village chief, who fights as a monster, nor Toby, who
- * runs about between the cottage and the gate.  The models of the cave,
+ * runs around between the cottage and the gate.  The models of the cave,
  * and of what stands in it, stand in the cave, not in the village, and the
  * models of the items lie wherever the items do.
  *

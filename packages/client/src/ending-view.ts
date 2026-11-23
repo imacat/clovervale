@@ -68,8 +68,8 @@ export function prefersReducedMotion(): boolean {
  * rollers, which tells either the end of the story with "The End" under
  * it, or the credits: the name and the version of the game, its author,
  * the AI that assisted, the music, the libraries the client comes with,
- * each under its licence, and the licence of the game.  The names of
- * people, of works, of libraries and of licences are the same in every
+ * each under its license, and the license of the game.  The names of
+ * people, of works, of libraries and of licenses are the same in every
  * language, and the rest is worded again in each language the page comes
  * to speak.
  *

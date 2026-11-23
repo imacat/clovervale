@@ -35,43 +35,43 @@ type Range = readonly [least: number, most: number];
 
 /** A ridge of mountains that rings the valley. */
 interface Ridge {
-  /** The colour of its slopes. */
-  readonly colour: string;
-  /** How far its foot is from the middle of the valley, in metres. */
+  /** The color of its slopes. */
+  readonly color: string;
+  /** How far its foot is from the middle of the valley, in meters. */
   readonly foot: number;
-  /** How far its crest is from the middle of the valley, in metres. */
+  /** How far its crest is from the middle of the valley, in meters. */
   readonly crest: number;
-  /** How high its saddles rise, in metres. */
+  /** How high its saddles rise, in meters. */
   readonly saddle: Range;
-  /** How high its peaks rise, in metres. */
+  /** How high its peaks rise, in meters. */
   readonly peak: Range;
   /** The number of its peaks. */
   readonly peakCount: number;
-  /** How many points its foot, shoulder and crest each have round it. */
+  /** How many points its foot, shoulder and crest each have around it. */
   readonly columns: number;
   /** The seed of its shape. */
   readonly seed: number;
   /**
-   * How bright it is when it takes on the colour of the sky, as a share
+   * How bright it is when it takes on the color of the sky, as a share
    * of the brightness of the sky.
    */
   readonly skyShade: number;
 }
 
-/** A point on a ridge: its distance round, out and up. */
+/** A point on a ridge: its distance around, out and up. */
 type RidgePoint = readonly [turn: number, distance: number, height: number];
 
-/** A peak: where round it stands, how high, and how wide it spreads. */
+/** A peak: where around it stands, how high, and how wide it spreads. */
 type Peak = readonly [turn: number, height: number, spread: number];
 
 /**
- * The ridges, nearest first: each farther one paler and more blue-grey,
+ * The ridges, nearest first: each farther one paler and more blue-gray,
  * and higher, so that it shows above the nearer ones, and closer to the
- * sky in brightness when it takes on the colour of the sky.
+ * sky in brightness when it takes on the color of the sky.
  */
 const RIDGES: readonly Ridge[] = [
   {
-    colour: '#6f9476',
+    color: '#6f9476',
     foot: 170,
     crest: 245,
     saddle: [26, 40],
@@ -82,7 +82,7 @@ const RIDGES: readonly Ridge[] = [
     skyShade: 0.62,
   },
   {
-    colour: '#87a2ae',
+    color: '#87a2ae',
     foot: 255,
     crest: 330,
     saddle: [45, 70],
@@ -93,7 +93,7 @@ const RIDGES: readonly Ridge[] = [
     skyShade: 0.74,
   },
   {
-    colour: '#a8bdcb',
+    color: '#a8bdcb',
     foot: 340,
     crest: 415,
     saddle: [70, 100],
@@ -105,11 +105,11 @@ const RIDGES: readonly Ridge[] = [
   },
 ];
 
-/** How deep the foot of a ridge sinks into the ground, in metres. */
+/** How deep the foot of a ridge sinks into the ground, in meters. */
 const FOOT_DEPTH = 2;
-/** How far the foot and the crest wander in and out, in metres. */
+/** How far the foot and the crest wander in and out, in meters. */
 const WANDER = 4;
-/** How far a column wanders round, as a share of the room between two. */
+/** How far a column wanders around, as a share of the room between two. */
 const COLUMN_WANDER = 0.3;
 /** How much the height of the crest varies at random, as a share of it. */
 const ROUGHNESS = 0.08;
@@ -146,7 +146,7 @@ function pickInRange([least, most]: Range, share: number): number {
 }
 
 /**
- * Measures how far apart two directions round the valley are.
+ * Measures how far apart two directions around the valley are.
  *
  * @param {number} a - One direction, in radians.
  * @param {number} b - The other direction, in radians.
@@ -159,7 +159,7 @@ function measureTurn(a: number, b: number): number {
 
 /**
  * Finds the points of the foot, the shoulder and the crest of a ridge in
- * each column round it.
+ * each column around it.
  *
  * @param {Ridge} ridge - The ridge.
  * @returns {RidgePoint[][]} The foot, the shoulder and the crest, each with
@@ -266,7 +266,7 @@ function createRidge(ridge: Ridge): Mesh {
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   geometry.computeVertexNormals();
   const material = new MeshStandardMaterial({
-    color: ridge.colour,
+    color: ridge.color,
     roughness: 1,
     flatShading: true,
   });
@@ -276,7 +276,7 @@ function createRidge(ridge: Ridge): Mesh {
 /**
  * Creates the mountains around the valley: a few ridges of low-poly peaks
  * and saddles, ringing the village far beyond where the players can walk
- * and the camera can go, each farther one paler, more blue-grey and
+ * and the camera can go, each farther one paler, more blue-gray and
  * higher.  They are the same every time.
  *
  * @returns {Group} The mountains, with a ridge a child, nearest first.
@@ -290,17 +290,17 @@ export function createMountains(): Group {
 }
 
 /**
- * Has the mountains take on the colour of the sky instead of their own, as
- * far as told, so that they melt into a dark or a coloured sky as they do
- * into a pale one.  Each ridge then glows in the colour of the sky, the
- * nearer ridges a little darker than the farther ones, as its own colour
+ * Has the mountains take on the color of the sky instead of their own, as
+ * far as told, so that they melt into a dark or a colored sky as they do
+ * into a pale one.  Each ridge then glows in the color of the sky, the
+ * nearer ridges a little darker than the farther ones, as its own color
  * fades.
  *
  * @param {Object3D} mountains - The mountains, as {@link createMountains}
  *   creates them.
- * @param {Color} sky - The colour of the sky.
- * @param {number} share - How far they take on the colour of the sky, from
- *   0 for their own colours to 1 for the colour of the sky alone.
+ * @param {Color} sky - The color of the sky.
+ * @param {number} share - How far they take on the color of the sky, from
+ *   0 for their own colors to 1 for the color of the sky alone.
  */
 export function tintMountains(
   mountains: Object3D,
@@ -313,7 +313,7 @@ export function tintMountains(
       return;
     }
     const material = child.material as MeshStandardMaterial;
-    material.color.set(ridge.colour).multiplyScalar(1 - share);
+    material.color.set(ridge.color).multiplyScalar(1 - share);
     material.emissive.copy(sky).multiplyScalar(ridge.skyShade * share);
   });
 }

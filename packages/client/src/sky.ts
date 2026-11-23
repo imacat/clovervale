@@ -42,7 +42,7 @@ import { createRandom } from './mountains.ts';
 
 /**
  * How far from the camera the stars, the sun and the moon are drawn, in
- * metres: within the far plane of the camera.  They are drawn before
+ * meters: within the far plane of the camera.  They are drawn before
  * anything else, so that whatever stands in front of them hides them,
  * however far off it is.
  */
@@ -55,47 +55,47 @@ const STAR_SEED = 0x57a125;
 const STAR_LOWEST = 3;
 /** The size of a star, in pixels. */
 const STAR_SIZE = 2;
-/** The colour of the faintest star, as a share of the brightest. */
+/** The color of the faintest star, as a share of the brightest. */
 const STAR_FAINTEST = 0.35;
 /**
  * The width of the picture of the sun, whose middle half the sun fills, in
- * metres at the distance of the sky.
+ * meters at the distance of the sky.
  */
 const SUN_SIZE = 46;
-/** The colour of the sun high in the sky. */
-const SUN_HIGH_COLOUR = '#fff4d6';
-/** The colour of the sun on the horizon. */
-const SUN_LOW_COLOUR = '#ff9a4c';
+/** The color of the sun high in the sky. */
+const SUN_HIGH_COLOR = '#fff4d6';
+/** The color of the sun on the horizon. */
+const SUN_LOW_COLOR = '#ff9a4c';
 /**
  * The width of the picture of the moon, whose middle half the moon fills,
- * in metres at the distance of the sky.
+ * in meters at the distance of the sky.
  */
 const MOON_SIZE = 32;
-/** The colour of the moon. */
-const MOON_COLOUR = '#dfe7ff';
+/** The color of the moon. */
+const MOON_COLOR = '#dfe7ff';
 /** The width and height of the picture of the sun and the moon, in pixels. */
-const DISC_PIXELS = 64;
+const DISK_PIXELS = 64;
 
 /**
- * Draws a round disc with a soft edge and a faint glow around it, white on
+ * Draws a round disk with a soft edge and a faint glow around it, white on
  * black, so that, added to the sky, it leaves the sky around it as it is.
  *
  * @returns {DataTexture} The picture.
  */
-function drawDisc(): DataTexture {
-  const data = new Uint8Array(DISC_PIXELS * DISC_PIXELS * 4);
-  const middle: number = (DISC_PIXELS - 1) / 2;
-  for (let y = 0; y < DISC_PIXELS; y++) {
-    for (let x = 0; x < DISC_PIXELS; x++) {
+function drawDisk(): DataTexture {
+  const data = new Uint8Array(DISK_PIXELS * DISK_PIXELS * 4);
+  const middle: number = (DISK_PIXELS - 1) / 2;
+  for (let y = 0; y < DISK_PIXELS; y++) {
+    for (let x = 0; x < DISK_PIXELS; x++) {
       const distance: number = Math.hypot(x - middle, y - middle) / middle;
-      // The disc fills the middle half, and its glow fades out beyond it.
-      const disc: number = 1 - MathUtils.smoothstep(distance, 0.44, 0.5);
+      // The disk fills the middle half, and its glow fades out beyond it.
+      const disk: number = 1 - MathUtils.smoothstep(distance, 0.44, 0.5);
       const glow: number = 0.25 * Math.max(1 - distance, 0) ** 2;
-      const level: number = Math.round(Math.min(disc + glow, 1) * 255);
-      data.set([level, level, level, 255], (y * DISC_PIXELS + x) * 4);
+      const level: number = Math.round(Math.min(disk + glow, 1) * 255);
+      data.set([level, level, level, 255], (y * DISK_PIXELS + x) * 4);
     }
   }
-  const texture = new DataTexture(data, DISC_PIXELS, DISC_PIXELS);
+  const texture = new DataTexture(data, DISK_PIXELS, DISK_PIXELS);
   texture.needsUpdate = true;
   return texture;
 }
@@ -104,13 +104,13 @@ function drawDisc(): DataTexture {
  * Scatters the stars over the sky, the same every time.
  *
  * @returns {BufferGeometry} The stars, a point each, around the origin,
- *   each with its colour.
+ *   each with its color.
  */
 function scatterStars(): BufferGeometry {
   const random: () => number = createRandom(STAR_SEED);
   const lowest: number = Math.sin(MathUtils.degToRad(STAR_LOWEST));
   const positions: number[] = [];
-  const colours: number[] = [];
+  const colors: number[] = [];
   for (let index = 0; index < STAR_COUNT; index++) {
     // Spread evenly in height, the stars cover the dome evenly.
     const height: number = lowest + (1 - lowest) * random();
@@ -125,7 +125,7 @@ function scatterStars(): BufferGeometry {
     const brightness: number =
       STAR_FAINTEST + (1 - STAR_FAINTEST) * random() ** 3;
     const tint: number = (random() - 0.5) * 0.2;
-    colours.push(
+    colors.push(
       brightness * (1 + tint),
       brightness,
       brightness * (1 - tint),
@@ -133,12 +133,12 @@ function scatterStars(): BufferGeometry {
   }
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
   return geometry;
 }
 
 /**
- * Has an object in the sky drawn before everything else, over the colour
+ * Has an object in the sky drawn before everything else, over the color
  * of the sky, so that whatever stands in front of it hides it.  As it is
  * drawn along with everything else that is opaque, it cannot fade through
  * its opacity: it should instead add its light to the sky, and fade by
@@ -152,15 +152,15 @@ function hangInSky(object: Object3D): void {
 }
 
 /**
- * Creates a disc for the sun or the moon.
+ * Creates a disk for the sun or the moon.
  *
- * @param {DataTexture} picture - The picture of a disc.
- * @param {number} size - The width of the picture of the disc, whose
- *   middle half the disc fills, in metres.
- * @returns {Mesh} The disc.
+ * @param {DataTexture} picture - The picture of a disk.
+ * @param {number} size - The width of the picture of the disk, whose
+ *   middle half the disk fills, in meters.
+ * @returns {Mesh} The disk.
  */
-function createDisc(picture: DataTexture, size: number): Mesh {
-  const disc = new Mesh(
+function createDisk(picture: DataTexture, size: number): Mesh {
+  const disk = new Mesh(
     new PlaneGeometry(size, size),
     new MeshBasicMaterial({
       map: picture,
@@ -170,8 +170,8 @@ function createDisc(picture: DataTexture, size: number): Mesh {
       fog: false,
     }),
   );
-  disc.visible = false;
-  return disc;
+  disk.visible = false;
+  return disk;
 }
 
 /**
@@ -186,9 +186,9 @@ export class Sky {
   readonly #moon: Mesh;
   readonly #sunOffset = new Vector3();
   readonly #moonOffset = new Vector3();
-  readonly #sunLow = new Color(SUN_LOW_COLOUR);
-  readonly #sunHigh = new Color(SUN_HIGH_COLOUR);
-  readonly #moonColour = new Color(MOON_COLOUR);
+  readonly #sunLow = new Color(SUN_LOW_COLOR);
+  readonly #sunHigh = new Color(SUN_HIGH_COLOR);
+  readonly #moonColor = new Color(MOON_COLOR);
 
   /**
    * Puts the stars, the sun and the moon in a scene, all hidden until
@@ -208,9 +208,9 @@ export class Sky {
     });
     this.#stars = new Points(scatterStars(), this.#starMaterial);
     this.#stars.visible = false;
-    const picture: DataTexture = drawDisc();
-    this.#sun = createDisc(picture, SUN_SIZE);
-    this.#moon = createDisc(picture, MOON_SIZE);
+    const picture: DataTexture = drawDisk();
+    this.#sun = createDisk(picture, SUN_SIZE);
+    this.#moon = createDisk(picture, MOON_SIZE);
     for (const object of [this.#stars, this.#sun, this.#moon]) {
       hangInSky(object);
       scene.add(object);
@@ -218,7 +218,7 @@ export class Sky {
     scene.onBeforeRender = (
       ...args: Parameters<Scene['onBeforeRender']>
     ): void => {
-      this.centreOn(args[2]);
+      this.centerOn(args[2]);
     };
   }
 
@@ -230,12 +230,12 @@ export class Sky {
    *
    * @param {Camera} camera - The camera.
    */
-  centreOn(camera: Camera): void {
+  centerOn(camera: Camera): void {
     this.#stars.position.copy(camera.position);
     this.#sun.position.copy(camera.position).add(this.#sunOffset);
     this.#moon.position.copy(camera.position).add(this.#moonOffset);
-    for (const disc of [this.#sun, this.#moon]) {
-      disc.quaternion.copy(camera.quaternion);
+    for (const disk of [this.#sun, this.#moon]) {
+      disk.quaternion.copy(camera.quaternion);
     }
     for (const object of [this.#stars, this.#sun, this.#moon]) {
       object.updateMatrixWorld();
@@ -253,8 +253,8 @@ export class Sky {
   show(look: DaylightLook): void {
     this.#starMaterial.color.setScalar(look.stars);
     this.#stars.visible = look.stars > 0;
-    this.#placeDisc(this.#moon, this.#moonOffset, look.moon, MOON_SIZE);
-    this.#placeDisc(this.#sun, this.#sunOffset, look.sun, SUN_SIZE);
+    this.#placeDisk(this.#moon, this.#moonOffset, look.moon, MOON_SIZE);
+    this.#placeDisk(this.#sun, this.#sunOffset, look.sun, SUN_SIZE);
     const height: number = MathUtils.radToDeg(Math.asin(look.sun.y));
     (this.#sun.material as MeshBasicMaterial).color.lerpColors(
       this.#sunLow,
@@ -262,27 +262,27 @@ export class Sky {
       MathUtils.smoothstep(height, 0, 30),
     );
     (this.#moon.material as MeshBasicMaterial).color
-      .copy(this.#moonColour)
+      .copy(this.#moonColor)
       .multiplyScalar(look.stars);
   }
 
   /**
-   * Places the disc of the sun or the moon in the sky, showing it while
+   * Places the disk of the sun or the moon in the sky, showing it while
    * any part of it is above the horizon.
    *
-   * @param {Mesh} disc - The disc.
-   * @param {Vector3} offset - Where the disc stands from the camera.
-   * @param {Vector3} direction - The direction towards the body.
-   * @param {number} size - The width of the picture of the disc, whose
-   *   middle half the disc fills, in metres.
+   * @param {Mesh} disk - The disk.
+   * @param {Vector3} offset - Where the disk stands from the camera.
+   * @param {Vector3} direction - The direction toward the body.
+   * @param {number} size - The width of the picture of the disk, whose
+   *   middle half the disk fills, in meters.
    */
-  #placeDisc(
-    disc: Mesh,
+  #placeDisk(
+    disk: Mesh,
     offset: Vector3,
     direction: Vector3,
     size: number,
   ): void {
     offset.copy(direction).multiplyScalar(SKY_DISTANCE);
-    disc.visible = offset.y > -size / 4;
+    disk.visible = offset.y > -size / 4;
   }
 }

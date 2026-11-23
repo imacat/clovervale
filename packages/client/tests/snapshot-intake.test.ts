@@ -52,10 +52,10 @@ describe('findGainedItems', () => {
     ).toEqual([]);
   });
 
-  it('finds the item got in the same snapshot as another is dropped', () => {
+  it('finds the item gained in the same snapshot as another is dropped', () => {
     expect(
-      findGainedItems(['clover', 'sword'], ['sword', 'leather-armour']),
-    ).toEqual(['leather-armour']);
+      findGainedItems(['clover', 'sword'], ['sword', 'leather-armor']),
+    ).toEqual(['leather-armor']);
   });
 
   it('finds nothing once there is no player', () => {
@@ -64,7 +64,7 @@ describe('findGainedItems', () => {
 });
 
 describe('findGainedSilver', () => {
-  it('finds the silver coins got', () => {
+  it('finds the silver coins gained', () => {
     expect(findGainedSilver(0, 2)).toBe(2);
     expect(findGainedSilver(3, 8)).toBe(5);
   });

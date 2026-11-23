@@ -79,7 +79,7 @@ export type PadScreen = 'play' | 'help' | 'choice';
  * part 1, 0 or -1.
  */
 export interface PadWalk {
-  /** Forwards positive, the way the camera looks, and backwards negative. */
+  /** Forward positive, the way the camera looks, and backward negative. */
   readonly ahead: number;
   /** To the right positive, and to the left negative. */
   readonly aside: number;
@@ -163,7 +163,7 @@ interface ReadPad {
   readonly walk: PadWalk;
   /** The right stick, beyond its dead zone, each part from -1 to 1. */
   readonly turnX: number;
-  /** The right stick, beyond its dead zone, downwards positive. */
+  /** The right stick, beyond its dead zone, downward positive. */
   readonly turnY: number;
   /**
    * Whether the left stick is held from choosing until it comes back within
@@ -184,7 +184,7 @@ interface ReadPad {
  * the way it is pushed most, once per push and repeating while held after
  * a delay, for choosing in the bag and in dialogues; the right stick turns the view as the
  * arrow keys do, in proportion to its push; and LB and RB held zoom out
- * and in.  A pad that is gone holds nothing any more.  While paused, the
+ * and in.  A pad that is gone holds nothing anymore.  While paused, the
  * sticks and the shoulder buttons do nothing, and the buttons still tell
  * their presses.
  */
@@ -421,7 +421,7 @@ export function findPadKey(
  * once it is pushed beyond its dead zone.
  *
  * @param {number} x - The stick, to the right positive.
- * @param {number} y - The stick, downwards positive.
+ * @param {number} y - The stick, downward positive.
  * @returns {PadButton | null} The way, or `null` within the dead zone.
  */
 function findStickWay(x: number, y: number): PadButton | null {
@@ -477,7 +477,7 @@ function clampUnit(value: number): number {
  * is pushed.
  *
  * @param {number} x - The stick, to the right positive.
- * @param {number} y - The stick, downwards positive.
+ * @param {number} y - The stick, downward positive.
  * @param {number} deadZone - The dead zone, as a share of the full push.
  * @returns {[number, number]} The stick scaled, the push at most 1.
  */
@@ -500,7 +500,7 @@ export function scaleStick(
  * zone.
  *
  * @param {number} x - The stick, to the right positive.
- * @param {number} y - The stick, downwards positive.
+ * @param {number} y - The stick, downward positive.
  * @returns {PadWalk} The walk.
  */
 export function resolveStickWalk(x: number, y: number): PadWalk {

@@ -96,11 +96,11 @@ const MARTHA_TALK_PROMPT = 'Press Space to talk to Chief Martha';
 const TOBY_HURT: DialogueShown = {
   name: 'Toby',
   line:
-    'Waaah… I fell over just now and it really hurts. Mummy and Daddy have ' +
-    "both gone to the fields. Mummy said if anything's wrong, I can go to " +
+    'Waaah… I fell down just now and it really hurts. Mommy and Daddy have ' +
+    "both gone to the fields. Mommy said if anything's wrong, I can go to " +
     'the village chief…',
   replies: [
-    "I'll go and ask the village chief. You wait here, and don't wander off.",
+    "I'll go ask the village chief. You wait here, and don't wander off.",
   ],
   cursor: 0,
 };
@@ -111,7 +111,7 @@ const MARTHA_WELCOME: DialogueShown = {
   name: 'Chief Martha',
   line: 'Hello, stranger! What can I do for you?',
   replies: [
-    'Toby was playing outside and fell over and hurt himself. Have you got ' +
+    'Toby was playing outside and fell down and hurt himself. Do you have ' +
       'any medicine?',
   ],
   cursor: 0,
@@ -120,7 +120,7 @@ const MARTHA_WELCOME: DialogueShown = {
 const MARTHA_OINTMENT: DialogueShown = {
   name: 'Chief Martha',
   line:
-    'Oh my goodness! Children, always running about. Is it bad? Here, ' +
+    'Oh my goodness! Children, always running around. Is it bad? Here, ' +
     'take this ointment to Toby, quick!',
   replies: [],
   cursor: 0,
@@ -149,15 +149,15 @@ const TOBY_THANKS: DialogueShown = {
 };
 /** What Toby says in passing to a player who has done the quest. */
 const TOBY_ORDINARY_LINES: readonly string[] = [
-  "Mummy says I mustn't go outside. There are wild dogs out there.",
-  'If you want something, go and see the village chief. She lives in the ' +
+  "Mommy says I can't go outside. There are wild dogs out there.",
+  'If you want something, go see the village chief. She lives in the ' +
     'biggest house!',
   "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
   "Here, this one's for you! It brings good luck.",
 ];
 /** The name of the ointment. */
 const OINTMENT_NAME = "jar of Martha's ointment";
-/** The notice of the ointment got from Martha. */
+/** The notice of the ointment received from Martha. */
 const OINTMENT_NOTICE = `You got a ${OINTMENT_NAME}`;
 /** The prompt by the ointment on the ground. */
 const OINTMENT_PROMPT = `Press Space to pick up the ${OINTMENT_NAME}`;
@@ -165,8 +165,8 @@ const OINTMENT_PROMPT = `Press Space to pick up the ${OINTMENT_NAME}`;
 const OINTMENT_ACTIONS: readonly MenuActionView[] = [
   { label: 'Drop', isEnabled: true },
 ];
-/** The notice of the four-leaved clover Toby gives. */
-const QUEST_CLOVER_NOTICE = 'You got a four-leaved clover';
+/** The notice of the four-leaf clover Toby gives. */
+const QUEST_CLOVER_NOTICE = 'You got a four-leaf clover';
 /**
  * How far the wheel is turned to zoom the camera in on the ointment on the
  * ground, in pixels, below zero.
@@ -258,7 +258,7 @@ async function talkToToby(
  * dialogue box shows him moaning that it hurts, with the reply that puts
  * the ointment on and tells him to take care, and Enter has him thank the
  * player, which takes the ointment out of the bag and gives the player a
- * four-leaved clover, told in a notice; Enter ends the dialogue, and
+ * four-leaf clover, told in a notice; Enter ends the dialogue, and
  * talked to again, he says one of his ordinary lines in a bubble.  The
  * views of each dialogue, of the bag with the ointment, and of the
  * ointment on the ground are saved if the environment names a directory

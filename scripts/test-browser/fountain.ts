@@ -62,8 +62,8 @@ interface FountainLook {
 }
 
 /**
- * The furthest along the X axis from the centre of the fountain a player
- * is walked to before it walks forward to the fountain, in metres.  From
+ * The furthest along the X axis from the center of the fountain a player
+ * is walked to before it walks forward to the fountain, in meters.  From
  * there, it walks within reach of the fountain, facing it, for over two
  * seconds before it slides past the rim.
  */

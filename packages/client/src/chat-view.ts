@@ -48,7 +48,7 @@ export const CHAT_INPUT_CLASS = 'chat-input';
 /**
  * How long after an input method has composed a text a key still belongs
  * to it, in milliseconds: some browsers tell of the Enter that ends the
- * composing only afterwards, as a key of its own.
+ * composing only afterward, as a key of its own.
  */
 const COMPOSING_ECHO = 50;
 

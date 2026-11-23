@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/models/gear The sword and the leather armour from the
+ * @module scripts/models/gear The sword and the leather armor from the
  *   chests of the cave, as they lie on the ground once put down.
  */
 
@@ -39,11 +39,11 @@ const SWORD_MATERIALS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The outline of the leather armour, seen from the front, in metres from
+ * The outline of the leather armor, seen from the front, in meters from
  * its middle: cut low at the neck, round at the arms, and down to the
  * waist.
  */
-const ARMOUR_OUTLINE: readonly Pair[] = [
+const ARMOR_OUTLINE: readonly Pair[] = [
   [-0.12, 0.26],
   [-0.055, 0.26],
   [-0.033, 0.21],
@@ -68,7 +68,7 @@ const ARMOUR_OUTLINE: readonly Pair[] = [
 
 /**
  * Builds the sword, as it lies on the ground on the flat of its blade: the
- * same sword as those in the barrel of the weapon shop, its point towards
+ * same sword as those in the barrel of the weapon shop, its point toward
  * +Z.
  *
  * @returns {BuiltModel} The model.
@@ -84,31 +84,31 @@ export function buildItemSword(): BuiltModel {
       place(shape, { rot: [90, 0, 0] }),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }
 
 /**
- * Builds the leather armour for the upper body, as it lies on its back on
+ * Builds the leather armor for the upper body, as it lies on its back on
  * the ground: a front of stiff leather over a darker back, laced up its
  * middle, belted at its waist with a brass buckle, and with a strap over
- * either shoulder, its neck towards -Z.
+ * either shoulder, its neck toward -Z.
  *
  * @returns {BuiltModel} The model.
  */
-export function buildItemLeatherArmour(): BuiltModel {
-  const model = new Model('ItemLeatherArmour');
+export function buildItemLeatherArmor(): BuiltModel {
+  const model = new Model('ItemLeatherArmor');
   model.setMaterial('leather', '#a06a3c');
   model.setMaterial('leatherDark', '#6e4426');
   model.setMaterial('lace', '#e2cca0');
   model.setMaterial('brass', '#c99a45', { roughness: 0.5, metallic: 0.4 });
   const lie = (shape: Shape, height: number): Shape =>
     place(shape, { pos: [0, height, 0], rot: [-90, 0, 0] });
-  model.add('leatherDark', lie(createExtrusion(ARMOUR_OUTLINE, 0.03), 0.015));
+  model.add('leatherDark', lie(createExtrusion(ARMOR_OUTLINE, 0.03), 0.015));
   model.add(
     'leather',
     lie(
-      place(createExtrusion(ARMOUR_OUTLINE, 0.04), { scale: [0.94, 0.95, 1] }),
+      place(createExtrusion(ARMOR_OUTLINE, 0.04), { scale: [0.94, 0.95, 1] }),
       0.045,
     ),
   );
@@ -136,7 +136,7 @@ export function buildItemLeatherArmour(): BuiltModel {
   }
   // The straps over the shoulders.
   for (const side of [-1, 1]) {
-    const [x, y] = getItem(ARMOUR_OUTLINE, side < 0 ? 0 : 6);
+    const [x, y] = getItem(ARMOR_OUTLINE, side < 0 ? 0 : 6);
     model.add(
       'leatherDark',
       lie(
@@ -148,6 +148,6 @@ export function buildItemLeatherArmour(): BuiltModel {
       ),
     );
   }
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

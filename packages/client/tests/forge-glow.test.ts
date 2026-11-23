@@ -27,8 +27,8 @@ import { describe, expect, it } from 'vitest';
 
 import { ForgeGlow } from '../src/forge-glow.ts';
 
-/** The colour the flames of the model glow in by themselves. */
-const FLAME_COLOUR = '#ff6a00';
+/** The color the flames of the model glow in by themselves. */
+const FLAME_COLOR = '#ff6a00';
 
 /** A model of the forge, with what glows in it and what does not. */
 interface ForgeModel {
@@ -50,7 +50,7 @@ function createForge(): ForgeModel {
   for (const name of ['embers', 'hotIron', 'fire', 'stone']) {
     const material = new MeshStandardMaterial({ name });
     if (name === 'fire') {
-      material.emissive = new Color(FLAME_COLOUR);
+      material.emissive = new Color(FLAME_COLOR);
     }
     materials.set(name, material);
     root.add(new Mesh(new BoxGeometry(), material));
@@ -117,12 +117,12 @@ describe('ForgeGlow', () => {
     }
   });
 
-  it('makes the flames flicker in their own colour', () => {
+  it('makes the flames flicker in their own color', () => {
     const forge: ForgeModel = createForge();
     const fire: MeshStandardMaterial = findMaterial(forge, 'fire');
     const glow = new ForgeGlow(forge.root);
     const [strengths = []] = recordStrengths(glow, [fire]);
-    expect(fire.emissive.equals(new Color(FLAME_COLOUR))).toBe(true);
+    expect(fire.emissive.equals(new Color(FLAME_COLOR))).toBe(true);
     expect(Math.min(...strengths)).toBeGreaterThan(0);
     expect(Math.max(...strengths) - Math.min(...strengths)).toBeGreaterThan(
       0.1,

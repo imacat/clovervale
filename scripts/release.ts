@@ -40,7 +40,7 @@ interface Manifest {
   readonly name: string;
   /** The package version. */
   readonly version: string;
-  /** The licence of the package. */
+  /** The license of the package. */
   readonly license?: string;
   /** The supported runtime versions. */
   readonly engines?: Record<string, string>;
@@ -119,10 +119,10 @@ function collectBundledPackages(): Map<string, string> {
 }
 
 /**
- * Composes the licence notices of the bundled third-party packages.
+ * Composes the license notices of the bundled third-party packages.
  *
- * @returns {string} The licence notices.
- * @throws {Error} If a bundled package comes without a licence file.
+ * @returns {string} The license notices.
+ * @throws {Error} If a bundled package comes without a license file.
  */
 function composeThirdPartyNotices(): string {
   const bundled: Map<string, string> = collectBundledPackages();
@@ -135,19 +135,19 @@ function composeThirdPartyNotices(): string {
   );
   for (const [name, dir] of packages) {
     const manifest: Manifest = readManifest(dir);
-    const licenceFile: string | undefined = readdirSync(dir).find((file) =>
+    const licenseFile: string | undefined = readdirSync(dir).find((file) =>
       /^(licen[cs]e|copying)/i.test(file),
     );
-    if (licenceFile === undefined) {
-      throw new Error(`${name} comes without a licence file.`);
+    if (licenseFile === undefined) {
+      throw new Error(`${name} comes without a license file.`);
     }
-    const licence: string = manifest.license ?? 'see below';
+    const license: string = manifest.license ?? 'see below';
     notices.push(
       '='.repeat(72),
-      `${name} ${manifest.version} (${licence})`,
+      `${name} ${manifest.version} (${license})`,
       '='.repeat(72),
       '',
-      readFileSync(path.join(dir, licenceFile), 'utf8').trim(),
+      readFileSync(path.join(dir, licenseFile), 'utf8').trim(),
       '',
     );
   }

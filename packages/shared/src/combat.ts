@@ -49,9 +49,9 @@ export type MonsterKindId = (typeof MONSTER_KIND_IDS)[number];
 
 /** How a monster that wanders near its home does so. */
 export interface MonsterWander {
-  /** The speed the monster wanders at, in metres per second. */
+  /** The speed the monster wanders at, in meters per second. */
   readonly speed: number;
-  /** The farthest from its home the monster wanders to, in metres. */
+  /** The farthest from its home the monster wanders to, in meters. */
   readonly radius: number;
 }
 
@@ -71,7 +71,7 @@ export interface MonsterKind {
   readonly biteInterval: number;
   /**
    * The speed the monster chases a player and walks back home at, in
-   * metres per second.
+   * meters per second.
    */
   readonly chaseSpeed: number;
   /**
@@ -79,11 +79,11 @@ export interface MonsterKind {
    * kind that never wanders.
    */
   readonly wander?: MonsterWander;
-  /** The farthest the monster notices a player from, in metres. */
+  /** The farthest the monster notices a player from, in meters. */
   readonly noticeRange: number;
   /**
    * The farthest from the home of the monster a player can be for the
-   * monster to chase it, in metres.  Beyond that, it gives up.
+   * monster to chase it, in meters.  Beyond that, it gives up.
    */
   readonly leashRange: number;
   /**
@@ -222,11 +222,11 @@ export interface MonsterState {
   readonly id: number;
   /** The kind of the monster, which tells its full health. */
   readonly kind: MonsterKindId;
-  /** The position along the X axis, in metres. */
+  /** The position along the X axis, in meters. */
   readonly x: number;
-  /** The position along the Z axis, in metres. */
+  /** The position along the Z axis, in meters. */
   readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  /** The turn around the Y axis from facing +Z toward +X, in degrees. */
   readonly yaw: number;
   /** What the monster is doing. */
   readonly action: MonsterAction;
@@ -272,7 +272,7 @@ export interface EntityRef {
 
 /**
  * The farthest a monster can be from a player whose slash hits it, from
- * centre to centre, in metres.
+ * center to center, in meters.
  */
 export const SLASH_REACH = 1.6;
 
@@ -291,8 +291,8 @@ export const STRIKE_HALF_ANGLE = 60;
  *
  * @param {Pose} striker - Where the striker stands, and which way it faces.
  * @param {GroundVector} target - Where the one struck at stands.
- * @param {number} reach - The farthest the strike reaches, from centre to
- *   centre, in metres.
+ * @param {number} reach - The farthest the strike reaches, from center to
+ *   center, in meters.
  * @returns {boolean} Whether the target is within reach, and no more than
  *   {@link STRIKE_HALF_ANGLE} to either side of the way the striker faces.
  *   A target that stands right where the striker does is reached.

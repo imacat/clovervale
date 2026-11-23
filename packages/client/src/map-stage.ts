@@ -183,10 +183,10 @@ export class MapStage {
   /**
    * Shows every set of figures as things are at a frame, as
    * {@link FigureRegistry.show} tells, with the bubbles of what the players
-   * say kept above their heads as they go about, and the hits and the heals
-   * whose moment has come, as {@link EventDisplay.show} tells.  A bubble is
-   * not seen while its player is off the screen, and is taken away once its
-   * player is shown no more.
+   * say kept above their heads as they move around, and the hits and the
+   * heals whose moment has come, as {@link EventDisplay.show} tells.  A
+   * bubble is not seen while its player is off the screen, and is taken
+   * away once its player is shown no more.
    *
    * @param {FigureFrame} frame - How things are shown at the frame.
    */
@@ -234,9 +234,9 @@ export class MapStage {
   }
 
   /**
-   * Keeps the bubbles of the players above their heads as they go about:
-   * a bubble is not seen while its player is off the screen, and is taken
-   * away once its player is shown no more.
+   * Keeps the bubbles of the players above their heads as they move
+   * around: a bubble is not seen while its player is off the screen, and is
+   * taken away once its player is shown no more.
    */
   #followSaid(): void {
     for (const player of this.speech.listSpeakers()) {

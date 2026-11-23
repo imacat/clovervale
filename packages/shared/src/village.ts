@@ -23,8 +23,8 @@
 
 import type { GroundVector } from './movement.ts';
 
-/** The centre of the plaza, where the fountain stands. */
-export const PLAZA_CENTRE: GroundVector = { x: 0, z: -8.5 };
+/** The center of the plaza, where the fountain stands. */
+export const PLAZA_CENTER: GroundVector = { x: 0, z: -8.5 };
 
 /**
  * The yaw of a player who has just entered the village, facing the fountain,
@@ -32,7 +32,7 @@ export const PLAZA_CENTRE: GroundVector = { x: 0, z: -8.5 };
  */
 export const SPAWN_YAW = 180;
 
-/** The distance between two neighbouring spawn points, in metres. */
+/** The distance between two neighboring spawn points, in meters. */
 const SPAWN_SPACING = 1.6;
 
 /** The number of spawn points in a row. */
@@ -51,7 +51,7 @@ const SPAWN_DISTANCE = 5;
  * Finds a point where a player can enter the village.
  *
  * The points lie in rows on the plaza in front of the fountain.  Each row
- * fills from its middle outwards, and the rows fill away from the fountain.
+ * fills from its middle outward, and the rows fill away from the fountain.
  *
  * @param {number} index - The number of the point, from zero and below
  *   {@link SPAWN_POINT_COUNT}.
@@ -63,7 +63,7 @@ export function findSpawnPoint(index: number): GroundVector {
   const side: number = column % 2 === 0 ? -1 : 1;
   const offset: number = (Math.floor(column / 2) + 0.5) * SPAWN_SPACING;
   return {
-    x: PLAZA_CENTRE.x + side * offset,
-    z: PLAZA_CENTRE.z + SPAWN_DISTANCE + row * SPAWN_SPACING,
+    x: PLAZA_CENTER.x + side * offset,
+    z: PLAZA_CENTER.z + SPAWN_DISTANCE + row * SPAWN_SPACING,
   };
 }

@@ -61,7 +61,7 @@ export interface StickPlace {
 export interface StickPush {
   /** To the right positive, as a share of the radius of the base. */
   readonly x: number;
-  /** Downwards positive, as a share of the radius of the base. */
+  /** Downward positive, as a share of the radius of the base. */
   readonly y: number;
 }
 
@@ -110,7 +110,7 @@ export function noticePointerType(isTouch: boolean, type: string): boolean {
  * The fingers on the screen of a touch device: one on the stick walks the
  * player in the eight directions of the walking keys, as the left stick of
  * a gamepad does; one dragged elsewhere on the scene turns the view as the
- * right stick does, towards where it is dragged from where it was pressed,
+ * right stick does, toward where it is dragged from where it was pressed,
  * the faster the farther, at most as fast as the arrow keys; and two there
  * pinch to zoom, in as they spread and out as they close, without turning.
  * Once one of two lifts, the other turns the view afresh from where it is.

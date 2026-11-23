@@ -28,8 +28,8 @@ import { Model } from './model.ts';
 import type { BuiltModel } from './rig.ts';
 
 /**
- * The outline of the piece of cloth, seen from above, in metres from its
- * middle: roughly square, but torn ragged all round, as if ripped from a
+ * The outline of the piece of cloth, seen from above, in meters from its
+ * middle: roughly square, but torn ragged all around, as if ripped from a
  * sleeve.
  */
 const CLOTH_OUTLINE: readonly Pair[] = [
@@ -60,7 +60,7 @@ const CLOTH_OUTLINE: readonly Pair[] = [
 
 /**
  * The strokes of the writing scrawled across the cloth, line by line from
- * the top: each line as the height of its middle, in metres from the
+ * the top: each line as the height of its middle, in meters from the
  * middle of the cloth, and the lengths of its strokes from the left, each
  * stroke tilted against the one before, as a hurried hand writes.
  */
@@ -75,14 +75,14 @@ const WRITING: readonly (readonly [number, readonly number[]])[] = [
 /** Where the writing starts along each line, from the middle of the cloth. */
 const WRITING_LEFT = -0.12;
 
-/** The gap between two strokes of the writing, in metres. */
+/** The gap between two strokes of the writing, in meters. */
 const STROKE_GAP = 0.008;
 
 /** How far each stroke of the writing is tilted, in degrees. */
 const STROKE_TILT = 9;
 
 /**
- * The thickness of the cloth, in metres: enough for it to lie above the
+ * The thickness of the cloth, in meters: enough for it to lie above the
  * floor of the cave and its flat stones, and the patches of earth in the
  * village, rather than be hidden under them.
  */
@@ -91,7 +91,7 @@ const CLOTH_THICKNESS = 0.02;
 /**
  * Builds the message from Clovervale, as it lies flat on the ground: a
  * torn piece of pale cloth with lines of dark writing scrawled across it,
- * its top towards -Z.
+ * its top toward -Z.
  *
  * @returns {BuiltModel} The model.
  */
@@ -123,6 +123,6 @@ export function buildItemClovervaleMessage(): BuiltModel {
       x += length + STROKE_GAP;
     });
   });
-  model.centreFootprint();
+  model.centerFootprint();
   return { model };
 }

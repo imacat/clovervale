@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module server/toby Toby, the child who hunts for four-leaved clover, as
+ * @module server/toby Toby, the child who hunts for four-leaf clover, as
  *   the server has him take the clovers he finds.
  */
 
@@ -33,22 +33,22 @@ import { StandingVillager } from './resident.ts';
 import type { ResidentView } from './resident.ts';
 
 /**
- * Toby, the child who hunts for four-leaved clover, who runs his course as
+ * Toby, the child who hunts for four-leaf clover, who runs his course as
  * the number of the step tells.  At a step at which his hand grabs at a
- * patch of clover, he takes the four-leaved clover of the patch if it has
+ * patch of clover, he takes the four-leaf clover of the patch if it has
  * its clover, as what there is to pick in the world tells, and exclaims
  * {@link TOBY_FOUND_LINE} in passing as he does, which every player of the
  * world within hearing of him then hears, and nobody else.
  */
 export class Toby extends StandingVillager {
   /**
-   * The number of the latest step at which Toby took a four-leaved clover,
+   * The number of the latest step at which Toby took a four-leaf clover,
    * or `null` if he has taken none.
    */
   #find: number | null = null;
 
   /**
-   * Has Toby take the four-leaved clover of the patch of clover his hand
+   * Has Toby take the four-leaf clover of the patch of clover his hand
    * grabs at, if it grabs at this step, as {@link findTobyGrab} tells, and
    * the patch has its clover, before the players pick at it, and exclaim
    * {@link TOBY_FOUND_LINE} as he does.
@@ -70,7 +70,7 @@ export class Toby extends StandingVillager {
    * Describes Toby as a snapshot taken now is to tell him.
    *
    * @returns {ResidentView} Nothing among the monsters, and the latest step
-   *   at which he took a four-leaved clover, or `null` if he has taken
+   *   at which he took a four-leaf clover, or `null` if he has taken
    *   none.
    */
   override describe(): ResidentView {

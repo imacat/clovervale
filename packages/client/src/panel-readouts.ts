@@ -26,7 +26,7 @@ import type { MonsterState, PlayerState } from '@clovervale/shared';
 
 import { listCameraChoices } from './camera-choice.ts';
 import type { FigureFrame } from './figure-set.ts';
-import { summariseModels } from './model-report.ts';
+import { summarizeModels } from './model-report.ts';
 import type { ModelProblem } from './model-report.ts';
 import type { Panel } from './panel.ts';
 import {
@@ -110,7 +110,7 @@ export class PanelReadouts {
   showModels(shownCount: number, problems: readonly ModelProblem[]): void {
     const translator: Translator = this.#translator;
     this.#describeModels = (): string =>
-      summariseModels(translator, shownCount, problems);
+      summarizeModels(translator, shownCount, problems);
     this.#panel.state.models = this.#describeModels();
     this.#panel.listProblems(problems);
   }
@@ -127,7 +127,7 @@ export class PanelReadouts {
 
   /**
    * Shows what the server has told of the player of the page and of the
-   * world: the players the camera can follow, what is synchronised, the
+   * world: the players the camera can follow, what is synchronized, the
    * monster, and how the latest slash of the player was judged.
    *
    * @param {(readonly PlayerState[]) | null} players - The players in the

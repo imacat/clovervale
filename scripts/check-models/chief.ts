@@ -32,7 +32,7 @@ import {
   placePoint,
 } from '@clovervale/shared';
 import type { GroundVector, ModelId } from '@clovervale/shared';
-import { MODEL_FILES } from '../../packages/client/src/model-catalogue.ts';
+import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import type { StrikeResult } from './constants.ts';
 import { CHIEF_FILE } from './files.ts';
@@ -62,10 +62,10 @@ const FACE_PARTS: readonly (readonly [material: string, part: string])[] = [
   ['eye', 'eyes'],
   ['mouth', 'mouth'],
 ];
-/** The height of the eyes of a player, in metres. */
+/** The height of the eyes of a player, in meters. */
 const PLAYER_EYE_HEIGHT = 1.3;
 /**
- * Where the camera starts from a player, in metres: up, and back towards
+ * Where the camera starts from a player, in meters: up, and back toward
  * +Z.
  */
 const CAMERA_OFFSET: readonly [up: number, back: number] = [7.5, 13];

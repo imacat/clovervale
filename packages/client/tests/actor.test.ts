@@ -34,7 +34,7 @@ const FRAME = 0.05;
  *
  * @param {string} name - The name of the clip.
  * @param {number[]} times - The times of the key frames, in seconds.
- * @param {number[]} positions - The position at each key frame, in metres.
+ * @param {number[]} positions - The position at each key frame, in meters.
  * @returns {AnimationClip} The clip.
  */
 function createClip(

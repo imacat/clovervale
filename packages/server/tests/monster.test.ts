@@ -109,7 +109,7 @@ function readState(monster: Monster): MonsterState {
  *
  * @param {GroundVector} a - One point.
  * @param {GroundVector} b - The other point.
- * @returns {number} The distance between them, in metres.
+ * @returns {number} The distance between them, in meters.
  */
 function measureDistance(a: GroundVector, b: GroundVector): number {
   return Math.hypot(a.x - b.x, a.z - b.z);

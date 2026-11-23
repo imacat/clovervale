@@ -76,7 +76,7 @@ const BAG_BODY_PATH =
 const BAG_NECK_PATH = 'M22 12 L42 12 L38 22 L26 22Z';
 
 /**
- * Draws a small four-leaved clover.
+ * Draws a small four-leaf clover.
  *
  * @returns {SVGElement} The clover.
  */
@@ -143,28 +143,28 @@ function drawSword(): SVGElement {
 }
 
 /**
- * Draws a small leather armour for the upper body, seen from the front:
+ * Draws a small piece of leather armor, seen from the front:
  * its body, cut low at the neck and round at the arms, laced up its front
  * and belted at its waist.
  *
- * @returns {SVGElement} The armour.
+ * @returns {SVGElement} The armor.
  */
-function drawLeatherArmour(): SVGElement {
+function drawLeatherArmor(): SVGElement {
   return drawPicture([
     createSvgElement('path', {
       d:
         'M21 9 L27 9 C28 16 36 16 37 9 L43 9 L53 16 L50 27 C47 27 46 29 ' +
         '46 32 L46 54 C38 58 26 58 18 54 L18 32 C18 29 17 27 14 27 ' +
         'L11 16Z',
-      class: 'bag-armour-body',
+      class: 'bag-armor-body',
     }),
     createSvgElement('path', {
       d: 'M32 16 L32 46',
-      class: 'bag-armour-lacing',
+      class: 'bag-armor-lacing',
     }),
     createSvgElement('path', {
       d: 'M18 46 C26 48 38 48 46 46',
-      class: 'bag-armour-belt',
+      class: 'bag-armor-belt',
     }),
   ]);
 }
@@ -281,8 +281,8 @@ function drawSpyToken(): SVGElement {
 
 /**
  * Draws a small jar of Martha's ointment: a squat earthenware jar with a
- * band of darker clay round its belly, its mouth covered with a cloth tied
- * round the neck with string, the ends of the knot hanging down.
+ * band of darker clay around its belly, its mouth covered with a cloth tied
+ * around the neck with string, the ends of the knot hanging down.
  *
  * @returns {SVGElement} The jar.
  */
@@ -315,7 +315,7 @@ function drawMarthaOintment(): SVGElement {
 const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
   clover: drawClover,
   sword: drawSword,
-  'leather-armour': drawLeatherArmour,
+  'leather-armor': drawLeatherArmor,
   'healing-potion': drawHealingPotion,
   'clovervale-message': drawClovervaleMessage,
   'spy-token': drawSpyToken,
@@ -324,7 +324,7 @@ const ITEM_PICTURES: Readonly<Record<ItemKindId, () => SVGElement>> = {
 
 /**
  * Draws a small silver coin, seen from the front: its milled rim, its
- * raised face, a four-leaved clover struck on it, and a gleam.
+ * raised face, a four-leaf clover struck on it, and a gleam.
  *
  * @returns {SVGElement} The coin.
  */
@@ -379,7 +379,7 @@ export function drawBag(): SVGElement {
  * coin followed by their number, none as well, its slots in a
  * square grid, each item drawn small as what it is, with its cursor, the
  * menu of the item the cursor is on while it is open, with the actions that
- * cannot be chosen now greyed out, a line under the slots that names the
+ * cannot be chosen now grayed out, a line under the slots that names the
  * item the cursor is on, blank for an empty slot, and a line that tells the
  * keys, or what to tap on a touch device.  A click on a slot or an action of
  * the menu does to the bag what {@link InventoryBag} tells, and a click on

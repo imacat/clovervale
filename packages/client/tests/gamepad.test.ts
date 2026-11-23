@@ -242,7 +242,7 @@ describe('choosing with the left stick', () => {
 });
 
 describe('choosing with a left stick held from play', () => {
-  it('chooses nothing until the stick has come back to the centre', () => {
+  it('chooses nothing until the stick has come back to the center', () => {
     const pads = new Gamepads();
     const hold: PadState = createPad({ left: [0, -1] });
     pads.readPads([hold], 0);
@@ -344,7 +344,7 @@ describe('turning the view with the right stick', () => {
     expect(pads.isHeld).toBe(false);
   });
 
-  it('turns towards where the stick is pushed, as the arrows do', () => {
+  it('turns toward where the stick is pushed, as the arrows do', () => {
     expect(resolveTurn([1, 0])).toEqual({ orbit: CAMERA_ORBIT_RATE, tilt: 0 });
     expect(resolveTurn([-1, 0])).toEqual({
       orbit: -CAMERA_ORBIT_RATE,

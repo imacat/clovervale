@@ -19,7 +19,7 @@
 
 /**
  * @module client/tests/toby-finds Tests for what the page makes of the
- *   four-leaved clovers Toby takes.
+ *   four-leaf clovers Toby takes.
  */
 
 import { describe, expect, it } from 'vitest';

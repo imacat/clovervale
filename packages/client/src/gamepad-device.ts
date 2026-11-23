@@ -136,7 +136,7 @@ export class GamepadDevice implements InputDevice {
   /**
    * Holds the sticks and the shoulder buttons from play, as something opens
    * over play; a left stick pushed then chooses nothing until it has come
-   * back to the centre.
+   * back to the center.
    */
   holdPlay(): void {
     this.#pads.isPaused = true;

@@ -70,23 +70,23 @@ import type { LoadedModel } from './model-loader.ts';
 import { createModelPlacer } from './model-placement.ts';
 import type { ModelPlacer } from './model-placement.ts';
 
-/** The colour of the dark beyond the torchlight. */
-const DARK_COLOUR = '#030204';
-/** How far from the camera the dark starts to close in, in metres. */
+/** The color of the dark beyond the torchlight. */
+const DARK_COLOR = '#030204';
+/** How far from the camera the dark starts to close in, in meters. */
 const FOG_NEAR = 18;
-/** How far from the camera the dark hides everything, in metres. */
+/** How far from the camera the dark hides everything, in meters. */
 const FOG_FAR = 46;
-/** The colour of the faint light that comes from nowhere in the cave. */
+/** The color of the faint light that comes from nowhere in the cave. */
 const AMBIENT_SKY = '#5a5a78';
-/** The colour of the faint light that comes up off the floor. */
+/** The color of the faint light that comes up off the floor. */
 const AMBIENT_GROUND = '#3a2c22';
 /**
  * The strength of the faint light that comes from nowhere, enough for the
  * floor to be made out between the torches.
  */
 const AMBIENT_INTENSITY = 0.9;
-/** The colour of the light of a torch. */
-const TORCH_COLOUR = '#ffa04a';
+/** The color of the light of a torch. */
+const TORCH_COLOR = '#ffa04a';
 /**
  * The strength of the light of a torch, in candela, which falls off with
  * the distance rather than its square, so that the wall beside the torch is
@@ -96,11 +96,11 @@ const TORCH_COLOUR = '#ffa04a';
 const TORCH_INTENSITY = 3.2;
 /** How the light of a torch falls off with the distance. */
 const TORCH_DECAY = 1;
-/** The farthest the light of a torch reaches, in metres. */
+/** The farthest the light of a torch reaches, in meters. */
 const TORCH_RANGE = 9;
 /**
  * How far out from its flame, away from the wall, the light of a torch
- * shines from, in metres, so that the wall beside it is not lit from a
+ * shines from, in meters, so that the wall beside it is not lit from a
  * hand's breadth away.
  */
 const TORCH_LIGHT_OUT = 0.35;
@@ -112,13 +112,13 @@ const FLICKER_DEPTH = 0.12;
  * fall into a plain rhythm.
  */
 const FLICKER_PERIODS: readonly [number, number] = [0.61, 1.7];
-/** The colour of the flame of a torch, unlit by anything. */
-const FLAME_COLOUR = '#ffb04a';
-/** The colour of the heart of the flame of a torch. */
-const FLAME_CORE_COLOUR = '#fff2b8';
-/** The colour of the glow around the flame of a torch. */
-const HALO_COLOUR = '#ff9a40';
-/** How wide the glow around the flame of a torch is, in metres. */
+/** The color of the flame of a torch, unlit by anything. */
+const FLAME_COLOR = '#ffb04a';
+/** The color of the heart of the flame of a torch. */
+const FLAME_CORE_COLOR = '#fff2b8';
+/** The color of the glow around the flame of a torch. */
+const HALO_COLOR = '#ff9a40';
+/** How wide the glow around the flame of a torch is, in meters. */
 const HALO_SIZE = 0.75;
 /** How strongly the glow around the flame of a torch shows, from 0 to 1. */
 const HALO_STRENGTH = 0.55;
@@ -128,7 +128,7 @@ const GLOW_PIXELS = 64;
 const MOUTH_BRIGHTNESS = 1;
 /**
  * How far in front of the face of the rock the opening of the mouth of the
- * burrow shows, in metres, so that the rock never hides it.
+ * burrow shows, in meters, so that the rock never hides it.
  */
 const MOUTH_AHEAD = 0.01;
 /**
@@ -138,23 +138,23 @@ const MOUTH_AHEAD = 0.01;
 const SPILL_INTENSITY = 5;
 /**
  * How far in front of the opening of the mouth of the burrow the daylight
- * falling in comes from, in metres, so that the rock around the opening
+ * falling in comes from, in meters, so that the rock around the opening
  * does not stand in front of it.
  */
 const SPILL_AHEAD = 0.05;
 /** The parts of the flame of a torch, by the names of their materials. */
 const FLAME_PARTS: ReadonlyMap<string, string> = new Map<string, string>([
-  ['flame', FLAME_COLOUR],
-  ['flameCore', FLAME_CORE_COLOUR],
+  ['flame', FLAME_COLOR],
+  ['flameCore', FLAME_CORE_COLOR],
 ]);
 
 /** How the daylight outside shows at the mouth of the burrow. */
 export interface MouthLight {
   /**
-   * The colour the whole opening shows, unlit by anything, which is also
-   * the colour of the daylight falling in.
+   * The color the whole opening shows, unlit by anything, which is also
+   * the color of the daylight falling in.
    */
-  readonly colour: Color;
+  readonly color: Color;
   /**
    * How strong the daylight falling in is, from 0 at the darkest to 1 at
    * noon.
@@ -242,10 +242,10 @@ export function findMouthLight(time: number): MouthLight {
       ? TWILIGHT_STRENGTH +
         ((1 - TWILIGHT_STRENGTH) * look.lightIntensity) / NOON_STRENGTH
       : MOONLIGHT_STRENGTH;
-  const colour: Color = look.skyLight.clone();
-  const brightest: number = Math.max(colour.r, colour.g, colour.b);
-  colour.multiplyScalar((MOUTH_BRIGHTNESS * strength) / brightest);
-  return { colour, strength };
+  const color: Color = look.skyLight.clone();
+  const brightest: number = Math.max(color.r, color.g, color.b);
+  color.multiplyScalar((MOUTH_BRIGHTNESS * strength) / brightest);
+  return { color, strength };
 }
 
 /**
@@ -281,22 +281,22 @@ function lightFlames(model: Object3D): void {
       return;
     }
     const material: Material = node.material as Material;
-    const colour: string | undefined = FLAME_PARTS.get(material.name);
-    if (colour !== undefined) {
-      node.material = new MeshBasicMaterial({ color: colour });
+    const color: string | undefined = FLAME_PARTS.get(material.name);
+    if (color !== undefined) {
+      node.material = new MeshBasicMaterial({ color });
     }
   });
 }
 
 /**
- * Creates the cave without its models: the dark all round it and its
+ * Creates the cave without its models: the dark all around it and its
  * light, a faint light from nowhere, by which the floor can be made out,
  * and the warm, flickering light of each torch on the walls of the passage,
  * whose flame burns brighter than anything it lights, in a soft glow.  It
  * has no sky, no sun, no moon and no stars, but at the top of the slope at
  * its east end, out of reach, the mouth of the burrow opens onto the world
  * outside, the whole opening showing the light of the sky there, which
- * falls in down the slope, fading towards its foot.
+ * falls in down the slope, fading toward its foot.
  *
  * @returns {CaveScene} The cave.
  */
@@ -304,8 +304,8 @@ export function createCaveScene(): CaveScene {
   // The light from the opening of the mouth of the burrow needs these.
   RectAreaLightUniformsLib.init();
   const scene = new Scene();
-  scene.background = new Color(DARK_COLOUR);
-  scene.fog = new Fog(DARK_COLOUR, FOG_NEAR, FOG_FAR);
+  scene.background = new Color(DARK_COLOR);
+  scene.fog = new Fog(DARK_COLOR, FOG_NEAR, FOG_FAR);
   scene.add(
     new HemisphereLight(AMBIENT_SKY, AMBIENT_GROUND, AMBIENT_INTENSITY),
   );
@@ -313,7 +313,7 @@ export function createCaveScene(): CaveScene {
   const halos: Sprite[] = [];
   const torches: PointLight[] = CAVE_FLAMES.map((flame: GroundVector) => {
     const light = new PointLight(
-      TORCH_COLOUR,
+      TORCH_COLOR,
       TORCH_INTENSITY,
       TORCH_RANGE,
       TORCH_DECAY,
@@ -326,7 +326,7 @@ export function createCaveScene(): CaveScene {
     const halo = new Sprite(
       new SpriteMaterial({
         map: glow,
-        color: HALO_COLOUR,
+        color: HALO_COLOR,
         blending: AdditiveBlending,
         depthWrite: false,
         transparent: true,
@@ -359,7 +359,7 @@ export function createCaveScene(): CaveScene {
     Math.min(...heights) + height / 2,
     CAVE_MOUTH.z + (Math.max(...across) + Math.min(...across)) / 2,
   );
-  // It faces down the slope, towards its foot.
+  // It faces down the slope, toward its foot.
   spill.lookAt(CAVE_PASSAGE.east, 0, CAVE_MOUTH.z);
   scene.add(spill);
   let elapsed = 0;
@@ -435,9 +435,9 @@ export function createCaveScene(): CaveScene {
       });
     },
     showTimeOfDay: (time: number): void => {
-      const { colour, strength } = findMouthLight(time);
-      mouthMaterial.color.copy(colour);
-      spill.color.copy(colour);
+      const { color, strength } = findMouthLight(time);
+      mouthMaterial.color.copy(color);
+      spill.color.copy(color);
       spill.intensity = SPILL_INTENSITY * strength;
     },
   };

@@ -28,7 +28,7 @@ import { MONSTER_KINDS } from '@clovervale/shared';
 import type { MonsterState } from '@clovervale/shared';
 
 import type { FigureFrame } from '../src/figure-set.ts';
-import { PITCHFORK_BONE } from '../src/model-catalogue.ts';
+import { PITCHFORK_BONE } from '../src/model-catalog.ts';
 import { MonsterFigures } from '../src/monster-figures.ts';
 import type { MonsterView } from '../src/monster-figures.ts';
 import type { Figure } from '../src/player-figures.ts';

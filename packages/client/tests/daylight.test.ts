@@ -18,7 +18,7 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/tests/daylight Tests for the light and the colours of the
+ * @module client/tests/daylight Tests for the light and the colors of the
  *   village through the day.
  */
 
@@ -48,7 +48,7 @@ const MIDNIGHT = 0;
  * Lists everything a look holds as numbers, so that looks can be compared.
  *
  * @param {DaylightLook} look - The look.
- * @returns {number[]} The numbers: the colours of the sky and of the
+ * @returns {number[]} The numbers: the colors of the sky and of the
  *   light of the sky and of the ground, as they light the village, the
  *   light of the sun or the moon, along its direction, and how strongly
  *   the stars, the windows and the mountains show.
@@ -61,7 +61,7 @@ function listNumbers(look: DaylightLook): number[] {
     ...look.sky.toArray(),
     ...look.skyLight.clone().multiplyScalar(look.ambient).toArray(),
     ...look.groundLight.clone().multiplyScalar(look.ambient).toArray(),
-    ...look.lightColour
+    ...look.lightColor
       .toArray()
       .flatMap((channel: number) =>
         light.toArray().map((part: number) => channel * part),
@@ -80,8 +80,8 @@ function listNumbers(look: DaylightLook): number[] {
  * @returns {number} The light, as the brightness of white ground.
  */
 function measureLight(look: DaylightLook): number {
-  const measureLuminance = (colour: Color): number =>
-    0.2126 * colour.r + 0.7152 * colour.g + 0.0722 * colour.b;
+  const measureLuminance = (color: Color): number =>
+    0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
   const ambient: number =
     (look.ambient *
       (measureLuminance(look.skyLight) +
@@ -90,24 +90,24 @@ function measureLight(look: DaylightLook): number {
   const direct: number =
     look.lightIntensity *
     look.lightDirection.y *
-    measureLuminance(look.lightColour);
+    measureLuminance(look.lightColor);
   return ambient + direct;
 }
 
 /**
- * Finds the colour level ground of a colour takes in the light of a look,
+ * Finds the color level ground of a color takes in the light of a look,
  * from the sky and the sun or the moon together.
  *
  * @param {DaylightLook} look - The look.
- * @param {string} hex - The colour of the ground, as `#rrggbb`.
- * @returns {Color} The colour it takes, before it is shaded for the screen.
+ * @param {string} hex - The color of the ground, as `#rrggbb`.
+ * @returns {Color} The color it takes, before it is shaded for the screen.
  */
 function lightGround(look: DaylightLook, hex: string): Color {
   const light: Color = look.skyLight
     .clone()
     .multiplyScalar(look.ambient)
     .add(
-      look.lightColour
+      look.lightColor
         .clone()
         .multiplyScalar(look.lightIntensity * look.lightDirection.y),
     );
@@ -117,7 +117,7 @@ function lightGround(look: DaylightLook, hex: string): Color {
 /**
  * Finds how high a body stands above the horizon.
  *
- * @param {Vector3} direction - The direction towards the body.
+ * @param {Vector3} direction - The direction toward the body.
  * @returns {number} Its elevation, in degrees.
  */
 function findElevation(direction: Vector3): number {
@@ -125,9 +125,9 @@ function findElevation(direction: Vector3): number {
 }
 
 /**
- * Finds the direction along the ground towards a body.
+ * Finds the direction along the ground toward a body.
  *
- * @param {Vector3} direction - The direction towards the body.
+ * @param {Vector3} direction - The direction toward the body.
  * @returns {Vector3} The direction along the ground, of unit length.
  */
 function findBearing(direction: Vector3): Vector3 {
@@ -135,19 +135,19 @@ function findBearing(direction: Vector3): Vector3 {
 }
 
 /**
- * Tells how warm a colour is: how much redder it is than blue.
+ * Tells how warm a color is: how much redder it is than blue.
  *
- * @param {Color} colour - The colour.
- * @returns {number} The red of the colour over its blue.
+ * @param {Color} color - The color.
+ * @returns {number} The red of the color over its blue.
  */
-function measureWarmth(colour: Color): number {
-  return colour.r / colour.b;
+function measureWarmth(color: Color): number {
+  return color.r / color.b;
 }
 
 describe('findDaylight', () => {
-  it('changes every light and colour smoothly through the day', () => {
+  it('changes every light and color smoothly through the day', () => {
     let previous: number[] = listNumbers(findDaylight(MIDNIGHT));
-    // The last moment is midnight again, where the day comes round.
+    // The last moment is midnight again, where the day comes around.
     for (let sample = 1; sample <= SAMPLES; sample++) {
       const numbers: number[] = listNumbers(
         findDaylight((sample / SAMPLES) % 1),
@@ -213,7 +213,7 @@ describe('findDaylight', () => {
       );
     }
     expect(findElevation(noon.sun)).toBeGreaterThan(45);
-    const { r, g, b } = noon.lightColour;
+    const { r, g, b } = noon.lightColor;
     expect(Math.min(r, g, b)).toBeGreaterThan(0.6);
     // The sun rises halfway through the dawn and sets halfway through the
     // dusk.
@@ -224,8 +224,8 @@ describe('findDaylight', () => {
       const lowSun: DaylightLook = findDaylight(findPhaseTime(phase, progress));
       expect(lowSun.body).toBe('sun');
       expect(findElevation(lowSun.sun)).toBeLessThan(15);
-      expect(measureWarmth(lowSun.lightColour)).toBeGreaterThan(
-        1.5 * measureWarmth(noon.lightColour),
+      expect(measureWarmth(lowSun.lightColor)).toBeGreaterThan(
+        1.5 * measureWarmth(noon.lightColor),
       );
       // The shadows fall long, from the sun low in the sky.
       expect(findElevation(lowSun.lightDirection)).toBeLessThan(20);
@@ -238,7 +238,7 @@ describe('findDaylight', () => {
     expect(midnight.body).toBe('moon');
     expect(midnight.lightIntensity).toBeGreaterThan(0);
     expect(midnight.lightIntensity).toBeLessThan(noon.lightIntensity / 2);
-    expect(midnight.lightColour.b).toBeGreaterThan(midnight.lightColour.r);
+    expect(midnight.lightColor.b).toBeGreaterThan(midnight.lightColor.r);
     expect(findElevation(midnight.moon)).toBeGreaterThan(20);
     const rising: DaylightLook = findDaylight(findPhaseTime('night', 0.05));
     const setting: DaylightLook = findDaylight(findPhaseTime('night', 0.95));
@@ -259,13 +259,13 @@ describe('findDaylight', () => {
     expect(midnight.g).toBeGreaterThan(noon.g / 6);
   });
 
-  it('colours the sky through the day as the light changes', () => {
+  it('colors the sky through the day as the light changes', () => {
     const dawn: Color = findDaylight(findPhaseTime('dawn', 0.6)).sky;
     const noon: Color = findDaylight(NOON).sky;
     const dusk: Color = findDaylight(findPhaseTime('dusk', 0.5)).sky;
     const night: Color = findDaylight(MIDNIGHT).sky;
-    const findLightness = (colour: Color): number =>
-      colour.getHSL({ h: 0, s: 0, l: 0 }).l;
+    const findLightness = (color: Color): number =>
+      color.getHSL({ h: 0, s: 0, l: 0 }).l;
     // Pale at dawn, clear blue by day, orange-red at dusk, and deep blue at
     // night.
     expect(findLightness(dawn)).toBeGreaterThan(0.6);
@@ -316,7 +316,7 @@ describe('Daylight', () => {
     );
   }
 
-  it('gives the sky and the fog the colours of the hour', () => {
+  it('gives the sky and the fog the colors of the hour', () => {
     const { scene, daylight } = createVillageScene();
     for (let hour = 0; hour < 24; hour += 0.75) {
       const look: DaylightLook = daylight.show(hour / 24);
@@ -338,13 +338,13 @@ describe('Daylight', () => {
       expect(ambient?.intensity).toBe(look.ambient);
       expect(ambient?.color.getHex()).toBe(look.skyLight.getHex());
       expect(ambient?.groundColor.getHex()).toBe(look.groundLight.getHex());
-      const towards: Vector3 = (light?.position ?? new Vector3())
+      const toward: Vector3 = (light?.position ?? new Vector3())
         .clone()
         .sub(light?.target.position ?? new Vector3())
         .normalize();
-      expect(towards.angleTo(look.lightDirection)).toBeLessThan(1e-6);
+      expect(toward.angleTo(look.lightDirection)).toBeLessThan(1e-6);
       expect(light?.intensity).toBe(look.lightIntensity);
-      expect(light?.color.getHex()).toBe(look.lightColour.getHex());
+      expect(light?.color.getHex()).toBe(look.lightColor.getHex());
     }
   });
 

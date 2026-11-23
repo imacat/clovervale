@@ -21,7 +21,7 @@
  * @module shared/chat What a player says to the players nearby.
  */
 
-/** How far what a player says carries, in metres. */
+/** How far what a player says carries, in meters. */
 export const SAY_RANGE = 8;
 
 /**
@@ -40,9 +40,9 @@ export const SAY_BREAK_LIMIT = 3;
 
 /**
  * The codes of the phrases a player can say without typing them, which
- * every peer that hears one words in its own language: what a traveller
- * says at the herb rack of the apothecary's, at the stall of the weapon
- * shop, to a child who runs about, and to ask the way.
+ * every peer that hears one words in its own language: what a traveler
+ * says at the herb rack of the apothecary, at the stall of the weapon
+ * shop, to a child who runs around, and to ask the way.
  */
 export const PHRASE_CODES = [
   'herbScent',
