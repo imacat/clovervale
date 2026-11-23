@@ -93,23 +93,23 @@ type Visit = readonly [
  */
 const VISITS: readonly Visit[] = [
   [
-    findPlacement('weapon-shop.glb'),
+    findPlacement('weapon-shop'),
     { x: 0.1644, z: 3.6 },
     [['swordPrice'], ['lighterSword']],
   ],
-  [findPlacement('fountain.glb'), { x: 0, z: 2.6 }, []],
+  [findPlacement('fountain'), { x: 0, z: 2.6 }, []],
   [
-    findPlacement('prop-herb-rack.glb'),
+    findPlacement('herb-rack'),
     { x: 0, z: 1.3 },
     [['herbScent'], ['headacheHerb']],
   ],
   [TOBY_RUN, { x: 1.2, z: 0 }, [['slowDown'], ['stayInside']]],
   [
-    findPlacement('npc-martha.glb'),
+    findPlacement('martha'),
     { x: 0, z: 1.5 },
     [['askInn'], ['askApothecary', 'askEmma', 'askBasil', 'askNancy']],
   ],
-  [findPlacement('prop-spawn-stones.glb'), { x: -1.5, z: -2.1 }, []],
+  [findPlacement('spawn-stones'), { x: -1.5, z: -2.1 }, []],
 ];
 
 /**

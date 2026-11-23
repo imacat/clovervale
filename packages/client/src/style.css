@@ -19,8 +19,11 @@
  * AI assistance: Claude Code (Anthropic)
  */
 
-/* The style sheet of the panel, which the panel is told not to add itself. */
-@import 'lil-gui/dist/lil-gui.css';
+/*
+ * The stylesheet of lil-gui, bundled because the CSP of the site forbids
+ * the inline style lil-gui would inject.  See vite.config.ts.
+ */
+@import 'lil-gui/style';
 
 html,
 body {
@@ -32,6 +35,95 @@ body {
 
 canvas {
   display: block;
+}
+
+/*
+ * The control of the hour previewed in the panel, which looks as the
+ * number controls of the panel do: its name, then a slider across the day
+ * beside the field of the hour.
+ */
+.panel .hour-control {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--padding);
+  margin: var(--spacing) 0;
+}
+
+.panel .hour-name {
+  min-width: var(--name-width);
+  flex-shrink: 0;
+  white-space: pre;
+  padding-right: var(--spacing);
+  line-height: var(--widget-height);
+}
+
+.panel .hour-widget {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--widget-height);
+}
+
+.panel .hour-input {
+  flex-shrink: 0;
+  width: var(--slider-input-width);
+  min-width: var(--slider-input-min-width);
+  margin-left: var(--spacing);
+  color: var(--number-color);
+}
+
+.panel .hour-slider {
+  width: 100%;
+  height: var(--widget-height);
+  padding-right: var(--slider-knob-width);
+  overflow: hidden;
+  border-radius: var(--widget-border-radius);
+  background: var(--widget-color);
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+@media (hover: hover) {
+  .panel .hour-slider:hover {
+    background: var(--hover-color);
+  }
+}
+
+.panel .hour-slider.is-active {
+  background: var(--focus-color);
+}
+
+.panel .hour-slider.is-active .hour-fill {
+  opacity: 0.95;
+}
+
+.panel .hour-fill {
+  box-sizing: content-box;
+  height: 100%;
+  border-right: var(--slider-knob-width) solid var(--number-color);
+}
+
+/*
+ * While the hour is dragged, nothing in the panel lights up under the
+ * pointer, and the pointer shows the way the hour is dragged.
+ */
+.is-dragging-hour .panel,
+.is-dragging-hour .panel * {
+  --hover-color: var(--widget-color);
+}
+
+.is-dragging-hour .panel-title,
+.is-dragging-hour .panel-folder-title {
+  pointer-events: none;
+}
+
+.is-dragging-hour * {
+  cursor: ew-resize !important;
+}
+
+.is-dragging-hour.is-dragging-vertical * {
+  cursor: ns-resize !important;
 }
 
 /*
@@ -1507,7 +1599,7 @@ canvas {
   padding: 8px 14px;
 }
 
-.is-touch .lil-gui.autoPlace {
+.is-touch .panel {
   top: env(safe-area-inset-top, 0px);
   right: calc(15px + env(safe-area-inset-right, 0px));
   max-height: calc(100% - 152px - env(safe-area-inset-bottom, 0px));
@@ -1708,6 +1800,6 @@ canvas {
 }
 
 /* The panel narrower on a narrow screen, clear of the buttons at the left. */
-.is-touch .lil-gui.lil-root {
+.is-touch .panel {
   --width: min(245px, calc(100vw - 160px));
 }

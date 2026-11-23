@@ -22,6 +22,7 @@
  *   the ground they take up.
  */
 
+import type { ModelId } from './models.ts';
 import type { GroundVector } from './movement.ts';
 import {
   Terrain,
@@ -35,8 +36,8 @@ import { PLAZA_CENTRE } from './village.ts';
 
 /** Where a model stands on the ground, and which way it faces. */
 export interface Placement extends Pose {
-  /** The file name of the model. */
-  readonly file: string;
+  /** The identifier of the model. */
+  readonly model: ModelId;
 }
 
 /** A spot on the ground: its X and Z positions, and its yaw. */
@@ -219,37 +220,93 @@ function placeSpot(model: Spot, local: Spot): Spot {
   return [point.x, point.z, yaw + local[2]];
 }
 
+/**
+ * Makes a pose of a spot.
+ *
+ * @param {Spot} spot - The spot.
+ * @returns {Pose} Where the spot is on the ground, and which way it faces.
+ */
+function makePose([x, z, yaw]: Spot): Pose {
+  return { x, z, yaw };
+}
+
+/**
+ * Makes a spot of a pose.
+ *
+ * @param {Pose} pose - The pose.
+ * @returns {Spot} The spot, where the pose is, facing the way it faces.
+ */
+function makeSpot({ x, z, yaw }: Pose): Spot {
+  return [x, z, yaw];
+}
+
+/**
+ * Where the spawn stones stand, around the burrow of the wild dog, a
+ * little way outside the village gate, and which way they face.
+ */
+export const SPAWN_STONES_POSE: Pose = makePose([11.4, 9, -30]);
+
+/**
+ * Where Nancy the villager stands, by the fountain, and which way she
+ * faces.
+ */
+export const NANCY_POST: Pose = makePose([3.2, -6.4, -25]);
+
+/**
+ * Where Emma the smith stands at the anvil by the forge of the weapon
+ * shop, and which way she faces.
+ */
+export const EMMA_POST: Pose = makePose(
+  placeSpot(WEAPON_SHOP_SPOT, SMITH_AT_ANVIL),
+);
+
+/**
+ * Where Basil the apothecary stands by the door of his shop, and which way
+ * he faces.
+ */
+export const BASIL_POST: Pose = makePose(
+  placeSpot(APOTHECARY_SPOT, APOTHECARY_AT_DOOR),
+);
+
+/**
+ * Where Martha, the village chief, stands on the porch of her house, and
+ * which way she faces, while she is at home.
+ */
+export const MARTHA_POST: Pose = makePose(
+  placeSpot(CHIEF_HOUSE_SPOT, CHIEF_ON_PORCH),
+);
+
 /** The spots of the models the village has a place for. */
-const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
-  'fountain.glb': [[PLAZA_CENTRE.x, PLAZA_CENTRE.z, 0]],
-  'weapon-shop.glb': [WEAPON_SHOP_SPOT],
-  'npc-nancy.glb': [[3.2, -6.4, -25]],
-  'npc-emma.glb': [placeSpot(WEAPON_SHOP_SPOT, SMITH_AT_ANVIL)],
-  'prop-spawn-stones.glb': [[11.4, 9, -30]],
-  'prop-great-tree.glb': [[0, -14.5, 20]],
-  'prop-healing-stele.glb': [[-2.1, -6.8, 20]],
-  'prop-village-sign.glb': [[-3.1, 4.9, 0]],
-  'prop-cottage.glb': [[-11, -4.5, 90]],
-  'prop-apothecary.glb': [APOTHECARY_SPOT],
-  'npc-basil.glb': [placeSpot(APOTHECARY_SPOT, APOTHECARY_AT_DOOR)],
-  'prop-herb-rack.glb': [placeSpot(APOTHECARY_SPOT, HERB_RACK_ON_SHOP)],
-  'prop-potion-crate.glb': [placeSpot(APOTHECARY_SPOT, POTION_CRATE_ON_SHOP)],
-  'prop-herb-crate.glb': [placeSpot(APOTHECARY_SPOT, HERB_CRATE_ON_SHOP)],
-  'prop-potted-plant.glb': [placeSpot(APOTHECARY_SPOT, POTTED_PLANT_ON_SHOP)],
-  'prop-barrel.glb': BARRELS_ON_SHOP.map((spot: Spot) =>
+const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
+  fountain: [[PLAZA_CENTRE.x, PLAZA_CENTRE.z, 0]],
+  'weapon-shop': [WEAPON_SHOP_SPOT],
+  nancy: [makeSpot(NANCY_POST)],
+  emma: [makeSpot(EMMA_POST)],
+  'spawn-stones': [makeSpot(SPAWN_STONES_POSE)],
+  'great-tree': [[0, -14.5, 20]],
+  'healing-stele': [[-2.1, -6.8, 20]],
+  'village-sign': [[-3.1, 4.9, 0]],
+  cottage: [[-11, -4.5, 90]],
+  apothecary: [APOTHECARY_SPOT],
+  basil: [makeSpot(BASIL_POST)],
+  'herb-rack': [placeSpot(APOTHECARY_SPOT, HERB_RACK_ON_SHOP)],
+  'potion-crate': [placeSpot(APOTHECARY_SPOT, POTION_CRATE_ON_SHOP)],
+  'herb-crate': [placeSpot(APOTHECARY_SPOT, HERB_CRATE_ON_SHOP)],
+  'potted-plant': [placeSpot(APOTHECARY_SPOT, POTTED_PLANT_ON_SHOP)],
+  barrel: BARRELS_ON_SHOP.map((spot: Spot) =>
     placeSpot(APOTHECARY_SPOT, spot),
   ),
-  'prop-chief-house.glb': [CHIEF_HOUSE_SPOT],
-  'npc-martha.glb': [placeSpot(CHIEF_HOUSE_SPOT, CHIEF_ON_PORCH)],
-  'prop-pitchfork.glb': [placeSpot(CHIEF_HOUSE_SPOT, PITCHFORK_AGAINST_WALL)],
-  'prop-old-well.glb': [placeSpot(CHIEF_HOUSE_SPOT, WELL_IN_YARD)],
-  'prop-yard-wall.glb': YARD_WALL_ON_HOUSE.map((spot: Spot) =>
+  'chief-house': [CHIEF_HOUSE_SPOT],
+  martha: [makeSpot(MARTHA_POST)],
+  pitchfork: [placeSpot(CHIEF_HOUSE_SPOT, PITCHFORK_AGAINST_WALL)],
+  'old-well': [placeSpot(CHIEF_HOUSE_SPOT, WELL_IN_YARD)],
+  'yard-wall': YARD_WALL_ON_HOUSE.map((spot: Spot) =>
     placeSpot(CHIEF_HOUSE_SPOT, spot),
   ),
-  'prop-yard-wall-end.glb': YARD_WALL_ENDS_ON_HOUSE.map((spot: Spot) =>
+  'yard-wall-end': YARD_WALL_ENDS_ON_HOUSE.map((spot: Spot) =>
     placeSpot(CHIEF_HOUSE_SPOT, spot),
   ),
-  'prop-pine-tree.glb': [
+  'pine-tree': [
     [-16.5, 0.5, 0],
     [-18.5, -6, 40],
     [-18, -13.5, 80],
@@ -271,7 +328,7 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [23, 5, 0],
     [-22, 9, 40],
   ],
-  'prop-bush.glb': [
+  bush: [
     [-3.3, -11.2, 0],
     [3.4, -11.4, 70],
     [-4.7, -12.5, 140],
@@ -288,7 +345,7 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [-15, -10.5, 190],
     [15, -10.5, 260],
   ],
-  'prop-clover.glb': [
+  clover: [
     // The patch Toby squats by at the end of his run by the gate, where the
     // second of TOBY_CLOVERS is.
     [-3.6, 3.4, 0],
@@ -305,13 +362,13 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
     [-13.5, -9.5, 90],
     [13.5, -10, 140],
   ],
-  'prop-rock.glb': [
+  rock: [
     [6.6, 10.4, 30],
     [14.6, 6.4, 120],
     [-9.5, 8, 250],
     [-16, -11.5, 80],
   ],
-  'prop-fence.glb': [
+  fence: [
     [-6, 3, 0],
     [-8, 3, 0],
     [-10, 3, 0],
@@ -336,10 +393,10 @@ const SPOTS: Readonly<Record<string, readonly Spot[]>> = {
  * Where the models the village has a place for stand, model by model and,
  * for a model that stands in several places, place by place.
  */
-export const VILLAGE_PLACEMENTS: readonly Placement[] = Object.entries(
-  SPOTS,
-).flatMap(([file, spots]: [string, readonly Spot[]]) =>
-  spots.map(([x, z, yaw]: Spot): Placement => ({ file, x, z, yaw })),
+export const VILLAGE_PLACEMENTS: readonly Placement[] = (
+  Object.entries(SPOTS) as [ModelId, readonly Spot[]][]
+).flatMap(([model, spots]: [ModelId, readonly Spot[]]) =>
+  spots.map(([x, z, yaw]: Spot): Placement => ({ model, x, z, yaw })),
 );
 
 /**
@@ -348,10 +405,9 @@ export const VILLAGE_PLACEMENTS: readonly Placement[] = Object.entries(
  * beside the well on the side of the porch, facing the house with the
  * porch a little to its left, and with the plaza behind it.
  */
-export const WELL_STAND: Pose = (() => {
-  const [x, z, yaw] = placeSpot(CHIEF_HOUSE_SPOT, BESIDE_WELL);
-  return { x, z, yaw };
-})();
+export const WELL_STAND: Pose = makePose(
+  placeSpot(CHIEF_HOUSE_SPOT, BESIDE_WELL),
+);
 
 /**
  * Where Martha stands to take up her pitchfork from the front wall of her
@@ -411,14 +467,14 @@ export const FOUNTAIN_RIM_RADIUS = 1.6;
  * none, and neither does Martha, who goes about as the monsters do, and
  * stands in nobody's way, as they do not.
  */
-const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
+const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
   // The rim of the basin, inside the low step around it.
-  'fountain.glb': [makeCircle(0, 0, FOUNTAIN_RIM_RADIUS)],
+  fountain: [makeCircle(0, 0, FOUNTAIN_RIM_RADIUS)],
   // The house; the forge beside it; the anvil out in front of the forge,
   // from the tip of its horn to its heel, and the stump it stands on; the
   // box of coal against the side of the forge away from the house; and the
   // stall in front of the house, with the barrel by its end.
-  'weapon-shop.glb': [
+  'weapon-shop': [
     makeBox(-3.7656, 1.6844, -2.95, 1.9),
     makeBox(1.6844, 3.57, -1.85, 0.13),
     makeBox(2.95, 3.21, 0.367, 1.227),
@@ -426,56 +482,56 @@ const FOOTPRINTS: Readonly<Record<string, readonly Shape[]>> = {
     makeBox(3.6, 3.98, -0.523, 0.077),
     makeBox(-1.5656, 1.8944, 1.9, 3.05),
   ],
-  'npc-nancy.glb': [makeCircle(0, 0, 0.35)],
-  'npc-emma.glb': [makeCircle(0, 0, 0.3)],
+  nancy: [makeCircle(0, 0, 0.35)],
+  emma: [makeCircle(0, 0, 0.3)],
   // The five standing stones, and not the burrow they stand round.
-  'prop-spawn-stones.glb': Array.from({ length: 5 }, (_, index: number) => {
+  'spawn-stones': Array.from({ length: 5 }, (_, index: number) => {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));
     return makeCircle(x, z, 0.35);
   }),
   // The trunk, and not the roots.
-  'prop-great-tree.glb': [makeCircle(-0.15, 0.41, 1.6)],
+  'great-tree': [makeCircle(-0.15, 0.41, 1.6)],
   // The foot of the boulder.
-  'prop-healing-stele.glb': [makeBox(-0.355, 0.355, -0.24, 0.24)],
+  'healing-stele': [makeBox(-0.355, 0.355, -0.24, 0.24)],
   // The post, and not the board nailed to it above the ground.
-  'prop-village-sign.glb': [makeCircle(0.005, -0.02, 0.07)],
-  'prop-cottage.glb': [makeBox(-2.55, 2.55, -2.35, 2.35)],
+  'village-sign': [makeCircle(0.005, -0.02, 0.07)],
+  cottage: [makeBox(-2.55, 2.55, -2.35, 2.35)],
   // A cottage, with another roof and a sign in its gable.
-  'prop-apothecary.glb': [makeBox(-2.55, 2.55, -2.35, 2.35)],
+  apothecary: [makeBox(-2.55, 2.55, -2.35, 2.35)],
   // Basil, and the writing board he holds out in front of him.
-  'npc-basil.glb': [makeCircle(0, 0, 0.45)],
+  basil: [makeCircle(0, 0, 0.45)],
   // The frame of the rack, with what stands on it and hangs from it.
-  'prop-herb-rack.glb': [makeBox(-1.05, 1.05, -0.21, 0.21)],
-  'prop-potion-crate.glb': [makeBox(-0.25, 0.25, -0.18, 0.18)],
-  'prop-herb-crate.glb': [makeBox(-0.3, 0.3, -0.2, 0.2)],
+  'herb-rack': [makeBox(-1.05, 1.05, -0.21, 0.21)],
+  'potion-crate': [makeBox(-0.25, 0.25, -0.18, 0.18)],
+  'herb-crate': [makeBox(-0.3, 0.3, -0.2, 0.2)],
   // The pot, and the leaves that spread over its rim.
-  'prop-potted-plant.glb': [makeCircle(0, 0, 0.22)],
-  'prop-barrel.glb': [makeCircle(0, 0, 0.37)],
+  'potted-plant': [makeCircle(0, 0, 0.22)],
+  barrel: [makeCircle(0, 0, 0.37)],
   // The house on its stone base, and the two posts of the porch in front
   // of it, and not the floor of the porch.
-  'prop-chief-house.glb': [
+  'chief-house': [
     makeBox(-3.75, 3.75, -3.35, 1.95),
     makeCircle(-2, 3.45, 0.12),
     makeCircle(2, 3.45, 0.12),
   ],
   // The round stonework.
-  'prop-old-well.glb': [makeCircle(0, 0, 0.7)],
+  'old-well': [makeCircle(0, 0, 0.7)],
   // The body of the stretch, which reaches a little past each end, and the
   // slabs on top of it.
-  'prop-yard-wall.glb': [makeBox(-1.15, 1.15, -0.21, 0.21)],
+  'yard-wall': [makeBox(-1.15, 1.15, -0.21, 0.21)],
   // The body of the ragged end, from its tall end to the low stones it
   // steps down to, the slab askew on top of it, and the two stones fallen
   // from it, on either side.
-  'prop-yard-wall-end.glb': [
+  'yard-wall-end': [
     makeBox(-0.77, 0.77, -0.21, 0.21),
     makeCircle(0.05, 0.42, 0.29),
     makeCircle(0.55, -0.55, 0.16),
   ],
   // The trunk and the lowest branches.
-  'prop-pine-tree.glb': [makeCircle(0, 0, 0.6)],
-  'prop-bush.glb': [makeCircle(0, 0, 0.8)],
-  'prop-rock.glb': [makeCircle(0, 0, 0.65)],
-  'prop-fence.glb': [makeBox(-1, 1, -0.08, 0.08)],
+  'pine-tree': [makeCircle(0, 0, 0.6)],
+  bush: [makeCircle(0, 0, 0.8)],
+  rock: [makeCircle(0, 0, 0.65)],
+  fence: [makeBox(-1, 1, -0.08, 0.08)],
 };
 
 /** The circle on the ground around the village that players cannot leave. */
@@ -487,7 +543,7 @@ export const VILLAGE_BOUNDARY: Boundary = { x: 0, z: -5, radius: 28 };
  */
 export const VILLAGE_TERRAIN: Terrain = new Terrain(
   VILLAGE_PLACEMENTS.flatMap((placement: Placement) =>
-    (FOOTPRINTS[placement.file] ?? []).map((shape: Shape) =>
+    (FOOTPRINTS[placement.model] ?? []).map((shape: Shape) =>
       placeShape(placement, shape),
     ),
   ),
@@ -497,16 +553,16 @@ export const VILLAGE_TERRAIN: Terrain = new Terrain(
 /**
  * Finds where a model of the village stands.
  *
- * @param {string} file - The file name of the model.
+ * @param {ModelId} model - The identifier of the model.
  * @returns {Placement} The first place the model stands in.
  * @throws {Error} If the village has no place for the model.
  */
-export function findPlacement(file: string): Placement {
+export function findPlacement(model: ModelId): Placement {
   const found: Placement | undefined = VILLAGE_PLACEMENTS.find(
-    (placement: Placement) => placement.file === file,
+    (placement: Placement) => placement.model === model,
   );
   if (found === undefined) {
-    throw new Error(`The village has no place for ${file}.`);
+    throw new Error(`The village has no place for ${model}.`);
   }
   return found;
 }

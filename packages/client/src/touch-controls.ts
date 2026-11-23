@@ -22,10 +22,14 @@
  *   touch device into what the person at the page wants.
  */
 
+import type { GroundVector } from '@clovervale/shared';
+
 import { CAMERA_ORBIT_RATE, CAMERA_TILT_RATE } from './camera-keys.ts';
-import type { CameraHold, CameraTurn } from './camera-keys.ts';
+import type { CameraTurn } from './camera-keys.ts';
 import { resolveStickWalk, scaleStick } from './gamepad.ts';
 import type { PadWalk } from './gamepad.ts';
+import type { CommandTarget, InputDevice } from './input-device.ts';
+import { orientWalk } from './player-input.ts';
 
 /**
  * How far a finger is to be dragged on the scene to turn the view at its
@@ -112,9 +116,10 @@ export function noticePointerType(isTouch: boolean, type: string): boolean {
  * Once one of two lifts, the other turns the view afresh from where it is.
  * The stick and the scene each take their fingers apart, so that one
  * finger walks while another turns.  While paused, the fingers do nothing,
- * and no new one is taken.
+ * and no new one is taken.  The action button gives the command of the
+ * space bar, in play alone.
  */
-export class TouchControls implements CameraHold {
+export class TouchControls implements InputDevice {
   /**
    * Whether the fingers are held from play, as while the bag, the help
    * sheet or a dialogue is open.
@@ -237,6 +242,56 @@ export class TouchControls implements CameraHold {
     for (const finger of this.#views.values()) {
       finger.origin = finger.at;
     }
+  }
+
+  /** Listens to nothing: what shows the controls passes the fingers on. */
+  listen(): void {
+    // The view of the touch controls passes the fingers on.
+  }
+
+  /**
+   * Reads the fingers at a frame: they walk, turn and zoom only while play
+   * is not held, as the gamepads do.
+   *
+   * @param {number} seconds - The time since they were last read, in
+   *   seconds.
+   * @param {CommandTarget} target - What is asked whether play is held.
+   * @returns {number} How far the pinches since the last frame zoom, as
+   *   {@link takeZoom} tells.
+   */
+  read(seconds: number, target: CommandTarget): number {
+    this.isPaused = target.isPlayHeld();
+    return this.takeZoom();
+  }
+
+  /**
+   * Gives the command of the space bar, as the action button is pressed,
+   * unless play is held.
+   *
+   * @param {CommandTarget} target - What the command is given to.
+   */
+  pressAction(target: CommandTarget): void {
+    if (!target.isPlayHeld()) {
+      target.carryOut({ code: 'Space', isRepeat: false, source: 'touch' });
+    }
+  }
+
+  /**
+   * Resolves the direction the stick walks the player in, as
+   * {@link resolveWalk} tells.
+   *
+   * @param {number} heading - The way the camera looks along the ground, in
+   *   degrees.
+   * @returns {GroundVector} The direction.
+   */
+  resolveDirection(heading: number): GroundVector {
+    const { ahead, aside } = this.resolveWalk();
+    return orientWalk(ahead, aside, heading);
+  }
+
+  /** Lets go of every finger, as something opens over play. */
+  holdPlay(): void {
+    this.releaseAll();
   }
 
   /** Lets go of every finger, as if all were lifted. */

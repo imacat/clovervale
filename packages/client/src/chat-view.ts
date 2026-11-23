@@ -27,6 +27,11 @@ import { SAY_LENGTH_LIMIT } from '@clovervale/shared';
 
 import type { ChatBox, ChatResponse } from './chat-box.ts';
 import type { Translator } from './translator.ts';
+import {
+  createClickable,
+  createSvgElement,
+  drawPicture,
+} from './view-elements.ts';
 
 /** The chat as the page shows it. */
 export interface ChatView {
@@ -47,27 +52,6 @@ export const CHAT_INPUT_CLASS = 'chat-input';
  */
 const COMPOSING_ECHO = 50;
 
-/** The namespace of the elements of SVG. */
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-
-/**
- * Makes an element of SVG.
- *
- * @param {string} name - The name of the element.
- * @param {Readonly<Record<string, string>>} attributes - Its attributes.
- * @returns {SVGElement} The element.
- */
-function createSvgElement(
-  name: string,
-  attributes: Readonly<Record<string, string>>,
-): SVGElement {
-  const element: SVGElement = document.createElementNS(SVG_NAMESPACE, name);
-  for (const [key, value] of Object.entries(attributes)) {
-    element.setAttribute(key, value);
-  }
-  return element;
-}
-
 /**
  * Draws a speech bubble with three dots in it, 64 units square, as on the
  * button of the chat.
@@ -75,11 +59,7 @@ function createSvgElement(
  * @returns {SVGElement} The speech bubble.
  */
 export function drawChatIcon(): SVGElement {
-  const svg: SVGElement = createSvgElement('svg', {
-    viewBox: '0 0 64 64',
-    'aria-hidden': 'true',
-  });
-  svg.append(
+  return drawPicture([
     createSvgElement('path', {
       d:
         'M14 10 L50 10 C55 10 58 13 58 18 L58 36 C58 41 55 44 50 44 ' +
@@ -94,36 +74,7 @@ export function drawChatIcon(): SVGElement {
         class: 'chat-icon-dot',
       }),
     ),
-  );
-  return svg;
-}
-
-/**
- * Makes an element that does something when it is clicked, and keeps the
- * pointer from the game underneath it and itself from taking the focus.
- *
- * @param {string} className - The class of the element.
- * @param {() => void} onClick - What it does when clicked.
- * @returns {HTMLDivElement} The element.
- */
-function createClickable(
-  className: string,
-  onClick: () => void,
-): HTMLDivElement {
-  const element: HTMLDivElement = document.createElement('div');
-  element.className = className;
-  element.setAttribute('role', 'button');
-  element.addEventListener('pointerdown', (event: PointerEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
-  element.addEventListener('click', (event: MouseEvent) => {
-    event.stopPropagation();
-    if (event.button === 0) {
-      onClick();
-    }
-  });
-  return element;
+  ]);
 }
 
 /**

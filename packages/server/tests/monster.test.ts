@@ -34,17 +34,20 @@ import type {
   MonsterState,
 } from '@clovervale/shared';
 
+import { MONSTER_STRIKE_DELAY } from '../src/monster-body.ts';
 import {
   MONSTER_APPROACH_DISTANCE,
   MONSTER_CORPSE_DURATION,
   MONSTER_SPAWNS,
-  MONSTER_STRIKE_DELAY,
   Monster,
 } from '../src/monster.ts';
 import type { MonsterSpawn, Quarry } from '../src/monster.ts';
 
 /** The numbers of the wild dog of the village. */
 const DOG: MonsterKind = MONSTER_KINDS['village-dog'];
+
+/** The farthest from its home the wild dog of the village wanders to. */
+const DOG_WANDER_RADIUS: number = DOG.wander?.radius ?? 0;
 
 /** Where the wild dog of the village lives, and how it faces there. */
 const HOME: MonsterSpawn['home'] = MONSTER_SPAWNS.village[0]?.home ?? {
@@ -161,7 +164,7 @@ describe('a monster left alone', () => {
     }
     expect([...modes].sort()).toEqual(['idle', 'wander']);
     expect(farthest).toBeGreaterThan(0);
-    expect(farthest).toBeLessThanOrEqual(DOG.wanderRadius);
+    expect(farthest).toBeLessThanOrEqual(DOG_WANDER_RADIUS);
   });
 
   it('pays no heed to a player far from its home', () => {
@@ -242,7 +245,7 @@ describe('a monster with a player near', () => {
     const state: MonsterState = readState(monster);
     expect(state.mode).not.toBe('chase');
     expect(measureDistance(state, HOME)).toBeLessThanOrEqual(
-      DOG.wanderRadius,
+      DOG_WANDER_RADIUS,
     );
   });
 

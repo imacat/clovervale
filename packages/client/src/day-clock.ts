@@ -22,7 +22,7 @@
  *   server keeps it.
  */
 
-import { SIMULATION_RATE, findTimeOfDay } from '@clovervale/shared';
+import { STEP_MILLISECONDS, findTimeOfDay } from '@clovervale/shared';
 import type { DayCycle } from '@clovervale/shared';
 
 import { ServerClock } from './interpolation.ts';
@@ -40,9 +40,6 @@ export interface TimePreviewSettings {
   /** The time of day previewed, in hours on a 24-hour clock, from 0 to 24. */
   hour: number;
 }
-
-/** How long one step of the simulation lasts, in milliseconds. */
-const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 
 /**
  * The time of day of the world, as a page works it out from how the

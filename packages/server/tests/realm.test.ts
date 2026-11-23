@@ -39,6 +39,8 @@ import {
   WALK_SPEED,
   createInteractMessage,
   createMoveMessage,
+  createPhraseMessage,
+  createSayMessage,
   findPlacement,
   findSpawnPoint,
   findMapPath,
@@ -52,6 +54,7 @@ import type {
   MonsterState,
   PlayerInput,
   PlayerState,
+  Quest,
   ServerMessage,
   SnapshotMessage,
   WorldItems,
@@ -63,6 +66,7 @@ import { WELL_STAND } from '../../shared/src/village-layout.ts';
 import type { PhrasedMessage, SaidMessage } from '../../shared/src/protocol.ts';
 
 import { Realm } from '../src/realm.ts';
+import { RESIDENT_FACTORIES } from '../src/resident-factories.ts';
 import type { World } from '../src/world.ts';
 
 /** How far a walking player goes in one simulation step, in metres. */
@@ -72,7 +76,7 @@ const STEP_DISTANCE: number = WALK_SPEED / SIMULATION_RATE;
 const DEATH_STEPS: number = DEATH_DURATION * SIMULATION_RATE;
 
 /** The middle of the burrow of the wild dog, among the spawn stones. */
-const BURROW: GroundVector = findPlacement('prop-spawn-stones.glb');
+const BURROW: GroundVector = findPlacement('spawn-stones');
 
 /** Where a player stands in the cave by the rope, east of it. */
 const BY_ROPE: GroundVector = { x: CAVE_ROPE.x + 0.8, z: CAVE_ROPE.z };
@@ -446,7 +450,7 @@ function findMap(realm: Realm, id: number): MapId | null {
 
 describe('a player who comes into the realm', () => {
   it('is in the village, which holds every newcomer', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id: first }: PlayerState = realm.addPlayer();
     const { id: second }: PlayerState = realm.addPlayer();
     expect(findMap(realm, first)).toBe('village');
@@ -457,7 +461,7 @@ describe('a player who comes into the realm', () => {
 
 describe('a player at the burrow of the wild dog', () => {
   it('goes down into a cave of its own, at the landing', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     const { id: other }: PlayerState = realm.addPlayer();
     goDown(realm, id);
@@ -474,7 +478,7 @@ describe('a player at the burrow of the wild dog', () => {
   });
 
   it('goes down with the dog alive, close behind it', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     for (let step = 0; step < 10 * SIMULATION_RATE; step++) {
       const dog: MonsterState | undefined = findDog(realm, id);
@@ -490,7 +494,7 @@ describe('a player at the burrow of the wild dog', () => {
   });
 
   it('goes down with the dog alive and drawn away by another', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id }: PlayerState = realm.addPlayer();
     const { id: lure }: PlayerState = realm.addPlayer();
     walkInVillage(realm, id, FAR_EAST_OF_BURROW);
@@ -512,7 +516,7 @@ describe('a player at the burrow of the wild dog', () => {
   });
 
   it('slashes rather than goes down with the living dog in reach in front', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     for (let step = 0; step < 10 * SIMULATION_RATE; step++) {
       const dog: MonsterState | undefined = findDog(realm, id);
@@ -537,7 +541,7 @@ describe('a player at the burrow of the wild dog', () => {
   });
 
   it('goes down with the dog dead', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     for (let tries = 0; tries < 20; tries++) {
       const dog: MonsterState | undefined = findDog(realm, id);
@@ -555,14 +559,14 @@ describe('a player at the burrow of the wild dog', () => {
   });
 
   it('stays in the village away from the burrow', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id }: PlayerState = realm.addPlayer();
     travel(realm, id);
     expect(findMap(realm, id)).toBe('village');
   });
 
   it('leaves the dog of the village where it is when it goes down', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     const { id: other }: PlayerState = realm.addPlayer();
     const before: MonsterState | undefined = findDog(realm, id);
@@ -577,7 +581,7 @@ describe('a player at the burrow of the wild dog', () => {
 
 describe('the caves of the realm', () => {
   it('are one for each player, apart from each other', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
     goDown(realm, first);
     goDown(realm, second);
@@ -589,7 +593,7 @@ describe('the caves of the realm', () => {
   });
 
   it('have wild dogs of their own, which a slash in another leaves alone', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
     goDown(realm, first);
     goDown(realm, second);
@@ -609,14 +613,16 @@ describe('the caves of the realm', () => {
   });
 
   it('are fresh every time a player goes down', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id }: PlayerState = realm.addPlayer();
     const patch: GroundVector = CLOVER_PATCHES[3] ?? { x: NaN, z: NaN };
     walkInVillage(realm, id, { x: patch.x, z: patch.z + 1 });
     turnPlayer(realm, id, patch);
     giveInput(realm, id, { type: 'pick' });
     realm.step();
-    expect(realm.findWorld(id)?.findInventory(id)).toEqual(['clover']);
+    expect(realm.findWorld(id)?.describePrivateView(id)?.inventory).toEqual([
+      'clover',
+    ]);
     walkInVillage(realm, id, BURROW);
     goDown(realm, id);
     const first: World | null = realm.findWorld(id);
@@ -638,7 +644,9 @@ describe('the caves of the realm', () => {
     walkAlong(realm, id, [{ x: chest.x, z: 0 }]);
     walkToRope(realm, id);
     travel(realm, id);
-    expect(realm.findWorld(id)?.findInventory(id)).toEqual(['sword']);
+    expect(realm.findWorld(id)?.describePrivateView(id)?.inventory).toEqual([
+      'sword',
+    ]);
     walkInVillage(realm, id, BURROW);
     goDown(realm, id);
     expect(realm.findWorld(id)).not.toBe(first);
@@ -652,7 +660,7 @@ describe('the caves of the realm', () => {
 
 describe('a player at the rope in the cave', () => {
   it('climbs up to beside the old well, and its cave is gone', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     const { id: other }: PlayerState = realm.addPlayer();
     goDown(realm, id);
@@ -671,7 +679,7 @@ describe('a player at the rope in the cave', () => {
   });
 
   it('keeps what it carries, there and back', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id }: PlayerState = realm.addPlayer();
     const patch: GroundVector = CLOVER_PATCHES[3] ?? { x: NaN, z: NaN };
     walkInVillage(realm, id, { x: patch.x, z: patch.z + 1 });
@@ -680,14 +688,18 @@ describe('a player at the rope in the cave', () => {
     realm.step();
     walkInVillage(realm, id, BURROW);
     goDown(realm, id);
-    expect(realm.findWorld(id)?.findInventory(id)).toEqual(['clover']);
+    expect(realm.findWorld(id)?.describePrivateView(id)?.inventory).toEqual([
+      'clover',
+    ]);
     walkToRope(realm, id);
     travel(realm, id);
-    expect(realm.findWorld(id)?.findInventory(id)).toEqual(['clover']);
+    expect(realm.findWorld(id)?.describePrivateView(id)?.inventory).toEqual([
+      'clover',
+    ]);
   });
 
   it('keeps the silver coins of the barrel up in the village, and is told of them', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     goDown(realm, id);
     const barrel: CaveContainer | undefined = CAVE_CONTAINERS.find(
@@ -699,7 +711,7 @@ describe('a player at the rope in the cave', () => {
     walkToContainer(realm, id, barrel);
     giveInput(realm, id, { type: 'pick' });
     realm.step();
-    expect(realm.findWorld(id)?.findSilver(id)).toBe(5);
+    expect(realm.findWorld(id)?.describePrivateView(id)?.silver).toBe(5);
     const back: GroundVector[] | null = new NavigationGraph(
       CAVE_TERRAIN,
     ).findPath(findPlayer(realm, id), BY_ROPE);
@@ -707,14 +719,34 @@ describe('a player at the rope in the cave', () => {
     walkToRope(realm, id);
     travel(realm, id);
     expect(findMap(realm, id)).toBe('village');
-    expect(realm.findWorld(id)?.findSilver(id)).toBe(5);
+    expect(realm.findWorld(id)?.describePrivateView(id)?.silver).toBe(5);
     const [snapshot] = listSnapshots(realm.composeMessages().get(id) ?? []);
     expect(snapshot?.silver).toBe(5);
     expect(snapshot?.inventory).toEqual([]);
   });
 
+  it('opens the main plot below, and has Martha come up to it above', () => {
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
+    const id: number = addDigger(realm);
+    goDown(realm, id);
+    walkToRope(realm, id);
+    travel(realm, id);
+    expect(findMap(realm, id)).toBe('village');
+    const [snapshot] = listSnapshots(realm.composeMessages().get(id) ?? []);
+    expect(snapshot?.quests.map((quest: Quest) => quest.toJSON())).toEqual([
+      { id: 'clovervale', stage: 'entered' },
+    ]);
+    realm.step();
+    expect(
+      realm
+        .findWorld(id)
+        ?.listMonsters()
+        .find((monster: MonsterState) => monster.kind === 'martha')?.mode,
+    ).toBe('approach');
+  });
+
   it('stays below, away from the rope', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     goDown(realm, id);
     travel(realm, id);
@@ -724,7 +756,7 @@ describe('a player at the rope in the cave', () => {
 
 describe('a player who dies in the cave', () => {
   it('dies to the dogs, comes back on the plaza, and its cave is gone', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     goDown(realm, id);
     const cave: World | null = realm.findWorld(id);
@@ -785,7 +817,7 @@ describe('a player who dies in the cave', () => {
 
 describe('a player who leaves from the cave', () => {
   it('takes its cave with it', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     goDown(realm, id);
     realm.removePlayer(id);
@@ -795,7 +827,7 @@ describe('a player who leaves from the cave', () => {
 
 describe('what the realm has sent to each player', () => {
   it('tells a player in the village of the village alone', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     const { id: other }: PlayerState = realm.addPlayer();
     goDown(realm, id);
@@ -819,14 +851,14 @@ describe('what the realm has sent to each player', () => {
     expect(snapshot?.step).toBe(realm.stepCount);
   });
 
-  it('tells a player in its cave of its cave alone, once that it is there', () => {
-    const realm = new Realm(createRandom());
+  it('tells a player in its cave of its cave alone', () => {
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     realm.addPlayer();
     goDown(realm, id);
     const messages: readonly ServerMessage[] =
       realm.composeMessages().get(id) ?? [];
-    expect(messages[0]).toEqual({ type: 'map', map: 'cave' });
+    expect(messages[0]?.type).toBe('snapshot');
     const [snapshot] = listSnapshots(messages);
     expect(
       snapshot?.monsters.map(({ id: dogId, kind, x, z }: MonsterState) => ({
@@ -864,8 +896,8 @@ describe('what the realm has sent to each player', () => {
     ]);
   });
 
-  it('tells a player who climbs up that it is in the village again', () => {
-    const realm = new Realm(createRandom());
+  it('tells a player who climbs up of the village again', () => {
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
     const { id: other }: PlayerState = realm.addPlayer();
     goDown(realm, id);
@@ -874,7 +906,7 @@ describe('what the realm has sent to each player', () => {
     travel(realm, id);
     const messages: readonly ServerMessage[] =
       realm.composeMessages().get(id) ?? [];
-    expect(messages[0]).toEqual({ type: 'map', map: 'village' });
+    expect(realm.findWorld(id)?.map).toBe('village');
     const [snapshot] = listSnapshots(messages);
     expect(
       snapshot?.players.map((player: PlayerState) => player.id).sort(),
@@ -882,7 +914,7 @@ describe('what the realm has sent to each player', () => {
   });
 
   it('tells nothing to a player who has left', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id }: PlayerState = realm.addPlayer();
     realm.removePlayer(id);
     expect(realm.composeMessages().has(id)).toBe(false);
@@ -908,9 +940,9 @@ function listSaid(
 
 describe('what a player of the realm says', () => {
   it('is sent to it and to a player beside it in the village, once', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
-    realm.receiveSay(first, 'Hello there!');
+    realm.receiveChat(first, createSayMessage('Hello there!'));
     const composed: Map<number, ServerMessage[]> = realm.composeMessages();
     const said: SaidMessage[] = [
       { type: 'said', player: first, text: 'Hello there!' },
@@ -924,21 +956,21 @@ describe('what a player of the realm says', () => {
   });
 
   it('is not heard down in a cave when said in the village above', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
     goDown(realm, first);
-    realm.receiveSay(second, 'Anybody there?');
+    realm.receiveChat(second, createSayMessage('Anybody there?'));
     const composed: Map<number, ServerMessage[]> = realm.composeMessages();
     expect(listSaid(composed.get(first))).toEqual([]);
     expect(listSaid(composed.get(second))).toHaveLength(1);
   });
 
   it('is heard in its own cave alone when said in a cave', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
     goDown(realm, first);
     goDown(realm, second);
-    realm.receiveSay(first, 'It is dark in here.');
+    realm.receiveChat(first, createSayMessage('It is dark in here.'));
     const composed: Map<number, ServerMessage[]> = realm.composeMessages();
     expect(listSaid(composed.get(first))).toEqual([
       { type: 'said', player: first, text: 'It is dark in here.' },
@@ -947,12 +979,12 @@ describe('what a player of the realm says', () => {
   });
 
   it('is held to one line in the time between two, from map to map', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const id: number = addDigger(realm);
-    realm.receiveSay(id, 'Down I go.');
+    realm.receiveChat(id, createSayMessage('Down I go.'));
     goDown(realm, id);
     realm.composeMessages();
-    realm.receiveSay(id, 'Made it.');
+    realm.receiveChat(id, createSayMessage('Made it.'));
     expect(listSaid(realm.composeMessages().get(id))).toEqual([]);
   });
 });
@@ -976,9 +1008,9 @@ function listPhrased(
 
 describe('a phrase a player of the realm says', () => {
   it('is sent to it and to a player beside it in the village, once', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
-    realm.receivePhrase(first, 'askInn');
+    realm.receiveChat(first, createPhraseMessage('askInn'));
     const composed: Map<number, ServerMessage[]> = realm.composeMessages();
     const phrased: PhrasedMessage[] = [
       { type: 'phrased', player: first, code: 'askInn' },
@@ -992,19 +1024,19 @@ describe('a phrase a player of the realm says', () => {
   });
 
   it('is not heard down in a cave when said in the village above', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
     goDown(realm, first);
-    realm.receivePhrase(second, 'askInn');
+    realm.receiveChat(second, createPhraseMessage('askInn'));
     const composed: Map<number, ServerMessage[]> = realm.composeMessages();
     expect(listPhrased(composed.get(first))).toEqual([]);
     expect(listPhrased(composed.get(second))).toHaveLength(1);
   });
 
   it('is not sent to anyone if it is no phrase a player can say', () => {
-    const realm = new Realm(createRandom());
+    const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const [first, second] = addDiggers(realm);
-    realm.receivePhrase(first, 'Hello there!');
+    realm.receiveChat(first, createPhraseMessage('Hello there!'));
     const composed: Map<number, ServerMessage[]> = realm.composeMessages();
     for (const id of [first, second]) {
       expect(listPhrased(composed.get(id))).toEqual([]);

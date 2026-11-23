@@ -47,6 +47,7 @@ import {
   SLASH_DAMAGE,
   SLASH_REACH,
   SPAWN_POINT_COUNT,
+  STEP_MILLISECONDS,
   TALK_STEPS,
   TOBY_ACTIVITY_STEPS,
   TOBY_ENDS,
@@ -57,6 +58,8 @@ import {
   VILLAGERS,
   WALK_SPEED,
   PITCHFORK_STAND,
+  ClovervaleQuest,
+  TobyQuest,
   createInteractMessage,
   createMotion,
   createMoveMessage,
@@ -81,7 +84,8 @@ import type {
   Placement,
   PlayerState,
   Pose,
-  QuestLog,
+  Quest,
+  QuestJSON,
   TobyGrab,
   Villager,
 } from '@clovervale/shared';
@@ -94,14 +98,21 @@ import { WELL_STAND } from '../../shared/src/village-layout.ts';
 
 import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
 import type { MonsterSpawn } from '../src/monster.ts';
-import { LAG_COMPENSATION_LIMIT, World } from '../src/world.ts';
-import type { Player, Saying, Speech } from '../src/world.ts';
+import { Player } from '../src/player.ts';
+import type { Saying, Speech } from '../src/player.ts';
+import { RESIDENT_FACTORIES } from '../src/resident-factories.ts';
+import { LAG_COMPENSATION_LIMIT } from '../src/slash-history.ts';
+import { MapEntryEvent, StoryEvent } from '../src/story.ts';
+import { World } from '../src/world.ts';
 
 /** The numbers of the wild dog of the village. */
 const VILLAGE_DOG: MonsterKind = MONSTER_KINDS['village-dog'];
 
 /** The numbers of a wild dog of the cave. */
 const CAVE_DOG: MonsterKind = MONSTER_KINDS['cave-dog'];
+
+/** The farthest from its home a wild dog of the cave wanders to. */
+const CAVE_DOG_WANDER_RADIUS: number = CAVE_DOG.wander?.radius ?? 0;
 
 /** The identifier of the wild dog of the village. */
 const VILLAGE_DOG_ID = 1;
@@ -111,9 +122,6 @@ const DEATH_STEPS: number = DEATH_DURATION * SIMULATION_RATE;
 
 /** The number of simulation steps a slash lasts. */
 const SLASH_STEPS: number = Math.round(SLASH_DURATION * SIMULATION_RATE);
-
-/** How long one step of the simulation lasts, in milliseconds. */
-const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 
 /** A world that records a snapshot after every step, as a server would. */
 class RecordingWorld extends World {
@@ -205,6 +213,23 @@ function findPlayer(world: World, id: number): PlayerState {
     throw new Error(`Player ${String(id)} is not in the world.`);
   }
   return player;
+}
+
+/**
+ * Tells the quests a player of a world has opened, as they are told on the
+ * wire.
+ *
+ * @param {World} world - The world.
+ * @param {number} id - The identifier of the player.
+ * @returns {QuestJSON[]} The quests, in the order the player opened them,
+ *   or none if the player is not in the world.
+ */
+function tellQuests(world: World, id: number): QuestJSON[] {
+  return (
+    world
+      .describePrivateView(id)
+      ?.quests.map((quest: Quest): QuestJSON => quest.toJSON()) ?? []
+  );
 }
 
 /**
@@ -345,7 +370,7 @@ const BY_FOUNTAIN: GroundVector = {
 };
 
 /** Where Nancy the villager stands. */
-const NANCY: GroundVector = findPlacement('npc-nancy.glb');
+const NANCY: GroundVector = findPlacement('nancy');
 
 /** Where a player stands by Nancy, whom it is within reach of. */
 const BY_NANCY: GroundVector = { x: NANCY.x, z: NANCY.z + 1.2 };
@@ -431,7 +456,7 @@ function runGetaway(world: RecordingWorld): { id: number; viewTime: number } {
 
 describe('a player coming into the world', () => {
   it('gets an identifier of its own', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const first: PlayerState = world.addPlayer([]);
     world.removePlayer(first.id);
     const second: PlayerState = world.addPlayer([]);
@@ -440,7 +465,7 @@ describe('a player coming into the world', () => {
   });
 
   it('gets the lowest appearance not in use', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const players: PlayerState[] = [1, 2, 3, 4].map(() => world.addPlayer([]));
     expect(players.map((player: PlayerState) => player.appearance)).toEqual(
       [1, 2, 3, 4],
@@ -451,7 +476,7 @@ describe('a player coming into the world', () => {
   });
 
   it('shares an appearance once all are in use', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const appearances: number[] = Array.from(
       { length: APPEARANCE_COUNT * 2 + 1 },
       () => world.addPlayer([]).appearance,
@@ -464,7 +489,7 @@ describe('a player coming into the world', () => {
   });
 
   it('idles on the plaza in front of the fountain, facing it', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     expect(player.action).toBe('Idle');
     expect(player.z).toBeGreaterThan(PLAZA_CENTRE.z);
@@ -474,7 +499,7 @@ describe('a player coming into the world', () => {
   });
 
   it('stands clear of everyone else', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const players: PlayerState[] = Array.from({ length: 20 }, () =>
       world.addPlayer([]),
     );
@@ -486,7 +511,7 @@ describe('a player coming into the world', () => {
   });
 
   it('takes the place of a player who has left', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const first: PlayerState = world.addPlayer([]);
     world.addPlayer([]);
     world.removePlayer(first.id);
@@ -495,7 +520,7 @@ describe('a player coming into the world', () => {
   });
 
   it('keeps away from a player who has walked to where it would stand', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const first: PlayerState = world.addPlayer([]);
     const second: PlayerState = world.addPlayer([]);
     world.removePlayer(first.id);
@@ -512,7 +537,7 @@ describe('a player coming into the world', () => {
 
 describe('the players in the world', () => {
   it('are all listed, until they leave', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const first: PlayerState = world.addPlayer([]);
     const second: PlayerState = world.addPlayer([]);
     expect(world.listPlayers()).toEqual([first, second]);
@@ -521,7 +546,7 @@ describe('the players in the world', () => {
   });
 
   it('stay as they are without input', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     stepTimes(world, SIMULATION_RATE);
     expect(findPlayer(world, player.id)).toEqual(player);
@@ -530,14 +555,14 @@ describe('the players in the world', () => {
 
 describe('a player who wants to move', () => {
   it('stays put until the next step', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     steerPlayer(world, player.id, { x: 1, z: 0 });
     expect(findPlayer(world, player.id)).toEqual(player);
   });
 
   it('walks at walking speed, facing the way it goes', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, SIMULATION_RATE * 2);
@@ -549,7 +574,7 @@ describe('a player who wants to move', () => {
   });
 
   it('walks no faster for a longer direction', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: -30, z: 40 });
     stepTimes(world, SIMULATION_RATE);
@@ -560,7 +585,7 @@ describe('a player who wants to move', () => {
   });
 
   it('turns when its direction changes', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 3);
@@ -570,7 +595,7 @@ describe('a player who wants to move', () => {
   });
 
   it('stops where it is, facing the same way, and idles', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 5);
@@ -584,7 +609,7 @@ describe('a player who wants to move', () => {
   });
 
   it('moves alone', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const mover: PlayerState = world.addPlayer([]);
     const other: PlayerState = world.addPlayer([]);
     steerPlayer(world, mover.id, { x: 0, z: 1 });
@@ -593,20 +618,20 @@ describe('a player who wants to move', () => {
   });
 
   it('is ignored once it has left', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     world.removePlayer(player.id);
     expect(steerPlayer(world, player.id, { x: 0, z: 1 })).toBe(false);
     expect(interactPlayer(world, player.id)).toBe(false);
     world.step();
     expect(world.listPlayers()).toEqual([]);
-    expect(world.findProgress(player.id)).toBeNull();
+    expect(world.describePrivateView(player.id)).toBeNull();
   });
 });
 
 describe('a player who interacts', () => {
   it('slashes from the next step, for as long as a slash lasts', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     expect(findPlayer(world, player.id).action).toBe('Idle');
@@ -619,7 +644,7 @@ describe('a player who interacts', () => {
   });
 
   it('slashes once for every request', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS + 1);
@@ -628,7 +653,7 @@ describe('a player who interacts', () => {
   });
 
   it('carries on with its slash alone when asked again during it', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS / 2);
@@ -643,7 +668,7 @@ describe('a player who interacts', () => {
   });
 
   it('stands still without turning while it slashes', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     stepTimes(world, 4);
@@ -661,7 +686,7 @@ describe('a player who interacts', () => {
   });
 
   it('walks on after the slash the way it wants to move by then', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     interactPlayer(world, start.id);
     world.step();
@@ -677,7 +702,7 @@ describe('a player who interacts', () => {
   });
 
   it('idles after the slash if it has stopped wanting to move', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     steerPlayer(world, start.id, { x: 1, z: 0 });
     world.step();
@@ -689,7 +714,7 @@ describe('a player who interacts', () => {
   });
 
   it('can slash again as soon as the slash is over', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const player: PlayerState = world.addPlayer([]);
     interactPlayer(world, player.id);
     stepTimes(world, SLASH_STEPS + 1);
@@ -701,7 +726,7 @@ describe('a player who interacts', () => {
 
 describe('a player who interacts by the fountain', () => {
   it('drinks from the next step, for as long as a drink lasts', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, PLAZA_CENTRE);
@@ -721,7 +746,7 @@ describe('a player who interacts by the fountain', () => {
   });
 
   it('gets health back at once as the drink starts, as an event', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const hurt: PlayerState = hurtPlayer(
       world,
@@ -743,7 +768,7 @@ describe('a player who interacts by the fountain', () => {
   });
 
   it('gets no more health back than it lacks', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const hurt: PlayerState = hurtPlayer(world, id, PLAYER_HEALTH - 1);
     const lacking: number = PLAYER_HEALTH - hurt.health;
@@ -763,7 +788,7 @@ describe('a player who interacts by the fountain', () => {
   });
 
   it('drinks at full health without getting any back', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, PLAZA_CENTRE);
@@ -778,31 +803,33 @@ describe('a player who interacts by the fountain', () => {
   });
 
   it('is not judged as a slash, whatever time it names', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, PLAZA_CENTRE);
     interactPlayer(world, id, world.time - 200);
     world.step();
     expect(findPlayer(world, id).action).toBe('Drink');
-    expect(world.findSlash(id)).toBeNull();
+    expect(world.describePrivateView(id)?.slash).toBeNull();
   });
 
   it('slashes facing away from the fountain', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_FOUNTAIN);
     turnPlayer(world, id, { x: BY_FOUNTAIN.x, z: BY_FOUNTAIN.z + 1 });
     interactPlayer(world, id);
     world.step();
     expect(findPlayer(world, id).action).toBe('Slash');
-    expect(world.findSlash(id)).toMatchObject({ isHit: false });
+    expect(world.describePrivateView(id)?.slash).toMatchObject({
+      isHit: false,
+    });
   });
 });
 
 describe('a player who interacts by Nancy', () => {
   it('talks from the next step, for as long as a talk lasts', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_NANCY);
     turnPlayer(world, id, NANCY);
@@ -824,7 +851,7 @@ describe('a player who interacts by Nancy', () => {
   });
 
   it('changes nothing else, and is not judged as a slash', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_NANCY);
     turnPlayer(world, id, NANCY);
@@ -832,27 +859,29 @@ describe('a player who interacts by Nancy', () => {
     interactPlayer(world, id, world.time - 200);
     world.step();
     expect(findPlayer(world, id).action).toBe('Talk');
-    expect(world.findSlash(id)).toBeNull();
+    expect(world.describePrivateView(id)?.slash).toBeNull();
     stepTimes(world, TALK_STEPS);
     expect(world.takeEvents()).toEqual([]);
     expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
   });
 
   it('slashes facing away from her', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     walkPlayer(world, id, BY_NANCY);
     turnPlayer(world, id, { x: BY_NANCY.x, z: BY_NANCY.z + 1 });
     interactPlayer(world, id);
     world.step();
     expect(findPlayer(world, id).action).toBe('Slash');
-    expect(world.findSlash(id)).toMatchObject({ isHit: false });
+    expect(world.describePrivateView(id)?.slash).toMatchObject({
+      isHit: false,
+    });
   });
 });
 
 describe('the action count of a player', () => {
   it('goes up whenever the player starts an action', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     const counts: number[] = [start.actionCount];
     const record = (): void => {
@@ -871,7 +900,7 @@ describe('the action count of a player', () => {
   });
 
   it('stays the same while the player carries on with an action', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     stepTimes(world, 5);
     expect(findPlayer(world, start.id).actionCount).toBe(start.actionCount);
@@ -892,7 +921,7 @@ describe('the action count of a player', () => {
   });
 
   it('tells two slashes in a row apart', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     interactPlayer(world, start.id);
     world.step();
@@ -908,7 +937,7 @@ describe('the action count of a player', () => {
 
 describe('the inputs of a player', () => {
   it('come into effect in turn, as far apart as they tell', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const start: PlayerState = world.addPlayer([]);
     const east = createMoveMessage({ sequence: 1, after: 0 }, { x: 1, z: 0 });
     const stop = createMoveMessage({ sequence: 2, after: 3 }, { x: 0, z: 0 });
@@ -921,18 +950,24 @@ describe('the inputs of a player', () => {
   });
 
   it('are told with how far the player has got with them', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     stepTimes(world, 2);
-    expect(world.findProgress(id)).toMatchObject({ sequence: 0, steps: 2 });
+    expect(world.describePrivateView(id)?.own).toMatchObject({
+      sequence: 0,
+      steps: 2,
+    });
     world.receiveInput(
       id,
       createMoveMessage({ sequence: 1, after: 0 }, { x: 0, z: 1 }),
     );
-    expect(world.findProgress(id)).toMatchObject({ sequence: 0, steps: 2 });
+    expect(world.describePrivateView(id)?.own).toMatchObject({
+      sequence: 0,
+      steps: 2,
+    });
     stepTimes(world, 3);
     const player: PlayerState = findPlayer(world, id);
-    expect(world.findProgress(id)).toEqual({
+    expect(world.describePrivateView(id)?.own).toEqual({
       sequence: 1,
       steps: 3,
       motion: {
@@ -949,7 +984,7 @@ describe('the inputs of a player', () => {
   });
 
   it('are refused when they are not numbered upwards', () => {
-    const world = new World(Math.random);
+    const world = new World(Math.random, RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const first = createInteractMessage({ sequence: 5, after: 0 });
     expect(world.receiveInput(id, first)).toBe(true);
@@ -961,7 +996,9 @@ describe('the inputs of a player', () => {
 
 describe('the monster in the world', () => {
   it('is seen at full health from the start', () => {
-    expect(new World(createRandom()).listMonsters()).toEqual([
+    expect(
+      new World(createRandom(), RESIDENT_FACTORIES).listMonsters(),
+    ).toEqual([
       expect.objectContaining({
         id: VILLAGE_DOG_ID,
         kind: 'village-dog',
@@ -976,7 +1013,7 @@ describe('the monster in the world', () => {
   });
 
   it('comes to a player near its home', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     expect(
@@ -987,7 +1024,7 @@ describe('the monster in the world', () => {
 
 describe('a slash', () => {
   it('hurts the monster in front of the player and within reach', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     turnPlayer(world, id, findMonster(world));
@@ -1007,7 +1044,7 @@ describe('a slash', () => {
   });
 
   it('misses the monster behind the player', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     const player: PlayerState = findPlayer(world, id);
@@ -1022,7 +1059,7 @@ describe('a slash', () => {
   });
 
   it('misses the monster out of reach', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     turnPlayer(world, id, findMonster(world));
     interactPlayer(world, id);
@@ -1032,7 +1069,7 @@ describe('a slash', () => {
   });
 
   it('does not hurt another player', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const first: PlayerState = world.addPlayer([]);
     const second: PlayerState = world.addPlayer([]);
     turnPlayer(world, first.id, second);
@@ -1046,7 +1083,7 @@ describe('a slash', () => {
   });
 
   it('can kill the monster, which is then gone for a while', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     let hits = 0;
@@ -1081,7 +1118,7 @@ describe('a slash', () => {
 
 describe('a slash that names the time its peer showed', () => {
   it('hits the monster that was within reach then', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id, viewTime } = runGetaway(world);
     world.takeEvents();
     interactPlayer(world, id, viewTime);
@@ -1092,7 +1129,7 @@ describe('a slash that names the time its peer showed', () => {
         target: { kind: 'monster', id: VILLAGE_DOG_ID },
       }),
     );
-    expect(world.findSlash(id)).toEqual({
+    expect(world.describePrivateView(id)?.slash).toEqual({
       step: world.stepCount,
       rewind: world.time - viewTime,
       isHit: true,
@@ -1100,7 +1137,7 @@ describe('a slash that names the time its peer showed', () => {
   });
 
   it('misses that monster when it names no time', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id } = runGetaway(world);
     world.takeEvents();
     interactPlayer(world, id);
@@ -1108,7 +1145,7 @@ describe('a slash that names the time its peer showed', () => {
     expect(world.takeEvents()).not.toContainEqual(
       expect.objectContaining({ attacker: { kind: 'player', id } }),
     );
-    expect(world.findSlash(id)).toEqual({
+    expect(world.describePrivateView(id)?.slash).toEqual({
       step: world.stepCount,
       rewind: 0,
       isHit: false,
@@ -1116,30 +1153,33 @@ describe('a slash that names the time its peer showed', () => {
   });
 
   it('is judged on the world as it is when it names a later time', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id } = runGetaway(world);
     interactPlayer(world, id, world.time + 1000);
     world.step();
-    expect(world.findSlash(id)).toMatchObject({ rewind: 0, isHit: false });
+    expect(world.describePrivateView(id)?.slash).toMatchObject({
+      rewind: 0,
+      isHit: false,
+    });
   });
 
   it('is judged no further back than the limit', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id } = runGetaway(world);
     interactPlayer(world, id, 0);
     world.step();
-    expect(world.findSlash(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.slash).toMatchObject({
       rewind: LAG_COMPENSATION_LIMIT,
     });
   });
 
   it('misses the monster that was within reach longer ago than that', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id, viewTime } = runGetaway(world);
     stepTimes(world, LAG_COMPENSATION_LIMIT / STEP_MILLISECONDS);
     interactPlayer(world, id, viewTime);
     world.step();
-    expect(world.findSlash(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.slash).toMatchObject({
       rewind: LAG_COMPENSATION_LIMIT,
       isHit: false,
     });
@@ -1148,20 +1188,22 @@ describe('a slash that names the time its peer showed', () => {
 
 describe('the judgement of the slashes of a player', () => {
   it('is not there before the first slash', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     world.step();
-    expect(world.findSlash(id)).toBeNull();
+    expect(world.describePrivateView(id)?.slash).toBeNull();
   });
 
   it('is not there for a player not in the world', () => {
-    expect(new World(createRandom()).findSlash(1)).toBeNull();
+    expect(
+      new World(createRandom(), RESIDENT_FACTORIES).describePrivateView(1),
+    ).toBeNull();
   });
 });
 
 describe('the attack of the monster', () => {
   it('hurts the player until it dies', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     world.takeEvents();
@@ -1194,7 +1236,7 @@ describe('the attack of the monster', () => {
 
 describe('a dead player', () => {
   it('lies where it fell for as long as a death lasts', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const fallen: PlayerState = killPlayer(world, id);
     expect(fallen).toMatchObject({ action: 'Die', health: 0 });
@@ -1203,7 +1245,7 @@ describe('a dead player', () => {
   });
 
   it('then comes back at a spawn point, idling at full health', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const fallen: PlayerState = killPlayer(world, id);
     stepTimes(world, DEATH_STEPS);
@@ -1223,7 +1265,7 @@ describe('a dead player', () => {
   });
 
   it('neither moves, turns nor slashes', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const fallen: PlayerState = killPlayer(world, id);
     steerPlayer(world, id, { x: fallen.x, z: fallen.z });
@@ -1241,7 +1283,7 @@ describe('a dead player', () => {
   });
 
   it('is neither hurt nor chased by the monster', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     killPlayer(world, id);
     const modes = new Set<string>();
@@ -1255,7 +1297,7 @@ describe('a dead player', () => {
   });
 
   it('comes back walking the way it was last told to move', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     killPlayer(world, id);
     steerPlayer(world, id, { x: 1, z: 0 });
@@ -1267,7 +1309,7 @@ describe('a dead player', () => {
   });
 
   it('comes back without the slash it was asked for', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     killPlayer(world, id);
     interactPlayer(world, id);
@@ -1278,7 +1320,7 @@ describe('a dead player', () => {
 
 describe('the events of the world', () => {
   it('are taken once each, numbered upwards, with their steps', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     meetMonster(world, id);
     const events: GameEvent[] = [];
@@ -1299,7 +1341,7 @@ describe('the events of the world', () => {
 
 describe('Toby in the world', () => {
   it('pushes a player out of his way as he is at each step', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const [first, second] = TOBY_ENDS;
     const middle: GroundVector = {
@@ -1406,24 +1448,24 @@ function addPicker(world: World): number {
 
 describe('a player who picks by a patch of clover', () => {
   it('gets its four-leaved clover, which is gone from the patch', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     expect(world.describeItems().clovers).toContain(PATCH);
     const before: PlayerState = findPlayer(world, id);
     const full: readonly number[] = world.describeItems().clovers;
     pickItem(world, id);
     world.step();
-    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual(['clover']);
     expect(world.describeItems().clovers).toEqual(
       full.filter((patch: number) => patch !== PATCH),
     );
     // A pick is no slash, and does not move the player.
     expect(findPlayer(world, id)).toEqual(before);
-    expect(world.findSlash(id)).toBeNull();
+    expect(world.describePrivateView(id)?.slash).toBeNull();
   });
 
   it('leaves the patch to grow a new clover after a while', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickItem(world, id);
     world.step();
@@ -1434,50 +1476,52 @@ describe('a player who picks by a patch of clover', () => {
   });
 
   it('gets nothing once the clover is gone', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickItem(world, id);
     world.step();
     pickItem(world, id);
     world.step();
-    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual(['clover']);
   });
 
   it('gets the clover before another player who picks it at once', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const first: number = addPicker(world);
     const second: number = addPicker(world);
     pickItem(world, second);
     pickItem(world, first);
     world.step();
-    expect(world.findInventory(first)).toEqual(['clover']);
-    expect(world.findInventory(second)).toEqual([]);
+    expect(world.describePrivateView(first)?.inventory).toEqual(['clover']);
+    expect(world.describePrivateView(second)?.inventory).toEqual([]);
   });
 
   it('gets the clover before another player who picks it a step later', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const first: number = addPicker(world);
     const second: number = addPicker(world);
     pickItem(world, second);
     world.step();
     pickItem(world, first);
     world.step();
-    expect(world.findInventory(first)).toEqual([]);
-    expect(world.findInventory(second)).toEqual(['clover']);
+    expect(world.describePrivateView(first)?.inventory).toEqual([]);
+    expect(world.describePrivateView(second)?.inventory).toEqual(['clover']);
   });
 
   it('carries no more than its inventory holds', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     for (let count = 1; count <= INVENTORY_SIZE; count++) {
       pickItem(world, id);
       world.step();
-      expect(world.findInventory(id)).toHaveLength(count);
+      expect(world.describePrivateView(id)?.inventory).toHaveLength(count);
       stepTimes(world, REGROW_STEPS);
     }
     pickItem(world, id);
     world.step();
-    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
+    expect(world.describePrivateView(id)?.inventory).toHaveLength(
+      INVENTORY_SIZE,
+    );
     expect(world.describeItems().clovers).toContain(PATCH);
   });
 });
@@ -1535,7 +1579,7 @@ function addRival(world: World): number {
 
 describe('Toby picking at a patch of clover', () => {
   it('takes its four-leaved clover as his hand grabs, until it regrows', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const [patch] = TOBY_PATCHES;
     expect(world.describeItems().tobyFind).toBeNull();
     const grab: number = stepToGrab(world, patch);
@@ -1552,7 +1596,7 @@ describe('Toby picking at a patch of clover', () => {
   });
 
   it('takes nothing from a patch without its clover', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const [patch] = TOBY_PATCHES;
     const first: number = stepToGrab(world, patch);
     world.step();
@@ -1566,30 +1610,32 @@ describe('Toby picking at a patch of clover', () => {
   });
 
   it('leaves the clover to a player who picks it a step before him', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const id: number = addRival(world);
     const grab: number = stepToGrab(world, TOBY_PATCHES[1], 2);
     pickItem(world, id);
     world.step();
     world.step();
     expect(world.stepCount).toBe(grab);
-    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual(['clover']);
     expect(world.describeItems().tobyFind).not.toBe(grab);
   });
 
   it('takes the clover before a player who picks it as his hand grabs', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const id: number = addRival(world);
     const grab: number = stepToGrab(world, TOBY_PATCHES[1]);
     pickItem(world, id);
     world.step();
     expect(world.stepCount).toBe(grab);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
     expect(world.describeItems().tobyFind).toBe(grab);
   });
 
   it('picks nothing in a cave', () => {
-    const world = new World(createRandom(), { map: 'cave' });
+    const world = new World(createRandom(), RESIDENT_FACTORIES, {
+      map: 'cave',
+    });
     stepTimes(world, TOBY_LOOP_STEPS);
     expect(world.describeItems().tobyFind).toBeUndefined();
   });
@@ -1614,7 +1660,7 @@ describe('Toby exclaiming as he finds a four-leaved clover', () => {
   const FOUND: Speech[] = [{ villager: 'toby', line: TOBY_FOUND_LINE }];
 
   it('is heard by the players within range of him as his hand grabs', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     stepToGrab(world, TOBY_PATCHES[1]);
     const near: number = admitBystander(world, 1, 1.5);
     const edge: number = admitBystander(world, 2, SAY_RANGE - 0.1);
@@ -1626,7 +1672,7 @@ describe('Toby exclaiming as he finds a four-leaved clover', () => {
   });
 
   it('is not heard by a player out of range', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     stepToGrab(world, TOBY_PATCHES[1]);
     const near: number = admitBystander(world, 1, 1.5);
     const far: number = admitBystander(world, 2, SAY_RANGE + 0.1);
@@ -1636,7 +1682,7 @@ describe('Toby exclaiming as he finds a four-leaved clover', () => {
   });
 
   it('is not heard by a player who comes within range afterwards', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     stepToGrab(world, TOBY_PATCHES[1]);
     world.step();
     const late: number = admitBystander(world, 1, 1.5);
@@ -1645,7 +1691,7 @@ describe('Toby exclaiming as he finds a four-leaved clover', () => {
   });
 
   it('is not heard at a grab that finds nothing', () => {
-    const world = new RecordingWorld(createRandom());
+    const world = new RecordingWorld(createRandom(), RESIDENT_FACTORIES);
     const first: number = stepToGrab(world, TOBY_PATCHES[1]);
     // He comes back to the patch before it has regrown.
     const again: number = first + TOBY_LOOP_STEPS;
@@ -1663,19 +1709,19 @@ const TOBY_BY_GATE: GroundVector = TOBY_ENDS[1];
 /**
  * Brings a player into the village, standing beyond the patch of clover by
  * the gate from where Toby squats at it, facing him, within reach of him,
- * carrying some items, among which is Martha's token, so that she leaves
- * it alone.
+ * carrying some items, among which is Martha's token, and on no main plot,
+ * so that she leaves it alone.
  *
  * @param {World} world - The world.
  * @param {readonly ItemKindId[]} carried - What else the player carries.
- * @param {QuestLog} [quests] - How far the player has got with the
- *   quests, which is having done the quest of Toby, hurt, by default.
+ * @param {readonly Quest[]} [quests] - The quests the player has opened,
+ *   which is the quest of Toby, hurt, done, by default.
  * @returns {number} The identifier of the player.
  */
 function admitTalker(
   world: World,
   carried: readonly ItemKindId[],
-  quests: QuestLog = { 'toby-hurt': 'done' },
+  quests: readonly Quest[] = [new TobyQuest('done')],
 ): number {
   const patch: GroundVector = CLOVER_PATCHES[TOBY_PATCHES[1]] ?? PLAZA_CENTRE;
   const [first, second] = TOBY_ENDS;
@@ -1687,24 +1733,16 @@ function admitTalker(
   const yaw: number =
     (Math.atan2(TOBY_BY_GATE.x - place.x, TOBY_BY_GATE.z - place.z) * 180) /
     Math.PI;
-  const player: Player = {
+  const player = new Player({
     id: 1,
     appearance: 1,
     mover: new AuthoritativePlayer(createMotion(place, yaw)),
     health: PLAYER_HEALTH,
-    deathSteps: 0,
-    lastSlash: null,
     inventory: ['spy-token', ...carried],
     silver: 0,
     acquaintances: [],
-    quests: { ...quests },
-    dialogue: null,
-    turnCount: 0,
-    isHunted: false,
-    speeches: [],
-    sayings: [],
-    saidStep: null,
-  };
+    quests,
+  });
   world.admitPlayer(player, { ...place, yaw });
   return player.id;
 }
@@ -1743,12 +1781,15 @@ function talkToToby(world: RecordingWorld, id: number): string[] {
 
 describe('a player who talks to Toby', () => {
   it('gets a clover with his line of giving it', () => {
-    const world = new RecordingWorld(() => 0.99);
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
     const id: number = admitTalker(world, []);
     expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
-    expect(world.findInventory(id)).toEqual(['spy-token', 'clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'spy-token',
+      'clover',
+    ]);
     expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
-    expect(world.findInventory(id)).toEqual([
+    expect(world.describePrivateView(id)?.inventory).toEqual([
       'spy-token',
       'clover',
       'clover',
@@ -1756,30 +1797,34 @@ describe('a player who talks to Toby', () => {
   });
 
   it('gets a clover each time its bag has room, however few he has picked', () => {
-    const world = new RecordingWorld(() => 0.99);
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
     const id: number = admitTalker(world, []);
     for (let count = 1; count < INVENTORY_SIZE; count++) {
       expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
     }
-    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
+    expect(world.describePrivateView(id)?.inventory).toHaveLength(
+      INVENTORY_SIZE,
+    );
   });
 
   it('gives no clover to a player whose bag is full', () => {
-    const world = new RecordingWorld(() => 0.99);
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
     const full: ItemKindId[] = Array.from(
       { length: INVENTORY_SIZE - 1 },
       (): ItemKindId => 'sword',
     );
     const id: number = admitTalker(world, full);
     expect(talkToToby(world, id)).toEqual(['toby:villager.toby.line.3']);
-    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
+    expect(world.describePrivateView(id)?.inventory).toHaveLength(
+      INVENTORY_SIZE,
+    );
     expect(world.describeItems().items).toEqual([]);
   });
 
   it('says each of his lines, at random', () => {
     const heard = new Set<string>();
     for (const draw of [0, 0.3, 0.6, 0.9]) {
-      const world = new RecordingWorld(() => draw);
+      const world = new RecordingWorld(() => draw, RESIDENT_FACTORIES);
       const id: number = admitTalker(world, []);
       for (const line of talkToToby(world, id)) {
         heard.add(line);
@@ -1814,31 +1859,35 @@ describe('a player on the quest of Toby, hurt, who talks to him', () => {
   }
 
   it('takes the quest on as he tells of his fall the first time', () => {
-    const world = new RecordingWorld(() => 0.99);
-    const id: number = admitTalker(world, [], {});
-    expect(world.findQuests(id)).toEqual({});
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
+    const id: number = admitTalker(world, [], []);
+    expect(tellQuests(world, id)).toEqual([]);
     expect(talkToToby(world, id)).toEqual([]);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'toby',
       line: 'dialogue.toby.hurt',
       replies: ['dialogue.toby.promise'],
       turn: 1,
     });
-    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'started' });
-    expect(world.findInventory(id)).toEqual(['spy-token']);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'toby-hurt', stage: 'started' },
+    ]);
+    expect(world.describePrivateView(id)?.inventory).toEqual(['spy-token']);
     reply(world, id);
-    expect(world.findDialogue(id)).toBeNull();
-    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'started' });
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'toby-hurt', stage: 'started' },
+    ]);
   });
 
   it('stands still in the dialogue while Toby runs on', () => {
-    const world = new RecordingWorld(() => 0.99);
-    const id: number = admitTalker(world, [], {});
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
+    const id: number = admitTalker(world, [], []);
     talkToToby(world, id);
     const player: PlayerState = findPlayer(world, id);
     steerPlayer(world, id, { x: 1, z: 0 });
     stepTimes(world, 2 * SIMULATION_RATE);
-    expect(world.findDialogue(id)).not.toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).not.toBeNull();
     expect(findPlayer(world, id)).toMatchObject({
       x: player.x,
       z: player.z,
@@ -1848,70 +1897,102 @@ describe('a player on the quest of Toby, hurt, who talks to him', () => {
 
   it('only hears him moan in passing without the ointment', () => {
     for (const stage of ['started', 'supplied'] as const) {
-      const world = new RecordingWorld(() => 0.99);
-      const id: number = admitTalker(world, [], { 'toby-hurt': stage });
+      const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
+      const id: number = admitTalker(world, [], [new TobyQuest(stage)]);
       expect(talkToToby(world, id)).toEqual(['toby:dialogue.toby.moan']);
-      expect(world.findDialogue(id)).toBeNull();
-      expect(world.findInventory(id)).toEqual(['spy-token']);
+      expect(world.describePrivateView(id)?.dialogue).toBeNull();
+      expect(world.describePrivateView(id)?.inventory).toEqual(['spy-token']);
       expect(talkToToby(world, id)).toEqual(['toby:dialogue.toby.moan']);
-      expect(world.findQuests(id)).toEqual({ 'toby-hurt': stage });
+        expect(tellQuests(world, id)).toEqual([{ id: 'toby-hurt', stage }]);;
     }
   });
 
   it('gives him the ointment and gets a clover, which ends the quest', () => {
-    const world = new RecordingWorld(() => 0.99);
-    const id: number = admitTalker(world, ['martha-ointment'], {
-      'toby-hurt': 'supplied',
-    });
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
+    const id: number = admitTalker(
+      world,
+      ['martha-ointment'],
+      [new TobyQuest('supplied')],
+    );
     expect(talkToToby(world, id)).toEqual([]);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'toby',
       line: 'dialogue.toby.moan',
       replies: ['dialogue.toby.dress'],
       turn: 1,
     });
-    expect(world.findInventory(id)).toEqual(['spy-token', 'martha-ointment']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'spy-token',
+      'martha-ointment',
+    ]);
     reply(world, id);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'toby',
       line: 'dialogue.toby.thanks',
       replies: [],
       turn: 2,
     });
-    expect(world.findInventory(id)).toEqual(['spy-token', 'clover']);
-    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'done' });
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'spy-token',
+      'clover',
+    ]);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'toby-hurt', stage: 'done' },
+    ]);
     reply(world, id);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     expect(talkToToby(world, id)).toEqual(['toby:villager.toby.gift']);
   });
 
   it('gets the clover into the slot of the ointment in a full bag', () => {
-    const world = new RecordingWorld(() => 0.99);
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
     const full: ItemKindId[] = [
       'martha-ointment',
       ...Array.from({ length: INVENTORY_SIZE - 2 }, (): ItemKindId => 'sword'),
     ];
-    const id: number = admitTalker(world, full, { 'toby-hurt': 'started' });
+    const id: number = admitTalker(world, full, [new TobyQuest('started')]);
     talkToToby(world, id);
     reply(world, id);
-    expect(world.findInventory(id)).toHaveLength(INVENTORY_SIZE);
-    expect(world.findInventory(id)).not.toContain('martha-ointment');
-    expect(world.findInventory(id)?.at(-1)).toBe('clover');
+    expect(world.describePrivateView(id)?.inventory).toHaveLength(
+      INVENTORY_SIZE,
+    );
+    expect(world.describePrivateView(id)?.inventory).not.toContain(
+      'martha-ointment',
+    );
+    expect(world.describePrivateView(id)?.inventory.at(-1)).toBe('clover');
     expect(world.describeItems().items).toEqual([]);
   });
 
+  it('ends the quest with an ointment found elsewhere', () => {
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
+    const id: number = admitTalker(
+      world,
+      ['martha-ointment'],
+      [new TobyQuest('started')],
+    );
+    talkToToby(world, id);
+    reply(world, id);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'toby-hurt', stage: 'done' },
+    ]);
+  });
+
   it('gets no clover once it has put the ointment down in the dialogue', () => {
-    const world = new RecordingWorld(() => 0.99);
-    const id: number = admitTalker(world, ['martha-ointment'], {
-      'toby-hurt': 'started',
-    });
+    const world = new RecordingWorld(() => 0.99, RESIDENT_FACTORIES);
+    const id: number = admitTalker(
+      world,
+      ['martha-ointment'],
+      [new TobyQuest('started')],
+    );
     talkToToby(world, id);
     dropItem(world, id, 1);
     world.step();
     reply(world, id);
-    expect(world.findDialogue(id)).toBeNull();
-    expect(world.findInventory(id)).toEqual(['spy-token']);
-    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'started' });
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
+    expect(world.describePrivateView(id)?.inventory).toEqual(['spy-token']);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'toby-hurt', stage: 'started' },
+    ]);
   });
 });
 
@@ -1930,31 +2011,23 @@ function admitShopper(
   silver: number,
   carried: readonly ItemKindId[] = [],
 ): number {
-  const place: GroundVector = placePoint(findPlacement('prop-apothecary.glb'), {
+  const place: GroundVector = placePoint(findPlacement('apothecary'), {
     x: 0.9,
     z: 4.1,
   });
-  const basil: Placement = findPlacement('npc-basil.glb');
+  const basil: Placement = findPlacement('basil');
   const yaw: number =
     (Math.atan2(basil.x - place.x, basil.z - place.z) * 180) / Math.PI;
-  const player: Player = {
+  const player = new Player({
     id: 1,
     appearance: 1,
     mover: new AuthoritativePlayer(createMotion(place, yaw)),
     health: PLAYER_HEALTH,
-    deathSteps: 0,
-    lastSlash: null,
     inventory: [...carried],
     silver,
     acquaintances: [],
-    quests: {},
-    dialogue: null,
-    turnCount: 0,
-    isHunted: false,
-    speeches: [],
-    sayings: [],
-    saidStep: null,
-  };
+    quests: [],
+  });
   world.admitPlayer(player, { ...place, yaw });
   return player.id;
 }
@@ -2001,73 +2074,80 @@ describe('a player who talks to Basil the apothecary', () => {
   ];
 
   it('is offered a healing potion, and nothing else is said', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitShopper(world, 3);
     expect(talkToBasil(world, id)).toEqual([]);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'basil',
       line: 'dialogue.basil.offer',
       replies: OFFER_REPLIES,
       turn: 1,
     });
-    expect(world.findSilver(id)).toBe(3);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.silver).toBe(3);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
   });
 
   it('buys a potion for its price, and may buy another', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitShopper(world, 2 * HEALING_POTION_PRICE + 1, [
       'sword',
     ]);
     talkToBasil(world, id);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'basil',
       line: 'dialogue.basil.sold',
       replies: OFFER_REPLIES,
       turn: 2,
     });
-    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE + 1);
-    expect(world.findInventory(id)).toEqual(['sword', 'healing-potion']);
+    expect(world.describePrivateView(id)?.silver).toBe(
+      HEALING_POTION_PRICE + 1,
+    );
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'sword',
+      'healing-potion',
+    ]);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       line: 'dialogue.basil.sold',
       turn: 3,
     });
-    expect(world.findSilver(id)).toBe(1);
-    expect(world.findInventory(id)).toEqual([
+    expect(world.describePrivateView(id)?.silver).toBe(1);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
       'sword',
       'healing-potion',
       'healing-potion',
     ]);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'basil',
       line: 'dialogue.basil.short',
       replies: [],
       turn: 4,
     });
-    expect(world.findSilver(id)).toBe(1);
-    expect(world.findInventory(id)).toHaveLength(3);
+    expect(world.describePrivateView(id)?.silver).toBe(1);
+    expect(world.describePrivateView(id)?.inventory).toHaveLength(3);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
   });
 
   it('buys nothing without enough silver coins', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitShopper(world, HEALING_POTION_PRICE - 1);
     talkToBasil(world, id);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       line: 'dialogue.basil.short',
       replies: [],
     });
-    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE - 1);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.silver).toBe(
+      HEALING_POTION_PRICE - 1,
+    );
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
   });
 
   it('buys nothing with a full bag, and nothing is laid on the ground', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const full: ItemKindId[] = Array.from(
       { length: INVENTORY_SIZE },
       (): ItemKindId => 'sword',
@@ -2075,17 +2155,17 @@ describe('a player who talks to Basil the apothecary', () => {
     const id: number = admitShopper(world, HEALING_POTION_PRICE, full);
     talkToBasil(world, id);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       line: 'dialogue.basil.full',
       replies: [],
     });
-    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE);
-    expect(world.findInventory(id)).toEqual(full);
+    expect(world.describePrivateView(id)?.silver).toBe(HEALING_POTION_PRICE);
+    expect(world.describePrivateView(id)?.inventory).toEqual(full);
     expect(world.describeItems().items).toEqual([]);
   });
 
   it('is told it has too few coins first, if its bag is full as well', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const full: ItemKindId[] = Array.from(
       { length: INVENTORY_SIZE },
       (): ItemKindId => 'sword',
@@ -2093,36 +2173,38 @@ describe('a player who talks to Basil the apothecary', () => {
     const id: number = admitShopper(world, 0, full);
     talkToBasil(world, id);
     reply(world, id, 0);
-    expect(world.findDialogue(id)?.line).toBe('dialogue.basil.short');
+    expect(world.describePrivateView(id)?.dialogue?.line).toBe(
+      'dialogue.basil.short',
+    );
   });
 
   it('is bidden farewell when it buys nothing', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitShopper(world, HEALING_POTION_PRICE);
     talkToBasil(world, id);
     reply(world, id, 1);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'basil',
       line: 'dialogue.basil.farewell',
       replies: [],
       turn: 2,
     });
-    expect(world.findSilver(id)).toBe(HEALING_POTION_PRICE);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.silver).toBe(HEALING_POTION_PRICE);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
   });
 });
 
 describe('a player who puts an item down', () => {
   it('lays the item of the slot it names at its feet', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickItem(world, id);
     world.step();
     dropItem(world, id);
     world.step();
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
     const player: PlayerState = findPlayer(world, id);
     const [item] = world.describeItems().items;
     expect(item?.kind).toBe('clover');
@@ -2130,46 +2212,52 @@ describe('a player who puts an item down', () => {
   });
 
   it('closes up the items after the slot it empties', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickClovers(world, id, 3);
     dropItem(world, id, 1);
     world.step();
-    expect(world.findInventory(id)).toEqual(['clover', 'clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'clover',
+      'clover',
+    ]);
     expect(world.describeItems().items).toHaveLength(1);
     dropItem(world, id, 1);
     world.step();
-    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual(['clover']);
     expect(world.describeItems().items).toHaveLength(2);
   });
 
   it('lays nothing down from an empty slot, or one out of range', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickClovers(world, id, 2);
     for (const slot of [2, INVENTORY_SIZE - 1, INVENTORY_SIZE, 1000]) {
       dropItem(world, id, slot);
       world.step();
     }
-    expect(world.findInventory(id)).toEqual(['clover', 'clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'clover',
+      'clover',
+    ]);
     expect(world.describeItems().items).toEqual([]);
   });
 
   it('cannot lay down what another player carries', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const carrier: number = addPicker(world);
     pickItem(world, carrier);
     world.step();
     const { id: other }: PlayerState = world.addPlayer([]);
     dropItem(world, other, 0);
     world.step();
-    expect(world.findInventory(carrier)).toEqual(['clover']);
-    expect(world.findInventory(other)).toEqual([]);
+    expect(world.describePrivateView(carrier)?.inventory).toEqual(['clover']);
+    expect(world.describePrivateView(other)?.inventory).toEqual([]);
     expect(world.describeItems().items).toEqual([]);
   });
 
   it('lays nothing down while it carries nothing', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     dropItem(world, id);
     world.step();
@@ -2177,7 +2265,7 @@ describe('a player who puts an item down', () => {
   });
 
   it('leaves the item for another player to pick up', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const dropper: number = addPicker(world);
     pickItem(world, dropper);
     world.step();
@@ -2189,14 +2277,14 @@ describe('a player who puts an item down', () => {
     turnPlayer(world, picker, item ?? PATCH_CENTRE);
     pickItem(world, picker);
     world.step();
-    expect(world.findInventory(picker)).toEqual(['clover']);
-    expect(world.findInventory(dropper)).toEqual([]);
+    expect(world.describePrivateView(picker)?.inventory).toEqual(['clover']);
+    expect(world.describePrivateView(dropper)?.inventory).toEqual([]);
     expect(world.describeItems().items).toEqual([]);
   });
 
   it('picks the item back at once, whichever way it faces', () => {
     for (const yaw of [0, 45, 90, 135, 180, 225, 270, 315]) {
-      const world = new World(createRandom());
+      const world = new World(createRandom(), RESIDENT_FACTORIES);
       const id: number = addPicker(world);
       pickItem(world, id);
       world.step();
@@ -2210,15 +2298,16 @@ describe('a player who puts an item down', () => {
       world.step();
       pickItem(world, id);
       world.step();
-      expect(world.findInventory(id), `facing ${String(yaw)}`).toEqual([
-        'clover',
-      ]);
+      expect(
+        world.describePrivateView(id)?.inventory,
+        `facing ${String(yaw)}`,
+      ).toEqual(['clover']);
       expect(world.describeItems().items).toEqual([]);
     }
   });
 
   it('leaves the item on the ground for a while, and then it is gone', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickItem(world, id);
     world.step();
@@ -2252,24 +2341,16 @@ function admitCarrier(
   isInCave = false,
   silver = 0,
 ): number {
-  const player: Player = {
+  const player = new Player({
     id: 1,
     appearance: 1,
     mover: new AuthoritativePlayer(createMotion(CAVE_LANDING, 0)),
     health,
-    deathSteps: 0,
-    lastSlash: null,
     inventory: [...carried],
     silver,
     acquaintances: [],
-    quests: {},
-    dialogue: null,
-    turnCount: 0,
-    isHunted: false,
-    speeches: [],
-    sayings: [],
-    saidStep: null,
-  };
+    quests: [],
+  });
   world.admitPlayer(player, isInCave ? CAVE_LANDING : null);
   return player.id;
 }
@@ -2293,7 +2374,7 @@ function useItem(world: World, id: number, slot: number): void {
 
 describe('a player who uses a healing potion', () => {
   it('gets 50 health back at once, as an event, and the potion is gone', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitCarrier(world, 30, [
       'clover',
       'healing-potion',
@@ -2302,7 +2383,10 @@ describe('a player who uses a healing potion', () => {
     useItem(world, id, 1);
     world.step();
     expect(findPlayer(world, id).health).toBe(80);
-    expect(world.findInventory(id)).toEqual(['clover', 'sword']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'clover',
+      'sword',
+    ]);
     expect(world.takeEvents()).toEqual([
       expect.objectContaining({
         type: 'heal',
@@ -2313,42 +2397,46 @@ describe('a player who uses a healing potion', () => {
   });
 
   it('gets no more health back than it lacks', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitCarrier(world, PLAYER_HEALTH - 20, [
       'healing-potion',
     ]);
     useItem(world, id, 0);
     world.step();
     expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
     expect(world.takeEvents()).toEqual([
       expect.objectContaining({ type: 'heal', amount: 20 }),
     ]);
   });
 
   it('keeps the potion at full health', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitCarrier(world, PLAYER_HEALTH, ['healing-potion']);
     useItem(world, id, 0);
     world.step();
     expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
-    expect(world.findInventory(id)).toEqual(['healing-potion']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'healing-potion',
+    ]);
     expect(world.takeEvents()).toEqual([]);
   });
 
   it('keeps the potion while it lies dead', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitCarrier(world, 20, ['healing-potion']);
     killPlayer(world, id);
     useItem(world, id, 0);
     world.step();
     expect(findPlayer(world, id).health).toBe(0);
-    expect(world.findInventory(id)).toEqual(['healing-potion']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'healing-potion',
+    ]);
     expect(world.takeEvents()).toEqual([]);
   });
 
   it('uses nothing from an empty slot, one out of range, or one that cannot be used', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const carried: ItemKindId[] = ['clover', 'sword', 'leather-armour'];
     const id: number = admitCarrier(world, 30, carried);
     for (const slot of [0, 1, 2, 3, INVENTORY_SIZE, 1000]) {
@@ -2356,57 +2444,60 @@ describe('a player who uses a healing potion', () => {
       world.step();
     }
     expect(findPlayer(world, id).health).toBe(30);
-    expect(world.findInventory(id)).toEqual(carried);
+    expect(world.describePrivateView(id)?.inventory).toEqual(carried);
     expect(world.takeEvents()).toEqual([]);
   });
 
   it('gets health back in the cave too', () => {
-    const world = new World(createRandom(), { map: 'cave', monsters: [] });
+    const world = new World(createRandom(), RESIDENT_FACTORIES, {
+      map: 'cave',
+      monsters: [],
+    });
     const id: number = admitCarrier(world, 40, ['healing-potion'], true);
     useItem(world, id, 0);
     world.step();
     expect(findPlayer(world, id).health).toBe(90);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
   });
 });
 
 describe('the inventory of a player', () => {
   it('is empty when the player comes into the world', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
   });
 
   it('is kept through death', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickItem(world, id);
     world.step();
     killPlayer(world, id);
     stepTimes(world, DEATH_STEPS);
     expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
-    expect(world.findInventory(id)).toEqual(['clover']);
+    expect(world.describePrivateView(id)?.inventory).toEqual(['clover']);
   });
 
   it('is told of its player alone', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     const { id: other }: PlayerState = world.addPlayer([]);
     pickItem(world, id);
     world.step();
-    expect(world.findInventory(other)).toEqual([]);
+    expect(world.describePrivateView(other)?.inventory).toEqual([]);
     for (const player of world.listPlayers()) {
       expect(JSON.stringify(player)).not.toContain('clover');
     }
   });
 
   it('is lost when the player leaves', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = addPicker(world);
     pickItem(world, id);
     world.step();
     world.removePlayer(id);
-    expect(world.findInventory(id)).toBeNull();
+    expect(world.describePrivateView(id)).toBeNull();
     expect(world.describeItems().items).toEqual([]);
   });
 });
@@ -2461,9 +2552,9 @@ function killVillageDog(world: World, id: number, rig: () => void): void {
 
 describe('the silver coins of a player', () => {
   it('are none when the player comes into the world', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
-    expect(world.findSilver(id)).toBe(0);
+    expect(world.describePrivateView(id)?.silver).toBe(0);
   });
 
   it.each([
@@ -2477,63 +2568,63 @@ describe('the silver coins of a player', () => {
     'come from the wild dog of the village, drawn as %f, %i of them',
     (value: number, silver: number) => {
       const [draw, rig] = createRiggedRandom();
-      const world = new World(draw);
+      const world = new World(draw, RESIDENT_FACTORIES);
       const { id }: PlayerState = world.addPlayer([]);
       killVillageDog(world, id, () => {
         rig(value);
       });
-      expect(world.findSilver(id)).toBe(silver);
+      expect(world.describePrivateView(id)?.silver).toBe(silver);
       expect(world.describeItems().items).toEqual([]);
     },
   );
 
   it('go to the player who kills the dog alone', () => {
     const [draw, rig] = createRiggedRandom();
-    const world = new World(draw);
+    const world = new World(draw, RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     const { id: other }: PlayerState = world.addPlayer([]);
     killVillageDog(world, id, () => {
       rig(0.99);
     });
-    expect(world.findSilver(id)).toBe(2);
-    expect(world.findSilver(other)).toBe(0);
+    expect(world.describePrivateView(id)?.silver).toBe(2);
+    expect(world.describePrivateView(other)?.silver).toBe(0);
   });
 
   it('come once for each death of the dog', () => {
     const [draw, rig] = createRiggedRandom();
-    const world = new World(draw);
+    const world = new World(draw, RESIDENT_FACTORIES);
     const { id }: PlayerState = world.addPlayer([]);
     killVillageDog(world, id, () => {
       rig(0.99);
     });
     rig(null);
     stepTimes(world, 3 * SIMULATION_RATE);
-    expect(world.findSilver(id)).toBe(2);
+    expect(world.describePrivateView(id)?.silver).toBe(2);
   });
 
   it('are kept through death', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitCarrier(world, PLAYER_HEALTH, [], false, 7);
     killPlayer(world, id);
     stepTimes(world, DEATH_STEPS);
     expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
-    expect(world.findSilver(id)).toBe(7);
+    expect(world.describePrivateView(id)?.silver).toBe(7);
   });
 
   it('are told of their player alone', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitCarrier(world, PLAYER_HEALTH, [], false, 7);
     for (const player of world.listPlayers()) {
       expect(player).not.toHaveProperty('silver');
     }
-    expect(world.findSilver(id)).toBe(7);
+    expect(world.describePrivateView(id)?.silver).toBe(7);
   });
 
   it('are lost when the player leaves', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const id: number = admitCarrier(world, PLAYER_HEALTH, [], false, 7);
     world.removePlayer(id);
-    expect(world.findSilver(id)).toBeNull();
+    expect(world.describePrivateView(id)).toBeNull();
   });
 });
 
@@ -2556,36 +2647,31 @@ describe('a world of the cave', () => {
    *   it has not by default, so that nothing gets in the way of the player.
    * @param {readonly MonsterSpawn[]} [dogs] - The wild dogs the cave has,
    *   if it has any, those of the cave by default.
+   * @param {readonly Quest[]} [quests] - The quests the player has opened,
+   *   none by default.
    * @returns {[World, number]} The cave, and the identifier of the player.
    */
   function enterCave(
     carried: readonly ItemKindId[] = [],
     hasDogs = false,
     dogs?: readonly MonsterSpawn[],
+    quests: readonly Quest[] = [],
   ): [World, number] {
     const monsters: readonly MonsterSpawn[] | undefined = hasDogs ? dogs : [];
-    const world = new World(createRandom(), {
+    const world = new World(createRandom(), RESIDENT_FACTORIES, {
       map: 'cave',
       ...(monsters === undefined ? {} : { monsters }),
     });
-    const player: Player = {
+    const player = new Player({
       id: 1,
       appearance: 1,
       mover: new AuthoritativePlayer(createMotion(CAVE_LANDING, 0)),
       health: PLAYER_HEALTH,
-      deathSteps: 0,
-      lastSlash: null,
       inventory: [...carried],
       silver: 0,
       acquaintances: [],
-      quests: {},
-      dialogue: null,
-      turnCount: 0,
-      isHunted: false,
-      speeches: [],
-      sayings: [],
-      saidStep: null,
-    };
+      quests,
+    });
     world.admitPlayer(player, CAVE_LANDING);
     return [world, player.id];
   }
@@ -2682,11 +2768,11 @@ describe('a world of the cave', () => {
         taken.push(container.item);
       }
       silver += container.silver ?? 0;
-      expect(world.findInventory(id)).toEqual(taken);
-      expect(world.findSilver(id)).toBe(silver);
+      expect(world.describePrivateView(id)?.inventory).toEqual(taken);
+      expect(world.describePrivateView(id)?.silver).toBe(silver);
       pickOnce(world, id);
-      expect(world.findInventory(id)).toEqual(taken);
-      expect(world.findSilver(id)).toBe(silver);
+      expect(world.describePrivateView(id)?.inventory).toEqual(taken);
+      expect(world.describePrivateView(id)?.silver).toBe(silver);
       expect(world.describeItems().looted).toContain(number);
     });
     expect([...taken].sort()).toEqual([
@@ -2716,8 +2802,8 @@ describe('a world of the cave', () => {
     }
     walkToContainer(world, id, barrel);
     pickOnce(world, id);
-    expect(world.findSilver(id)).toBe(5);
-    expect(world.findInventory(id)).toEqual(full);
+    expect(world.describePrivateView(id)?.silver).toBe(5);
+    expect(world.describePrivateView(id)?.inventory).toEqual(full);
     expect(world.describeItems().looted).toEqual([number]);
   });
 
@@ -2737,7 +2823,7 @@ describe('a world of the cave', () => {
     const [world, id] = enterCave(full);
     walkToContainer(world, id, findContainer('sword'));
     pickOnce(world, id);
-    expect(world.findInventory(id)).toEqual(full);
+    expect(world.describePrivateView(id)?.inventory).toEqual(full);
     expect(world.describeItems().looted).toEqual([]);
   });
 
@@ -2752,7 +2838,9 @@ describe('a world of the cave', () => {
     const [world, id] = enterCave();
     walkToContainer(world, id, barrel);
     pickOnce(world, id);
-    expect(world.findInventory(id)).toEqual(['healing-potion']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'healing-potion',
+    ]);
   });
 
   it('lets the new items be put down and picked up again', () => {
@@ -2763,14 +2851,14 @@ describe('a world of the cave', () => {
       const stamp = { sequence: ++lastSequence, after: 0 };
       world.receiveInput(id, { type: 'drop', slot: 0, ...stamp });
       world.step();
-      expect(world.findInventory(id)).toEqual([]);
+      expect(world.describePrivateView(id)?.inventory).toEqual([]);
       const { x, z }: PlayerState = findPlayer(world, id);
       const lying: GroundItem[] = [...world.describeItems().items];
       expect(lying.map((ground: GroundItem) => ground.kind)).toEqual([item]);
       expect(lying[0]?.x).toBeCloseTo(x, 2);
       expect(lying[0]?.z).toBeCloseTo(z, 2);
       pickOnce(world, id);
-      expect(world.findInventory(id)).toEqual([item]);
+      expect(world.describePrivateView(id)?.inventory).toEqual([item]);
       expect(world.describeItems().items).toEqual([]);
     }
   });
@@ -2838,7 +2926,9 @@ describe('a world of the cave', () => {
   }
 
   it('has its two wild dogs idling at their homes, at full health', () => {
-    const world = new World(createRandom(), { map: 'cave' });
+    const world = new World(createRandom(), RESIDENT_FACTORIES, {
+      map: 'cave',
+    });
     expect(world.listMonsters()).toEqual(
       CAVE_DOG_HOMES.map((home: Pose, index: number) => ({
         id: index + 1,
@@ -2855,7 +2945,9 @@ describe('a world of the cave', () => {
   });
 
   it('has its dogs wander a little round their homes, in the passage', () => {
-    const world = new World(createRandom(), { map: 'cave' });
+    const world = new World(createRandom(), RESIDENT_FACTORIES, {
+      map: 'cave',
+    });
     const modes = new Set<string>();
     for (let step = 0; step < 120 * SIMULATION_RATE; step++) {
       world.step();
@@ -2863,7 +2955,7 @@ describe('a world of the cave', () => {
         modes.add(dog.mode);
         const home: GroundVector = CAVE_DOG_HOMES[index] ?? { x: NaN, z: NaN };
         expect(measureDistance(dog, home)).toBeLessThanOrEqual(
-          CAVE_DOG.wanderRadius,
+          CAVE_DOG_WANDER_RADIUS,
         );
         expect(Math.abs(dog.z)).toBeLessThan(1.5);
         expect(CAVE_TERRAIN.isClear(dog)).toBe(true);
@@ -2896,7 +2988,7 @@ describe('a world of the cave', () => {
     const home: GroundVector = CAVE_DOG_HOMES[0] ?? { x: NaN, z: NaN };
     expect(
       measureDistance(dog ?? { x: NaN, z: NaN }, home),
-    ).toBeLessThanOrEqual(CAVE_DOG.wanderRadius);
+    ).toBeLessThanOrEqual(CAVE_DOG_WANDER_RADIUS);
   });
 
   it('has a dog bite as hard and as often as a cave dog does', () => {
@@ -2935,7 +3027,7 @@ describe('a world of the cave', () => {
     );
     expect(findDog(world, 1)?.mode).toBe('dead');
     expect(findDog(world, 2)).toMatchObject({ health: CAVE_DOG.health });
-    expect(world.findSilver(id)).toBe(0);
+    expect(world.describePrivateView(id)?.silver).toBe(0);
   });
 
   it('brings a dead dog back at its home after its respawn time, not before', () => {
@@ -2988,7 +3080,7 @@ describe('a world of the cave', () => {
       }),
     ]);
     expect(findDog(world, 2)?.health).toBe(CAVE_DOG.health - SLASH_DAMAGE);
-    expect(world.findSlash(id)).toMatchObject({ isHit: true });
+    expect(world.describePrivateView(id)?.slash).toMatchObject({ isHit: true });
     expect(findDog(world, 1)?.mode ?? 'dead').toBe('dead');
   });
 
@@ -3051,7 +3143,7 @@ describe('a world of the cave', () => {
       x: before.x,
       z: before.z,
     });
-    expect(world.findSlash(id)).toBeNull();
+    expect(world.describePrivateView(id)?.slash).toBeNull();
     expect(world.takeEvents()).toEqual([]);
   });
 
@@ -3079,41 +3171,77 @@ describe('a world of the cave', () => {
     interactPlayer(world, id);
     world.step();
     expect(findPlayer(world, id).action).toBe('Slash');
-    expect(world.findSlash(id)).toMatchObject({ isHit: true });
+    expect(world.describePrivateView(id)?.slash).toMatchObject({ isHit: true });
     stepTimes(world, TALK_STEPS + 1);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
   });
 
   it('has Edwin plead, tell who he is, and give his message', () => {
     const [world, id] = enterCave();
     faceEdwin(world, id);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     talkTo(world, id);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'edwin',
       line: 'dialogue.edwin.plea',
       replies: ['dialogue.edwin.askWho'],
       turn: 1,
     });
-    expect(world.findAcquaintances(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.acquaintances).toEqual([]);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'edwin',
       line: 'dialogue.edwin.identity',
       replies: ['dialogue.edwin.offerKey'],
       turn: 2,
     });
-    expect(world.findAcquaintances(id)).toEqual(['edwin']);
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.acquaintances).toEqual(['edwin']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       line: 'dialogue.edwin.errand',
       replies: [],
     });
-    expect(world.findInventory(id)).toEqual(['clovervale-message']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'clovervale-message',
+    ]);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     expect(world.takeSpeeches(id)).toEqual([]);
+  });
+
+  it('opens the main plot as the player comes down for the first time', () => {
+    const [world, id] = enterCave();
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'clovervale', stage: 'entered' },
+    ]);
+  });
+
+  it('moves the main plot on as Edwin gives his message', () => {
+    const [world, id] = enterCave();
+    faceEdwin(world, id);
+    talkTo(world, id);
+    reply(world, id, 0);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'clovervale', stage: 'entered' },
+    ]);
+    reply(world, id, 0);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'clovervale', stage: 'message' },
+    ]);
+  });
+
+  it('ends the main plot as Edwin gives his message after Martha is beaten', () => {
+    const [world, id] = enterCave([], false, undefined, [
+      new ClovervaleQuest('token'),
+    ]);
+    faceEdwin(world, id);
+    talkTo(world, id);
+    reply(world, id, 0);
+    reply(world, id, 0);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'clovervale', stage: 'done' },
+    ]);
   });
 
   it('ignores a reply that is not offered', () => {
@@ -3121,7 +3249,7 @@ describe('a world of the cave', () => {
     faceEdwin(world, id);
     talkTo(world, id);
     reply(world, id, 1);
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       line: 'dialogue.edwin.plea',
       turn: 1,
     });
@@ -3135,12 +3263,14 @@ describe('a world of the cave', () => {
     reply(world, id, 0);
     reply(world, id, 0);
     talkTo(world, id);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     expect(world.takeSpeeches(id)).toEqual([
       { villager: 'edwin', line: 'dialogue.edwin.reminder' },
     ]);
     expect(world.takeSpeeches(id)).toEqual([]);
-    expect(world.findInventory(id)).toEqual(['clovervale-message']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'clovervale-message',
+    ]);
   });
 
   it('has Edwin write his message again for a player who lost it', () => {
@@ -3157,18 +3287,20 @@ describe('a world of the cave', () => {
       after: 0,
     });
     world.step();
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
     talkTo(world, id);
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       line: 'dialogue.edwin.wonder',
       replies: ['dialogue.edwin.tellLost'],
     });
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       line: 'dialogue.edwin.rewrite',
       replies: [],
     });
-    expect(world.findInventory(id)).toEqual(['clovervale-message']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'clovervale-message',
+    ]);
   });
 
   it('lays his message at the feet of a player with a full bag', () => {
@@ -3193,7 +3325,7 @@ describe('a world of the cave', () => {
     const [world, id] = enterCave([], true);
     faceEdwin(world, id);
     talkTo(world, id);
-    expect(world.findDialogue(id)).not.toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).not.toBeNull();
     const player: PlayerState = findPlayer(world, id);
     const dogs: MonsterState[] = world.listMonsters();
     steerPlayer(world, id, { x: 0, z: 1 });
@@ -3207,7 +3339,7 @@ describe('a world of the cave', () => {
     reply(world, id, 0);
     reply(world, id, 0);
     reply(world, id, 0);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     steerPlayer(world, id, { x: 0, z: 0 });
     stepTimes(world, 10 * SIMULATION_RATE);
     expect(world.listMonsters()).not.toEqual(dogs);
@@ -3222,7 +3354,7 @@ describe('Martha in the village', () => {
   const SIT_STEPS: number = MARTHA.respawnDelay * SIMULATION_RATE;
 
   /** Where Martha stands on her porch. */
-  const PORCH: Placement = findPlacement('npc-martha.glb');
+  const PORCH: Placement = findPlacement('martha');
 
   /** The number of the latest player a test has had climb out. */
   let lastClimber = 100;
@@ -3234,7 +3366,7 @@ describe('Martha in the village', () => {
    * @returns {World} The village.
    */
   function createVillage(): World {
-    return new World(createRandom(), { monsters: [] });
+    return new World(createRandom(), RESIDENT_FACTORIES, { monsters: [] });
   }
 
   /**
@@ -3245,34 +3377,26 @@ describe('Martha in the village', () => {
    *   nothing by default.
    * @param {readonly Villager['id'][]} [known] - The villagers who have
    *   told the player who they are, none by default.
-   * @param {QuestLog} [quests] - How far the player has got with the
-   *   quests, none by default.
+   * @param {readonly Quest[]} [quests] - The quests the player has opened,
+   *   the main plot, just begun, by default.
    * @returns {Player} The player.
    */
   function climbOut(
     world: World,
     carried: readonly ItemKindId[] = [],
     known: readonly Villager['id'][] = [],
-    quests: QuestLog = {},
+    quests: readonly Quest[] = [new ClovervaleQuest()],
   ): Player {
-    const player: Player = {
+    const player = new Player({
       id: ++lastClimber,
       appearance: 1,
       mover: new AuthoritativePlayer(createMotion(CAVE_LANDING, 0)),
       health: PLAYER_HEALTH,
-      deathSteps: 0,
-      lastSlash: null,
       inventory: [...carried],
       silver: 0,
       acquaintances: [...known],
-      quests: { ...quests },
-      dialogue: null,
-      turnCount: 0,
-      isHunted: false,
-      speeches: [],
-      sayings: [],
-      saidStep: null,
-    };
+      quests,
+    });
     world.admitPlayer(player, WELL_STAND);
     return player;
   }
@@ -3391,7 +3515,7 @@ describe('Martha in the village', () => {
       measureDistance(findMartha(world), findPlayer(world, id)),
     ).toBeLessThanOrEqual(1.2);
     expect(findMartha(world).isArmed).toBe(true);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'martha',
       line: 'dialogue.martha.ask',
       replies: ['dialogue.martha.tellPrisoner'],
@@ -3403,11 +3527,11 @@ describe('Martha in the village', () => {
     const world: World = createVillage();
     const { id }: Player = climbOut(world, [], ['edwin']);
     waitForMartha(world, 'talk');
-    expect(world.findDialogue(id)?.replies).toEqual([
+    expect(world.describePrivateView(id)?.dialogue?.replies).toEqual([
       'dialogue.martha.tellEnvoy',
     ]);
     reply(world, id);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'martha',
       line: 'dialogue.martha.confession',
       replies: [],
@@ -3432,9 +3556,33 @@ describe('Martha in the village', () => {
     expect(isAtWall).toBe(true);
   });
 
-  it('lets a player that carries her token be', () => {
+  it('lets a player be that has beaten her, with the message or not', () => {
+    for (const stage of ['token', 'done'] as const) {
+      const world: World = createVillage();
+      climbOut(world, [], [], [new ClovervaleQuest(stage)]);
+      stepTimes(world, 5 * SIMULATION_RATE);
+      expect(findMartha(world)).toMatchObject({
+        mode: 'idle',
+        x: PORCH.x,
+        z: PORCH.z,
+      });
+    }
+  });
+
+  it('counts being beaten by a player before Edwin gave it his message', () => {
     const world: World = createVillage();
-    climbOut(world, ['spy-token']);
+    const id: number = startFight(world);
+    beatMartha(world, id);
+    expect(findMartha(world).mode).toBe('sit');
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'clovervale', stage: 'token' },
+    ]);
+  });
+
+  it('lets a player be that leaves before she sets out to it', () => {
+    const world: World = createVillage();
+    const { id }: Player = climbOut(world);
+    world.removePlayer(id);
     stepTimes(world, 5 * SIMULATION_RATE);
     expect(findMartha(world)).toMatchObject({
       mode: 'idle',
@@ -3443,10 +3591,38 @@ describe('Martha in the village', () => {
     });
   });
 
+  it('ends the main plot of a player with the message who beats her', () => {
+    const world: World = createVillage();
+    const { id }: Player = climbOut(
+      world,
+      ['clovervale-message'],
+      ['edwin'],
+      [new ClovervaleQuest('message')],
+    );
+    waitForMartha(world, 'talk');
+    world.step();
+    reply(world, id);
+    reply(world, id);
+    world.step();
+    expect(findMartha(world).mode).toBe('chase');
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'clovervale', stage: 'message' },
+    ]);
+    beatMartha(world, id);
+    expect(findMartha(world).mode).toBe('sit');
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'clovervale', stage: 'done' },
+    ]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'clovervale-message',
+      'spy-token',
+    ]);
+  });
+
   it('fights the player once the dialogue is over, with her pitchfork', () => {
     const world: World = createVillage();
     const id: number = startFight(world);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     expect(findMartha(world).mode).toBe('chase');
     world.takeEvents();
     stepTimes(world, 3 * SIMULATION_RATE);
@@ -3470,8 +3646,8 @@ describe('Martha in the village', () => {
       action: 'Sit',
       isArmed: false,
     });
-    expect(world.findInventory(id)).toEqual(['spy-token']);
-    expect(world.findSilver(id)).toBe(0);
+    expect(world.describePrivateView(id)?.inventory).toEqual(['spy-token']);
+    expect(world.describePrivateView(id)?.silver).toBe(0);
     stepTimes(world, SIT_STEPS);
     expect(findMartha(world)).toMatchObject({
       mode: 'return',
@@ -3523,7 +3699,7 @@ describe('Martha in the village', () => {
     walkPlayer(world, id, WELL_STAND);
     waitForMartha(world, 'chase', 3);
     expect(findMartha(world).mode).toBe('chase');
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
   });
 
   it('hunts a player she has killed, once it is back', () => {
@@ -3621,11 +3797,13 @@ describe('Martha in the village', () => {
     const first: number = startFight(world);
     const { id: second }: Player = climbOut(world);
     stepTimes(world, SIMULATION_RATE);
-    expect(world.findDialogue(second)).toBeNull();
+    expect(world.describePrivateView(second)?.dialogue).toBeNull();
     beatMartha(world, first);
     stepTimes(world, SIT_STEPS);
     waitForMartha(world, 'talk');
-    expect(world.findDialogue(second)?.villager).toBe('martha');
+    expect(world.describePrivateView(second)?.dialogue?.villager).toBe(
+      'martha',
+    );
   });
 
   /** Where a player stands before Martha on her porch, facing her. */
@@ -3640,32 +3818,24 @@ describe('Martha in the village', () => {
    *
    * @param {World} world - The village.
    * @param {readonly ItemKindId[]} carried - What the player carries.
-   * @param {QuestLog} quests - How far the player has got with the quests.
+   * @param {readonly Quest[]} quests - The quests the player has opened.
    * @returns {number} The identifier of the player.
    */
   function admitVisitor(
     world: World,
     carried: readonly ItemKindId[],
-    quests: QuestLog,
+    quests: readonly Quest[],
   ): number {
-    const player: Player = {
+    const player = new Player({
       id: ++lastClimber,
       appearance: 1,
       mover: new AuthoritativePlayer(createMotion(PLAZA_CENTRE, 0)),
       health: PLAYER_HEALTH,
-      deathSteps: 0,
-      lastSlash: null,
       inventory: [...carried],
       silver: 0,
       acquaintances: [],
-      quests: { ...quests },
-      dialogue: null,
-      turnCount: 0,
-      isHunted: false,
-      speeches: [],
-      sayings: [],
-      saidStep: null,
-    };
+      quests,
+    });
     world.admitPlayer(player, null);
     return player.id;
   }
@@ -3696,106 +3866,132 @@ describe('Martha in the village', () => {
 
   it('gives her ointment to a player on the quest of Toby, hurt', () => {
     const world: World = createVillage();
-    const id: number = admitVisitor(world, [], { 'toby-hurt': 'started' });
+    const id: number = admitVisitor(world, [], [new TobyQuest('started')]);
     expect(talkToMartha(world, id)).toEqual([]);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'martha',
       line: 'dialogue.martha.welcome',
       replies: ['dialogue.martha.askMedicine'],
       turn: 1,
     });
     reply(world, id);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'martha',
       line: 'dialogue.martha.ointment',
       replies: [],
       turn: 2,
     });
-    expect(world.findInventory(id)).toEqual(['martha-ointment']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'martha-ointment',
+    ]);
     reply(world, id);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     expect(findMartha(world)).toMatchObject({ mode: 'idle', isArmed: false });
-    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'supplied' });
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'toby-hurt', stage: 'supplied' },
+    ]);
   });
 
   it('only tells a player who carries her ointment to hurry', () => {
     for (const stage of ['started', 'supplied'] as const) {
       const world: World = createVillage();
-      const id: number = admitVisitor(world, ['martha-ointment'], {
-        'toby-hurt': stage,
-      });
+      const id: number = admitVisitor(
+        world,
+        ['martha-ointment'],
+        [new TobyQuest(stage)],
+      );
       expect(talkToMartha(world, id)).toEqual([
         'martha:dialogue.martha.hurry',
       ]);
-      expect(world.findDialogue(id)).toBeNull();
-      expect(world.findInventory(id)).toEqual(['martha-ointment']);
+      expect(world.describePrivateView(id)?.dialogue).toBeNull();
+      expect(world.describePrivateView(id)?.inventory).toEqual([
+        'martha-ointment',
+      ]);
     }
   });
 
   it('asks after Toby and gives another jar to a player who lost hers', () => {
     const world: World = createVillage();
-    const id: number = admitVisitor(world, [], { 'toby-hurt': 'started' });
+    const id: number = admitVisitor(world, [], [new TobyQuest('started')]);
     talkToMartha(world, id);
     reply(world, id);
     reply(world, id);
     dropItem(world, id);
     world.step();
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
     talkToMartha(world, id);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'martha',
       line: 'dialogue.martha.wonder',
       replies: ['dialogue.martha.tellLost'],
       turn: 3,
     });
     reply(world, id);
-    expect(world.findDialogue(id)).toEqual({
+    expect(world.describePrivateView(id)?.dialogue).toEqual({
       villager: 'martha',
       line: 'dialogue.martha.replace',
       replies: [],
       turn: 4,
     });
-    expect(world.findInventory(id)).toEqual(['martha-ointment']);
-    expect(world.findQuests(id)).toEqual({ 'toby-hurt': 'supplied' });
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'martha-ointment',
+    ]);
+    expect(tellQuests(world, id)).toEqual([
+      { id: 'toby-hurt', stage: 'supplied' },
+    ]);
     reply(world, id);
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     expect(talkToMartha(world, id)).toEqual(['martha:dialogue.martha.hurry']);
   });
 
   it('asks after Toby whenever a player she has supplied comes without', () => {
     const world: World = createVillage();
-    const id: number = admitVisitor(world, [], { 'toby-hurt': 'supplied' });
+    const id: number = admitVisitor(world, [], [new TobyQuest('supplied')]);
     expect(talkToMartha(world, id)).toEqual([]);
-    expect(world.findDialogue(id)?.line).toBe('dialogue.martha.wonder');
+    expect(world.describePrivateView(id)?.dialogue?.line).toBe(
+      'dialogue.martha.wonder',
+    );
     reply(world, id);
-    expect(world.findInventory(id)).toEqual(['martha-ointment']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'martha-ointment',
+    ]);
   });
 
   it('gives her ointment to a player on the quest who has beaten her', () => {
     const world: World = createVillage();
-    const id: number = admitVisitor(world, ['spy-token'], {
-      'toby-hurt': 'started',
-    });
+    const id: number = admitVisitor(
+      world,
+      ['spy-token'],
+      [new TobyQuest('started')],
+    );
     talkToMartha(world, id);
     reply(world, id);
-    expect(world.findInventory(id)).toEqual(['spy-token', 'martha-ointment']);
+    expect(world.describePrivateView(id)?.inventory).toEqual([
+      'spy-token',
+      'martha-ointment',
+    ]);
   });
 
   it('says nothing of the quest to a player not on it', () => {
-    for (const quests of [{}, { 'toby-hurt': 'done' }] as const) {
+    for (const quests of [[], [new TobyQuest('done')]]) {
       const world: World = createVillage();
       const id: number = admitVisitor(world, [], quests);
       expect(talkToMartha(world, id)).toEqual([]);
-      expect(world.findDialogue(id)).toBeNull();
-      expect(world.findInventory(id)).toEqual([]);
+      expect(world.describePrivateView(id)?.dialogue).toBeNull();
+      expect(world.describePrivateView(id)?.inventory).toEqual([]);
     }
   });
 
   it('comes up to a player on the quest who climbs out of the well', () => {
     const world: World = createVillage();
-    const { id }: Player = climbOut(world, [], [], { 'toby-hurt': 'started' });
+    const { id }: Player = climbOut(
+      world,
+      [],
+      [],
+      [new ClovervaleQuest(), new TobyQuest('started')],
+    );
     waitForMartha(world, 'talk');
-    expect(world.findDialogue(id)).toMatchObject({
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
       villager: 'martha',
       line: 'dialogue.martha.ask',
     });
@@ -3803,20 +3999,79 @@ describe('Martha in the village', () => {
     reply(world, id);
     world.step();
     expect(findMartha(world).mode).toBe('chase');
-    expect(world.findInventory(id)).toEqual([]);
+    expect(world.describePrivateView(id)?.inventory).toEqual([]);
   });
 
   it('ends a talk of the quest as she sets out to a player out of the well', () => {
     const world: World = createVillage();
-    const id: number = admitVisitor(world, [], { 'toby-hurt': 'started' });
+    const id: number = admitVisitor(world, [], [new TobyQuest('started')]);
     talkToMartha(world, id);
-    expect(world.findDialogue(id)?.line).toBe('dialogue.martha.welcome');
+    expect(world.describePrivateView(id)?.dialogue?.line).toBe(
+      'dialogue.martha.welcome',
+    );
     const { id: climber }: Player = climbOut(world);
     world.step();
     expect(findMartha(world).mode).toBe('approach');
-    expect(world.findDialogue(id)).toBeNull();
+    expect(world.describePrivateView(id)?.dialogue).toBeNull();
     waitForMartha(world, 'talk');
-    expect(world.findDialogue(climber)?.line).toBe('dialogue.martha.ask');
+    expect(world.describePrivateView(climber)?.dialogue?.line).toBe(
+      'dialogue.martha.ask',
+    );
+  });
+});
+
+/**
+ * Admits a player with some quests into a new village, and has it leave.
+ *
+ * @param {readonly Quest[]} quests - The quests of the player.
+ * @returns {{ world: World; player: Player }} The village, and the player
+ *   who has left it.
+ */
+function leaveVillage(quests: readonly Quest[]): {
+  world: World;
+  player: Player;
+} {
+  const world = new World(createRandom(), RESIDENT_FACTORIES, {
+    monsters: [],
+  });
+  const player = new Player({
+    id: 1,
+    appearance: 1,
+    mover: new AuthoritativePlayer(createMotion(CAVE_LANDING, 0)),
+    quests,
+  });
+  world.admitPlayer(player, WELL_STAND);
+  world.removePlayer(player.id);
+  return { world, player };
+}
+
+describe('the quests of a player who leaves the village', () => {
+  it('are no longer moved on by the villagers there', () => {
+    const { world, player } = leaveVillage([
+      new TobyQuest('started'),
+      new ClovervaleQuest('message'),
+    ]);
+    const martha: EventTarget | undefined = world.findResident('martha');
+    if (martha === undefined) {
+      throw new Error('Martha is not in the village.');
+    }
+    martha.dispatchEvent(new StoryEvent('ointment-given', player.id));
+    martha.dispatchEvent(new StoryEvent('martha-beaten', player.id));
+    expect(player.quests.map((quest: Quest) => quest.toJSON())).toEqual([
+      { id: 'toby-hurt', stage: 'started' },
+      { id: 'clovervale', stage: 'message' },
+    ]);
+  });
+
+  it('are not opened by anything that happens there', () => {
+    const { world, player } = leaveVillage([]);
+    const toby: EventTarget | undefined = world.findResident('toby');
+    if (toby === undefined) {
+      throw new Error('Toby is not in the village.');
+    }
+    toby.dispatchEvent(new StoryEvent('fall-told', player.id));
+    world.dispatchEvent(new MapEntryEvent(player.id, 'cave', null));
+    expect(player.quests).toEqual([]);
   });
 });
 
@@ -3835,24 +4090,16 @@ const SPEAKER_SPOT: GroundVector = { x: -3, z: 4 };
  * @returns {number} The identifier of the player.
  */
 function admitSpeaker(world: World, id: number, place: GroundVector): number {
-  const player: Player = {
+  const player = new Player({
     id,
     appearance: 1,
     mover: new AuthoritativePlayer(createMotion(place, 0)),
     health: PLAYER_HEALTH,
-    deathSteps: 0,
-    lastSlash: null,
     inventory: ['spy-token'],
     silver: 0,
     acquaintances: [],
-    quests: {},
-    dialogue: null,
-    turnCount: 0,
-    isHunted: false,
-    speeches: [],
-    sayings: [],
-    saidStep: null,
-  };
+    quests: [],
+  });
   world.admitPlayer(player, { ...place, yaw: 0 });
   return id;
 }
@@ -3873,19 +4120,21 @@ function admitListener(world: World, id: number, distance: number): number {
 
 describe('a player who says a line', () => {
   it('is heard by itself and by the players within range', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const near: number = admitListener(world, 2, 1.5);
     const edge: number = admitListener(world, 3, SAY_RANGE);
     world.say(speaker, 'Hello there!');
-    const said: Saying[] = [{ player: speaker, text: 'Hello there!' }];
+    const said: Saying[] = [
+      { kind: 'say', player: speaker, text: 'Hello there!' },
+    ];
     expect(world.takeSayings(speaker)).toEqual(said);
     expect(world.takeSayings(near)).toEqual(said);
     expect(world.takeSayings(edge)).toEqual(said);
   });
 
   it('is not heard by a player out of range', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const far: number = admitListener(world, 2, SAY_RANGE + 0.1);
     world.say(speaker, 'Hello there!');
@@ -3894,19 +4143,19 @@ describe('a player who says a line', () => {
   });
 
   it('is heard from where it stands as it speaks', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const listener: number = admitListener(world, 2, SAY_RANGE + 2);
     steerPlayer(world, speaker, { x: 1, z: 0 });
     stepTimes(world, Math.ceil(2.5 / STEP_DISTANCE));
     world.say(speaker, 'Coming!');
     expect(world.takeSayings(listener)).toEqual([
-      { player: speaker, text: 'Coming!' },
+      { kind: 'say', player: speaker, text: 'Coming!' },
     ]);
   });
 
   it('is told to each player who heard it once', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     world.say(speaker, 'Hello there!');
     expect(world.takeSayings(speaker)).toHaveLength(1);
@@ -3914,46 +4163,46 @@ describe('a player who says a line', () => {
   });
 
   it('says its line as plain text, trimmed, with its line breaks', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     world.say(speaker, '  <b>one</b>\r\n\ntwo\u0007three  \n');
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, text: '<b>one</b>\ntwo three' },
+      { kind: 'say', player: speaker, text: '<b>one</b>\ntwo three' },
     ]);
   });
 
   it('says a line of four rows at most, whatever its peer sent', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     world.say(speaker, 'a\n'.repeat(60));
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, text: `a\na\na\n${'a '.repeat(46)}a` },
+      { kind: 'say', player: speaker, text: `a\na\na\n${'a '.repeat(46)}a` },
     ]);
   });
 
   it('says no more than a line may hold, whatever its peer sent', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     world.say(speaker, '葉'.repeat(SAY_LENGTH_LIMIT * 3));
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, text: '葉'.repeat(SAY_LENGTH_LIMIT) },
+      { kind: 'say', player: speaker, text: '葉'.repeat(SAY_LENGTH_LIMIT) },
     ]);
   });
 
   it('says nothing of an empty line', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     world.say(speaker, ' \n ');
     expect(world.takeSayings(speaker)).toEqual([]);
     // An empty line does not keep the next one from being said.
     world.say(speaker, 'Now then.');
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, text: 'Now then.' },
+      { kind: 'say', player: speaker, text: 'Now then.' },
     ]);
   });
 
   it('says one line at most in the time between two lines', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const listener: number = admitListener(world, 2, 1.5);
     world.say(speaker, 'One.');
@@ -3962,27 +4211,27 @@ describe('a player who says a line', () => {
     world.step();
     world.say(speaker, 'Three.');
     const said: Saying[] = [
-      { player: speaker, text: 'One.' },
-      { player: speaker, text: 'Three.' },
+      { kind: 'say', player: speaker, text: 'One.' },
+      { kind: 'say', player: speaker, text: 'Three.' },
     ];
     expect(world.takeSayings(listener)).toEqual(said);
     expect(world.takeSayings(speaker)).toEqual(said);
   });
 
   it('does not keep another player from saying a line at once', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const other: number = admitListener(world, 2, 1.5);
     world.say(speaker, 'One.');
     world.say(other, 'Two.');
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, text: 'One.' },
-      { player: other, text: 'Two.' },
+      { kind: 'say', player: speaker, text: 'One.' },
+      { kind: 'say', player: other, text: 'Two.' },
     ]);
   });
 
   it('says nothing for a player who is not in the world', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const listener: number = admitListener(world, 1, 0);
     world.say(99, 'Hello there!');
     expect(world.takeSayings(listener)).toEqual([]);
@@ -3992,12 +4241,14 @@ describe('a player who says a line', () => {
 
 describe('a player who says a phrase', () => {
   it('is heard by itself and by the players within range', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const near: number = admitListener(world, 2, 1.5);
     const edge: number = admitListener(world, 3, SAY_RANGE);
     world.sayPhrase(speaker, 'askInn');
-    const said: Saying[] = [{ player: speaker, phrase: 'askInn' }];
+    const said: Saying[] = [
+      { kind: 'phrase', player: speaker, phrase: 'askInn' },
+    ];
     expect(world.takeSayings(speaker)).toEqual(said);
     expect(world.takeSayings(near)).toEqual(said);
     expect(world.takeSayings(edge)).toEqual(said);
@@ -4005,7 +4256,7 @@ describe('a player who says a phrase', () => {
   });
 
   it('is not heard by a player out of range', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const far: number = admitListener(world, 2, SAY_RANGE + 0.1);
     world.sayPhrase(speaker, 'askInn');
@@ -4018,7 +4269,7 @@ describe('a player who says a phrase', () => {
     ['a code of no phrase there is', 'askTheTime'],
     ['an empty code', ''],
   ])('says nothing of %s', (_, code) => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     const listener: number = admitListener(world, 2, 1.5);
     world.sayPhrase(speaker, code);
@@ -4027,12 +4278,12 @@ describe('a player who says a phrase', () => {
     // What is not said does not keep the next phrase from being said.
     world.sayPhrase(speaker, 'askInn');
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, phrase: 'askInn' },
+      { kind: 'phrase', player: speaker, phrase: 'askInn' },
     ]);
   });
 
   it('says one phrase at most in the time between two lines', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     world.sayPhrase(speaker, 'askInn');
     stepTimes(world, SAY_INTERVAL_STEPS - 1);
@@ -4040,13 +4291,13 @@ describe('a player who says a phrase', () => {
     world.step();
     world.sayPhrase(speaker, 'askBasil');
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, phrase: 'askInn' },
-      { player: speaker, phrase: 'askBasil' },
+      { kind: 'phrase', player: speaker, phrase: 'askInn' },
+      { kind: 'phrase', player: speaker, phrase: 'askBasil' },
     ]);
   });
 
   it('shares that time with the lines the player types', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const speaker: number = admitListener(world, 1, 0);
     world.sayPhrase(speaker, 'askInn');
     stepTimes(world, SAY_INTERVAL_STEPS - 1);
@@ -4058,14 +4309,14 @@ describe('a player who says a phrase', () => {
     world.step();
     world.sayPhrase(speaker, 'askEmma');
     expect(world.takeSayings(speaker)).toEqual([
-      { player: speaker, phrase: 'askInn' },
-      { player: speaker, text: 'Anyone?' },
-      { player: speaker, phrase: 'askEmma' },
+      { kind: 'phrase', player: speaker, phrase: 'askInn' },
+      { kind: 'say', player: speaker, text: 'Anyone?' },
+      { kind: 'phrase', player: speaker, phrase: 'askEmma' },
     ]);
   });
 
   it('says nothing for a player who is not in the world', () => {
-    const world = new World(createRandom());
+    const world = new World(createRandom(), RESIDENT_FACTORIES);
     const listener: number = admitListener(world, 1, 0);
     world.sayPhrase(99, 'askInn');
     expect(world.takeSayings(listener)).toEqual([]);

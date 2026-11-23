@@ -50,8 +50,8 @@ import { TalkWatch } from '../src/talk-watch.ts';
 /** A player south of Nancy the villager, facing her. */
 const BY_NANCY: PlayerMotion = createMotion(
   {
-    x: findPlacement('npc-nancy.glb').x,
-    z: findPlacement('npc-nancy.glb').z + TALK_REACH - 0.1,
+    x: findPlacement('nancy').x,
+    z: findPlacement('nancy').z + TALK_REACH - 0.1,
   },
   180,
 );

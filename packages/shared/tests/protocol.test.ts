@@ -24,9 +24,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ClovervaleQuest,
   INVENTORY_SIZE,
   NO_WORLD_ITEMS,
   PROTOCOL_VERSION,
+  TobyQuest,
   createEventsMessage,
   createInteractMessage,
   createMapMessage,
@@ -52,6 +54,7 @@ import type {
   InputProgress,
   MonsterState,
   PlayerState,
+  Quest,
   SlashJudgement,
   SnapshotMessage,
 } from '../src/index.ts';
@@ -129,7 +132,7 @@ const NOTHING_TO_PICK = {
   silver: 0,
   dialogue: null,
   acquaintances: [],
-  quests: {},
+  quests: [],
 } as const;
 
 /** A dialogue, to put in snapshots. */
@@ -165,19 +168,21 @@ function createPlainSnapshot(
   monsters: readonly MonsterState[],
   own: InputProgress,
 ): SnapshotMessage {
-  return createSnapshotMessage(
+  return createSnapshotMessage({
     step,
     players,
     monsters,
-    own,
-    null,
-    NO_WORLD_ITEMS,
-    [],
-    null,
-    [],
-    {},
-    0,
-  );
+    world: NO_WORLD_ITEMS,
+    view: {
+      own,
+      slash: null,
+      inventory: [],
+      silver: 0,
+      dialogue: null,
+      acquaintances: [],
+      quests: [],
+    },
+  });
 }
 
 describe('the server message codec', () => {
@@ -303,19 +308,21 @@ describe('the server message codec', () => {
   });
 
   it('decodes a snapshot message that tells how a slash was judged', () => {
-    const message = createSnapshotMessage(
-      42,
-      [PLAYER],
-      [],
-      OWN,
-      SLASH,
-      NO_WORLD_ITEMS,
-      [],
-      null,
-      [],
-      {},
-      0,
-    );
+    const message = createSnapshotMessage({
+      step: 42,
+      players: [PLAYER],
+      monsters: [],
+      world: NO_WORLD_ITEMS,
+      view: {
+        own: OWN,
+        slash: SLASH,
+        inventory: [],
+        silver: 0,
+        dialogue: null,
+        acquaintances: [],
+        quests: [],
+      },
+    });
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       ...NOTHING_TO_PICK,
@@ -623,19 +630,21 @@ describe('the server message codec', () => {
 
   it('decodes a snapshot message that tells what there is to pick', () => {
     const second: GroundItem = { ...ITEM, id: 9, x: -1 };
-    const message = createSnapshotMessage(
-      42,
-      [PLAYER],
-      [],
-      OWN,
-      null,
-      { clovers: [0, 3, 10], items: [ITEM, second] },
-      ['clover', 'clover'],
-      null,
-      [],
-      {},
-      0,
-    );
+    const message = createSnapshotMessage({
+      step: 42,
+      players: [PLAYER],
+      monsters: [],
+      world: { clovers: [0, 3, 10], items: [ITEM, second] },
+      view: {
+        own: OWN,
+        slash: null,
+        inventory: ['clover', 'clover'],
+        silver: 0,
+        dialogue: null,
+        acquaintances: [],
+        quests: [],
+      },
+    });
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
       type: 'snapshot',
       step: 42,
@@ -651,24 +660,26 @@ describe('the server message codec', () => {
       silver: 0,
       dialogue: null,
       acquaintances: [],
-      quests: {},
+      quests: [],
     });
   });
 
   it('decodes a snapshot message that tells how many silver coins the player has', () => {
-    const message = createSnapshotMessage(
-      42,
-      [PLAYER],
-      [],
-      OWN,
-      null,
-      { clovers: [], items: [] },
-      ['clover'],
-      null,
-      [],
-      {},
-      12,
-    );
+    const message = createSnapshotMessage({
+      step: 42,
+      players: [PLAYER],
+      monsters: [],
+      world: { clovers: [], items: [] },
+      view: {
+        own: OWN,
+        slash: null,
+        inventory: ['clover'],
+        silver: 12,
+        dialogue: null,
+        acquaintances: [],
+        quests: [],
+      },
+    });
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
       type: 'snapshot',
       inventory: ['clover'],
@@ -696,19 +707,21 @@ describe('the server message codec', () => {
   });
 
   it('decodes a snapshot message that tells which containers are looted', () => {
-    const message = createSnapshotMessage(
-      42,
-      [PLAYER],
-      [],
-      OWN,
-      null,
-      { clovers: [], items: [], looted: [0, 4] },
-      ['sword', 'leather-armour', 'clover'],
-      null,
-      [],
-      {},
-      0,
-    );
+    const message = createSnapshotMessage({
+      step: 42,
+      players: [PLAYER],
+      monsters: [],
+      world: { clovers: [], items: [], looted: [0, 4] },
+      view: {
+        own: OWN,
+        slash: null,
+        inventory: ['sword', 'leather-armour', 'clover'],
+        silver: 0,
+        dialogue: null,
+        acquaintances: [],
+        quests: [],
+      },
+    });
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
       type: 'snapshot',
       looted: [0, 4],
@@ -717,19 +730,21 @@ describe('the server message codec', () => {
   });
 
   it('decodes a snapshot message that tells when Toby last took a clover', () => {
-    const message = createSnapshotMessage(
-      342,
-      [PLAYER],
-      [],
-      OWN,
-      null,
-      { clovers: [0, 3], items: [], tobyFind: 197 },
-      [],
-      null,
-      [],
-      {},
-      0,
-    );
+    const message = createSnapshotMessage({
+      step: 342,
+      players: [PLAYER],
+      monsters: [],
+      world: { clovers: [0, 3], items: [], tobyFind: 197 },
+      view: {
+        own: OWN,
+        slash: null,
+        inventory: [],
+        silver: 0,
+        dialogue: null,
+        acquaintances: [],
+        quests: [],
+      },
+    });
     expect(message.tobyFind).toBe(197);
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
       type: 'snapshot',
@@ -817,19 +832,21 @@ describe('the server message codec', () => {
   });
 
   it('decodes a snapshot message that tells of a dialogue', () => {
-    const message = createSnapshotMessage(
-      4,
-      [PLAYER],
-      [],
-      OWN,
-      null,
-      NO_WORLD_ITEMS,
-      ['clovervale-message'],
-      DIALOGUE,
-      ['edwin'],
-      {},
-      0,
-    );
+    const message = createSnapshotMessage({
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      world: NO_WORLD_ITEMS,
+      view: {
+        own: OWN,
+        slash: null,
+        inventory: ['clovervale-message'],
+        silver: 0,
+        dialogue: DIALOGUE,
+        acquaintances: ['edwin'],
+        quests: [],
+      },
+    });
     const decoded = decodeServerMessage(encodeServerMessage(message));
     expect(decoded).toEqual(message);
     expect(decoded).toMatchObject({
@@ -856,29 +873,52 @@ describe('the server message codec', () => {
   });
 
   it('decodes a snapshot message that tells how far the quests have got', () => {
-    const message = createSnapshotMessage(
-      4,
-      [PLAYER],
-      [],
-      OWN,
-      null,
-      NO_WORLD_ITEMS,
-      ['martha-ointment'],
-      null,
-      [],
-      { 'toby-hurt': 'started' },
-      0,
-    );
+    const message = createSnapshotMessage({
+      step: 4,
+      players: [PLAYER],
+      monsters: [],
+      world: NO_WORLD_ITEMS,
+      view: {
+        own: OWN,
+        slash: null,
+        inventory: ['martha-ointment'],
+        silver: 0,
+        dialogue: null,
+        acquaintances: [],
+        quests: [new TobyQuest('supplied'), new ClovervaleQuest()],
+      },
+    });
     const decoded = decodeServerMessage(encodeServerMessage(message));
     expect(decoded).toEqual(message);
-    expect(decoded).toMatchObject({ quests: { 'toby-hurt': 'started' } });
+    if (decoded.type !== 'snapshot') {
+      throw new Error('The message is no snapshot.');
+    }
+    const [toby, plot] = decoded.quests;
+    expect(toby).toBeInstanceOf(TobyQuest);
+    expect(plot).toBeInstanceOf(ClovervaleQuest);
+    expect(decoded.quests.map((quest: Quest) => quest.toJSON())).toEqual([
+      { id: 'toby-hurt', stage: 'supplied' },
+      { id: 'clovervale', stage: 'entered' },
+    ]);
   });
 
   it.each([
     ['are missing', { quests: undefined }],
-    ['are a list', { quests: ['toby-hurt'] }],
-    ['name no quest there is', { quests: { 'lost-dog': 'done' } }],
-    ['tell no stage there is', { quests: { 'toby-hurt': 'given up' } }],
+    ['are no list', { quests: { 'toby-hurt': 'started' } }],
+    ['name no quest there is', { quests: [{ id: 'lost-dog', stage: 'done' }] }],
+    [
+      'tell no stage of the quest',
+      { quests: [{ id: 'toby-hurt', stage: 'message' }] },
+    ],
+    [
+      'tell a quest twice',
+      {
+        quests: [
+          { id: 'clovervale', stage: 'entered' },
+          { id: 'clovervale', stage: 'done' },
+        ],
+      },
+    ],
   ])('rejects a snapshot whose quests %s', (_, flaw) => {
     const data = JSON.stringify({
       ...createPlainSnapshot(4, [PLAYER], [], OWN),

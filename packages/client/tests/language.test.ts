@@ -30,10 +30,10 @@ import {
   readSavedLanguage,
   saveLanguage,
 } from '../src/language.ts';
-import type { LanguageStorage } from '../src/language.ts';
+import type { PageStorage } from '../src/page-storage.ts';
 
 /** A storage that refuses every access, as a browser may. */
-const REFUSING_STORAGE: LanguageStorage = {
+const REFUSING_STORAGE: PageStorage = {
   getItem: (): string | null => {
     throw new Error('The storage is not available.');
   },
@@ -45,10 +45,10 @@ const REFUSING_STORAGE: LanguageStorage = {
 /**
  * Makes a storage that keeps its items in memory.
  *
- * @returns {LanguageStorage & { items: Map<string, string> }} The storage,
- *   with its items.
+ * @returns {PageStorage & { items: Map<string, string> }} The storage, with
+ *   its items.
  */
-function createStorage(): LanguageStorage & { items: Map<string, string> } {
+function createStorage(): PageStorage & { items: Map<string, string> } {
   const items = new Map<string, string>();
   return {
     items,

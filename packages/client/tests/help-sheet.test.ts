@@ -32,15 +32,15 @@ import {
   TOUCH_PAGE,
   openHelpOnFirstVisit,
 } from '../src/help-sheet.ts';
-import type { LanguageStorage } from '../src/language.ts';
+import type { PageStorage } from '../src/page-storage.ts';
 
 /**
  * Makes a storage that keeps its items in memory, as the local storage of
  * a browser does.
  *
- * @returns {LanguageStorage} The storage.
+ * @returns {PageStorage} The storage.
  */
-function createStorage(): LanguageStorage {
+function createStorage(): PageStorage {
   const items = new Map<string, string>();
   return {
     getItem: (key: string): string | null => items.get(key) ?? null,
@@ -51,7 +51,7 @@ function createStorage(): LanguageStorage {
 }
 
 /** A storage the browser does not let the page read or write. */
-const BROKEN_STORAGE: LanguageStorage = {
+const BROKEN_STORAGE: PageStorage = {
   getItem: (): string | null => {
     throw new Error('The storage is not allowed.');
   },
@@ -186,7 +186,7 @@ describe('the page of the credits on the help sheet', () => {
 
 describe('opening the help sheet on the first visit', () => {
   it('opens it on the first visit only', () => {
-    const storage: LanguageStorage = createStorage();
+    const storage: PageStorage = createStorage();
     const first = new HelpSheet();
     openHelpOnFirstVisit(first, storage, KEYBOARD_PAGE);
     expect(first.isOpen).toBe(true);

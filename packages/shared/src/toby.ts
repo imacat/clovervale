@@ -35,11 +35,9 @@
 import { CLOVER_PATCHES } from './items.ts';
 import { SIMULATION_RATE, WALK_SPEED, findYaw } from './movement.ts';
 import type { GroundVector } from './movement.ts';
+import type { Pusher } from './pusher.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
 import type { Pose, Terrain } from './terrain.ts';
-
-/** The file name of the model of Toby. */
-export const TOBY_FILE = 'npc-toby.glb';
 
 /** The radius of the body of Toby on the ground, in metres. */
 export const TOBY_RADIUS = 0.25;
@@ -433,3 +431,17 @@ export function measurePushReach(
   const near: number = REACH + ((TOBY_RUN_SPEED + WALK_SPEED) * span) / 1000;
   return measureFrom(position, findTobyPose(step)) <= near ? REACH : 0;
 }
+
+/**
+ * How Toby gets in the way of the players: where his course has him, as
+ * {@link findTobyPose} tells, how he pushes a player aside, as
+ * {@link pushAside} tells, and how he stops one that walks into him, as
+ * {@link resolveWalk} tells, with his run as the fastest he goes.
+ */
+export const TOBY_PUSHER: Pusher = {
+  reach: REACH,
+  speed: TOBY_RUN_SPEED,
+  locate: findTobyPose,
+  pushAside,
+  resolveWalk,
+};

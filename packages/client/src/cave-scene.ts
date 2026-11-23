@@ -43,32 +43,32 @@ import {
 import type { Material, Object3D, Texture } from 'three';
 import {
   RectAreaLightUniformsLib,
-} from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
+} from 'three/addons/lights/RectAreaLightUniformsLib.js';
 
 import {
   CAVE_CONTAINERS,
-  CAVE_CONTAINER_FILES,
+  CAVE_CONTAINER_MODELS,
   CAVE_FLAMES,
   CAVE_FLAME_HEIGHT,
   CAVE_MOUTH,
   CAVE_MOUTH_OUTLINE,
   CAVE_PASSAGE,
   CAVE_PLACEMENTS,
-  CAVE_TORCH_FILE,
   NOON,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
-  CaveContainerFiles,
+  CaveContainerModels,
   GroundVector,
-  Placement,
 } from '@clovervale/shared';
 
 import { Actor } from './actor.ts';
 import { findDaylight } from './daylight.ts';
 import type { DaylightLook } from './daylight.ts';
+import type { MapScene } from './map-scene.ts';
 import type { LoadedModel } from './model-loader.ts';
+import { createModelPlacer } from './model-placement.ts';
+import type { ModelPlacer } from './model-placement.ts';
 
 /** The colour of the dark beyond the torchlight. */
 const DARK_COLOUR = '#030204';
@@ -170,10 +170,11 @@ interface ContainerFigure {
   readonly open: Object3D | null;
 }
 
-/** The cave without its models, and its light. */
-export interface CaveScene {
-  /** The scene to add the models to. */
-  readonly scene: Scene;
+/**
+ * The cave, with its light, and the models that stand in it, once they are
+ * shown.
+ */
+export interface CaveScene extends MapScene {
   /**
    * Stands the models of the cave in it, those that are among the models,
    * the flames of the torches burning bright, unlit by anything, the
@@ -379,29 +380,15 @@ export function createCaveScene(): CaveScene {
   return {
     scene,
     populate: (models: readonly LoadedModel[]): void => {
-      const used = new Set<string>();
-      const stand = (placement: Placement): LoadedModel | null => {
-        const model: LoadedModel | undefined = models.find(
-          (candidate: LoadedModel) => candidate.file === placement.file,
-        );
-        if (model === undefined) {
-          return null;
-        }
-        // A model that stands in several places is copied for all but the
-        // first.
-        const root: Object3D = used.has(model.file)
-          ? clone(model.root)
-          : model.root;
-        used.add(model.file);
-        placeModel(scene, root, placement);
-        return { ...model, root };
-      };
+      // The models of the cave cast no shadows, which the torches do not
+      // cast.
+      const stand: ModelPlacer = createModelPlacer(scene, models);
       for (const placement of CAVE_PLACEMENTS) {
         const model: LoadedModel | null = stand(placement);
         if (model === null) {
           continue;
         }
-        if (placement.file === CAVE_TORCH_FILE) {
+        if (placement.model === 'cave-torch') {
           lightFlames(model.root);
         }
         if (model.clips.length > 0) {
@@ -414,11 +401,11 @@ export function createCaveScene(): CaveScene {
       }
       figures = CAVE_CONTAINERS.map(
         (container: CaveContainer): ContainerFigure => {
-          const files: CaveContainerFiles =
-            CAVE_CONTAINER_FILES[container.kind];
+          const { closed, open }: CaveContainerModels =
+            CAVE_CONTAINER_MODELS[container.kind];
           return {
-            closed: stand({ ...container, file: files.closed })?.root ?? null,
-            open: stand({ ...container, file: files.open })?.root ?? null,
+            closed: stand({ ...container, model: closed })?.root ?? null,
+            open: stand({ ...container, model: open })?.root ?? null,
           };
         },
       );
@@ -454,22 +441,4 @@ export function createCaveScene(): CaveScene {
       spill.intensity = SPILL_INTENSITY * strength;
     },
   };
-}
-
-/**
- * Stands a model of the cave in it, without shadows, which the torches do
- * not cast.
- *
- * @param {Scene} scene - The cave.
- * @param {Object3D} model - The root of the model.
- * @param {Placement} placement - Where the model stands.
- */
-function placeModel(
-  scene: Scene,
-  model: Object3D,
-  placement: Placement,
-): void {
-  model.position.set(placement.x, 0, placement.z);
-  model.rotation.y = (placement.yaw * Math.PI) / 180;
-  scene.add(model);
 }

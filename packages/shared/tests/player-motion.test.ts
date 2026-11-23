@@ -68,8 +68,8 @@ const BY_FOUNTAIN: PlayerMotion = createMotion(
 /** Where a player stands south of Nancy the villager, facing her. */
 const BY_NANCY: PlayerMotion = createMotion(
   {
-    x: findPlacement('npc-nancy.glb').x,
-    z: findPlacement('npc-nancy.glb').z + TALK_REACH - 0.1,
+    x: findPlacement('nancy').x,
+    z: findPlacement('nancy').z + TALK_REACH - 0.1,
   },
   180,
 );
@@ -401,7 +401,7 @@ describe('a player who interacts by Nancy', () => {
 
 describe('a player who walks into the scenery', () => {
   // The cottage by the plaza faces it, its front wall along the Z axis.
-  const cottage = findPlacement('prop-cottage.glb');
+  const cottage = findPlacement('cottage');
   const front: number = cottage.x + 2.35 + PLAYER_RADIUS;
 
   it('walks on the spot against what it walks straight into', () => {

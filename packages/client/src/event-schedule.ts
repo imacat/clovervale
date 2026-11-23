@@ -22,11 +22,8 @@
  *   the moment they happened is shown, and handing each out once.
  */
 
-import { SIMULATION_RATE } from '@clovervale/shared';
+import { STEP_MILLISECONDS } from '@clovervale/shared';
 import type { GameEvent } from '@clovervale/shared';
-
-/** How long one step of the simulation lasts, in milliseconds. */
-const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 
 /** The events from the server that are yet to be shown. */
 export class EventSchedule {

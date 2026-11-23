@@ -22,8 +22,8 @@
  *   as the page shows it.
  */
 
-import { DIALOGUE_REPLY_LIMIT, VILLAGERS } from '@clovervale/shared';
-import type { DialogueView, Villager, VillagerId } from '@clovervale/shared';
+import { DIALOGUE_REPLY_LIMIT, getVillager } from '@clovervale/shared';
+import type { DialogueView, VillagerId } from '@clovervale/shared';
 
 import type { DialogueBox, DialogueRequest } from './dialogue-box.ts';
 import { wordDialogueText } from './dialogue-words.ts';
@@ -163,14 +163,12 @@ export function createDialogueView(
     if (dialogue === null) {
       return null;
     }
-    const villager: Villager | undefined = VILLAGERS.find(
-      (candidate: Villager) => candidate.id === dialogue.villager,
-    );
     return {
-      name:
-        villager === undefined
-          ? ''
-          : describeVillager(translator, villager, acquaintances).name,
+      name: describeVillager(
+        translator,
+        getVillager(dialogue.villager),
+        acquaintances,
+      ).name,
       line: wordDialogueText(translator, dialogue.line),
       replies: dialogue.replies.map((reply: string) =>
         wordDialogueText(translator, reply),

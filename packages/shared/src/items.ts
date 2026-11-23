@@ -125,15 +125,12 @@ export const CLOVER_REGROW_DURATION = 30;
 /** How long an item put down on the ground lies there, in seconds. */
 export const GROUND_ITEM_DURATION = 60;
 
-/** The file name of the model of a patch of clover. */
-const CLOVER_FILE = 'prop-clover.glb';
-
 /**
  * Where the patches of clover of the village are, each numbered by its
  * place in the list, from 0.
  */
 export const CLOVER_PATCHES: readonly GroundVector[] = VILLAGE_PLACEMENTS
-  .filter((placement: Placement) => placement.file === CLOVER_FILE)
+  .filter((placement: Placement) => placement.model === 'clover')
   .map(({ x, z }: Placement): GroundVector => ({ x, z }));
 
 /** An item that lies on the ground. */

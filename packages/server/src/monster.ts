@@ -25,25 +25,26 @@
 
 import {
   CAVE_DOG_HOMES,
-  MONSTER_KINDS,
-  SIMULATION_RATE,
+  SPAWN_STONES_POSE,
   WAYPOINT_CLEARANCE,
-  findMapPath,
-  findMapTerrain,
-  findPlacement,
-  findYaw,
+  WORLD_MAPS,
+  countSteps,
+  measureDistance,
 } from '@clovervale/shared';
 import type {
   GroundVector,
   MapId,
-  MonsterAction,
   MonsterKind,
   MonsterKindId,
-  MonsterMode,
   MonsterState,
+  MonsterWander,
   Pose,
   Terrain,
 } from '@clovervale/shared';
+
+import type { Spoils, Striker, Target } from './combatants.ts';
+import { MonsterBody } from './monster-body.ts';
+import type { AttackStep, WalkOutcome } from './monster-body.ts';
 
 /**
  * The way the mouth of the burrow among the spawn stones faces, as the
@@ -70,7 +71,7 @@ export interface MonsterSpawn {
  */
 export const MONSTER_SPAWNS: Readonly<Record<MapId, readonly MonsterSpawn[]>> =
   (() => {
-    const { x, z, yaw } = findPlacement('prop-spawn-stones.glb');
+    const { x, z, yaw } = SPAWN_STONES_POSE;
     return {
       village: [
         { kind: 'village-dog', home: { x, z, yaw: yaw + BURROW_MOUTH_YAW } },
@@ -99,42 +100,14 @@ export const MONSTER_ATTACK_REACH = 1.4;
  */
 export const MONSTER_APPROACH_DISTANCE = 1.1;
 
-/** How long an attack of a monster lasts, in seconds. */
-export const MONSTER_ATTACK_DURATION = 0.6;
-
-/** How long after a monster starts an attack it strikes, in seconds. */
-export const MONSTER_STRIKE_DELAY = 0.3;
-
 /** How long a dead monster lies before it is gone, in seconds. */
 export const MONSTER_CORPSE_DURATION = 2;
-
-/**
- * How long a monster follows a way to the player it chases before it finds
- * the way again, in seconds.
- */
-export const MONSTER_REPATH_INTERVAL = 0.5;
 
 /** The most points the monster tries before it finds one to wander to. */
 const WANDER_TRIES = 8;
 
-/**
- * Counts the simulation steps a time lasts.
- *
- * @param {number} seconds - The time, in seconds.
- * @returns {number} The number of steps, at least one.
- */
-function countSteps(seconds: number): number {
-  return Math.max(Math.round(seconds * SIMULATION_RATE), 1);
-}
-
-/** The number of steps from the start of an attack to its strike. */
-const STRIKE_STEPS: number = countSteps(MONSTER_STRIKE_DELAY);
-/** The number of steps an attack lasts. */
-const ATTACK_STEPS: number = countSteps(MONSTER_ATTACK_DURATION);
 /** The number of steps a dead monster is seen for. */
 const CORPSE_STEPS: number = countSteps(MONSTER_CORPSE_DURATION);
-/** The number of steps a monster follows a way to its quarry. */
-const REPATH_STEPS: number = countSteps(MONSTER_REPATH_INTERVAL);
 
 /** A player the monster can chase. */
 export interface Quarry {
@@ -147,21 +120,11 @@ export interface Quarry {
 }
 
 /**
- * Measures how far apart two points are.
- *
- * @param {GroundVector} a - One point.
- * @param {GroundVector} b - The other point.
- * @returns {number} The distance between them, in metres.
- */
-function measureDistance(a: GroundVector, b: GroundVector): number {
-  return Math.hypot(a.x - b.x, a.z - b.z);
-}
-
-/**
  * A monster, as the server moves it, in the map of its world, with the
- * numbers of its kind, as {@link MONSTER_KINDS} tells them.
+ * numbers of its kind, as `MONSTER_KINDS` tells them.
  *
- * It idles at its home, and now and then wanders to a point near it.  When
+ * It idles at its home, and now and then wanders to a point near it, if
+ * its kind wanders.  When
  * a player comes within its notice, and that player is near enough to its
  * home, it chases the player around the obstacles, and attacks it when it
  * gets near enough, until the player gets too far from its home, when it
@@ -170,28 +133,16 @@ function measureDistance(a: GroundVector, b: GroundVector): number {
  * it lies there for a while and is gone, and later comes back to life at
  * its home.
  */
-export class Monster {
+export class Monster implements Target, Striker {
   readonly #id: number;
-  readonly #kindId: MonsterKindId;
   readonly #kind: MonsterKind;
   readonly #home: Pose;
-  readonly #map: MapId;
   readonly #terrain: Terrain;
-  readonly #attackIntervalSteps: number;
   readonly #respawnSteps: number;
   readonly #drawRandom: () => number;
-  #position: GroundVector;
-  #yaw: number;
-  #action: MonsterAction = 'Idle';
-  #actionCount = 0;
-  #health: number;
-  #mode: MonsterMode = 'idle';
-  #path: GroundVector[] | null = null;
+  readonly #body: MonsterBody;
   #quarryId: number | null = null;
   #idleSteps: number;
-  #repathSteps = 0;
-  #attackSteps = 0;
-  #cooldownSteps = 0;
   #deadSteps = 0;
 
   /**
@@ -213,17 +164,12 @@ export class Monster {
     drawRandom: () => number,
   ) {
     this.#id = id;
-    this.#kindId = kind;
-    this.#kind = MONSTER_KINDS[kind];
+    this.#body = new MonsterBody(id, map, kind, home);
+    this.#kind = this.#body.kind;
     this.#home = home;
-    this.#map = map;
-    this.#terrain = findMapTerrain(map);
-    this.#attackIntervalSteps = countSteps(this.#kind.biteInterval);
+    this.#terrain = WORLD_MAPS[map].terrain;
     this.#respawnSteps = countSteps(this.#kind.respawnDelay);
     this.#drawRandom = drawRandom;
-    this.#position = { x: home.x, z: home.z };
-    this.#yaw = home.yaw;
-    this.#health = this.#kind.health;
     this.#idleSteps = this.#drawIdleSteps();
   }
 
@@ -256,12 +202,41 @@ export class Monster {
   }
 
   /**
+   * What the player whose strike kills the monster gets: as many silver
+   * coins as {@link Monster.maxSilver} at most, and nothing else.
+   *
+   * @returns {Spoils} The spoils.
+   */
+  get spoils(): Spoils {
+    return { maxSilver: this.maxSilver, prize: null };
+  }
+
+  /**
+   * The farthest a player can be from the monster for its attack to hit,
+   * {@link MONSTER_ATTACK_REACH}.
+   *
+   * @returns {number} The reach, in metres.
+   */
+  get strikeReach(): number {
+    return MONSTER_ATTACK_REACH;
+  }
+
+  /**
    * Whether the monster is alive, and can be hit.
    *
    * @returns {boolean} Whether it is.
    */
   get isAlive(): boolean {
-    return this.#mode !== 'dead';
+    return this.#body.mode !== 'dead';
+  }
+
+  /**
+   * Whether the monster is dead.
+   *
+   * @returns {boolean} Whether it is.
+   */
+  get isBeaten(): boolean {
+    return !this.isAlive;
   }
 
   /**
@@ -270,7 +245,7 @@ export class Monster {
    * @returns {Pose} The pose.
    */
   get pose(): Pose {
-    return { x: this.#position.x, z: this.#position.z, yaw: this.#yaw };
+    return this.#body.pose;
   }
 
   /**
@@ -280,20 +255,29 @@ export class Monster {
    *   once it has been dead for so long that it is gone.
    */
   get state(): MonsterState | null {
-    if (this.#mode === 'dead' && this.#deadSteps >= CORPSE_STEPS) {
+    if (this.#body.mode === 'dead' && this.#deadSteps >= CORPSE_STEPS) {
       return null;
     }
-    return {
-      id: this.#id,
-      kind: this.#kindId,
-      x: this.#position.x,
-      z: this.#position.z,
-      yaw: this.#yaw,
-      action: this.#action,
-      actionCount: this.#actionCount,
-      health: this.#health,
-      mode: this.#mode,
-    };
+    return this.#body.state;
+  }
+
+  /**
+   * Tells whether a player can hit the monster now: whenever it is alive.
+   *
+   * @returns {boolean} Whether it is alive.
+   */
+  canBeHitBy(): boolean {
+    return this.isAlive;
+  }
+
+  /**
+   * Tells whether an attack of the monster can hit a player now: whenever
+   * it is alive.
+   *
+   * @returns {boolean} Whether it is alive.
+   */
+  canStrike(): boolean {
+    return this.isAlive;
   }
 
   /**
@@ -305,27 +289,23 @@ export class Monster {
    *   does once in every attack, partway through.
    */
   step(players: readonly Quarry[]): boolean {
-    if (this.#mode === 'dead') {
+    if (this.#body.mode === 'dead') {
       if (++this.#deadSteps >= this.#respawnSteps) {
         this.#comeBack();
       }
       return false;
     }
-    this.#cooldownSteps = Math.max(this.#cooldownSteps - 1, 0);
-    if (this.#action === 'Attack') {
-      this.#attackSteps++;
-      if (this.#attackSteps >= ATTACK_STEPS) {
-        this.#startAction('Idle');
-      }
-      return this.#attackSteps === STRIKE_STEPS;
+    const attack: AttackStep = this.#body.stepAttack();
+    if (attack !== 'none') {
+      return attack === 'strike';
     }
-    if (this.#mode === 'idle' || this.#mode === 'wander') {
+    if (this.#body.mode === 'idle' || this.#body.mode === 'wander') {
       const quarry: Quarry | undefined = this.#findQuarry(players);
       if (quarry !== undefined) {
         this.#startChase(quarry.id);
       }
     }
-    switch (this.#mode) {
+    switch (this.#body.mode) {
       case 'idle':
         this.#idle();
         break;
@@ -353,15 +333,13 @@ export class Monster {
    *   had.
    */
   takeHit(damage: number, attackerId: number): number {
-    const lost: number = Math.min(damage, this.#health);
-    this.#health -= lost;
-    if (this.#health === 0) {
-      this.#mode = 'dead';
+    const lost: number = this.#body.loseHealth(damage);
+    if (this.#body.health === 0) {
+      this.#body.switchMode('dead');
       this.#deadSteps = 0;
-      this.#path = null;
       this.#quarryId = null;
-      this.#startAction('Die');
-    } else if (this.#mode !== 'chase') {
+      this.#body.startAction('Die');
+    } else if (this.#body.mode !== 'chase') {
       this.#startChase(attackerId);
     }
     return lost;
@@ -377,7 +355,7 @@ export class Monster {
     let nearest: Quarry | undefined;
     let least: number = this.#kind.noticeRange;
     for (const player of players) {
-      const distance: number = measureDistance(player, this.#position);
+      const distance: number = measureDistance(player, this.#body.position);
       if (
         distance <= least &&
         measureDistance(player, this.#home) <= this.#kind.leashRange
@@ -395,10 +373,8 @@ export class Monster {
    * @param {number} id - The identifier of the player.
    */
   #startChase(id: number): void {
-    this.#mode = 'chase';
+    this.#body.switchMode('chase');
     this.#quarryId = id;
-    this.#path = null;
-    this.#repathSteps = 0;
   }
 
   /** Idles, until it is time to wander. */
@@ -407,18 +383,18 @@ export class Monster {
       return;
     }
     this.#idleSteps = this.#drawIdleSteps();
-    const point: GroundVector | null = this.#chooseWanderPoint();
-    const path: GroundVector[] | null =
-      point === null ? null : findMapPath(this.#map, this.#position, point);
-    if (path !== null) {
-      this.#mode = 'wander';
-      this.#path = path;
+    const { wander } = this.#kind;
+    const point: GroundVector | null =
+      wander === undefined ? null : this.#chooseWanderPoint(wander);
+    if (point !== null) {
+      this.#body.setOut('wander', point);
     }
   }
 
   /** Wanders on to the point chosen, and idles once there or stopped. */
   #wander(): void {
-    if (this.#walk(this.#kind.wanderSpeed) !== 'walking') {
+    const { wander } = this.#kind;
+    if (wander === undefined || this.#body.walk(wander.speed) !== 'walking') {
       this.#settle();
     }
   }
@@ -441,123 +417,46 @@ export class Monster {
       this.#giveUp();
       return;
     }
-    const distance: number = measureDistance(quarry, this.#position);
-    if (distance <= MONSTER_APPROACH_DISTANCE) {
-      if (distance > 0) {
-        this.#yaw = findYaw({
-          x: quarry.x - this.#position.x,
-          z: quarry.z - this.#position.z,
-        });
-      }
-      this.#path = null;
-      if (this.#cooldownSteps === 0) {
-        this.#attackSteps = 0;
-        this.#cooldownSteps = this.#attackIntervalSteps;
-        this.#startAction('Attack', true);
-      } else {
-        this.#startAction('Idle');
-      }
-      return;
-    }
-    if (this.#path === null || --this.#repathSteps <= 0) {
-      this.#path = findMapPath(this.#map, this.#position, quarry);
-      this.#repathSteps = REPATH_STEPS;
-      if (this.#path === null) {
-        this.#giveUp();
-        return;
-      }
-    }
-    if (this.#walk(this.#kind.chaseSpeed) !== 'walking') {
-      this.#path = null;
+    if (!this.#body.chase(quarry, MONSTER_APPROACH_DISTANCE)) {
+      this.#giveUp();
     }
   }
 
   /** Gives up the chase, and sets out for home. */
   #giveUp(): void {
-    this.#mode = 'return';
     this.#quarryId = null;
-    this.#path = findMapPath(this.#map, this.#position, this.#home);
-    if (this.#path === null) {
+    if (!this.#body.setOut('return', this.#home)) {
       this.#settle();
     }
   }
 
   /** Walks back home, and idles once there, or once it finds no way. */
   #goHome(): void {
-    const outcome: string = this.#walk(this.#kind.chaseSpeed);
+    const outcome: WalkOutcome = this.#body.walk(this.#kind.chaseSpeed);
     if (outcome === 'arrived') {
       this.#settle();
-    } else if (outcome === 'stopped') {
-      this.#path = findMapPath(this.#map, this.#position, this.#home);
-      if (this.#path === null) {
-        this.#settle();
-      }
+    } else if (outcome === 'stopped' && !this.#body.findWay(this.#home)) {
+      this.#settle();
     }
   }
 
   /** Idles where it is, for a while. */
   #settle(): void {
-    this.#mode = 'idle';
-    this.#path = null;
+    this.#body.settle();
     this.#idleSteps = this.#drawIdleSteps();
-    this.#startAction('Idle');
-  }
-
-  /**
-   * Walks one step along its way, around the obstacles.
-   *
-   * @param {number} speed - The speed, in metres per second.
-   * @returns {'walking' | 'arrived' | 'stopped'} Whether it walks on, has
-   *   got to the end of its way, or has nowhere to go: no way, or an
-   *   obstacle that stops it.
-   */
-  #walk(speed: number): 'walking' | 'arrived' | 'stopped' {
-    const next: GroundVector | undefined = this.#path?.[0];
-    if (next === undefined) {
-      return 'stopped';
-    }
-    const reach: number = speed / SIMULATION_RATE;
-    const distance: number = measureDistance(next, this.#position);
-    const direction: GroundVector = {
-      x: next.x - this.#position.x,
-      z: next.z - this.#position.z,
-    };
-    const isReached: boolean = distance <= reach;
-    const target: GroundVector = isReached
-      ? next
-      : {
-          x: this.#position.x + (direction.x / distance) * reach,
-          z: this.#position.z + (direction.z / distance) * reach,
-        };
-    const moved: GroundVector = this.#terrain.resolveMove(
-      this.#position,
-      target,
-    );
-    if (distance > 0) {
-      if (moved.x === this.#position.x && moved.z === this.#position.z) {
-        return 'stopped';
-      }
-      this.#yaw = findYaw(direction);
-    }
-    this.#position = moved;
-    if (isReached) {
-      this.#path?.shift();
-    }
-    this.#startAction('Walk');
-    return this.#path?.length === 0 ? 'arrived' : 'walking';
   }
 
   /**
    * Chooses a point near home to wander to.
    *
+   * @param {MonsterWander} wander - How the monster wanders.
    * @returns {GroundVector | null} A point where the monster has room, or
    *   `null` if none was found.
    */
-  #chooseWanderPoint(): GroundVector | null {
+  #chooseWanderPoint(wander: MonsterWander): GroundVector | null {
     for (let tries = 0; tries < WANDER_TRIES; tries++) {
       const angle: number = 2 * Math.PI * this.#drawRandom();
-      const radius: number =
-        this.#kind.wanderRadius * Math.sqrt(this.#drawRandom());
+      const radius: number = wander.radius * Math.sqrt(this.#drawRandom());
       const point: GroundVector = {
         x: this.#home.x + radius * Math.sin(angle),
         z: this.#home.z + radius * Math.cos(angle),
@@ -583,24 +482,7 @@ export class Monster {
 
   /** Comes back to life at home, idling, at full health. */
   #comeBack(): void {
-    this.#position = { x: this.#home.x, z: this.#home.z };
-    this.#yaw = this.#home.yaw;
-    this.#health = this.#kind.health;
-    this.#cooldownSteps = 0;
+    this.#body.revive(this.#home);
     this.#settle();
-  }
-
-  /**
-   * Makes the monster do something, unless it is doing just that already.
-   *
-   * @param {MonsterAction} action - What the monster does from now on.
-   * @param {boolean} [isAgain] - Whether to start it over even if it is
-   *   doing just that already.  Not by default.
-   */
-  #startAction(action: MonsterAction, isAgain = false): void {
-    if (this.#action !== action || isAgain) {
-      this.#action = action;
-      this.#actionCount++;
-    }
   }
 }

@@ -29,6 +29,8 @@ import {
   SIDES,
   SKINS,
   addHead,
+  addNpcBones,
+  addNpcLegs,
   createHair,
   setFaceMaterials,
 } from './characters.ts';
@@ -48,6 +50,7 @@ import { Rig } from './rig.ts';
 import type {
   ArmBones,
   BuiltModel,
+  ClipReport,
   LegBones,
   Pose,
   PoseKey,
@@ -65,6 +68,28 @@ interface StrokePose {
   readonly pitch: number;
   /** The heading of the right hand in degrees. */
   readonly yaw: number;
+}
+
+/** The key poses of a stroke of the hammer. */
+interface Strokes {
+  /** The hammer raised, as the stroke starts and ends. */
+  readonly raised: StrokePose;
+  /** The hammer at the top of its swing. */
+  readonly top: StrokePose;
+  /** The hammer swung forward, on its way down. */
+  readonly swung: StrokePose;
+  /** The hammer falling onto the iron. */
+  readonly falling: StrokePose;
+  /** The hammer just before the blow. */
+  readonly landing: StrokePose;
+  /** The hammer on the iron. */
+  readonly struck: StrokePose;
+  /** The hammer bounced back off the iron. */
+  readonly rebound: StrokePose;
+  /** The hammer at rest over the iron. */
+  readonly settled: StrokePose;
+  /** The hammer lifted for the next stroke. */
+  readonly lifted: StrokePose;
 }
 
 /**
@@ -136,38 +161,11 @@ function findWrist(target: Triple, held: Triple, turn: Triple): Triple {
 }
 
 /**
- * Creates the shape of a boot from its side profile.
+ * Defines the materials of Emma.
  *
- * @returns {Shape} The boot, around its ankle bone at the origin of X.
+ * @param {Model} model - The model.
  */
-function createBootSole(): Shape {
-  return place(
-    createExtrusion(
-      [
-        [-0.095, 0],
-        [0.175, 0],
-        [0.185, 0.045],
-        [0.135, 0.09],
-        [0.03, 0.11],
-        [-0.095, 0.11],
-      ],
-      0.165,
-    ),
-    { rot: [0, -90, 0] },
-  );
-}
-
-/**
- * Builds Emma, the smith: a sturdy, strong-armed woman in a leather apron
- * over her shirt and trousers, her sleeves rolled up and her hair tied up in
- * a bun under a kerchief, with a hammer in her right hand and tongs in her
- * left, who hammers a bar of hot iron on an anvil.
- *
- * @returns {BuiltModel} The animated model and the measurements taken while
- *   baking.
- */
-export function buildNpcEmma(): BuiltModel {
-  const model = new Model('NpcEmma');
+function setMaterials(model: Model): void {
   setFaceMaterials(model, SKINS.tan);
   model.setMaterial('hair', '#3b2418');
   model.setMaterial('kerchief', '#3d7a8c');
@@ -180,21 +178,15 @@ export function buildNpcEmma(): BuiltModel {
   model.setMaterial('handle', '#9a6a3a');
   model.setMaterial('hammerHead', '#5c606b', { roughness: 0.5 });
   model.setMaterial('tongs', '#3c3e45', { roughness: 0.5 });
+}
 
-  model.addBone('Hips', null, [0, 0.56, 0]);
-  model.addBone('Chest', 'Hips', [0, 0.66, 0]);
-  model.addBone('Head', 'Chest', [0, 0.98, 0]);
-  for (const [side, x] of SIDES) {
-    model.addBone(`UpperArm${side}`, 'Chest', [0.25 * x, 0.9, 0]);
-    model.addBone(`ForeArm${side}`, `UpperArm${side}`, [0.25 * x, 0.73, 0]);
-    model.addBone(`Hand${side}`, `ForeArm${side}`, [0.25 * x, 0.57, 0]);
-    model.addBone(`Thigh${side}`, 'Hips', [0.1 * x, 0.55, 0]);
-    model.addBone(`Shin${side}`, `Thigh${side}`, [0.1 * x, 0.3, 0]);
-    model.addBone(`Foot${side}`, `Shin${side}`, [0.1 * x, 0.08, 0]);
-  }
-
-  // The head, the hair tied up in a bun, and a kerchief tied round the
-  // head across the brow, knotted at the nape.
+/**
+ * Adds her head, her hair tied up in a bun, and a kerchief tied round her
+ * head across the brow, knotted at the nape.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addHeadAndKerchief(model: Model): void {
   addHead(model);
   const hair: Hair = createHair('bun');
   model.add('hair', hair.hair, 'Head');
@@ -233,8 +225,16 @@ export function buildNpcEmma(): BuiltModel {
     }),
     'Head',
   );
+}
 
-  // The broad body: the shirt, the bib of the apron and its straps.
+/**
+ * Adds her broad body: the shirt, the bib of the apron and its straps, and
+ * at the hips the trousers, the belt, and the skirt of the apron, down to
+ * the knees.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addBody(model: Model): void {
   const flat: Placement = { scale: [1, 1, 0.82] };
   model.add(
     'skin',
@@ -284,8 +284,6 @@ export function buildNpcEmma(): BuiltModel {
     );
   }
 
-  // The hips: the trousers, the belt, and the skirt of the apron, down to
-  // the knees.
   model.add(
     'trousers',
     place(
@@ -334,12 +332,18 @@ export function buildNpcEmma(): BuiltModel {
     ),
     'Hips',
   );
+}
 
-  // The limbs: the strong arms, in short sleeves rolled up above the elbows
-  // with the forearms bare, and the legs, in trousers and boots.
+/**
+ * Adds her strong arms, in short sleeves rolled up above the elbows with
+ * the forearms bare.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addArms(model: Model): void {
   for (const [side, x] of SIDES) {
-    const moveAside = (shape: Shape, px = 0.25): Shape =>
-      place(shape, { pos: [px * x, 0, 0] });
+    const moveAside = (shape: Shape): Shape =>
+      place(shape, { pos: [0.25 * x, 0, 0] });
     model.add(
       'shirt',
       moveAside(
@@ -393,43 +397,16 @@ export function buildNpcEmma(): BuiltModel {
       }),
       `Hand${side}`,
     );
-    model.add(
-      'trousers',
-      moveAside(
-        createLathe(
-          [
-            [0, 0.6],
-            [0.095, 0.575],
-            [0.085, 0.3],
-            [0, 0.285],
-          ],
-          6,
-        ),
-        0.1,
-      ),
-      `Thigh${side}`,
-    );
-    model.add(
-      'boot',
-      moveAside(
-        createLathe(
-          [
-            [0, 0.33],
-            [0.092, 0.32],
-            [0.085, 0.07],
-            [0, 0.06],
-          ],
-          6,
-        ),
-        0.1,
-      ),
-      `Shin${side}`,
-    );
-    model.add('boot', moveAside(createBootSole(), 0.1), `Foot${side}`);
   }
+}
 
-  // The hammer in her right hand: a wooden handle that runs forward out of
-  // her fist, with an iron head across its end, its face down.
+/**
+ * Adds the hammer in her right hand: a wooden handle that runs forward out
+ * of her fist, with an iron head across its end, its face down.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addHammer(model: Model): void {
   const fist: Triple = [-0.25, 0.555, 0];
   model.add(
     'handle',
@@ -445,8 +422,14 @@ export function buildNpcEmma(): BuiltModel {
     }),
     'HandR',
   );
+}
 
-  // The tongs in her left hand: two long arms that close on the bar.
+/**
+ * Adds the tongs in her left hand: two long arms that close on the bar.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addTongs(model: Model): void {
   const grip: Triple = [0.25, 0.555, 0];
   for (const side of [1, -1]) {
     model.add(
@@ -476,10 +459,124 @@ export function buildNpcEmma(): BuiltModel {
       'HandL',
     );
   }
+}
 
-  // The model is centred on its feet before it is posed, so that the
-  // hammer lands where it is aimed in the model as it is written.
-  model.centreOn(['FootL', 'FootR']);
+/**
+ * Creates the key poses of a stroke of the hammer.
+ *
+ * @returns {Strokes} The key poses.
+ */
+function createStrokes(): Strokes {
+  const strikeTurn: Triple = [0, 0, 0];
+  const atStrike: Triple = findWrist(STRIKE, HAMMER_FACE, strikeTurn);
+  const struck: StrokePose = {
+    body: {
+      offset: [0, -0.04, 0],
+      Hips: [5, 6, 0],
+      Chest: [14, 10, -2],
+      Head: [12, -8, 0],
+    },
+    wrist: atStrike,
+    pitch: strikeTurn[0],
+    yaw: strikeTurn[1],
+  };
+  return {
+    raised: {
+      body: {
+        offset: [0, -0.012, 0],
+        Hips: [-2, -6, 0],
+        Chest: [-4, -10, 3],
+        Head: [6, 10, -2],
+      },
+      wrist: [-0.4, 1.06, 0.0],
+      pitch: -120,
+      yaw: 12,
+    },
+    top: {
+      body: {
+        offset: [0, -0.008, 0],
+        Hips: [-3, -8, 0],
+        Chest: [-6, -12, 3],
+        Head: [6, 12, -2],
+      },
+      wrist: [-0.4, 1.09, -0.03],
+      pitch: -135,
+      yaw: 14,
+    },
+    swung: {
+      body: {
+        offset: [0, -0.025, 0],
+        Hips: [2, 0, 0],
+        Chest: [6, 0, 0],
+        Head: [10, 0, 0],
+      },
+      wrist: [-0.36, 1.0, 0.2],
+      pitch: -55,
+      yaw: 8,
+    },
+    falling: {
+      body: {
+        offset: [0, -0.033, 0],
+        Hips: [4, 4, 0],
+        Chest: [11, 6, -1],
+        Head: [11, -5, 0],
+      },
+      wrist: [-0.24, 0.93, 0.27],
+      pitch: -35,
+      yaw: 4,
+    },
+    // Just before the blow the hammer comes straight down on the iron.
+    landing: {
+      ...struck,
+      wrist: [atStrike[0], atStrike[1] + 0.05, atStrike[2] - 0.01],
+      pitch: -8,
+    },
+    struck,
+    rebound: {
+      body: {
+        offset: [0, -0.034, 0],
+        Hips: [4, 5, 0],
+        Chest: [12, 8, -1],
+        Head: [12, -6, 0],
+      },
+      wrist: [atStrike[0], atStrike[1] + 0.07, atStrike[2] - 0.03],
+      pitch: -18,
+      yaw: 0,
+    },
+    settled: {
+      body: {
+        offset: [0, -0.03, 0],
+        Hips: [3, 3, 0],
+        Chest: [10, 5, 0],
+        Head: [11, -4, 0],
+      },
+      wrist: [atStrike[0] - 0.03, atStrike[1] + 0.06, atStrike[2] - 0.05],
+      pitch: -12,
+      yaw: 4,
+    },
+    lifted: {
+      body: {
+        offset: [0, -0.02, 0],
+        Hips: [1, -2, 0],
+        Chest: [4, -4, 1],
+        Head: [9, 4, 0],
+      },
+      wrist: [-0.38, 0.98, 0.16],
+      pitch: -45,
+      yaw: 6,
+    },
+  };
+}
+
+/**
+ * Bakes her clips: hammering the iron, `Work`, and holding the hammer
+ * still over it, `Idle`.
+ *
+ * @param {Model} model - The model, centred on its feet.
+ * @returns {ReadonlyMap<string, ClipReport>} The measurements of the baked
+ *   clips, by clip name.
+ */
+function animate(model: Model): ReadonlyMap<string, ClipReport> {
   const rig = new Rig(model);
   let overreach = 0;
   // Her feet stay where they stand, and the jaws of the tongs stay on the
@@ -504,113 +601,18 @@ export function buildNpcEmma(): BuiltModel {
     );
     return plant(pose);
   };
-  const strikeTurn: Triple = [0, 0, 0];
-  const atStrike: Triple = findWrist(STRIKE, HAMMER_FACE, strikeTurn);
-  const raised: StrokePose = {
-    body: {
-      offset: [0, -0.012, 0],
-      Hips: [-2, -6, 0],
-      Chest: [-4, -10, 3],
-      Head: [6, 10, -2],
-    },
-    wrist: [-0.4, 1.06, 0.0],
-    pitch: -120,
-    yaw: 12,
-  };
-  const top: StrokePose = {
-    body: {
-      offset: [0, -0.008, 0],
-      Hips: [-3, -8, 0],
-      Chest: [-6, -12, 3],
-      Head: [6, 12, -2],
-    },
-    wrist: [-0.4, 1.09, -0.03],
-    pitch: -135,
-    yaw: 14,
-  };
-  const swung: StrokePose = {
-    body: {
-      offset: [0, -0.025, 0],
-      Hips: [2, 0, 0],
-      Chest: [6, 0, 0],
-      Head: [10, 0, 0],
-    },
-    wrist: [-0.36, 1.0, 0.2],
-    pitch: -55,
-    yaw: 8,
-  };
-  const struck: StrokePose = {
-    body: {
-      offset: [0, -0.04, 0],
-      Hips: [5, 6, 0],
-      Chest: [14, 10, -2],
-      Head: [12, -8, 0],
-    },
-    wrist: atStrike,
-    pitch: strikeTurn[0],
-    yaw: strikeTurn[1],
-  };
-  const falling: StrokePose = {
-    body: {
-      offset: [0, -0.033, 0],
-      Hips: [4, 4, 0],
-      Chest: [11, 6, -1],
-      Head: [11, -5, 0],
-    },
-    wrist: [-0.24, 0.93, 0.27],
-    pitch: -35,
-    yaw: 4,
-  };
-  // Just before the blow the hammer comes straight down on the iron.
-  const landing: StrokePose = {
-    ...struck,
-    wrist: [atStrike[0], atStrike[1] + 0.05, atStrike[2] - 0.01],
-    pitch: -8,
-  };
-  const rebound: StrokePose = {
-    body: {
-      offset: [0, -0.034, 0],
-      Hips: [4, 5, 0],
-      Chest: [12, 8, -1],
-      Head: [12, -6, 0],
-    },
-    wrist: [atStrike[0], atStrike[1] + 0.07, atStrike[2] - 0.03],
-    pitch: -18,
-    yaw: 0,
-  };
-  const settled: StrokePose = {
-    body: {
-      offset: [0, -0.03, 0],
-      Hips: [3, 3, 0],
-      Chest: [10, 5, 0],
-      Head: [11, -4, 0],
-    },
-    wrist: [atStrike[0] - 0.03, atStrike[1] + 0.06, atStrike[2] - 0.05],
-    pitch: -12,
-    yaw: 4,
-  };
-  const lifted: StrokePose = {
-    body: {
-      offset: [0, -0.02, 0],
-      Hips: [1, -2, 0],
-      Chest: [4, -4, 1],
-      Head: [9, 4, 0],
-    },
-    wrist: [-0.38, 0.98, 0.16],
-    pitch: -45,
-    yaw: 6,
-  };
+  const strokes: Strokes = createStrokes();
   const keys: PoseKey[] = [
-    { t: 0, pose: poseStroke(raised) },
-    { t: 0.2, pose: poseStroke(top) },
-    { t: 0.4, ease: 'in', pose: poseStroke(swung) },
-    { t: 13 / 30, ease: 'linear', pose: poseStroke(falling) },
-    { t: 14 / 30, ease: 'linear', pose: poseStroke(landing) },
-    { t: 0.5, ease: 'linear', pose: poseStroke(struck) },
-    { t: 0.63, ease: 'out', pose: poseStroke(rebound) },
-    { t: 0.8, pose: poseStroke(settled) },
-    { t: 1, pose: poseStroke(lifted) },
-    { t: 1.2, pose: poseStroke(raised) },
+    { t: 0, pose: poseStroke(strokes.raised) },
+    { t: 0.2, pose: poseStroke(strokes.top) },
+    { t: 0.4, ease: 'in', pose: poseStroke(strokes.swung) },
+    { t: 13 / 30, ease: 'linear', pose: poseStroke(strokes.falling) },
+    { t: 14 / 30, ease: 'linear', pose: poseStroke(strokes.landing) },
+    { t: 0.5, ease: 'linear', pose: poseStroke(strokes.struck) },
+    { t: 0.63, ease: 'out', pose: poseStroke(strokes.rebound) },
+    { t: 0.8, pose: poseStroke(strokes.settled) },
+    { t: 1, pose: poseStroke(strokes.lifted) },
+    { t: 1.2, pose: poseStroke(strokes.raised) },
   ];
   rig.bake(
     'Work',
@@ -623,6 +625,7 @@ export function buildNpcEmma(): BuiltModel {
 
   // Idling, she holds the hammer still over the iron, its face about 12.5 cm
   // above it, keeps the iron in her tongs, and breathes.
+  const { settled } = strokes;
   rig.bake(
     'Idle',
     2.4,
@@ -638,6 +641,41 @@ export function buildNpcEmma(): BuiltModel {
     { loop: true },
   );
   rig.noteOverreach('Idle', overreach);
-  return { model, report: rig.report };
+  return rig.report;
 }
 
+/**
+ * Builds Emma, the smith: a sturdy, strong-armed woman in a leather apron
+ * over her shirt and trousers, her sleeves rolled up and her hair tied up in
+ * a bun under a kerchief, with a hammer in her right hand and tongs in her
+ * left, who hammers a bar of hot iron on an anvil.
+ *
+ * @returns {BuiltModel} The animated model and the measurements taken while
+ *   baking.
+ */
+export function buildNpcEmma(): BuiltModel {
+  const model = new Model('NpcEmma');
+  setMaterials(model);
+  addNpcBones(model);
+  addHeadAndKerchief(model);
+  addBody(model);
+  addArms(model);
+  // Her legs, in trousers and boots.
+  addNpcLegs(model, [
+    {
+      material: 'boot',
+      profile: [
+        [0, 0.33],
+        [0.092, 0.32],
+        [0.085, 0.07],
+        [0, 0.06],
+      ],
+    },
+  ]);
+  addHammer(model);
+  addTongs(model);
+  // The model is centred on its feet before it is posed, so that the
+  // hammer lands where it is aimed in the model as it is written.
+  model.centreOn(['FootL', 'FootR']);
+  return { model, report: animate(model) };
+}

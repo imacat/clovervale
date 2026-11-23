@@ -22,9 +22,6 @@
  *   for help on his own.
  */
 
-import { Box3, Frustum, Matrix4, Raycaster, Vector3 } from 'three';
-import type { Camera, Intersection, Object3D } from 'three';
-
 import type { MonsterState } from '@clovervale/shared';
 
 /**
@@ -37,11 +34,6 @@ export const CALL_BREATHER = 1;
  * he is seen meanwhile or not.
  */
 export const CALL_INTERVAL = 10;
-/**
- * The heights at which the figure of Edwin is looked at, as shares of its
- * height from its feet, from his legs to his head.
- */
-const SIGHT_HEIGHTS: readonly number[] = [0.25, 0.5, 0.85];
 
 /** How things stand for Edwin at a frame. */
 export interface EdwinSituation {
@@ -78,56 +70,6 @@ export function areDogsDead(
     monsters?.every((monster: MonsterState) => monster.mode === 'dead') ??
     false
   );
-}
-
-/**
- * Tells whether a figure is on the screen: some part of it is within the
- * view of the camera, with nothing that hides it in between.
- *
- * @param {Camera} camera - The camera, as it stands now.
- * @param {Object3D} figure - The figure.
- * @param {Object3D | null} blocker - What may hide the figure from the
- *   camera, or `null` for nothing.
- * @returns {boolean} Whether the camera sees a point of the figure at its
- *   legs, its middle or its head.
- */
-export function isOnScreen(
-  camera: Camera,
-  figure: Object3D,
-  blocker: Object3D | null,
-): boolean {
-  camera.updateMatrixWorld();
-  const box: Box3 = new Box3().setFromObject(figure);
-  if (box.isEmpty()) {
-    return false;
-  }
-  const frustum: Frustum = new Frustum().setFromProjectionMatrix(
-    new Matrix4().multiplyMatrices(
-      camera.projectionMatrix,
-      camera.matrixWorldInverse,
-    ),
-  );
-  const eye: Vector3 = new Vector3().setFromMatrixPosition(camera.matrixWorld);
-  const centre: Vector3 = box.getCenter(new Vector3());
-  const raycaster = new Raycaster();
-  return SIGHT_HEIGHTS.some((share: number): boolean => {
-    const point = new Vector3(
-      centre.x,
-      box.min.y + (box.max.y - box.min.y) * share,
-      centre.z,
-    );
-    if (!frustum.containsPoint(point)) {
-      return false;
-    }
-    if (blocker === null) {
-      return true;
-    }
-    const distance: number = eye.distanceTo(point);
-    raycaster.set(eye, point.clone().sub(eye).normalize());
-    raycaster.far = distance;
-    const hits: Intersection[] = raycaster.intersectObject(blocker, true);
-    return hits.length === 0;
-  });
 }
 
 /** What tells when Edwin calls out for help. */

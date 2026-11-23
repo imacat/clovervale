@@ -30,13 +30,13 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { createServer } from 'node:net';
-import type { Server } from 'node:net';
+import { connect, createServer } from 'node:net';
+import type { Server, Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { WebSocket as SocketFileClient } from 'ws';
+import { WebSocket as NodeClient } from 'ws';
 
 import {
   CLOVER_PATCHES,
@@ -44,6 +44,7 @@ import {
   DEFAULT_DAY_ORIGIN,
   MONSTER_KINDS,
   PROTOCOL_VERSION,
+  SAY_LENGTH_LIMIT,
   SIMULATION_RATE,
   SNAPSHOT_RATE,
   WALK_SPEED,
@@ -73,11 +74,27 @@ import type {
   WelcomeMessage,
 } from '../../shared/src/protocol.ts';
 
-import { startServer } from '../src/server.ts';
+import { DEFAULT_PEER_LIMITS, startServer } from '../src/server.ts';
 import type { RunningServer } from '../src/server.ts';
 
 /** How long the server may take to send an awaited message, in ms. */
 const MESSAGE_TIMEOUT = 3000;
+
+/** How long peers that read nothing may take to be dropped, in ms. */
+const STALL_TIMEOUT = 20_000;
+
+/** The opening handshake of a peer that speaks WebSocket by hand. */
+const HANDSHAKE: string =
+  'GET / HTTP/1.1\r\n' +
+  'Host: localhost\r\n' +
+  'Upgrade: websocket\r\n' +
+  'Connection: Upgrade\r\n' +
+  'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n' +
+  'Sec-WebSocket-Version: 13\r\n' +
+  '\r\n';
+
+/** The connections of the peers that speak WebSocket by hand. */
+const rawPeers: Socket[] = [];
 
 /** How the day goes on the servers that are told nothing else of it. */
 const DAY: DayCycle = {
@@ -310,6 +327,63 @@ function findPlayer(snapshot: TimedSnapshot, id: number): PlayerState {
 function listIds(snapshot: TimedSnapshot): number[] {
   return snapshot.players.map((player: PlayerState) => player.id);
 }
+
+/**
+ * Connects to a server as a peer that speaks WebSocket by hand, which
+ * reads what it is sent and does nothing with it, and answers nothing.
+ *
+ * @param {number | string} target - The TCP port the server is listening
+ *   on, or the path of its Unix socket file.
+ * @returns {Promise<Socket>} The connection, once the server has taken the
+ *   handshake.
+ * @throws {Error} If the server refuses the handshake.
+ */
+function openRawPeer(target: number | string): Promise<Socket> {
+  return new Promise((resolve, reject) => {
+    const socket: Socket =
+      typeof target === 'string' ? connect(target) : connect(target);
+    rawPeers.push(socket);
+    // The server may cut the connection short, which is as awaited.
+    socket.on('error', () => undefined);
+    socket.once('data', (data: Buffer) => {
+      if (data.toString('latin1').startsWith('HTTP/1.1 101 ')) {
+        resolve(socket);
+      } else {
+        reject(new Error('The server refused the handshake.'));
+      }
+    });
+    socket.write(HANDSHAKE);
+  });
+}
+
+/**
+ * Waits for the server to close a connection made by hand.
+ *
+ * @param {Socket} socket - The connection.
+ * @returns {Promise<void>} A promise settled once it is closed.
+ * @throws {Error} If the server keeps it open.
+ */
+function waitUntilRawClosed(socket: Socket): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (socket.closed) {
+      resolve();
+      return;
+    }
+    const timer: NodeJS.Timeout = setTimeout(() => {
+      reject(new Error('The server kept the connection open.'));
+    }, MESSAGE_TIMEOUT);
+    socket.once('close', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+afterEach(() => {
+  for (const socket of rawPeers.splice(0)) {
+    socket.destroy();
+  }
+});
 
 describe('the game server', () => {
   let server: RunningServer | undefined;
@@ -695,6 +769,72 @@ describe('the game server', () => {
     );
     expect(listIds(snapshot)).toEqual([watcherId]);
   });
+
+  it.each([
+    ['text that is not UTF-8', [0x81, 0x82, 0, 0, 0, 0, 0xff, 0xfe]],
+    ['a frame that is not masked', [0x81, 0x02, 0x68, 0x69]],
+    ['a frame with reserved bits set', [0xc1, 0x80, 0, 0, 0, 0]],
+  ])(
+    'disconnects a peer that sends %s, and serves the others',
+    async (_name: string, frame: number[]) => {
+      const [watcher, watcherId] = await connectPeer();
+      const offender: Socket = await openRawPeer(server?.port ?? 0);
+      await watcher.receiveSnapshotWhere(isPair);
+      offender.write(Buffer.from(frame));
+      await waitUntilRawClosed(offender);
+      const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(
+        (players: readonly PlayerState[]) => !isPair(players),
+      );
+      expect(listIds(snapshot)).toEqual([watcherId]);
+      const [, newcomerId] = await connectPeer();
+      const crowd: TimedSnapshot = await watcher.receiveSnapshotWhere(isPair);
+      expect(listIds(crowd)).toEqual([watcherId, newcomerId]);
+    },
+  );
+
+  it('disconnects a peer that sends more than any client sends', async () => {
+    const [offender] = await connectPeer();
+    const [watcher, watcherId] = await connectPeer();
+    await watcher.receiveSnapshotWhere(isPair);
+    offender.send(createSayMessage('Hello! '.repeat(10_000)));
+    await offender.waitUntilClosed();
+    const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) => !isPair(players),
+    );
+    expect(listIds(snapshot)).toEqual([watcherId]);
+  });
+
+  it('keeps a peer that says the longest line, in escapes', async () => {
+    const [speaker, speakerId] = await connectPeer();
+    // Every character of the line takes the six bytes of an escape.
+    speaker.send(createSayMessage('\u0001'.repeat(SAY_LENGTH_LIMIT)));
+    speaker.send(createMoveMessage({ sequence: 1, after: 0 }, { x: 1, z: 0 }));
+    const snapshot: TimedSnapshot = await speaker.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) =>
+        players.some((player: PlayerState) => player.action === 'Walk'),
+    );
+    expect(findPlayer(snapshot, speakerId).action).toBe('Walk');
+    expect(speaker.isClosed).toBe(false);
+  });
+
+  it('drops a peer that stops answering, and keeps the others', async () => {
+    const heartbeatInterval = 300;
+    server = await startServer(0, DAY, {
+      ...DEFAULT_PEER_LIMITS,
+      heartbeatInterval,
+    });
+    const [watcher, watcherId] = await connectPeer();
+    const silent: Socket = await openRawPeer(server.port ?? 0);
+    await watcher.receiveSnapshotWhere(isPair);
+    await waitUntilRawClosed(silent);
+    const snapshot: TimedSnapshot = await watcher.receiveSnapshotWhere(
+      (players: readonly PlayerState[]) => !isPair(players),
+    );
+    expect(listIds(snapshot)).toEqual([watcherId]);
+    await new Promise((resolve) => setTimeout(resolve, 5 * heartbeatInterval));
+    expect(watcher.isClosed).toBe(false);
+    expect(listIds(await watcher.receiveSnapshot())).toEqual([watcherId]);
+  });
 });
 
 describe('the game server on a Unix socket file', () => {
@@ -711,7 +851,7 @@ describe('the game server on a Unix socket file', () => {
   function receiveFirstMessages(file: string): Promise<ServerMessage[]> {
     return new Promise((resolve, reject) => {
       const messages: ServerMessage[] = [];
-      const client = new SocketFileClient(`ws+unix:${file}:/`);
+      const client = new NodeClient(`ws+unix:${file}:/`);
       const timer: NodeJS.Timeout = setTimeout(() => {
         client.terminate();
         reject(new Error('The server sent nothing.'));
@@ -726,6 +866,48 @@ describe('the game server on a Unix socket file', () => {
           clearTimeout(timer);
           client.terminate();
           resolve(messages);
+        }
+      });
+    });
+  }
+
+  /**
+   * Connects to a socket file, and waits until the snapshots it is sent
+   * show others beside its own player, and then its own player alone.
+   *
+   * @param {string} file - The path of the socket file.
+   * @returns {Promise<void>} A promise settled once the others have left.
+   * @throws {Error} If they stay, or if the server closes the connection.
+   */
+  function waitForOthersToLeave(file: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const client = new NodeClient(`ws+unix:${file}:/`);
+      let isCrowded = false;
+      const timer: NodeJS.Timeout = setTimeout(() => {
+        client.terminate();
+        reject(new Error('The other players stayed.'));
+      }, STALL_TIMEOUT);
+      client.on('error', (error: Error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      client.on('close', () => {
+        clearTimeout(timer);
+        reject(new Error('The server closed the connection.'));
+      });
+      client.on('message', (data: Buffer) => {
+        const message: ServerMessage = decodeServerMessage(
+          data.toString('utf8'),
+        );
+        if (message.type !== 'snapshot') {
+          return;
+        }
+        if (message.players.length > 1) {
+          isCrowded = true;
+        } else if (isCrowded) {
+          clearTimeout(timer);
+          resolve();
+          client.terminate();
         }
       });
     });
@@ -780,6 +962,25 @@ describe('the game server on a Unix socket file', () => {
     expect(welcome?.type).toBe('welcome');
     expect(snapshot?.type).toBe('snapshot');
   });
+
+  it(
+    'drops a peer that falls far behind with what it is sent',
+    async () => {
+      server = await startServer(socketPath, DAY, {
+        // Only falling behind drops a peer here, not its silence.
+        heartbeatInterval: 10 * STALL_TIMEOUT,
+        unsentLimit: 64 * 1024,
+      });
+      const left: Promise<void> = waitForOthersToLeave(socketPath);
+      // Many players make every snapshot long, so that the peers that read
+      // nothing fill what the system holds for them soon.
+      for (let count = 0; count < 100; count++) {
+        (await openRawPeer(socketPath)).pause();
+      }
+      await left;
+    },
+    STALL_TIMEOUT + MESSAGE_TIMEOUT,
+  );
 
   it('lets the owner and the group of the socket file connect', async () => {
     server = await startServer(socketPath, DAY);

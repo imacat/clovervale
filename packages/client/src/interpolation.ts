@@ -23,8 +23,8 @@
  */
 
 import {
-  SIMULATION_RATE,
   SNAPSHOT_RATE,
+  STEP_MILLISECONDS,
   interpolatePlaced,
   measurePushReach,
 } from '@clovervale/shared';
@@ -34,6 +34,8 @@ import type {
   SnapshotMessage,
 } from '@clovervale/shared';
 
+import { SlewedClock } from './slewed-clock.ts';
+
 /** How far in the past the players are shown by default, in milliseconds. */
 export const DEFAULT_DELAY: number = (2 * 1000) / SNAPSHOT_RATE;
 
@@ -42,9 +44,6 @@ export const MAX_DELAY = 1000;
 
 /** The most snapshots that are kept to show the past from. */
 const HISTORY_LIMIT: number = Math.ceil((MAX_DELAY * SNAPSHOT_RATE) / 1000) + 6;
-
-/** How long one step of the simulation lasts, in milliseconds. */
-const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
 
 /** The number of latest snapshots the time of the server is told from. */
 const CLOCK_WINDOW: number = 3 * SNAPSHOT_RATE;
@@ -106,8 +105,7 @@ const EMPTY_VIEW: PlayersView = {
  */
 export class ServerClock {
   #offsets: number[] = [];
-  #offset: number | null = null;
-  #readTime = 0;
+  readonly #slewed = new SlewedClock(CLOCK_SLEW, CLOCK_RESYNC);
 
   /**
    * Takes note of a time of the server and of when the page learnt of it.
@@ -137,13 +135,11 @@ export class ServerClock {
    *   milliseconds, or `null` before the first time of the server.
    */
   read(localTime: number): number | null {
-    const offset: number | null = this.#findOffset(localTime);
-    if (offset === null) {
+    const target: number | null = this.#findTarget();
+    if (target === null) {
       return null;
     }
-    this.#offset = offset;
-    this.#readTime = localTime;
-    return localTime + offset;
+    return localTime + this.#slewed.read(target, localTime);
   }
 
   /**
@@ -158,38 +154,31 @@ export class ServerClock {
    *   noted before it, or `null` before the first time of the server.
    */
   peek(localTime: number): number | null {
-    const offset: number | null = this.#findOffset(localTime);
-    return offset === null ? null : localTime + offset;
+    const target: number | null = this.#findTarget();
+    return target === null
+      ? null
+      : localTime + this.#slewed.peek(target, localTime);
   }
 
   /** Forgets the time of the server. */
   reset(): void {
     this.#offsets = [];
-    this.#offset = null;
+    this.#slewed.reset();
   }
 
   /**
-   * Finds how far ahead of the clock of the page the clock of the server is
-   * to be read at a time.
+   * Finds how far ahead of the clock of the page the clock of the server
+   * is, as the times of the server noted tell.
    *
-   * @param {number} localTime - The time on the clock of the page, in
-   *   milliseconds, which is no earlier than at the last reading.
    * @returns {number | null} The difference, in milliseconds, or `null`
    *   before the first time of the server.
    */
-  #findOffset(localTime: number): number | null {
+  #findTarget(): number | null {
     if (this.#offsets.length === 0) {
       return null;
     }
     // A snapshot can only arrive late, so the quickest one is the truest.
-    const target: number = Math.max(...this.#offsets);
-    const error: number =
-      this.#offset === null ? Infinity : target - this.#offset;
-    if (this.#offset === null || Math.abs(error) > CLOCK_RESYNC) {
-      return target;
-    }
-    const reach: number = CLOCK_SLEW * Math.max(localTime - this.#readTime, 0);
-    return this.#offset + Math.min(Math.max(error, -reach), reach);
+    return Math.max(...this.#offsets);
   }
 }
 
@@ -265,7 +254,7 @@ export class SnapshotTimeline {
    * passed between them, and is turned likewise, the shorter way round.  It
    * does what the earlier one tells, and is there only if the earlier one
    * tells so.  A player that has moved further than it can walk, and than
-   * Toby can have pushed it, stays where it was until the time of the later
+   * a villager can have pushed it, stays where it was until the time of the later
    * snapshot.  So does a monster that has moved further than it can walk.
    *
    * Past the latest snapshot, everyone stays as it tells them.  Before the

@@ -23,11 +23,9 @@
  */
 
 import {
-  BoxGeometry,
   BufferGeometry,
   Group,
   Material,
-  Mesh,
   Object3D,
   PerspectiveCamera,
   Scene,
@@ -39,46 +37,34 @@ import {
 import type { Camera } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { VILLAGERS, findPlacement, findTobyPose } from '@clovervale/shared';
-import type { Placement, TobyPose, Villager } from '@clovervale/shared';
-
 import {
-  CHARACTER_READING_SPEED,
-  SpeechBubble,
-  findFigureTop,
-  findHeadTop,
-  measureSpeechDuration,
-  wrapText,
-} from '../src/speech-bubble.ts';
+  createPhrasedMessage,
+  createSaidMessage,
+  findPlacement,
+  findTobyPose,
+  getVillager,
+} from '@clovervale/shared';
 import type {
-  SaidView,
-  SpeechScreen,
-  SpeechWords,
-} from '../src/speech-bubble.ts';
+  PhraseCode,
+  Placement,
+  TobyPose,
+  Villager,
+} from '@clovervale/shared';
+
+import type { SpeechScreen } from '../src/bubble-sprite.ts';
+import { readSaying } from '../src/chat-channels.ts';
+import type { PlayerSaying } from '../src/chat-channels.ts';
+import { SpeechBubble } from '../src/speech-bubble.ts';
+import type { SaidView } from '../src/speech-bubble.ts';
+import type { SpeechWords } from '../src/speech-lines.ts';
+import { measureSpeechDuration } from '../src/speech-text.ts';
 import { Translator } from '../src/translator.ts';
 
-/**
- * Finds a villager.
- *
- * @param {string} file - The file name of the model of the villager.
- * @returns {Villager} The villager.
- * @throws {Error} If there is no such villager.
- */
-function findVillagerOf(file: string): Villager {
-  const found: Villager | undefined = VILLAGERS.find(
-    (villager: Villager) => villager.file === file,
-  );
-  if (found === undefined) {
-    throw new Error(`${file} is not among the villagers.`);
-  }
-  return found;
-}
-
 /** Nancy the villager. */
-const NANCY: Villager = findVillagerOf('npc-nancy.glb');
+const NANCY: Villager = getVillager('nancy');
 
 /** Martha the village chief, who has two lines. */
-const MARTHA: Villager = findVillagerOf('npc-martha.glb');
+const MARTHA: Villager = getVillager('martha');
 
 /** What Martha says, in English, in order. */
 const MARTHA_LINES: readonly string[] = [
@@ -95,7 +81,7 @@ const MARTHA_LINES_ZH_TW: readonly string[] = [
 ];
 
 /** Toby, the child who goes about by the gate, who has three lines. */
-const TOBY: Villager = findVillagerOf('npc-toby.glb');
+const TOBY: Villager = getVillager('toby');
 
 /** What Nancy says first, to welcome a player, in English. */
 const NANCY_WELCOME =
@@ -111,14 +97,35 @@ const NANCY_DOGS_LINE =
   'There are wild dogs at the village gate, and no one can go out. What ' +
   'are we going to do?';
 
-/** What Nancy says of the wild dogs, in Traditional Chinese. */
-const NANCY_DOGS_LINE_ZH_TW = '村口有野狗，大家都沒辦法出門，怎麼辦？';
-
 /** Where Nancy stands. */
-const SPOT: Placement = findPlacement(NANCY.file);
+const SPOT: Placement = findPlacement('nancy');
 
 /** The top of the head of Nancy. */
 const HEAD = new Vector3(SPOT.x, 1.6, SPOT.z);
+
+/**
+ * Tells what a player says by a line it typed, as the page reads it from
+ * the server.
+ *
+ * @param {number} player - The identifier of the player.
+ * @param {string} text - The line it typed.
+ * @returns {PlayerSaying} What the player says.
+ */
+function createTyped(player: number, text: string): PlayerSaying {
+  return readSaying(createSaidMessage(player, text));
+}
+
+/**
+ * Tells what a player says by a phrase it picked, as the page reads it
+ * from the server.
+ *
+ * @param {number} player - The identifier of the player.
+ * @param {PhraseCode} code - The code of the phrase.
+ * @returns {PlayerSaying} What the player says.
+ */
+function createPhrased(player: number, code: PhraseCode): PlayerSaying {
+  return readSaying(createPhrasedMessage(player, code));
+}
 
 /**
  * Has the bubbles in a parent drawn, as far as each bubble takes part in
@@ -187,27 +194,6 @@ function createSequence(numbers: readonly number[]): () => number {
 }
 
 /**
- * Talks to a villager over and over, and notes what it says each time.
- *
- * @param {SpeechBubble} bubble - The bubble.
- * @param {Villager} villager - The villager.
- * @param {number} count - How many times to talk to it.
- * @returns {string[]} What it says, in order.
- */
-function talkRepeatedly(
-  bubble: SpeechBubble,
-  villager: Villager,
-  count: number,
-): string[] {
-  const lines: string[] = [];
-  for (let i = 0; i < count; i++) {
-    bubble.say(villager, HEAD);
-    lines.push(bubble.describe()?.line ?? '');
-  }
-  return lines;
-}
-
-/**
  * Makes a translator of the text into a language.
  *
  * @param {'zh-TW' | 'zh-CN' | 'ja' | 'es'} code - The language.
@@ -220,133 +206,6 @@ async function createTranslator(
   await translator.choose(code);
   return translator;
 }
-
-describe('wrapText', () => {
-  /**
-   * Measures a text by its number of characters.
-   *
-   * @param {string} text - The text.
-   * @returns {number} The width.
-   */
-  const measure = (text: string): number => text.length;
-
-  it('breaks a text between words into lines no wider than told', () => {
-    expect(wrapText('a bb ccc dddd', 6, measure)).toEqual([
-      'a bb',
-      'ccc',
-      'dddd',
-    ]);
-  });
-
-  it('starts a new line at a line break, and wraps each row', () => {
-    expect(wrapText('one two\nthree', 20, measure)).toEqual([
-      'one two',
-      'three',
-    ]);
-    expect(wrapText('one two three\nfour five six', 9, measure)).toEqual([
-      'one two',
-      'three',
-      'four five',
-      'six',
-    ]);
-  });
-
-  it('leaves a word wider than told on a line of its own', () => {
-    expect(wrapText('abcdefgh ij', 4, measure)).toEqual(['abcdefgh', 'ij']);
-  });
-
-  it('breaks Chinese between characters, not before punctuation', () => {
-    expect(wrapText(NANCY_DOGS_LINE_ZH_TW, 6, measure)).toEqual([
-      '村口有野狗，',
-      '大家都沒辦法',
-      '出門，怎麼',
-      '辦？',
-    ]);
-  });
-
-  it('breaks Japanese, not before small kana or punctuation', () => {
-    expect(wrapText('なっちゃったの。どうしよう……', 4, measure)).toEqual([
-      'なっ',
-      'ちゃった',
-      'の。どう',
-      'しよ',
-      'う……',
-    ]);
-  });
-
-  it('does not break after an opening bracket', () => {
-    expect(wrapText('她說「快走」了', 3, measure)).toEqual([
-      '她說',
-      '「快',
-      '走」了',
-    ]);
-  });
-
-  it('keeps words of letters whole among Chinese characters', () => {
-    expect(wrapText('按Space鍵', 3, measure)).toEqual(['按', 'Space', '鍵']);
-  });
-});
-
-describe('measureSpeechDuration', () => {
-  it('leaves time to read a line at three words a second', () => {
-    const words: number = NANCY_DOGS_LINE.split(' ').length;
-    expect(measureSpeechDuration(NANCY_DOGS_LINE)).toBeGreaterThanOrEqual(
-      words / 3,
-    );
-  });
-
-  it('shows a longer line for longer', () => {
-    expect(measureSpeechDuration('Hello there, and welcome.')).toBeGreaterThan(
-      measureSpeechDuration('Hello.'),
-    );
-  });
-
-  it('leaves time to read Chinese and Japanese by their characters', () => {
-    expect(measureSpeechDuration(NANCY_DOGS_LINE_ZH_TW)).toBeGreaterThanOrEqual(
-      20 / CHARACTER_READING_SPEED,
-    );
-    expect(measureSpeechDuration(NANCY_DOGS_LINE_ZH_TW)).toBeGreaterThan(
-      measureSpeechDuration('怎麼辦？'),
-    );
-    expect(measureSpeechDuration('どうしようかな。')).toBeGreaterThan(
-      measureSpeechDuration('どうも。'),
-    );
-  });
-});
-
-describe('findHeadTop', () => {
-  it('finds the top of the model of a villager where it stands', () => {
-    const root = new Object3D();
-    const body = new Mesh(new BoxGeometry(0.6, 1.6, 0.6));
-    body.position.y = 0.8;
-    root.add(body);
-    root.position.set(SPOT.x, 0, SPOT.z);
-    const top: Vector3 = findHeadTop(NANCY, root, 0, []);
-    expect(top.x).toBeCloseTo(SPOT.x);
-    expect(top.y).toBeCloseTo(1.6);
-    expect(top.z).toBeCloseTo(SPOT.z);
-  });
-
-  it('finds the top of Toby where he is at the step', () => {
-    const root = new Object3D();
-    const body = new Mesh(new BoxGeometry(0.4, 1.1, 0.4));
-    body.position.y = 0.55;
-    root.add(body);
-    const toby: TobyPose = findTobyPose(150);
-    root.position.set(toby.x, 0, toby.z);
-    const top: Vector3 = findHeadTop(TOBY, root, 150, []);
-    expect(top.x).toBeCloseTo(toby.x);
-    expect(top.y).toBeCloseTo(1.1);
-    expect(top.z).toBeCloseTo(toby.z);
-  });
-
-  it('takes a usual height where the villager stands without its model', () => {
-    const top: Vector3 = findHeadTop(NANCY, null, 0, []);
-    expect(top.x).toBeCloseTo(SPOT.x);
-    expect(top.y).toBeGreaterThan(1);
-    expect(top.z).toBeCloseTo(SPOT.z);
-  });
-});
 
 describe('SpeechBubble', () => {
   it('shows nothing at first', () => {
@@ -440,63 +299,6 @@ describe('SpeechBubble', () => {
 });
 
 describe('SpeechBubble with a villager who has several lines', () => {
-  /** Numbers in [0, 1) spread over the whole of it, in no order. */
-  const SPREAD: readonly number[] = [0, 0.99, 0.5, 0.25, 0.75, 0.1, 0.9];
-
-  it('says each of the lines in time', () => {
-    for (const numbers of [SPREAD, [0], [0.99]]) {
-      const { bubble } = createBubble(undefined, createSequence(numbers));
-      expect(new Set(talkRepeatedly(bubble, MARTHA, 10))).toEqual(
-        new Set(MARTHA_LINES),
-      );
-    }
-  });
-
-  it('never says the same line twice running', () => {
-    for (const numbers of [SPREAD, [0], [0.5], [0.99]]) {
-      const { bubble } = createBubble(undefined, createSequence(numbers));
-      const lines: string[] = talkRepeatedly(bubble, MARTHA, 20);
-      lines.slice(1).forEach((line: string, index: number) => {
-        expect(line).not.toBe(lines[index]);
-      });
-    }
-  });
-
-  it('has Nancy welcome a player the first time, whatever the chance', () => {
-    for (const numbers of [SPREAD, [0], [0.5], [0.99]]) {
-      const { bubble } = createBubble(undefined, createSequence(numbers));
-      expect(talkRepeatedly(bubble, NANCY, 1)).toEqual([NANCY_WELCOME]);
-    }
-  });
-
-  it('has Nancy welcome a player first in the language of the page', async () => {
-    const zhTw: Translator = await createTranslator('zh-TW');
-    const { bubble } = createBubble(zhTw, createSequence([0.99]));
-    expect(talkRepeatedly(bubble, NANCY, 1)).toEqual([NANCY_WELCOME_ZH_TW]);
-  });
-
-  it('has Nancy say each of her lines in time after her welcome', () => {
-    for (const numbers of [SPREAD, [0], [0.99]]) {
-      const { bubble } = createBubble(undefined, createSequence(numbers));
-      const lines: string[] = talkRepeatedly(bubble, NANCY, 11);
-      expect(new Set(lines.slice(1))).toEqual(
-        new Set([NANCY_WELCOME, NANCY_DOGS_LINE]),
-      );
-      lines.slice(1).forEach((line: string, index: number) => {
-        expect(line).not.toBe(lines[index]);
-      });
-    }
-  });
-
-  it('puts her name in the line that names her', () => {
-    const { bubble } = createBubble(undefined, createSequence([0]));
-    bubble.say(MARTHA, HEAD);
-    expect(bubble.describe()).toMatchObject({
-      name: 'Chief Martha',
-      line: MARTHA_LINES[0],
-    });
-  });
-
   it('keeps to the line shown when shown in another language', async () => {
     const translator = new Translator();
     const { bubble } = createBubble(translator, createSequence([0.99]));
@@ -960,20 +762,6 @@ describe('SpeechBubble on the screen', () => {
   });
 });
 
-describe('findFigureTop', () => {
-  it('finds the top of the model of a player where it stands', () => {
-    const root = new Object3D();
-    const body = new Mesh(new BoxGeometry(0.6, 1.7, 0.4));
-    body.position.y = 0.85;
-    root.add(body);
-    root.position.set(3, 0, -2);
-    const top: Vector3 = findFigureTop(root);
-    expect(top.x).toBe(3);
-    expect(top.y).toBeCloseTo(1.7);
-    expect(top.z).toBe(-2);
-  });
-});
-
 describe('SpeechBubble with players who speak', () => {
   /** The top of the head of a player. */
   const PLAYER_HEAD = new Vector3(2, 1.7, 3);
@@ -993,7 +781,7 @@ describe('SpeechBubble with players who speak', () => {
 
   it('shows what a player says above its head, under no name', () => {
     const { parent, bubble, painted } = createBubble();
-    bubble.sayAs(7, 'Hello there!', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'Hello there!'), PLAYER_HEAD);
     expect(parent.children).toHaveLength(1);
     const y: number | undefined = parent.children[0]?.position.y;
     expect(y).toBeGreaterThan(PLAYER_HEAD.y);
@@ -1016,7 +804,7 @@ describe('SpeechBubble with players who speak', () => {
   it('shows a line as it was typed, in whatever language', async () => {
     const translator: Translator = await createTranslator('ja');
     const { bubble, painted } = createBubble(translator);
-    bubble.sayAs(7, '<b>大家好</b> & hello', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, '<b>大家好</b> & hello'), PLAYER_HEAD);
     expect(listLines(bubble)).toEqual([[7, '<b>大家好</b> & hello']]);
     await translator.choose('zh-TW');
     bubble.relabel();
@@ -1031,7 +819,7 @@ describe('SpeechBubble with players who speak', () => {
   it('shows a phrase a player says in the language of the page', async () => {
     const translator: Translator = await createTranslator('zh-TW');
     const { parent, bubble, painted } = createBubble(translator);
-    bubble.sayPhraseAs(7, 'askInn', PLAYER_HEAD);
+    bubble.sayAs(createPhrased(7, 'askInn'), PLAYER_HEAD);
     expect(parent.children).toHaveLength(1);
     expect(bubble.describeSaid()).toEqual([
       {
@@ -1052,7 +840,7 @@ describe('SpeechBubble with players who speak', () => {
   it('shows a phrase in another language once told to', async () => {
     const translator = new Translator();
     const { parent, bubble, painted } = createBubble(translator);
-    bubble.sayPhraseAs(7, 'swordPrice', PLAYER_HEAD);
+    bubble.sayAs(createPhrased(7, 'swordPrice'), PLAYER_HEAD);
     expect(listLines(bubble)).toEqual([[7, 'How much for this sword?']]);
     await translator.choose('zh-TW');
     bubble.relabel();
@@ -1067,26 +855,26 @@ describe('SpeechBubble with players who speak', () => {
 
   it('shows a phrase and a line typed in the one bubble of a player', () => {
     const { parent, bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
-    bubble.sayPhraseAs(7, 'swordPrice', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
+    bubble.sayAs(createPhrased(7, 'swordPrice'), PLAYER_HEAD);
     expect(listLines(bubble)).toEqual([[7, 'How much for this sword?']]);
-    bubble.sayAs(7, 'Two.', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'Two.'), PLAYER_HEAD);
     expect(listLines(bubble)).toEqual([[7, 'Two.']]);
     expect(parent.children).toHaveLength(1);
   });
 
   it('replaces the line of a player with its next one', () => {
     const { parent, bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
-    bubble.sayAs(7, 'Two.', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'Two.'), PLAYER_HEAD);
     expect(listLines(bubble)).toEqual([[7, 'Two.']]);
     expect(parent.children).toHaveLength(1);
   });
 
   it('shows the lines of different players at the same time', () => {
     const { parent, bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
-    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
+    bubble.sayAs(createTyped(8, 'Two.'), OTHER_HEAD);
     expect(listLines(bubble)).toEqual([
       [7, 'One.'],
       [8, 'Two.'],
@@ -1097,9 +885,9 @@ describe('SpeechBubble with players who speak', () => {
 
   it('draws a later bubble over the earlier ones', () => {
     const { parent, bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
-    bubble.sayAs(8, 'Two.', PLAYER_HEAD);
-    bubble.sayAs(7, 'Three.', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
+    bubble.sayAs(createTyped(8, 'Two.'), PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'Three.'), PLAYER_HEAD);
     const [second, third] = parent.children;
     expect(second?.renderOrder).toBeLessThan(third?.renderOrder ?? NaN);
   });
@@ -1107,7 +895,7 @@ describe('SpeechBubble with players who speak', () => {
   it('leaves the bubble of a villager as it is, and is left by it', () => {
     const { parent, bubble } = createBubble();
     bubble.say(NANCY, HEAD);
-    bubble.sayAs(7, 'Hello, Nancy!', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'Hello, Nancy!'), PLAYER_HEAD);
     expect(bubble.describe()?.line).toBe(NANCY_WELCOME);
     bubble.say(NANCY, HEAD);
     expect(listLines(bubble)).toEqual([[7, 'Hello, Nancy!']]);
@@ -1120,8 +908,8 @@ describe('SpeechBubble with players who speak', () => {
   it('lasts as long as the bubble of a villager with the same line', () => {
     const { parent, bubble } = createBubble();
     const duration: number = measureSpeechDuration(NANCY_WELCOME);
-    bubble.sayAs(7, NANCY_WELCOME, PLAYER_HEAD);
-    bubble.sayAs(8, 'Hi.', OTHER_HEAD);
+    bubble.sayAs(createTyped(7, NANCY_WELCOME), PLAYER_HEAD);
+    bubble.sayAs(createTyped(8, 'Hi.'), OTHER_HEAD);
     bubble.update(measureSpeechDuration('Hi.') + 0.1);
     expect(bubble.listSpeakers()).toEqual([7]);
     bubble.update(duration - measureSpeechDuration('Hi.') - 0.2);
@@ -1133,8 +921,8 @@ describe('SpeechBubble with players who speak', () => {
 
   it('follows its player as it goes about', () => {
     const { bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
-    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
+    bubble.sayAs(createTyped(8, 'Two.'), OTHER_HEAD);
     bubble.followPlayer(7, new Vector3(5, 1.7, 6));
     const [first, second] = bubble.describeSaid();
     expect([first?.x, first?.z]).toEqual([5, 6]);
@@ -1144,7 +932,7 @@ describe('SpeechBubble with players who speak', () => {
 
   it('is not seen while its player is off the screen, and again after', () => {
     const { parent, bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
     bubble.followPlayer(7, null);
     expect(bubble.describeSaid()[0]?.isShown).toBe(false);
     expect(parent.children[0]?.visible).toBe(false);
@@ -1155,7 +943,7 @@ describe('SpeechBubble with players who speak', () => {
 
   it('goes on ageing while it is not seen', () => {
     const { bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
     bubble.followPlayer(7, null);
     bubble.update(measureSpeechDuration('One.') + 0.1);
     expect(bubble.listSpeakers()).toEqual([]);
@@ -1163,8 +951,8 @@ describe('SpeechBubble with players who speak', () => {
 
   it('takes the bubble of a player away, and only that', () => {
     const { bubble } = createBubble();
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
-    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
+    bubble.sayAs(createTyped(8, 'Two.'), OTHER_HEAD);
     bubble.hushPlayer(7);
     expect(bubble.listSpeakers()).toEqual([8]);
     bubble.followPlayer(7, PLAYER_HEAD);
@@ -1174,8 +962,8 @@ describe('SpeechBubble with players who speak', () => {
   it('takes every bubble away when cleared', () => {
     const { parent, bubble } = createBubble();
     bubble.say(NANCY, HEAD);
-    bubble.sayAs(7, 'One.', PLAYER_HEAD);
-    bubble.sayAs(8, 'Two.', OTHER_HEAD);
+    bubble.sayAs(createTyped(7, 'One.'), PLAYER_HEAD);
+    bubble.sayAs(createTyped(8, 'Two.'), OTHER_HEAD);
     bubble.clear();
     expect(bubble.describe()).toBeNull();
     expect(bubble.describeSaid()).toEqual([]);
@@ -1190,8 +978,11 @@ describe('SpeechBubble with players who speak', () => {
     );
     const camera: PerspectiveCamera = createCamera(view, 40);
     bubble.fitView(view.width, view.height, 40);
-    bubble.sayAs(7, 'One.', findPointAt(camera, view, 5, 400));
-    bubble.sayAs(8, 'Two.', findPointAt(camera, view, view.width - 5, 10));
+    bubble.sayAs(createTyped(7, 'One.'), findPointAt(camera, view, 5, 400));
+    bubble.sayAs(
+      createTyped(8, 'Two.'),
+      findPointAt(camera, view, view.width - 5, 10),
+    );
     drawBubbles(parent, camera);
     const [left, right] = parent.children.map((sprite: Object3D) =>
       measureDrawn(sprite, camera, view),

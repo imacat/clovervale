@@ -22,12 +22,14 @@
  *   cave, a courier of a kingdom, who waits at the bars of his cell.
  */
 
-import { CAVE_EDWIN_BEHIND_BARS } from '../../packages/shared/src/cave.ts';
+import { CAVE_EDWIN_BEHIND_BARS } from '@clovervale/shared';
 
 import {
   SIDES,
   SKINS,
   addHead,
+  addNpcBones,
+  addNpcLegs,
   createHair,
   findHeadPoint,
   setFaceMaterials,
@@ -48,6 +50,7 @@ import { Rig } from './rig.ts';
 import type {
   ArmBones,
   BuiltModel,
+  ClipReport,
   LegBones,
   Pose,
   PoseKey,
@@ -113,28 +116,6 @@ const LEAN = 0.14;
 const IDLE_DURATION = 8;
 
 /**
- * Creates the shape of a boot from its side profile.
- *
- * @returns {Shape} The boot, around its ankle bone at the origin of X.
- */
-function createBootSole(): Shape {
-  return place(
-    createExtrusion(
-      [
-        [-0.095, 0],
-        [0.175, 0],
-        [0.185, 0.045],
-        [0.135, 0.09],
-        [0.03, 0.11],
-        [-0.095, 0.11],
-      ],
-      0.165,
-    ),
-    { rot: [0, -90, 0] },
-  );
-}
-
-/**
  * Creates the crown of the kingdom he rides for, as embroidered on his
  * tabard, upright and facing +Z, its foot at the origin.
  *
@@ -156,22 +137,11 @@ function createCrown(): Shape {
 }
 
 /**
- * Builds the prisoner: a courier of a kingdom, a grown man, tired but
- * upright, his short hair unkempt and his chin unshaven, with dark rings
- * under his heavy eyes and his brows drawn up, in the worn and
- * travel-stained clothes of his errand: a faded blue tabard with the crown
- * of his kingdom on its breast, over a linen shirt, a short brown cloak
- * about his shoulders, a belt with a strap across him to an empty pouch,
- * trousers, and boots caked with dust.  He has no armour and no weapon.
- * He stands right at the bars of his cell, holding two of them, leaning in
- * on straight arms; he shifts his weight from one foot to the other, and
- * looks along the passage one way and then the other, and breathes.
+ * Defines the materials of the prisoner.
  *
- * @returns {BuiltModel} The animated model and the measurements taken while
- *   baking.
+ * @param {Model} model - The model.
  */
-export function buildNpcEdwin(): BuiltModel {
-  const model = new Model('NpcEdwin');
+function setMaterials(model: Model): void {
   setFaceMaterials(model, SKINS.light);
   model.setMaterial('hand', SKINS.light);
   model.setMaterial('blush', '#e9b79c');
@@ -189,21 +159,15 @@ export function buildNpcEdwin(): BuiltModel {
   model.setMaterial('trousers', '#565049');
   model.setMaterial('boot', '#3e2c1f');
   model.setMaterial('dust', '#7d6a4f');
+}
 
-  model.addBone('Hips', null, [0, 0.56, 0]);
-  model.addBone('Chest', 'Hips', [0, 0.66, 0]);
-  model.addBone('Head', 'Chest', [0, 0.98, 0]);
-  for (const [side, x] of SIDES) {
-    model.addBone(`UpperArm${side}`, 'Chest', [0.25 * x, 0.9, 0]);
-    model.addBone(`ForeArm${side}`, `UpperArm${side}`, [0.25 * x, 0.73, 0]);
-    model.addBone(`Hand${side}`, `ForeArm${side}`, [0.25 * x, 0.57, 0]);
-    model.addBone(`Thigh${side}`, 'Hips', [0.1 * x, 0.55, 0]);
-    model.addBone(`Shin${side}`, `Thigh${side}`, [0.1 * x, 0.3, 0]);
-    model.addBone(`Foot${side}`, `Shin${side}`, [0.1 * x, 0.08, 0]);
-  }
-
-  // The head: short, unkempt hair, heavy lids, brows drawn up in the
-  // middle, dark rings under the eyes, and a stubbled chin.
+/**
+ * Adds his head: short, unkempt hair, heavy lids, brows drawn up in the
+ * middle, dark rings under the eyes, and a stubbled chin.
+ *
+ * @param {Model} model - The model, with his materials and bones defined.
+ */
+function addFace(model: Model): void {
   addHead(model);
   const hair: Hair = createHair('tufts');
   model.add('hair', hair.hair, 'Head');
@@ -242,9 +206,18 @@ export function buildNpcEdwin(): BuiltModel {
     }),
     'Head',
   );
+}
 
-  // The body: the tabard over the shirt, the crown on its breast, the
-  // strap across it to the pouch, and the short cloak about the shoulders.
+/**
+ * Adds his body: the tabard over the shirt, the crown on its breast, the
+ * strap across it to the pouch, and the short cloak about the shoulders;
+ * and at the hips the trousers, the belt, the skirt of the tabard down to
+ * the middle of the thighs, its hem stained with the dust of the road, and
+ * the empty pouch on the belt.
+ *
+ * @param {Model} model - The model, with his materials and bones defined.
+ */
+function addBody(model: Model): void {
   const flat: Placement = { scale: [1, 1, 0.82] };
   model.add(
     'skin',
@@ -329,9 +302,6 @@ export function buildNpcEdwin(): BuiltModel {
     'Chest',
   );
 
-  // The hips: the trousers, the belt, the skirt of the tabard down to the
-  // middle of the thighs, its hem stained with the dust of the road, and the
-  // empty pouch on the belt.
   model.add(
     'trousers',
     place(
@@ -403,12 +373,18 @@ export function buildNpcEdwin(): BuiltModel {
     }),
     'Hips',
   );
+}
 
-  // The limbs: the arms, in the sleeves of the tabard over the long sleeves
-  // of the shirt, and the legs, in trousers and dusty boots.
+/**
+ * Adds his arms, in the sleeves of the tabard over the long sleeves of the
+ * shirt.
+ *
+ * @param {Model} model - The model, with his materials and bones defined.
+ */
+function addArms(model: Model): void {
   for (const [side, x] of SIDES) {
-    const moveAside = (shape: Shape, px = 0.25): Shape =>
-      place(shape, { pos: [px * x, 0, 0] });
+    const moveAside = (shape: Shape): Shape =>
+      place(shape, { pos: [0.25 * x, 0, 0] });
     model.add(
       'tabard',
       moveAside(
@@ -447,60 +423,19 @@ export function buildNpcEdwin(): BuiltModel {
       }),
       `Hand${side}`,
     );
-    model.add(
-      'trousers',
-      moveAside(
-        createLathe(
-          [
-            [0, 0.6],
-            [0.095, 0.575],
-            [0.085, 0.3],
-            [0, 0.285],
-          ],
-          6,
-        ),
-        0.1,
-      ),
-      `Thigh${side}`,
-    );
-    model.add(
-      'boot',
-      moveAside(
-        createLathe(
-          [
-            [0, 0.33],
-            [0.092, 0.32],
-            [0.088, 0.17],
-            [0, 0.16],
-          ],
-          6,
-        ),
-        0.1,
-      ),
-      `Shin${side}`,
-    );
-    model.add(
-      'dust',
-      moveAside(
-        createLathe(
-          [
-            [0, 0.17],
-            [0.088, 0.17],
-            [0.085, 0.07],
-            [0, 0.06],
-          ],
-          6,
-        ),
-        0.1,
-      ),
-      `Shin${side}`,
-    );
-    model.add('boot', moveAside(createBootSole(), 0.1), `Foot${side}`);
   }
+}
 
-  // The model is centred on its feet before it is posed, so that his hands
-  // close on the bars where the cave stands them.
-  model.centreOn(['FootL', 'FootR']);
+/**
+ * Bakes his idling, `Idle`: holding the bars, he shifts his weight from one
+ * foot to the other, looks along the passage one way and then the other,
+ * and breathes.
+ *
+ * @param {Model} model - The model, centred on its feet.
+ * @returns {ReadonlyMap<string, ClipReport>} The measurements of the baked
+ *   clips, by clip name.
+ */
+function animate(model: Model): ReadonlyMap<string, ClipReport> {
   const rig = new Rig(model);
   const head: number = model.findBone('Head');
   // His ankles stay where they stand at rest, under the middle of his feet.
@@ -566,5 +501,54 @@ export function buildNpcEdwin(): BuiltModel {
     { loop: true },
   );
   rig.noteOverreach('Idle', overreach);
-  return { model, report: rig.report };
+  return rig.report;
+}
+
+/**
+ * Builds the prisoner: a courier of a kingdom, a grown man, tired but
+ * upright, his short hair unkempt and his chin unshaven, with dark rings
+ * under his heavy eyes and his brows drawn up, in the worn and
+ * travel-stained clothes of his errand: a faded blue tabard with the crown
+ * of his kingdom on its breast, over a linen shirt, a short brown cloak
+ * about his shoulders, a belt with a strap across him to an empty pouch,
+ * trousers, and boots caked with dust.  He has no armour and no weapon.
+ * He stands right at the bars of his cell, holding two of them, leaning in
+ * on straight arms; he shifts his weight from one foot to the other, and
+ * looks along the passage one way and then the other, and breathes.
+ *
+ * @returns {BuiltModel} The animated model and the measurements taken while
+ *   baking.
+ */
+export function buildNpcEdwin(): BuiltModel {
+  const model = new Model('NpcEdwin');
+  setMaterials(model);
+  addNpcBones(model);
+  addFace(model);
+  addBody(model);
+  addArms(model);
+  // His legs, in trousers and dusty boots.
+  addNpcLegs(model, [
+    {
+      material: 'boot',
+      profile: [
+        [0, 0.33],
+        [0.092, 0.32],
+        [0.088, 0.17],
+        [0, 0.16],
+      ],
+    },
+    {
+      material: 'dust',
+      profile: [
+        [0, 0.17],
+        [0.088, 0.17],
+        [0.085, 0.07],
+        [0, 0.06],
+      ],
+    },
+  ]);
+  // The model is centred on its feet before it is posed, so that his hands
+  // close on the bars where the cave stands them.
+  model.centreOn(['FootL', 'FootR']);
+  return { model, report: animate(model) };
 }

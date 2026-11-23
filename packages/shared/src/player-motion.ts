@@ -24,13 +24,14 @@
 
 import { DRINK_DURATION, SLASH_DURATION, TALK_DURATION } from './actions.ts';
 import type { ActionState, Interaction } from './actions.ts';
+import type { MonsterState } from './combat.ts';
 import { findInteraction } from './interaction.ts';
 import { SIMULATION_RATE, findYaw, movePosition } from './movement.ts';
 import type { GroundVector } from './movement.ts';
-import type { MonsterState } from './protocol.ts';
+import type { Pusher } from './pusher.ts';
 import type { Terrain } from './terrain.ts';
-import { findTobyPose, pushAside, resolveWalk } from './toby.ts';
-import { findMapTerrain } from './world-map.ts';
+import { findPusher } from './villagers.ts';
+import { WORLD_MAPS } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /** How long one step of the simulation lasts, in seconds. */
@@ -80,6 +81,32 @@ export interface PlayerMotion {
    * while it is not interacting.
    */
   readonly actionSteps: number;
+}
+
+/** The number of appearances a player can have, numbered from 1. */
+export const APPEARANCE_COUNT = 8;
+
+/** A player, as the server knows it at one moment. */
+export interface PlayerState {
+  /** The identifier of the player, unique while the server runs. */
+  readonly id: number;
+  /** The number of the appearance of the player, from 1. */
+  readonly appearance: number;
+  /** The position along the X axis, in metres. */
+  readonly x: number;
+  /** The position along the Z axis, in metres. */
+  readonly z: number;
+  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  readonly yaw: number;
+  /** What the player is doing. */
+  readonly action: ActionState;
+  /**
+   * The number of actions the player has started so far.  It changes
+   * whenever the player starts an action, even the same one again.
+   */
+  readonly actionCount: number;
+  /** The health of the player, from 0 to its full health. */
+  readonly health: number;
 }
 
 /** The input that changes the way a player wants to move. */
@@ -233,20 +260,22 @@ export function applyInput(
 /**
  * Moves a player one step of the simulation forward, in a map.
  *
- * In the village, Toby is first where his course has him at the step, and
- * a living player in his way is pushed aside, as {@link pushAside} tells,
- * whatever it is doing.  Then a player that slashes, drinks from the
- * fountain or talks to a villager stands still, without turning, for as
- * long as that lasts, whichever way it wants to move.  Any other player
- * that wants to move walks that way, facing it, and idles otherwise.  A
- * walking player does not go through the obstacles of the map, nor through
- * Toby in the village, nor out of the map: it slides along what it walks
- * into at an angle, and walks on the spot against what it walks straight
- * into.  A dead player stays exactly as it is.
+ * In a map with a villager who pushes the players aside, as
+ * {@link findPusher} tells, as Toby does in the village, the villager is
+ * first where its course has it at the step, and a living player in its way
+ * is pushed aside, as {@link Pusher.pushAside} tells, whatever it is doing.
+ * Then a player that slashes, drinks from the fountain or talks to a
+ * villager stands still, without turning, for as long as that lasts,
+ * whichever way it wants to move.  Any other player that wants to move
+ * walks that way, facing it, and idles otherwise.  A walking player does
+ * not go through the obstacles of the map, nor through such a villager,
+ * nor out of the map: it slides along what it walks into at an angle, and
+ * walks on the spot against what it walks straight into.  A dead player
+ * stays exactly as it is.
  *
  * @param {PlayerMotion} motion - The motion of the player.
  * @param {number} step - The number of the step, as the server counts
- *   them, which tells where Toby is.
+ *   them, which tells where a villager who pushes the players aside is.
  * @param {MapId} map - The map the player is in.
  * @param {readonly MonsterState[]} monsters - The monsters in the map,
  *   which tell whether the player slashes rather than talks to a villager.
@@ -261,11 +290,13 @@ export function stepMotion(
   if (motion.action === 'Die') {
     return motion;
   }
-  const terrain: Terrain = findMapTerrain(map);
-  const toby: GroundVector | null =
-    map === 'village' ? findTobyPose(step) : null;
+  const terrain: Terrain = WORLD_MAPS[map].terrain;
+  const pusher: Pusher | null = findPusher(map);
+  const at: GroundVector | null = pusher?.locate(step) ?? null;
   const pushed: GroundVector =
-    toby === null ? motion : pushAside(motion, toby, terrain);
+    pusher === null || at === null
+      ? motion
+      : pusher.pushAside(motion, at, terrain);
   const moved: PlayerMotion =
     pushed === motion ? motion : { ...motion, x: pushed.x, z: pushed.z };
   let { actionSteps } = moved;
@@ -294,9 +325,9 @@ export function stepMotion(
   }
   const target: GroundVector = movePosition(moved, direction, STEP_SECONDS);
   const { x, z } =
-    toby === null
+    pusher === null || at === null
       ? terrain.resolveMove(moved, target)
-      : resolveWalk(moved, target, toby, terrain);
+      : pusher.resolveWalk(moved, target, at, terrain);
   const yaw: number = findYaw(direction);
   return startAction({ ...moved, x, z, yaw, actionSteps }, 'Walk');
 }

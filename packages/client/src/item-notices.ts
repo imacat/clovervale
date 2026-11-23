@@ -24,7 +24,7 @@
 
 import type { ItemKindId } from '@clovervale/shared';
 
-import { nameItem } from './interaction-prompt.ts';
+import { nameItem } from './item-words.ts';
 import type { Translator } from './translator.ts';
 
 /** The notices of the items and the silver coins the player gets. */
@@ -43,56 +43,6 @@ export interface ItemNotices {
    * @param {number} count - The number of coins, at least one.
    */
   readonly showSilver: (count: number) => void;
-}
-
-/**
- * Finds the items an inventory has gained, as the server tells it anew.
- *
- * @param {(readonly ItemKindId[]) | null} before - The items as the server
- *   last told, or `null` if it has not told them since the page joined.
- * @param {(readonly ItemKindId[]) | null} after - The items as the server
- *   tells now, or `null` while there is no player.
- * @returns {ItemKindId[]} One kind for each item there is more of than
- *   before, in the order of the slots; none while either inventory is not
- *   known.
- */
-export function findGainedItems(
-  before: readonly ItemKindId[] | null,
-  after: readonly ItemKindId[] | null,
-): ItemKindId[] {
-  if (before === null || after === null) {
-    return [];
-  }
-  const left: ItemKindId[] = [...before];
-  return after.filter((kind: ItemKindId): boolean => {
-    const index: number = left.indexOf(kind);
-    if (index === -1) {
-      return true;
-    }
-    left.splice(index, 1);
-    return false;
-  });
-}
-
-/**
- * Finds how many silver coins the player has gained, as the server tells
- * its count anew.
- *
- * @param {number | null} before - The count as the server last told, or
- *   `null` if it has not told it since the page joined.
- * @param {number | null} after - The count as the server tells now, or
- *   `null` while there is no player.
- * @returns {number} How many more coins there are than before, which is
- *   none while there are no more, or while either count is not known.
- */
-export function findGainedSilver(
-  before: number | null,
-  after: number | null,
-): number {
-  if (before === null || after === null) {
-    return 0;
-  }
-  return Math.max(after - before, 0);
 }
 
 /**

@@ -28,17 +28,13 @@ import { MONSTER_KINDS, isFighting } from '@clovervale/shared';
 import type { MonsterKindId, MonsterState } from '@clovervale/shared';
 
 import { Actor } from './actor.ts';
+import type { FigureFrame, FigureSet } from './figure-set.ts';
 import { HealthBar } from './health-bar.ts';
+import { MONSTER_MODELS } from './model-catalogue.ts';
 import type { Figure } from './player-figures.ts';
 
 /** The colour of the health bars of the monsters. */
 const HEALTH_COLOUR = '#e0453a';
-
-/**
- * The name of the bone of the pitchfork in the hands of Martha, who holds
- * it only while she is out to deal with a player.
- */
-export const PITCHFORK_BONE = 'Pitchfork';
 
 /**
  * Makes the model to show a monster of a kind with.
@@ -65,10 +61,10 @@ export interface MonsterView {
   /** Whether the health bar of the monster is to be seen. */
   readonly isBarShown: boolean;
   /**
-   * Whether the monster holds a pitchfork, as Martha does while she is out
-   * to deal with a player, which is `false` for a monster that has none.
+   * Whether the monster is shown with the weapon of its kind in its hands,
+   * which is `false` for a kind that holds none.
    */
-  readonly isPitchforkShown: boolean;
+  readonly isWeaponShown: boolean;
 }
 
 /** A monster that is shown. */
@@ -79,8 +75,11 @@ interface ShownMonster {
   readonly actor: Actor;
   /** The health bar above the monster. */
   readonly bar: HealthBar;
-  /** The bone of the pitchfork in its hands, if it has one. */
-  readonly pitchfork: Object3D | null;
+  /**
+   * The bone of the weapon in its hands, as {@link MONSTER_MODELS} names it
+   * for its kind, or `null` if it holds none.
+   */
+  readonly weapon: Object3D | null;
   /** The action count of the action the model is playing the clip of. */
   actionCount: number;
   /** Whether the model plays its clip as holding a weapon. */
@@ -88,7 +87,7 @@ interface ShownMonster {
 }
 
 /** The monsters, shown exactly as they are told from moment to moment. */
-export class MonsterFigures {
+export class MonsterFigures implements FigureSet {
   readonly #parent: Object3D;
   readonly #createFigure: MonsterSource;
   readonly #shown = new Map<number, ShownMonster>();
@@ -107,22 +106,22 @@ export class MonsterFigures {
   }
 
   /**
-   * Shows the given monsters, and no others.
+   * Shows the monsters of a frame, and no others.
    *
    * Each monster stands where its state tells, facing the way it tells, and
    * plays the clip of the action it tells, which starts over whenever the
    * action count of the monster changes, with a health bar above it that
    * shows its health against the full health of its kind, which is shown
-   * only while it is in a fight, as {@link isFighting} tells: hidden once
-   * it is dead, and for Martha, but while she fights.  Martha holds her
-   * pitchfork only while her state tells she does, and plays her clips as
-   * holding it then.  A monster without a model to show it with is left
-   * out.
+   * only while it is in a fight, as {@link isFighting} tells.  A monster of
+   * a kind that holds a weapon, as {@link MONSTER_MODELS} tells, holds it
+   * only while its state tells it does, and plays its clips as holding it
+   * then.  A monster without a model to show it with is left out.
    *
-   * @param {readonly MonsterState[]} monsters - The monsters as they are to
-   *   be shown.
+   * @param {FigureFrame} frame - How things are shown at the frame, with the
+   *   monsters as they are to be shown.
    */
-  showMonsters(monsters: readonly MonsterState[]): void {
+  show(frame: FigureFrame): void {
+    const { monsters } = frame.view;
     const ids = new Set<number>(
       monsters.map((monster: MonsterState) => monster.id),
     );
@@ -142,8 +141,8 @@ export class MonsterFigures {
       shown.root.rotation.y = (monster.yaw * Math.PI) / 180;
       shown.bar.show(monster.health, MONSTER_KINDS[monster.kind].health);
       shown.bar.isVisible = isFighting(monster);
-      shown.pitchfork?.scale.setScalar(monster.isArmed === true ? 1 : 0);
       const isArmed: boolean = monster.isArmed === true;
+      shown.weapon?.scale.setScalar(isArmed ? 1 : 0);
       if (
         shown.actionCount !== monster.actionCount ||
         shown.isArmed !== isArmed
@@ -156,14 +155,25 @@ export class MonsterFigures {
   }
 
   /**
-   * Moves the animations of the monsters forward in time.
+   * Moves the animations of the monsters forward in time, unless they stand
+   * still, as the server holds them.
    *
    * @param {number} seconds - The time that has passed, in seconds.
+   * @param {FigureFrame} frame - How things are shown at the frame.
    */
-  update(seconds: number): void {
+  update(seconds: number, frame: FigureFrame): void {
+    const passed: number = frame.areMonstersPaused ? 0 : seconds;
     for (const shown of this.#shown.values()) {
-      shown.actor.update(seconds);
+      shown.actor.update(passed);
     }
+  }
+
+  /** Takes every monster away, as the player of the page leaves its map. */
+  clear(): void {
+    for (const shown of this.#shown.values()) {
+      this.#parent.remove(shown.root);
+    }
+    this.#shown.clear();
   }
 
   /**
@@ -181,8 +191,7 @@ export class MonsterFigures {
       clip: shown.actor.clipName,
       health: shown.bar.fraction,
       isBarShown: shown.bar.isVisible,
-      isPitchforkShown:
-        shown.pitchfork !== null && shown.pitchfork.scale.x > 0,
+      isWeaponShown: shown.weapon !== null && shown.weapon.scale.x > 0,
     }));
   }
 
@@ -198,11 +207,12 @@ export class MonsterFigures {
     if (figure === null) {
       return null;
     }
+    const bone: string | null = MONSTER_MODELS[monster.kind].weaponBone;
     const shown: ShownMonster = {
       root: figure.root,
       actor: new Actor(figure.root, figure.clips),
       bar: new HealthBar(figure.root, HEALTH_COLOUR),
-      pitchfork: figure.root.getObjectByName(PITCHFORK_BONE) ?? null,
+      weapon: bone === null ? null : (figure.root.getObjectByName(bone) ?? null),
       actionCount: monster.actionCount,
       isArmed: monster.isArmed === true,
     };

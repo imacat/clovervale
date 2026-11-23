@@ -31,7 +31,7 @@ import {
 } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
-import { nameItem } from './interaction-prompt.ts';
+import { nameItem } from './item-words.ts';
 import type { Translator } from './translator.ts';
 
 /** The number of slots in each row of the bag, as many as its rows. */

@@ -23,18 +23,13 @@
  *   itself, how it unrolls and rolls up, and how its credits roll inside.
  */
 
-import type { ItemKindId, MapId } from '@clovervale/shared';
+import { WORLD_MAPS } from '@clovervale/shared';
+import type { MapId } from '@clovervale/shared';
 
 import { isGameKey } from './player-input.ts';
 
-/** The items a player is to hold together for the ending. */
-export const ENDING_ITEMS: readonly ItemKindId[] = [
-  'clovervale-message',
-  'spy-token',
-];
-
 /**
- * How long a player is to hold the items of the ending in the village
+ * How long a player is to be in the village with the main plot done
  * before the ending opens, in milliseconds.
  */
 export const ENDING_DELAY = 1000;
@@ -93,9 +88,8 @@ const NOT_HANDLED: EndingResponse = { isHandled: false, scroll: 0 };
 
 /**
  * What tells when the ending opens by itself: a second after the player
- * comes to hold both {@link ENDING_ITEMS} in the village, or after it comes
- * back to the village holding them, as soon as it is not in a dialogue, and
- * only once.
+ * is done with the main plot in the village, or after it comes back to the
+ * village with it done, as soon as it is not in a dialogue, and only once.
  */
 export class EndingWatch {
   #heldSince: number | null = null;
@@ -103,12 +97,12 @@ export class EndingWatch {
 
   /**
    * Notices how things stand at a moment, and tells whether the ending is
-   * to open then.  Letting go of an item, leaving the village or the page
-   * knowing of no inventory starts the second over.
+   * to open then.  The second starts over whenever the player leaves the
+   * village or the page no longer knows the main plot is done.
    *
    * @param {number} now - The moment, in milliseconds.
-   * @param {(readonly ItemKindId[]) | null} carried - What the player
-   *   carries, or `null` if the page does not know.
+   * @param {boolean} isPlotDone - Whether the page knows the player is done
+   *   with the main plot.
    * @param {MapId} map - The map the player is shown in.
    * @param {boolean} isInDialogue - Whether the player is in a dialogue.
    * @returns {boolean} Whether the ending is to open now, which it is only
@@ -116,14 +110,11 @@ export class EndingWatch {
    */
   notice(
     now: number,
-    carried: readonly ItemKindId[] | null,
+    isPlotDone: boolean,
     map: MapId,
     isInDialogue: boolean,
   ): boolean {
-    const isHeld: boolean =
-      carried !== null &&
-      map === 'village' &&
-      ENDING_ITEMS.every((kind: ItemKindId) => carried.includes(kind));
+    const isHeld: boolean = isPlotDone && WORLD_MAPS[map].allowsEnding;
     if (!isHeld) {
       this.#heldSince = null;
       return false;

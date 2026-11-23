@@ -19,50 +19,61 @@
 
 /**
  * @module server/martha Martha, the village chief, who is the enemy spy,
- *   as the server moves her: she comes up to whoever climbs out of her
- *   well, talks with it, and fights it with her pitchfork.
+ *   as the server moves her: she comes up to whoever she is asked to deal
+ *   with, talks with it, and fights it with her pitchfork.
  */
 
 import {
+  MARTHA_POST,
   MONSTER_KINDS,
   PITCHFORK_STAND,
-  SIMULATION_RATE,
-  findMapPath,
-  findMapTerrain,
-  findPlacement,
-  findYaw,
+  countSteps,
+  getVillager,
+  isVillagerFree,
+  measureDistance,
 } from '@clovervale/shared';
 import type {
   GroundVector,
-  MonsterAction,
+  ItemKindId,
   MonsterKind,
-  MonsterMode,
   MonsterState,
   Pose,
-  Terrain,
+  StoryNeed,
+  Villager,
 } from '@clovervale/shared';
 
-import {
-  MONSTER_ATTACK_DURATION,
-  MONSTER_REPATH_INTERVAL,
-  MONSTER_STRIKE_DELAY,
-} from './monster.ts';
+import type { Spoils, Strike, Striker, Target } from './combatants.ts';
+import { HuntRecord } from './hunt-record.ts';
+import { MarthaQueue } from './martha-queue.ts';
+import type { Waiting } from './martha-queue.ts';
+import { MonsterBody } from './monster-body.ts';
+import type { AttackStep, WalkOutcome } from './monster-body.ts';
+import type { Player } from './player.ts';
+import { BaseResident } from './resident.ts';
+import type {
+  RequestTaker,
+  ResidentView,
+  ResidentWorld,
+} from './resident.ts';
+
+/** Martha, the village chief, as a villager a player can talk to. */
+const MARTHA_VILLAGER: Villager = getVillager('martha');
 
 /**
  * Where Martha stands on the porch of her house, and which way she faces
  * there, which she comes back to whenever she has nobody to deal with.
  */
-const MARTHA_HOME: Pose = (() => {
-  const { x, z, yaw } = findPlacement('npc-martha.glb');
-  return { x, z, yaw };
-})();
+const MARTHA_HOME: Pose = MARTHA_POST;
 
 /**
  * The farthest a player can be from Martha for a thrust of her pitchfork
  * to hit, from centre to centre, in metres: farther than a slash of a
  * player reaches.
  */
-export const MARTHA_STRIKE_REACH = 2;
+const MARTHA_STRIKE_REACH = 2;
+
+/** The item Martha's foe gets once it has beaten her. */
+const SPY_TOKEN: ItemKindId = 'spy-token';
 
 /**
  * How near Martha comes to the player she fights before she stops and
@@ -82,29 +93,11 @@ const MARTHA_GREETING_DISTANCE = 1.2;
 /** The numbers of Martha. */
 const KIND: MonsterKind = MONSTER_KINDS.martha;
 
-/**
- * Counts the simulation steps a time lasts.
- *
- * @param {number} seconds - The time, in seconds.
- * @returns {number} The number of steps, at least one.
- */
-function countSteps(seconds: number): number {
-  return Math.max(Math.round(seconds * SIMULATION_RATE), 1);
-}
-
-/** The number of steps from the start of a thrust to its strike. */
-const STRIKE_STEPS: number = countSteps(MONSTER_STRIKE_DELAY);
-/** The number of steps a thrust lasts. */
-const ATTACK_STEPS: number = countSteps(MONSTER_ATTACK_DURATION);
-/** The number of steps Martha follows a way before she finds it again. */
-const REPATH_STEPS: number = countSteps(MONSTER_REPATH_INTERVAL);
-/** The number of steps from the start of one thrust to the next. */
-const THRUST_INTERVAL_STEPS: number = countSteps(KIND.biteInterval);
 /** The number of steps Martha sits on the ground once beaten. */
 const SIT_STEPS: number = countSteps(KIND.respawnDelay);
 
 /** A player, as far as Martha goes. */
-export interface Suspect {
+interface Suspect {
   /** The identifier of the player. */
   readonly id: number;
   /** The position along the X axis, in metres. */
@@ -124,22 +117,11 @@ export interface Suspect {
  * she has come up to it; strikes at it with her pitchfork; or loses it in a
  * fight, as it has got away or died, so that she hunts it from then on.
  */
-export interface MarthaDeed {
+interface MarthaDeed {
   /** What she does. */
   readonly type: 'greet' | 'strike' | 'hunt';
   /** The identifier of the player. */
   readonly player: number;
-}
-
-/**
- * Measures how far apart two points are.
- *
- * @param {GroundVector} a - One point.
- * @param {GroundVector} b - The other point.
- * @returns {number} The distance between them, in metres.
- */
-function measureDistance(a: GroundVector, b: GroundVector): number {
-  return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
 /**
@@ -155,12 +137,25 @@ function isInArea(player: GroundVector): boolean {
 
 /**
  * Martha, the village chief, who is the enemy spy, as the server moves
- * her, with the numbers {@link MONSTER_KINDS} tells of her.
+ * her among the players of her map, with the numbers
+ * {@link MONSTER_KINDS} tells of her.
+ *
+ * She deals with a player she is told needs her, as {@link Martha.request}
+ * tells, and with nobody else but those she hunts, as she sees fit for
+ * what it needs of her; she hunts a player she loses in a fight, or that
+ * leaves her map while she fights it, until it beats her; and a
+ * player she comes up to is in a dialogue with her from then on, as the
+ * talks of her map tell.  A player in any other dialogue with her leaves it
+ * as soon as she is no longer free to be talked to, as
+ * {@link isVillagerFree} tells.  She tells her listeners of the player that
+ * beats her, as {@link BaseResident.tell} tells, as an event of type
+ * `martha-beaten`.
  *
  * She deals with one player at a time, and the others she is to deal with
  * wait in the order they came, each as long as it stays in her area, no
- * farther from her home than her leash.  To a player that has climbed out
- * of her well she walks up, around the obstacles, and once near enough
+ * farther from her home than her leash.  To a player that has found the
+ * prisoner in her cave, or that holds his message, and that she does not
+ * hunt, she walks up, around the obstacles, and once near enough
  * opens a dialogue with it; once the dialogue is over, she fights it.  A
  * player she hunts she fights at once, without a word, and she hunts a
  * player she notices, within her notice, in her area.  Whenever she sets
@@ -174,27 +169,23 @@ function isInArea(player: GroundVector): boolean {
  * her and sits on the ground for a while, then gets up at full health and
  * takes it up again.  Whenever a fight ends with her not beaten, she is
  * at full health again at once.  A player who leaves her area, or who
- * dies, before she has come up to it she lets go.  With nobody to deal with, she
- * walks back home and stands there as she does.  Only the player she
- * fights can hurt her.  She is stopped by the obstacles like the players,
- * but does not stand in their way, nor they in hers.
+ * dies, before she has come up to it she lets go.  With nobody to deal
+ * with, she walks back home and stands there as she does.  Only the player
+ * she fights can hurt her.  She is stopped by the obstacles like the
+ * players, but does not stand in their way, nor they in hers.
  */
-export class Martha {
+export class Martha
+  extends BaseResident
+  implements RequestTaker, Target, Striker
+{
   readonly #id: number;
-  readonly #terrain: Terrain = findMapTerrain('village');
-  #position: GroundVector = { x: MARTHA_HOME.x, z: MARTHA_HOME.z };
-  #yaw: number = MARTHA_HOME.yaw;
-  #action: MonsterAction = 'Idle';
-  #actionCount = 0;
-  #health: number = KIND.health;
-  #mode: MonsterMode = 'idle';
+  readonly #body: MonsterBody;
   #isArmed = false;
-  #path: GroundVector[] | null = null;
   #targetId: number | null = null;
-  #queue: number[] = [];
-  #repathSteps = 0;
-  #attackSteps = 0;
-  #cooldownSteps = 0;
+  /** The players waiting for her to deal with them. */
+  readonly #queue = new MarthaQueue();
+  /** The players she hunts. */
+  readonly #hunts = new HuntRecord();
   #sitSteps = 0;
 
   /**
@@ -202,19 +193,36 @@ export class Martha {
    * full health, with nobody to deal with.
    *
    * @param {number} id - The identifier of Martha among the monsters of
-   *   the village, which her state tells.
+   *   her map, which her state tells.
+   * @param {ResidentWorld} world - What she deals with in her map.
    */
-  constructor(id: number) {
+  constructor(id: number, world: ResidentWorld) {
+    super(MARTHA_VILLAGER, world);
     this.#id = id;
+    this.#body = new MonsterBody(
+      id,
+      MARTHA_VILLAGER.map,
+      'martha',
+      MARTHA_HOME,
+    );
   }
 
   /**
-   * The identifier of Martha among the monsters of the village.
+   * The identifier of Martha among the monsters of her map.
    *
    * @returns {number} The identifier.
    */
   get id(): number {
     return this.#id;
+  }
+
+  /**
+   * What the slashes of the players can strike of Martha: herself.
+   *
+   * @returns {Target} Martha.
+   */
+  override get target(): Target {
+    return this;
   }
 
   /**
@@ -227,12 +235,41 @@ export class Martha {
   }
 
   /**
+   * The farthest a player can be from Martha for a thrust of her pitchfork
+   * to hit, from centre to centre: farther than a slash of a player
+   * reaches.
+   *
+   * @returns {number} The reach, 2 metres.
+   */
+  get strikeReach(): number {
+    return MARTHA_STRIKE_REACH;
+  }
+
+  /**
+   * What the player who beats Martha gets: the spy token.
+   *
+   * @returns {Spoils} The spoils.
+   */
+  get spoils(): Spoils {
+    return { maxSilver: KIND.maxSilver, prize: SPY_TOKEN };
+  }
+
+  /**
+   * Whether Martha sits on the ground, beaten.
+   *
+   * @returns {boolean} Whether she does.
+   */
+  get isBeaten(): boolean {
+    return this.#body.mode === 'sit';
+  }
+
+  /**
    * Where Martha stands, and which way she faces.
    *
    * @returns {Pose} The pose.
    */
   get pose(): Pose {
-    return { x: this.#position.x, z: this.#position.z, yaw: this.#yaw };
+    return this.#body.pose;
   }
 
   /**
@@ -241,18 +278,138 @@ export class Martha {
    * @returns {MonsterState} Her state.
    */
   get state(): MonsterState {
-    return {
-      id: this.#id,
-      kind: 'martha',
-      x: this.#position.x,
-      z: this.#position.z,
-      yaw: this.#yaw,
-      action: this.#action,
-      actionCount: this.#actionCount,
-      health: this.#health,
-      mode: this.#mode,
-      isArmed: this.#isArmed,
-    };
+    return { ...this.#body.state, isArmed: this.#isArmed };
+  }
+
+  /**
+   * Describes Martha as a snapshot taken now is to tell her.
+   *
+   * @returns {ResidentView} Her state among the monsters, and nothing of
+   *   the items.
+   */
+  override describe(): ResidentView {
+    return { monster: this.state, items: {} };
+  }
+
+  /**
+   * Tells whether a player can hit Martha now: only the player she fights.
+   *
+   * @param {number} attackerId - The identifier of the player.
+   * @returns {boolean} Whether she fights it.
+   */
+  canBeHitBy(attackerId: number): boolean {
+    return this.#isFightingWith(attackerId);
+  }
+
+  /**
+   * Tells whether a thrust of Martha's pitchfork can hit a player now:
+   * only the player she fights.
+   *
+   * @param {number} playerId - The identifier of the player.
+   * @returns {boolean} Whether she fights it.
+   */
+  canStrike(playerId: number): boolean {
+    return this.#isFightingWith(playerId);
+  }
+
+  /** Does nothing before the players move at a step. */
+  override startStep(): void {
+    // Martha goes about her business only once the players have moved.
+  }
+
+  /**
+   * Tells Martha what a player of her map needs of her in the story, for
+   * her to deal with it once she is done with those before it, as she sees
+   * fit for the need, unless she deals with it already.  A player that
+   * waits for her already keeps its place, with the need it is told to
+   * have now.  She lets it go if it leaves her area, or dies, before she has
+   * come up to it.
+   *
+   * @param {number} player - The identifier of the player.
+   * @param {StoryNeed} need - What it needs of her.
+   */
+  request(player: number, need: StoryNeed): void {
+    if (player !== this.#targetId) {
+      this.#queue.request(player, need);
+    }
+  }
+
+  /**
+   * Has Martha no longer wait to deal with a player, if it waits for her.
+   *
+   * @param {number} player - The identifier of the player.
+   */
+  withdraw(player: number): void {
+    this.#queue.withdraw(player);
+  }
+
+  /**
+   * Has Martha let go of a player that has left the game: she no longer
+   * waits to deal with it, nor hunts it.
+   *
+   * @param {number} player - The identifier of the player.
+   */
+  override forget(player: number): void {
+    this.#queue.withdraw(player);
+    this.#hunts.spare(player);
+  }
+
+  /**
+   * Has Martha hunt a player that leaves her map, from then on, if she
+   * fights it.
+   *
+   * @param {Player} player - The player.
+   */
+  override release(player: Player): void {
+    if (this.#isFightingWith(player.id)) {
+      this.#hunts.hunt(player.id);
+    }
+  }
+
+  /**
+   * Has Martha go about her business for one step, with every player of
+   * her map as it stands now, once the players and the monsters have moved
+   * at the step.
+   *
+   * A player she comes up to is in a dialogue with her from then on, as
+   * the talks of her map tell, and a player she loses in a fight she
+   * hunts from then on.  A player in any other dialogue with her leaves it
+   * as soon as she is no longer free to be talked to, as
+   * {@link isVillagerFree} tells.
+   *
+   * @returns {Strike[]} The thrusts of her pitchfork that strike at the
+   *   step, each at the player she strikes at: she strikes once in every
+   *   thrust, partway through.
+   */
+  override finishStep(): Strike[] {
+    const { roster, talks } = this.world;
+    const deeds: MarthaDeed[] = this.#act(this.#listSuspects());
+    const strikes: Strike[] = [];
+    for (const deed of deeds) {
+      const player: Player | undefined = roster.find(deed.player);
+      if (player === undefined) {
+        continue;
+      }
+      if (deed.type === 'greet') {
+        talks.approach(player, MARTHA_VILLAGER.id);
+      } else if (deed.type === 'hunt') {
+        this.#hunts.hunt(player.id);
+      } else {
+        strikes.push({ striker: this, players: [player] });
+      }
+    }
+    this.#endTalksIfBusy();
+    return strikes;
+  }
+
+  /**
+   * Tells whether Martha deals with a player now, or it waits for her.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {boolean} Whether it does.
+   */
+  #isWaitingOrServed(id: number): boolean {
+    return id === this.#targetId || this.#queue.has(id);
   }
 
   /**
@@ -262,8 +419,8 @@ export class Martha {
    * @param {number} id - The identifier of the player.
    * @returns {boolean} Whether she does.
    */
-  isFightingWith(id: number): boolean {
-    return this.#mode === 'chase' && this.#targetId === id;
+  #isFightingWith(id: number): boolean {
+    return this.#body.mode === 'chase' && this.#targetId === id;
   }
 
   /**
@@ -272,34 +429,57 @@ export class Martha {
    * @param {number} id - The identifier of the player.
    * @returns {boolean} Whether she does.
    */
-  isTalkingWith(id: number): boolean {
-    return this.#mode === 'talk' && this.#targetId === id;
+  #isTalkingWith(id: number): boolean {
+    return this.#body.mode === 'talk' && this.#targetId === id;
   }
 
   /**
-   * Has Martha deal with a player that has climbed out of her well, once
-   * she is done with those before it, unless she deals with it already or
-   * it waits for her already.
-   *
-   * @param {number} id - The identifier of the player.
+   * Ends the dialogue of every player with Martha but the one she has come
+   * up to, if she is no longer free to be talked to.
    */
-  summon(id: number): void {
-    if (id !== this.#targetId && !this.#queue.includes(id)) {
-      this.#queue.push(id);
+  #endTalksIfBusy(): void {
+    if (isVillagerFree(MARTHA_VILLAGER, [this.state])) {
+      return;
     }
+    for (const player of this.world.roster.list()) {
+      if (
+        player.dialogue?.villager === MARTHA_VILLAGER.id &&
+        !this.#isTalkingWith(player.id)
+      ) {
+        player.leaveDialogue();
+      }
+    }
+  }
+
+  /**
+   * Lists the players of her map as Martha sees them.
+   *
+   * @returns {Suspect[]} The players, in the order they came in.
+   */
+  #listSuspects(): Suspect[] {
+    return this.world.roster.list().map(
+      (player: Player): Suspect => ({
+        id: player.id,
+        x: player.mover.motion.x,
+        z: player.mover.motion.z,
+        isAlive: player.isAlive,
+        isHunted: this.#hunts.isHunted(player.id),
+        isInDialogue: player.dialogue !== null,
+      }),
+    );
   }
 
   /**
    * Moves Martha one step of the simulation forward.
    *
-   * @param {readonly Suspect[]} players - The players of the village, where
+   * @param {readonly Suspect[]} players - The players of her map, where
    *   they stand now.
    * @returns {MarthaDeed[]} What she does to the players at this step: she
    *   strikes once in every thrust, partway through.
    */
-  step(players: readonly Suspect[]): MarthaDeed[] {
+  #act(players: readonly Suspect[]): MarthaDeed[] {
     const deeds: MarthaDeed[] = [];
-    this.#queue = this.#queue.filter((id: number) => {
+    this.#queue.keep((id: number): boolean => {
       const player: Suspect | undefined = findSuspect(players, id);
       return player !== undefined && isInArea(player);
     });
@@ -307,31 +487,26 @@ export class Martha {
       if (
         player.isHunted &&
         player.isAlive &&
-        player.id !== this.#targetId &&
-        !this.#queue.includes(player.id) &&
-        measureDistance(player, this.#position) <= KIND.noticeRange &&
+        !this.#isWaitingOrServed(player.id) &&
+        measureDistance(player, this.#body.position) <= KIND.noticeRange &&
         isInArea(player)
       ) {
-        this.#queue.push(player.id);
+        this.#queue.enqueue(player.id, 'fight');
       }
     }
-    if (this.#mode === 'sit') {
+    if (this.#body.mode === 'sit') {
       if (--this.#sitSteps <= 0) {
-        this.#health = KIND.health;
+        this.#body.restoreHealth();
         this.#isArmed = true;
         this.#targetId = null;
-        this.#startAction('Idle');
+        this.#body.startAction('Idle');
         this.#serveNext(players);
       }
       return deeds;
     }
-    this.#cooldownSteps = Math.max(this.#cooldownSteps - 1, 0);
-    if (this.#action === 'Attack') {
-      this.#attackSteps++;
-      if (this.#attackSteps >= ATTACK_STEPS) {
-        this.#startAction('Idle');
-      }
-      if (this.#attackSteps === STRIKE_STEPS && this.#targetId !== null) {
+    const attack: AttackStep = this.#body.stepAttack();
+    if (attack !== 'none') {
+      if (attack === 'strike' && this.#targetId !== null) {
         deeds.push({ type: 'strike', player: this.#targetId });
       }
       return deeds;
@@ -340,7 +515,7 @@ export class Martha {
       this.#targetId === null
         ? undefined
         : findSuspect(players, this.#targetId);
-    switch (this.#mode) {
+    switch (this.#body.mode) {
       case 'approach':
         this.#approach(target, players, deeds);
         break;
@@ -351,9 +526,9 @@ export class Martha {
         this.#chase(target, players, deeds);
         break;
       default:
-        if (this.#queue.length > 0) {
+        if (!this.#queue.isEmpty) {
           this.#serveNext(players);
-        } else if (this.#mode === 'return') {
+        } else if (this.#body.mode === 'return') {
           this.#goHome();
         }
     }
@@ -362,21 +537,26 @@ export class Martha {
 
   /**
    * Takes a hit, which only the player she fights can deal.  With no
-   * health left, she sits on the ground, beaten.
+   * health left, she sits on the ground, beaten, takes what the player that
+   * beat her was asked for as done, hunts it no more, and tells her
+   * listeners of it.
    *
    * @param {number} damage - The health the hit takes.
+   * @param {number} attackerId - The identifier of the player that deals
+   *   it.
    * @returns {number} The health she lost, which is no more than she had.
    */
-  takeHit(damage: number): number {
-    const lost: number = Math.min(damage, this.#health);
-    this.#health -= lost;
-    if (this.#health === 0) {
-      this.#mode = 'sit';
+  takeHit(damage: number, attackerId: number): number {
+    const lost: number = this.#body.loseHealth(damage);
+    if (this.#body.health === 0) {
+      this.#body.switchMode('sit');
       this.#sitSteps = SIT_STEPS;
       this.#isArmed = false;
-      this.#path = null;
       this.#targetId = null;
-      this.#startAction('Sit');
+      this.#body.startAction('Sit');
+      this.#queue.withdraw(attackerId);
+      this.#hunts.spare(attackerId);
+      this.tell('martha-beaten', attackerId);
     }
     return lost;
   }
@@ -405,15 +585,18 @@ export class Martha {
       this.#fetchPitchfork();
       return;
     }
-    if (measureDistance(target, this.#position) <= MARTHA_GREETING_DISTANCE) {
-      this.#face(target);
-      this.#path = null;
-      this.#mode = 'talk';
-      this.#startAction('Idle');
+    if (
+      measureDistance(target, this.#body.position) <= MARTHA_GREETING_DISTANCE
+    ) {
+      this.#body.face(target);
+      this.#body.switchMode('talk');
+      this.#body.startAction('Idle');
       deeds.push({ type: 'greet', player: target.id });
       return;
     }
-    this.#follow(target, players);
+    if (!this.#body.pursue(target)) {
+      this.#serveNext(players);
+    }
   }
 
   /**
@@ -429,11 +612,9 @@ export class Martha {
       this.#serveNext(players);
       return;
     }
-    this.#face(target);
+    this.#body.face(target);
     if (!target.isInDialogue) {
-      this.#mode = 'chase';
-      this.#path = null;
-      this.#repathSteps = 0;
+      this.#body.switchMode('chase');
     }
   }
 
@@ -466,40 +647,8 @@ export class Martha {
       this.#fetchPitchfork();
       return;
     }
-    if (measureDistance(target, this.#position) <= MARTHA_ATTACK_DISTANCE) {
-      this.#face(target);
-      this.#path = null;
-      if (this.#cooldownSteps === 0) {
-        this.#attackSteps = 0;
-        this.#cooldownSteps = THRUST_INTERVAL_STEPS;
-        this.#startAction('Attack', true);
-      } else {
-        this.#startAction('Idle');
-      }
-      return;
-    }
-    this.#follow(target, players);
-  }
-
-  /**
-   * Walks one step on the way to a player, finding the way again now and
-   * then, as the player moves.  She lets the player go if she finds no
-   * way to it.
-   *
-   * @param {Suspect} target - The player.
-   * @param {readonly Suspect[]} players - The players.
-   */
-  #follow(target: Suspect, players: readonly Suspect[]): void {
-    if (this.#path === null || --this.#repathSteps <= 0) {
-      this.#path = findMapPath('village', this.#position, target);
-      this.#repathSteps = REPATH_STEPS;
-      if (this.#path === null) {
-        this.#serveNext(players);
-        return;
-      }
-    }
-    if (this.#walk() !== 'walking') {
-      this.#path = null;
+    if (!this.#body.chase(target, MARTHA_ATTACK_DISTANCE)) {
+      this.#serveNext(players);
     }
   }
 
@@ -511,19 +660,19 @@ export class Martha {
    * @param {readonly Suspect[]} players - The players.
    */
   #serveNext(players: readonly Suspect[]): void {
-    this.#health = KIND.health;
-    this.#path = null;
-    this.#repathSteps = 0;
-    const id: number | undefined = this.#queue.shift();
+    this.#body.restoreHealth();
+    const waiting: Waiting | undefined = this.#queue.takeNext();
     const next: Suspect | undefined =
-      id === undefined ? undefined : findSuspect(players, id);
-    if (next !== undefined) {
+      waiting === undefined ? undefined : findSuspect(players, waiting.id);
+    if (waiting !== undefined && next !== undefined) {
       this.#targetId = next.id;
-      this.#mode = next.isHunted ? 'chase' : 'approach';
+      this.#body.switchMode(
+        next.isHunted || waiting.approach === 'fight' ? 'chase' : 'approach',
+      );
       return;
     }
     this.#targetId = null;
-    this.#mode = 'return';
+    this.#body.switchMode('return');
     this.#goHome();
   }
 
@@ -534,8 +683,7 @@ export class Martha {
   #fetchPitchfork(): void {
     if (!this.#walkTo(PITCHFORK_STAND)) {
       this.#isArmed = true;
-      this.#path = null;
-      this.#repathSteps = 0;
+      this.#body.dropWay();
     }
   }
 
@@ -548,7 +696,7 @@ export class Martha {
     if (this.#isArmed) {
       if (!this.#walkTo(PITCHFORK_STAND)) {
         this.#isArmed = false;
-        this.#path = null;
+        this.#body.dropWay();
       }
       return;
     }
@@ -566,99 +714,24 @@ export class Martha {
    *   finding no way there.
    */
   #walkTo(point: GroundVector): boolean {
-    if (measureDistance(point, this.#position) === 0) {
+    if (measureDistance(point, this.#body.position) === 0) {
       return false;
     }
-    this.#path ??= findMapPath('village', this.#position, point);
-    if (this.#path === null) {
+    if (!this.#body.hasWay && !this.#body.findWay(point)) {
       return false;
     }
-    const outcome: string = this.#walk();
+    const outcome: WalkOutcome = this.#body.walk(KIND.chaseSpeed);
     if (outcome === 'stopped') {
-      this.#path = null;
+      this.#body.dropWay();
     }
     return outcome !== 'arrived';
   }
 
   /** Stands idling where she is, facing as she does at home if there. */
   #settle(): void {
-    this.#mode = 'idle';
-    this.#path = null;
-    if (measureDistance(this.#position, MARTHA_HOME) === 0) {
-      this.#yaw = MARTHA_HOME.yaw;
-    }
-    this.#startAction('Idle');
-  }
-
-  /**
-   * Turns to face a player.
-   *
-   * @param {GroundVector} target - Where the player stands.
-   */
-  #face(target: GroundVector): void {
-    if (measureDistance(target, this.#position) > 0) {
-      this.#yaw = findYaw({
-        x: target.x - this.#position.x,
-        z: target.z - this.#position.z,
-      });
-    }
-  }
-
-  /**
-   * Walks one step along her way, around the obstacles, at the speed she
-   * chases at.
-   *
-   * @returns {'walking' | 'arrived' | 'stopped'} Whether she walks on, has
-   *   got to the end of her way, or has nowhere to go: no way, or an
-   *   obstacle that stops her.
-   */
-  #walk(): 'walking' | 'arrived' | 'stopped' {
-    const next: GroundVector | undefined = this.#path?.[0];
-    if (next === undefined) {
-      return 'stopped';
-    }
-    const reach: number = KIND.chaseSpeed / SIMULATION_RATE;
-    const distance: number = measureDistance(next, this.#position);
-    const direction: GroundVector = {
-      x: next.x - this.#position.x,
-      z: next.z - this.#position.z,
-    };
-    const isReached: boolean = distance <= reach;
-    const target: GroundVector = isReached
-      ? next
-      : {
-          x: this.#position.x + (direction.x / distance) * reach,
-          z: this.#position.z + (direction.z / distance) * reach,
-        };
-    const moved: GroundVector = this.#terrain.resolveMove(
-      this.#position,
-      target,
-    );
-    if (distance > 0) {
-      if (moved.x === this.#position.x && moved.z === this.#position.z) {
-        return 'stopped';
-      }
-      this.#yaw = findYaw(direction);
-    }
-    this.#position = moved;
-    if (isReached) {
-      this.#path?.shift();
-    }
-    this.#startAction('Walk');
-    return this.#path?.length === 0 ? 'arrived' : 'walking';
-  }
-
-  /**
-   * Makes Martha do something, unless she is doing just that already.
-   *
-   * @param {MonsterAction} action - What she does from now on.
-   * @param {boolean} [isAgain] - Whether to start it over even if she is
-   *   doing just that already.  Not by default.
-   */
-  #startAction(action: MonsterAction, isAgain = false): void {
-    if (this.#action !== action || isAgain) {
-      this.#action = action;
-      this.#actionCount++;
+    this.#body.settle();
+    if (measureDistance(this.#body.position, MARTHA_HOME) === 0) {
+      this.#body.turn(MARTHA_HOME.yaw);
     }
   }
 }

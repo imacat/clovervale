@@ -38,7 +38,11 @@ import {
   findMapPath,
   stepMotion,
 } from '@clovervale/shared';
-import type { GroundVector, PlayerMotion } from '@clovervale/shared';
+import type {
+  GroundVector,
+  ModelId,
+  PlayerMotion,
+} from '@clovervale/shared';
 import { TALK_REACH } from '../../shared/src/interaction.ts';
 
 import {
@@ -157,8 +161,8 @@ describe('POINTS_OF_INTEREST', () => {
   });
 
   it('keeps out of talking reach of Nancy, Emma and Basil', () => {
-    for (const file of ['npc-nancy.glb', 'npc-emma.glb', 'npc-basil.glb']) {
-      const villager: GroundVector = findPlacement(file);
+    for (const model of ['nancy', 'emma', 'basil'] as const) {
+      const villager: GroundVector = findPlacement(model);
       for (const { position } of POINTS_OF_INTEREST) {
         expect(measureDistance(position, villager)).toBeGreaterThan(
           TALK_REACH,
@@ -182,7 +186,7 @@ describe('POINTS_OF_INTEREST', () => {
   });
 
   it('stands in front of Martha, within talking reach of her', () => {
-    const martha: GroundVector = findPlacement('npc-martha.glb');
+    const martha: GroundVector = findPlacement('martha');
     const near: boolean = POINTS_OF_INTEREST.some(
       ({ position }) => measureDistance(position, martha) <= TALK_REACH,
     );
@@ -194,11 +198,11 @@ describe('what a bot says at the points of interest', () => {
   /**
    * Finds the point of interest nearest a model of the village.
    *
-   * @param {string} file - The file name of the model.
+   * @param {ModelId} model - The identifier of the model.
    * @returns {PointOfInterest} The point.
    */
-  const findPointBy = (file: string): PointOfInterest => {
-    const place: GroundVector = findPlacement(file);
+  const findPointBy = (model: ModelId): PointOfInterest => {
+    const place: GroundVector = findPlacement(model);
     return POINTS_OF_INTEREST.reduce((nearest, point) =>
       measureDistance(point.position, place) <
       measureDistance(nearest.position, place)
@@ -208,8 +212,8 @@ describe('what a bot says at the points of interest', () => {
   };
   /** The points of interest where a bot says nothing. */
   const silent: PointOfInterest[] = [
-    findPointBy('fountain.glb'),
-    findPointBy('prop-spawn-stones.glb'),
+    findPointBy('fountain'),
+    findPointBy('spawn-stones'),
   ];
 
   it('is nothing at the fountain or the spawn point of the monster', () => {
@@ -227,7 +231,7 @@ describe('what a bot says at the points of interest', () => {
   });
 
   it('asks Martha for an inn, then the way to one of four', () => {
-    const { lines } = findPointBy('npc-martha.glb');
+    const { lines } = findPointBy('martha');
     const draws: number[] = [0, 0.3, 0.6, 0.9];
     expect(choosePhrase(lines, 0, () => 0.9)).toBe('askInn');
     expect(draws.map((draw) => choosePhrase(lines, 1, () => draw))).toEqual([

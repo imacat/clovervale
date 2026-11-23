@@ -14,12 +14,12 @@
 // limitations under the License.
 //
 // Authors:
-//   imacat@mail.imacat.idv.tw (imacat), 2026/11/18
+//   imacat@mail.imacat.idv.tw (imacat), 2026/11/23
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/tests/interaction-prompt Tests for telling what the space
- *   bar does.
+ * @module client/tests/space-words Tests for telling what the space bar
+ *   does.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -58,14 +58,37 @@ import { TALK_REACH } from '../../shared/src/interaction.ts';
 import { killMotion } from '../../shared/src/player-motion.ts';
 import { findTurn, turnVector } from '../../shared/src/terrain.ts';
 
-import {
-  describePrompt,
-  describeSpaceKey,
-} from '../src/interaction-prompt.ts';
+import { findSpaceAction } from '../src/space-action.ts';
+import type { SpaceAction, SpaceContext } from '../src/space-action.ts';
+import { describePrompt, describeSpaceKey } from '../src/space-words.ts';
 import { Translator } from '../src/translator.ts';
 
 /** A translator of the text into English. */
 const EN = new Translator();
+
+/**
+ * Works out what the space bar makes a player do, at the first step, with
+ * nothing to pick and nothing carried, in the village and without monsters,
+ * unless told otherwise.
+ *
+ * @param {PlayerMotion} motion - The motion of the player.
+ * @param {Partial<SpaceContext>} [context] - What differs from that.
+ * @returns {SpaceAction} What the player does.
+ */
+function findAction(
+  motion: PlayerMotion,
+  context: Partial<SpaceContext> = {},
+): SpaceAction {
+  return findSpaceAction({
+    step: 0,
+    world: NO_WORLD_ITEMS,
+    inventory: [],
+    map: 'village',
+    monsters: [],
+    ...context,
+    motion,
+  });
+}
 
 /** A player against the rim of the fountain, facing it. */
 const BY_FOUNTAIN: PlayerMotion = createMotion(
@@ -82,8 +105,8 @@ const FACING_AWAY: PlayerMotion = { ...BY_FOUNTAIN, yaw: 0 };
 /** A player south of Nancy the villager, facing her. */
 const BY_NANCY: PlayerMotion = createMotion(
   {
-    x: findPlacement('npc-nancy.glb').x,
-    z: findPlacement('npc-nancy.glb').z + TALK_REACH - 0.1,
+    x: findPlacement('nancy').x,
+    z: findPlacement('nancy').z + TALK_REACH - 0.1,
   },
   180,
 );
@@ -96,7 +119,7 @@ const BY_NANCY: PlayerMotion = createMotion(
  * @throws {Error} If the ground around her is not clear anywhere.
  */
 function standByEmma(): PlayerMotion {
-  const emma: Placement = findPlacement('npc-emma.glb');
+  const emma: Placement = findPlacement('emma');
   for (let degrees = 0; degrees < 360; degrees += 15) {
     const angle: number = (degrees * Math.PI) / 180;
     const position: GroundVector = {
@@ -120,7 +143,7 @@ const BY_EMMA: PlayerMotion = standByEmma();
  * @returns {PlayerMotion} The player.
  */
 function standByMartha(): PlayerMotion {
-  const martha: Placement = findPlacement('npc-martha.glb');
+  const martha: Placement = findPlacement('martha');
   const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(martha.yaw));
   return createMotion(
     { x: martha.x + front.x * 0.8, z: martha.z + front.z * 0.8 },
@@ -145,265 +168,89 @@ async function createTranslator(
 describe('describePrompt', () => {
   it('tells a player by the fountain, facing it, that it can drink', () => {
     expect(
-      describePrompt(
-        EN,
-        BY_FOUNTAIN,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(EN, findAction(BY_FOUNTAIN), [], false),
     ).toBe('Press Space to drink from the fountain');
   });
 
   it('tells a player by Nancy, facing her, that it can talk to her', () => {
     expect(
-      describePrompt(
-        EN,
-        BY_NANCY,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(EN, findAction(BY_NANCY), [], false),
     ).toBe('Press Space to talk to Nancy');
   });
 
   it('tells a player by Martha, facing her, that it can talk to her', async () => {
     const byMartha: PlayerMotion = standByMartha();
     expect(
-      describePrompt(
-        EN,
-        byMartha,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(EN, findAction(byMartha), [], false),
     ).toBe('Press Space to talk to Chief Martha');
-    expect(describeSpaceKey(EN, byMartha, 0)).toBe('talk to Chief Martha');
+    expect(
+      describeSpaceKey(EN, findAction(byMartha)),
+    ).toBe('talk to Chief Martha');
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
-      describePrompt(
-        zhTw,
-        byMartha,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhTw, findAction(byMartha), [], false),
     ).toBe('按空白鍵與村長瑪莎交談');
     const zhCn: Translator = await createTranslator('zh-CN');
     expect(
-      describePrompt(
-        zhCn,
-        byMartha,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhCn, findAction(byMartha), [], false),
     ).toBe('按空格键与村长玛莎交谈');
     const ja: Translator = await createTranslator('ja');
     expect(
-      describePrompt(
-        ja,
-        byMartha,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(ja, findAction(byMartha), [], false),
     ).toBe('スペースキーで村長マーサと話す');
     const es: Translator = await createTranslator('es');
     expect(
-      describePrompt(
-        es,
-        byMartha,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(es, findAction(byMartha), [], false),
     ).toBe('Presiona Espacio para hablar con la alcaldesa Marta');
   });
 
   it('tells it in the language of the page, in its word order', async () => {
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
-      describePrompt(
-        zhTw,
-        BY_NANCY,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhTw, findAction(BY_NANCY), [], false),
     ).toBe('按空白鍵與南茜交談');
     expect(
-      describePrompt(
-        zhTw,
-        BY_FOUNTAIN,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhTw, findAction(BY_FOUNTAIN), [], false),
     ).toBe('按空白鍵喝噴泉的水');
     const zhCn: Translator = await createTranslator('zh-CN');
     expect(
-      describePrompt(
-        zhCn,
-        BY_NANCY,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhCn, findAction(BY_NANCY), [], false),
     ).toBe('按空格键与南茜交谈');
     const ja: Translator = await createTranslator('ja');
     expect(
-      describePrompt(
-        ja,
-        BY_NANCY,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(ja, findAction(BY_NANCY), [], false),
     ).toBe('スペースキーでナンシーと話す');
     const es: Translator = await createTranslator('es');
     expect(
-      describePrompt(
-        es,
-        BY_NANCY,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(es, findAction(BY_NANCY), [], false),
     ).toBe('Presiona Espacio para hablar con Nancy');
     expect(
-      describePrompt(
-        es,
-        BY_FOUNTAIN,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(es, findAction(BY_FOUNTAIN), [], false),
     ).toBe('Presiona Espacio para beber de la fuente');
   });
 
   it('tells a player by Emma, facing her, that it can talk to her', async () => {
     expect(
-      describePrompt(
-        EN,
-        BY_EMMA,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(EN, findAction(BY_EMMA), [], false),
     ).toBe('Press Space to talk to Blacksmith Emma');
-    expect(describeSpaceKey(EN, BY_EMMA, 0)).toBe('talk to Blacksmith Emma');
+    expect(
+      describeSpaceKey(EN, findAction(BY_EMMA)),
+    ).toBe('talk to Blacksmith Emma');
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
-      describePrompt(
-        zhTw,
-        BY_EMMA,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhTw, findAction(BY_EMMA), [], false),
     ).toBe('按空白鍵與鐵匠艾瑪交談');
     const zhCn: Translator = await createTranslator('zh-CN');
     expect(
-      describePrompt(
-        zhCn,
-        BY_EMMA,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhCn, findAction(BY_EMMA), [], false),
     ).toBe('按空格键与铁匠艾玛交谈');
     const ja: Translator = await createTranslator('ja');
     expect(
-      describePrompt(
-        ja,
-        BY_EMMA,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(ja, findAction(BY_EMMA), [], false),
     ).toBe('スペースキーで鍛冶屋のエマと話す');
     const es: Translator = await createTranslator('es');
     expect(
-      describePrompt(
-        es,
-        BY_EMMA,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(es, findAction(BY_EMMA), [], false),
     ).toBe('Presiona Espacio para hablar con Emma la herrera');
   });
 
@@ -415,35 +262,11 @@ describe('describePrompt', () => {
       [],
     );
     expect(talking.action).toBe('Talk');
-    expect(
-      describePrompt(
-        EN,
-        talking,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
-    ).toBeNull();
+    expect(describePrompt(EN, findAction(talking), [], false)).toBeNull();
   });
 
   it('tells nothing while the space bar makes the player slash', () => {
-    expect(
-      describePrompt(
-        EN,
-        FACING_AWAY,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
-    ).toBeNull();
+    expect(describePrompt(EN, findAction(FACING_AWAY), [], false)).toBeNull();
   });
 
   it('tells nothing while the player drinks already', () => {
@@ -454,38 +277,14 @@ describe('describePrompt', () => {
       [],
     );
     expect(drinking.action).toBe('Drink');
-    expect(
-      describePrompt(
-        EN,
-        drinking,
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
-    ).toBeNull();
+    expect(describePrompt(EN, findAction(drinking), [], false)).toBeNull();
   });
 
   it('tells nothing to a dead player, or without a player', () => {
     expect(
-      describePrompt(
-        EN,
-        killMotion(BY_FOUNTAIN),
-        0,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(EN, findAction(killMotion(BY_FOUNTAIN)), [], false),
     ).toBeNull();
-    expect(
-      describePrompt(EN, null, 0, NO_WORLD_ITEMS, [], 'village', [], [], false),
-    ).toBeNull();
+    expect(describePrompt(EN, null, [], false)).toBeNull();
   });
 });
 
@@ -501,17 +300,7 @@ describe('describePrompt on a touch device', () => {
     translator: Translator,
     motion: PlayerMotion,
   ): string | null {
-    return describePrompt(
-      translator,
-      motion,
-      0,
-      NO_WORLD_ITEMS,
-      [],
-      'village',
-      [],
-      [],
-      true,
-    );
+    return describePrompt(translator, findAction(motion), [], true);
   }
 
   it('tells of the action button rather than the space bar', async () => {
@@ -542,31 +331,35 @@ describe('describePrompt on a touch device', () => {
 
 describe('describeSpaceKey', () => {
   it('tells what the space bar makes the player do', () => {
-    expect(describeSpaceKey(EN, BY_FOUNTAIN, 0)).toBe(
+    expect(describeSpaceKey(EN, findAction(BY_FOUNTAIN))).toBe(
       'drink from the fountain',
     );
-    expect(describeSpaceKey(EN, FACING_AWAY, 0)).toBe('slash');
-    expect(describeSpaceKey(EN, BY_NANCY, 0)).toBe('talk to Nancy');
+    expect(describeSpaceKey(EN, findAction(FACING_AWAY))).toBe('slash');
+    expect(describeSpaceKey(EN, findAction(BY_NANCY))).toBe('talk to Nancy');
   });
 
   it('tells it in the language of the page', async () => {
     const zhTw: Translator = await createTranslator('zh-TW');
-    expect(describeSpaceKey(zhTw, BY_NANCY, 0)).toBe('與南茜交談');
-    expect(describeSpaceKey(zhTw, FACING_AWAY, 0)).toBe('揮砍');
-    expect(describeSpaceKey(zhTw, killMotion(BY_FOUNTAIN), 0)).toBe('無');
+    expect(describeSpaceKey(zhTw, findAction(BY_NANCY))).toBe('與南茜交談');
+    expect(describeSpaceKey(zhTw, findAction(FACING_AWAY))).toBe('揮砍');
+    expect(
+      describeSpaceKey(zhTw, findAction(killMotion(BY_FOUNTAIN))),
+    ).toBe('無');
     const ja: Translator = await createTranslator('ja');
-    expect(describeSpaceKey(ja, BY_NANCY, 0)).toBe('ナンシーと話す');
+    expect(describeSpaceKey(ja, findAction(BY_NANCY))).toBe('ナンシーと話す');
     const es: Translator = await createTranslator('es');
-    expect(describeSpaceKey(es, BY_NANCY, 0)).toBe('hablar con Nancy');
-    expect(describeSpaceKey(es, FACING_AWAY, 0)).toBe('dar un tajo');
+    expect(describeSpaceKey(es, findAction(BY_NANCY))).toBe('hablar con Nancy');
+    expect(describeSpaceKey(es, findAction(FACING_AWAY))).toBe('dar un tajo');
   });
 
   it('tells that it does nothing while the player cannot interact', () => {
-    expect(describeSpaceKey(EN, killMotion(BY_FOUNTAIN), 0)).toBe('nothing');
+    expect(
+      describeSpaceKey(EN, findAction(killMotion(BY_FOUNTAIN))),
+    ).toBe('nothing');
   });
 
   it('tells nothing is known without a player', () => {
-    expect(describeSpaceKey(EN, null, 0)).toBe('–');
+    expect(describeSpaceKey(EN, null)).toBe('–');
   });
 });
 
@@ -579,90 +372,32 @@ describe('describePrompt by Toby', () => {
     const toby: TobyPose = findTobyPose(step);
     const facing: PlayerMotion = createMotion({ x: toby.x, z: toby.z - 1 }, 0);
     expect(
-      describePrompt(
-        EN,
-        facing,
-        step,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(EN, findAction(facing, { step }), [], false),
     ).toBe('Press Space to talk to Toby');
-    expect(describeSpaceKey(EN, facing, step)).toBe('talk to Toby');
+    expect(
+      describeSpaceKey(EN, findAction(facing, { step })),
+    ).toBe('talk to Toby');
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
-      describePrompt(
-        zhTw,
-        facing,
-        step,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhTw, findAction(facing, { step }), [], false),
     ).toBe('按空白鍵與托比交談');
     const zhCn: Translator = await createTranslator('zh-CN');
     expect(
-      describePrompt(
-        zhCn,
-        facing,
-        step,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(zhCn, findAction(facing, { step }), [], false),
     ).toBe('按空格键与托比交谈');
     const ja: Translator = await createTranslator('ja');
     expect(
-      describePrompt(
-        ja,
-        facing,
-        step,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(ja, findAction(facing, { step }), [], false),
     ).toBe('スペースキーでトビーと話す');
     const es: Translator = await createTranslator('es');
     expect(
-      describePrompt(
-        es,
-        facing,
-        step,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(es, findAction(facing, { step }), [], false),
     ).toBe('Presiona Espacio para hablar con Tobi');
     // Once he has run off, the space bar slashes.
     const gone: number = step + TOBY_LOOP_STEPS / 2;
     expect(findTobyPose(gone).x).not.toBe(toby.x);
     expect(
-      describePrompt(
-        EN,
-        facing,
-        gone,
-        NO_WORLD_ITEMS,
-        [],
-        'village',
-        [],
-        [],
-        false,
-      ),
+      describePrompt(EN, findAction(facing, { step: gone }), [], false),
     ).toBeNull();
   });
 });
@@ -689,29 +424,21 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         EN,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        [],
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER }),
         [],
         false,
       ),
     ).toBe('Press Space to pick up the four-leaved clover');
-    expect(describeSpaceKey(EN, BY_PATCH, 0, WITH_CLOVER, [])).toBe(
+    expect(
+      describeSpaceKey(EN, findAction(BY_PATCH, { world: WITH_CLOVER })),
+    ).toBe(
       'pick up the four-leaved clover',
     );
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
       describePrompt(
         zhTw,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        [],
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER }),
         [],
         false,
       ),
@@ -720,12 +447,7 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         zhCn,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        [],
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER }),
         [],
         false,
       ),
@@ -734,12 +456,7 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         ja,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        [],
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER }),
         [],
         false,
       ),
@@ -748,12 +465,7 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         es,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        [],
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER }),
         [],
         false,
       ),
@@ -764,31 +476,26 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         EN,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        FULL,
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER, inventory: FULL }),
         [],
         false,
       ),
     ).toBe(
       'Your inventory is full, so you cannot pick up the four-leaved clover',
     );
-    expect(describeSpaceKey(EN, BY_PATCH, 0, WITH_CLOVER, FULL)).toBe(
+    expect(
+      describeSpaceKey(
+        EN,
+        findAction(BY_PATCH, { world: WITH_CLOVER, inventory: FULL }),
+      ),
+    ).toBe(
       'nothing, as the inventory is full',
     );
     const zhTw: Translator = await createTranslator('zh-TW');
     expect(
       describePrompt(
         zhTw,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        FULL,
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER, inventory: FULL }),
         [],
         false,
       ),
@@ -797,12 +504,7 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         zhCn,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        FULL,
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER, inventory: FULL }),
         [],
         false,
       ),
@@ -811,12 +513,7 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         ja,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        FULL,
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER, inventory: FULL }),
         [],
         false,
       ),
@@ -825,12 +522,7 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         es,
-        BY_PATCH,
-        0,
-        WITH_CLOVER,
-        FULL,
-        'village',
-        [],
+        findAction(BY_PATCH, { world: WITH_CLOVER, inventory: FULL }),
         [],
         false,
       ),
@@ -842,9 +534,11 @@ describe('describePrompt by a patch of clover', () => {
   it('tells nothing once the clover is gone, as the space bar slashes', () => {
     const bare: WorldItems = { clovers: [], items: [] };
     expect(
-      describePrompt(EN, BY_PATCH, 0, bare, [], 'village', [], [], false),
+      describePrompt(EN, findAction(BY_PATCH, { world: bare }), [], false),
     ).toBeNull();
-    expect(describeSpaceKey(EN, BY_PATCH, 0, bare, [])).toBe('slash');
+    expect(
+      describeSpaceKey(EN, findAction(BY_PATCH, { world: bare })),
+    ).toBe('slash');
   });
 
   it('tells the player it can pick up a clover on the ground', () => {
@@ -853,7 +547,7 @@ describe('describePrompt by a patch of clover', () => {
       items: [{ id: 3, kind: 'clover', x: PATCH.x, z: PATCH.z + 0.5 }],
     };
     expect(
-      describePrompt(EN, BY_PATCH, 0, world, [], 'village', [], [], false),
+      describePrompt(EN, findAction(BY_PATCH, { world }), [], false),
     ).toBe('Press Space to pick up the four-leaved clover');
   });
 
@@ -874,12 +568,7 @@ describe('describePrompt by a patch of clover', () => {
         expect(
           describePrompt(
             EN,
-            createMotion(at, yaw),
-            0,
-            world,
-            [],
-            'village',
-            [],
+            findAction(createMotion(at, yaw), { world }),
             [],
             false,
           ),
@@ -893,12 +582,7 @@ describe('describePrompt by a patch of clover', () => {
     expect(
       describePrompt(
         EN,
-        killMotion(BY_PATCH),
-        0,
-        WITH_CLOVER,
-        [],
-        'village',
-        [],
+        findAction(killMotion(BY_PATCH), { world: WITH_CLOVER }),
         [],
         false,
       ),
@@ -913,14 +597,14 @@ describe('describePrompt by a patch of clover', () => {
       ],
     };
     expect(
-      describePrompt(EN, BY_FOUNTAIN, 0, world, [], 'village', [], [], false),
+      describePrompt(EN, findAction(BY_FOUNTAIN, { world }), [], false),
     ).toBe('Press Space to drink from the fountain');
   });
 });
 
 describe('describePrompt by the ways into and out of the cave', () => {
   /** The middle of the burrow of the wild dog. */
-  const BURROW: GroundVector = findPlacement('prop-spawn-stones.glb');
+  const BURROW: GroundVector = findPlacement('spawn-stones');
 
   /** A player in the burrow, facing north. */
   const IN_BURROW: PlayerMotion = createMotion(BURROW, 180);
@@ -962,8 +646,16 @@ describe('describePrompt by the ways into and out of the cave', () => {
   ): [string | null, string] {
     const none: WorldItems = { clovers: [], items: [] };
     return [
-      describePrompt(translator, motion, 0, none, [], map, monsters, [], false),
-      describeSpaceKey(translator, motion, 0, none, [], map, monsters),
+      describePrompt(
+        translator,
+        findAction(motion, { world: none, map, monsters }),
+        [],
+        false,
+      ),
+      describeSpaceKey(
+        translator,
+        findAction(motion, { world: none, map, monsters }),
+      ),
     ];
   }
 
@@ -1098,16 +790,14 @@ describe('describePrompt in the cave', () => {
     return [
       describePrompt(
         translator,
-        motion,
-        0,
-        world,
-        carried,
-        'cave',
-        [],
+        findAction(motion, { world, inventory: carried, map: 'cave' }),
         [],
         false,
       ),
-      describeSpaceKey(translator, motion, 0, world, carried, 'cave'),
+      describeSpaceKey(
+        translator,
+        findAction(motion, { world, inventory: carried, map: 'cave' }),
+      ),
     ];
   }
 
@@ -1148,12 +838,22 @@ describe('describePrompt in the cave', () => {
       mode: 'chase',
     };
     const world: WorldItems = { clovers: [], items: [], looted: [] };
-    expect(describeSpaceKey(EN, turned, 0, world, [], 'cave')).toBe(
+    expect(
+      describeSpaceKey(EN, findAction(turned, { world, map: 'cave' })),
+    ).toBe(
       'talk to the prisoner',
     );
     expect([
-      describePrompt(EN, turned, 0, world, [], 'cave', [dog], [], false),
-      describeSpaceKey(EN, turned, 0, world, [], 'cave', [dog]),
+      describePrompt(
+        EN,
+        findAction(turned, { world, map: 'cave', monsters: [dog] }),
+        [],
+        false,
+      ),
+      describeSpaceKey(
+        EN,
+        findAction(turned, { world, map: 'cave', monsters: [dog] }),
+      ),
     ]).toEqual([null, 'slash']);
   });
 
@@ -1164,16 +864,15 @@ describe('describePrompt in the cave', () => {
       return [
         describePrompt(
           translator,
-          AT_BARS,
-          0,
-          world,
-          [],
-          'cave',
-          [],
+          findAction(AT_BARS, { world, map: 'cave' }),
           known,
           false,
         ),
-        describeSpaceKey(translator, AT_BARS, 0, world, [], 'cave', [], known),
+        describeSpaceKey(
+          translator,
+          findAction(AT_BARS, { world, map: 'cave' }),
+          known,
+        ),
       ];
     };
     expect(wordBoth(EN)).toEqual([
@@ -1299,17 +998,17 @@ describe('describePrompt in the cave', () => {
       items: [{ id: 1, kind, x: 9.25, z: 0.6 }],
     });
     expect(
-      describePrompt(EN, motion, 0, world('sword'), [], 'cave', [], [], false),
+      describePrompt(
+        EN,
+        findAction(motion, { world: world('sword'), map: 'cave' }),
+        [],
+        false,
+      ),
     ).toBe('Press Space to pick up the short sword');
     expect(
       describePrompt(
         EN,
-        motion,
-        0,
-        world('leather-armour'),
-        [],
-        'cave',
-        [],
+        findAction(motion, { world: world('leather-armour'), map: 'cave' }),
         [],
         false,
       ),
@@ -1318,12 +1017,7 @@ describe('describePrompt in the cave', () => {
     expect(
       describePrompt(
         zhTw,
-        motion,
-        0,
-        world('sword'),
-        [],
-        'cave',
-        [],
+        findAction(motion, { world: world('sword'), map: 'cave' }),
         [],
         false,
       ),
@@ -1331,12 +1025,7 @@ describe('describePrompt in the cave', () => {
     expect(
       describePrompt(
         zhTw,
-        motion,
-        0,
-        world('leather-armour'),
-        [],
-        'cave',
-        [],
+        findAction(motion, { world: world('leather-armour'), map: 'cave' }),
         [],
         false,
       ),

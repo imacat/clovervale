@@ -27,7 +27,9 @@ import { describe, expect, it } from 'vitest';
 import { MONSTER_KINDS } from '@clovervale/shared';
 import type { MonsterState } from '@clovervale/shared';
 
-import { MonsterFigures, PITCHFORK_BONE } from '../src/monster-figures.ts';
+import type { FigureFrame } from '../src/figure-set.ts';
+import { PITCHFORK_BONE } from '../src/model-catalogue.ts';
+import { MonsterFigures } from '../src/monster-figures.ts';
 import type { MonsterView } from '../src/monster-figures.ts';
 import type { Figure } from '../src/player-figures.ts';
 
@@ -64,6 +66,26 @@ function createFigure(): Figure {
 }
 
 /**
+ * Makes a frame that shows the monsters.
+ *
+ * @param {readonly MonsterState[]} monsters - The monsters.
+ * @returns {FigureFrame} The frame.
+ */
+function makeMonsterFrame(monsters: readonly MonsterState[]): FigureFrame {
+  return {
+    map: 'village',
+    ownId: null,
+    view: { players: [], monsters, lag: 0, time: null },
+    latestMonsters: null,
+    shownStep: null,
+    items: null,
+    ownMotion: null,
+    ownStep: 0,
+    areMonstersPaused: false,
+  };
+}
+
+/**
  * Finds the only monster that is shown.
  *
  * @param {MonsterFigures} figures - The monsters that are shown.
@@ -83,7 +105,7 @@ describe('MonsterFigures', () => {
   it('shows a monster where it is told, as it is told', () => {
     const scene = new Object3D();
     const figures = new MonsterFigures(scene, createFigure);
-    figures.showMonsters([MONSTER]);
+    figures.show(makeMonsterFrame([MONSTER]));
     const view: MonsterView = findOnly(figures);
     expect(view).toMatchObject({ id: 1, x: 10, z: 8, clip: 'Idle' });
     expect(view.yaw).toBeCloseTo(-90);
@@ -94,14 +116,14 @@ describe('MonsterFigures', () => {
   it('plays the clip of a new action, and shows its health', () => {
     const scene = new Object3D();
     const figures = new MonsterFigures(scene, createFigure);
-    figures.showMonsters([MONSTER]);
-    figures.showMonsters([
+    figures.show(makeMonsterFrame([MONSTER]));
+    figures.show(makeMonsterFrame([
       { ...MONSTER, action: 'Attack', actionCount: 1, health: 30 },
-    ]);
+    ]));
     expect(findOnly(figures)).toMatchObject({ clip: 'Attack', health: 0.5 });
-    figures.showMonsters([
+    figures.show(makeMonsterFrame([
       { ...MONSTER, action: 'Die', actionCount: 2, health: 0, mode: 'dead' },
-    ]);
+    ]));
     expect(findOnly(figures)).toMatchObject({ clip: 'Die', health: 0 });
   });
 
@@ -109,10 +131,10 @@ describe('MonsterFigures', () => {
     const scene = new Object3D();
     const figures = new MonsterFigures(scene, createFigure);
     const caveHealth: number = MONSTER_KINDS['cave-dog'].health;
-    figures.showMonsters([
+    figures.show(makeMonsterFrame([
       { ...MONSTER, kind: 'cave-dog', health: caveHealth / 2 },
       { ...MONSTER, id: 2, kind: 'cave-dog', x: 4, health: caveHealth },
-    ]);
+    ]));
     expect(figures.describeMonsters()).toMatchObject([
       { id: 1, x: 10, health: 0.5 },
       { id: 2, x: 4, health: 1 },
@@ -123,8 +145,8 @@ describe('MonsterFigures', () => {
   it('takes a monster away once it is gone', () => {
     const scene = new Object3D();
     const figures = new MonsterFigures(scene, createFigure);
-    figures.showMonsters([MONSTER]);
-    figures.showMonsters([]);
+    figures.show(makeMonsterFrame([MONSTER]));
+    figures.show(makeMonsterFrame([]));
     expect(figures.describeMonsters()).toEqual([]);
     expect(scene.children).toEqual([]);
   });
@@ -133,10 +155,10 @@ describe('MonsterFigures', () => {
     const scene = new Object3D();
     let figure: Figure | null = null;
     const figures = new MonsterFigures(scene, () => figure);
-    figures.showMonsters([MONSTER]);
+    figures.show(makeMonsterFrame([MONSTER]));
     expect(figures.describeMonsters()).toEqual([]);
     figure = createFigure();
-    figures.showMonsters([MONSTER]);
+    figures.show(makeMonsterFrame([MONSTER]));
     expect(findOnly(figures).clip).toBe('Idle');
   });
 
@@ -154,26 +176,26 @@ describe('MonsterFigures', () => {
       kind: 'martha',
       health: MONSTER_KINDS.martha.health,
     };
-    figures.showMonsters([{ ...martha, mode: 'idle', isArmed: false }]);
+    figures.show(makeMonsterFrame([{ ...martha, mode: 'idle', isArmed: false }]));
     expect(findOnly(figures)).toMatchObject({
       isBarShown: false,
-      isPitchforkShown: false,
+      isWeaponShown: false,
     });
-    figures.showMonsters([{ ...martha, mode: 'talk', isArmed: true }]);
+    figures.show(makeMonsterFrame([{ ...martha, mode: 'talk', isArmed: true }]));
     expect(findOnly(figures)).toMatchObject({
       isBarShown: false,
-      isPitchforkShown: true,
+      isWeaponShown: true,
     });
-    figures.showMonsters([{ ...martha, mode: 'chase', isArmed: true }]);
+    figures.show(makeMonsterFrame([{ ...martha, mode: 'chase', isArmed: true }]));
     expect(findOnly(figures)).toMatchObject({
       isBarShown: true,
-      isPitchforkShown: true,
+      isWeaponShown: true,
     });
-    figures.showMonsters([
+    figures.show(makeMonsterFrame([
       { ...martha, mode: 'sit', health: 0, isArmed: true },
-    ]);
+    ]));
     expect(findOnly(figures)).toMatchObject({ isBarShown: false });
-    figures.showMonsters([{ ...martha, mode: 'return', isArmed: false }]);
-    expect(findOnly(figures)).toMatchObject({ isPitchforkShown: false });
+    figures.show(makeMonsterFrame([{ ...martha, mode: 'return', isArmed: false }]));
+    expect(findOnly(figures)).toMatchObject({ isWeaponShown: false });
   });
 });

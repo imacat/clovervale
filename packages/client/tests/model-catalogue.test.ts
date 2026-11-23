@@ -27,6 +27,7 @@ import { VILLAGERS, VILLAGE_PLACEMENTS } from '@clovervale/shared';
 import type { Placement, Villager } from '@clovervale/shared';
 
 import {
+  MODEL_FILES,
   REQUIRED_MODEL_FILES,
   isModelUsed,
   planModels,
@@ -90,7 +91,7 @@ describe('planModels', () => {
     // The village keeps the ground an NPC stands on clear of players whether
     // or not the model is there, so the model must not go missing unseen.
     const npcs: string[] = VILLAGE_PLACEMENTS.map(
-      (placement: Placement) => placement.file,
+      (placement: Placement) => MODEL_FILES[placement.model],
     ).filter((file: string) => file.startsWith('npc-'));
     expect(npcs).toContain('npc-emma.glb');
     expect(planModels([]).missing).toEqual(expect.arrayContaining(npcs));
@@ -98,7 +99,7 @@ describe('planModels', () => {
 
   it('reports every villager, who can be talked to wherever it is', () => {
     const files: string[] = VILLAGERS.map(
-      (villager: Villager) => villager.file,
+      (villager: Villager) => MODEL_FILES[villager.id],
     );
     expect(files).toContain('npc-toby.glb');
     expect(planModels([]).missing).toEqual(expect.arrayContaining(files));

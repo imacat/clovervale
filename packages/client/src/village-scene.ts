@@ -18,27 +18,30 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/village-scene Building the village the models stand in.
+ * @module client/village-scene Building the village, with the models that
+ *   stand in it whoever is connected, and lighting it through the day, with
+ *   the glow of the fountain and of the forge, and the light in the windows
+ *   of the houses.
  */
 
 import { CircleGeometry, Fog, Mesh, MeshStandardMaterial, Scene } from 'three';
 import type { Object3D } from 'three';
-import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
-
-import type { MonsterKindId } from '@clovervale/shared';
 
 import { Actor } from './actor.ts';
 import { Daylight } from './daylight.ts';
-import {
-  CHARACTER_FILES,
-  MARTHA_FILE,
-  MONSTER_FILE,
-} from './model-catalogue.ts';
+import type { DaylightLook } from './daylight.ts';
+import { prepareModel } from './figure-copies.ts';
+import { ForgeGlow } from './forge-glow.ts';
+import { FountainGlow } from './fountain-glow.ts';
+import type { MapScene } from './map-scene.ts';
+import { MODEL_FILES } from './model-catalogue.ts';
+import { findModelRoot } from './model-library.ts';
 import type { LoadedModel } from './model-loader.ts';
+import { createModelPlacer } from './model-placement.ts';
+import type { ModelPlacer } from './model-placement.ts';
 import { createMountains } from './mountains.ts';
-import type { Figure } from './player-figures.ts';
 import { layoutVillage } from './village-layout.ts';
-import type { Placement } from './village-layout.ts';
+import { WindowGlow } from './window-glow.ts';
 
 /**
  * A patch of bare earth: its centre, its radii along X and Z, and its turn
@@ -52,12 +55,37 @@ type Patch = readonly [
   yaw: number,
 ];
 
-/** The village without its models, and its light. */
-export interface VillageScene {
-  /** The scene to add the models to. */
-  readonly scene: Scene;
+/**
+ * The village, with its light, and the models that stand in it whoever is
+ * connected, once they are shown.
+ */
+export interface VillageScene extends MapScene {
   /** The light and the colours of the village through the day. */
   readonly daylight: Daylight;
+  /**
+   * Stands the models that have a place in the village there, as far as
+   * they are among the models, each idling if it is animated, and starts
+   * the light in the windows of the houses shown, and the glows of the
+   * fountain and the forge, as far as their models are among them.
+   *
+   * @param {readonly LoadedModel[]} models - The models.
+   */
+  readonly populate: (models: readonly LoadedModel[]) => void;
+  /**
+   * Moves the models that stand in the village, and the glows of the
+   * fountain and the forge, on, for one frame.
+   *
+   * @param {number} seconds - The time since the last frame, in seconds.
+   */
+  readonly update: (seconds: number) => void;
+  /**
+   * Shows the village as it looks at a time of day, as {@link Daylight.show}
+   * tells, with the light in the windows of the houses, once they are
+   * shown.
+   *
+   * @param {number} time - The time of day, from 0 up to 1.
+   */
+  readonly showTimeOfDay: (time: number) => void;
 }
 
 /** The colour of the grass. */
@@ -117,7 +145,7 @@ function createDisc(colour: string, height: number): Mesh {
  * Creates the village without its models: the ground, the mountains around
  * it, and the sky, the fog and the light, as at noon until told the time.
  *
- * @returns {VillageScene} The scene to add the models to, and its light.
+ * @returns {VillageScene} The village.
  */
 export function createVillageScene(): VillageScene {
   const scene = new Scene();
@@ -138,39 +166,44 @@ export function createVillageScene(): VillageScene {
   });
   const mountains: Object3D = createMountains();
   scene.add(mountains);
-  return { scene, daylight: new Daylight(scene, fog, mountains) };
-}
-
-/**
- * Makes a model cast and receive shadows, wherever its animation takes it.
- *
- * @param {Object3D} model - The root of the model.
- */
-function prepareModel(model: Object3D): void {
-  model.traverse((node: Object3D) => {
-    node.castShadow = true;
-    node.receiveShadow = true;
-    // An animated model moves out of the bounds of its resting pose.
-    node.frustumCulled = false;
-  });
-}
-
-/**
- * Stands a model in the village.
- *
- * @param {Scene} scene - The village.
- * @param {Object3D} model - The root of the model.
- * @param {Placement} placement - Where the model stands.
- */
-function placeModel(
-  scene: Scene,
-  model: Object3D,
-  placement: Placement,
-): void {
-  prepareModel(model);
-  model.position.set(placement.x, 0, placement.z);
-  model.rotation.y = (placement.yaw * Math.PI) / 180;
-  scene.add(model);
+  const daylight = new Daylight(scene, fog, mountains);
+  const actors: Actor[] = [];
+  let fountainGlow: FountainGlow | null = null;
+  let forgeGlow: ForgeGlow | null = null;
+  let windowGlow: WindowGlow | null = null;
+  return {
+    scene,
+    daylight,
+    populate: (models: readonly LoadedModel[]): void => {
+      actors.push(...populateVillage(scene, models));
+      windowGlow = new WindowGlow(scene);
+      const fountain: Object3D | null = findModelRoot(
+        models,
+        MODEL_FILES.fountain,
+      );
+      if (fountain !== null) {
+        fountainGlow = new FountainGlow(fountain);
+      }
+      const weaponShop: Object3D | null = findModelRoot(
+        models,
+        MODEL_FILES['weapon-shop'],
+      );
+      if (weaponShop !== null) {
+        forgeGlow = new ForgeGlow(weaponShop);
+      }
+    },
+    update: (seconds: number): void => {
+      for (const actor of actors) {
+        actor.update(seconds);
+      }
+      fountainGlow?.update(seconds);
+      forgeGlow?.update(seconds);
+    },
+    showTimeOfDay: (time: number): void => {
+      const look: DaylightLook = daylight.show(time);
+      windowGlow?.show(look.windows);
+    },
+  };
 }
 
 /**
@@ -181,102 +214,20 @@ function placeModel(
  * @param {readonly LoadedModel[]} models - The models.
  * @returns {Actor[]} The models as actors, to animate.
  */
-export function populateVillage(
+function populateVillage(
   scene: Scene,
   models: readonly LoadedModel[],
 ): Actor[] {
   const actors: Actor[] = [];
-  const used = new Set<string>();
+  const place: ModelPlacer = createModelPlacer(scene, models);
   const files: string[] = models.map((model: LoadedModel) => model.file);
   for (const placement of layoutVillage(files)) {
-    const model: LoadedModel | undefined = models.find(
-      (candidate: LoadedModel) => candidate.file === placement.file,
-    );
-    if (model === undefined) {
+    const model: LoadedModel | null = place(placement);
+    if (model === null) {
       continue;
     }
-    // A model that stands in several places is copied for all but the first.
-    const root: Object3D = used.has(model.file)
-      ? clone(model.root)
-      : model.root;
-    used.add(model.file);
-    placeModel(scene, root, placement);
-    actors.push(new Actor(root, model.clips));
+    prepareModel(model.root);
+    actors.push(new Actor(model.root, model.clips));
   }
   return actors;
-}
-
-/**
- * Makes a model to show a player with, ready to stand in the village.
- *
- * @param {readonly LoadedModel[]} models - The models.
- * @param {number} appearance - The number of the appearance of the player,
- *   from 1.
- * @returns {Figure | null} A copy of the character of that appearance, or
- *   `null` if that character is not among the models.
- */
-export function createPlayerFigure(
-  models: readonly LoadedModel[],
-  appearance: number,
-): Figure | null {
-  const file: string | undefined = CHARACTER_FILES[appearance - 1];
-  const model: LoadedModel | undefined = models.find(
-    (candidate: LoadedModel) => candidate.file === file,
-  );
-  if (model === undefined) {
-    return null;
-  }
-  const root: Object3D = clone(model.root);
-  prepareModel(root);
-  return { root, clips: model.clips };
-}
-
-/**
- * Makes a model to show a villager who goes about the village with, ready
- * to stand in it.
- *
- * @param {readonly LoadedModel[]} models - The models.
- * @param {string} file - The file name of the model of the villager.
- * @returns {Figure | null} A copy of the model, or `null` if the model is
- *   not among the models.
- */
-export function createVillagerFigure(
-  models: readonly LoadedModel[],
-  file: string,
-): Figure | null {
-  const model: LoadedModel | undefined = models.find(
-    (candidate: LoadedModel) => candidate.file === file,
-  );
-  if (model === undefined) {
-    return null;
-  }
-  const root: Object3D = clone(model.root);
-  prepareModel(root);
-  return { root, clips: model.clips };
-}
-
-/**
- * Makes a model to show a monster with, ready to stand in any map: a wild
- * dog, or Martha, the village chief, who fights as one.
- *
- * @param {readonly LoadedModel[]} models - The models.
- * @param {MonsterKindId} kind - The kind of the monster.
- * @returns {Figure | null} A copy of the model of Martha, for her, or of
- *   the wild dog, for a dog, or `null` if that model is not among the
- *   models.
- */
-export function createMonsterFigure(
-  models: readonly LoadedModel[],
-  kind: MonsterKindId,
-): Figure | null {
-  const file: string = kind === 'martha' ? MARTHA_FILE : MONSTER_FILE;
-  const model: LoadedModel | undefined = models.find(
-    (candidate: LoadedModel) => candidate.file === file,
-  );
-  if (model === undefined) {
-    return null;
-  }
-  const root: Object3D = clone(model.root);
-  prepareModel(root);
-  return { root, clips: model.clips };
 }

@@ -32,6 +32,7 @@ import {
 } from '@clovervale/shared';
 import type { InputProgress, PlayerState } from '@clovervale/shared';
 
+import type { FigureFrame } from '../src/figure-set.ts';
 import { SnapshotTimeline } from '../src/interpolation.ts';
 import { PlayerFigures } from '../src/player-figures.ts';
 import type { Figure, FigureView } from '../src/player-figures.ts';
@@ -54,6 +55,26 @@ const OWN: InputProgress = {
   steps: 0,
   motion: createMotion(PLAYER, PLAYER.yaw),
 };
+
+/**
+ * Makes a frame that shows the players.
+ *
+ * @param {readonly PlayerState[]} players - The players.
+ * @returns {FigureFrame} The frame.
+ */
+function makePlayerFrame(players: readonly PlayerState[]): FigureFrame {
+  return {
+    map: 'village',
+    ownId: null,
+    view: { players, monsters: [], lag: 0, time: null },
+    latestMonsters: null,
+    shownStep: null,
+    items: null,
+    ownMotion: null,
+    ownStep: 0,
+    areMonstersPaused: false,
+  };
+}
 
 /**
  * Creates a clip that raises the arm of a model.
@@ -133,7 +154,7 @@ describe('PlayerFigures', () => {
   it('shows a player where the snapshot tells, as it tells', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showPlayers([PLAYER]);
+    figures.show(makePlayerFrame([PLAYER]));
     const view: FigureView = findOnly(figures);
     expect(view).toMatchObject({ id: 5, appearance: 2, x: 1.5, z: -3 });
     expect(view.yaw).toBeCloseTo(90);
@@ -148,11 +169,11 @@ describe('PlayerFigures', () => {
   it('shows the health of a player in its bar', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showPlayers([PLAYER]);
+    figures.show(makePlayerFrame([PLAYER]));
     expect(findOnly(figures).health).toBe(1);
-    figures.showPlayers([{ ...PLAYER, health: PLAYER_HEALTH / 4 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, health: PLAYER_HEALTH / 4 }]));
     expect(findOnly(figures).health).toBeCloseTo(0.25);
-    figures.showPlayers([{ ...PLAYER, health: 0 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, health: 0 }]));
     expect(findOnly(figures).health).toBe(0);
   });
 
@@ -161,7 +182,7 @@ describe('PlayerFigures', () => {
     const figures = new PlayerFigures(scene, createFigure);
     const twin: PlayerState = { ...PLAYER, id: 6, x: 4 };
     const other: PlayerState = { ...PLAYER, id: 7, appearance: 8, x: 6 };
-    figures.showPlayers([PLAYER, twin, other]);
+    figures.show(makePlayerFrame([PLAYER, twin, other]));
     expect(
       figures.describeFigures().map((view: FigureView) => view.appearance),
     ).toEqual([2, 2, 8]);
@@ -173,9 +194,9 @@ describe('PlayerFigures', () => {
   it('puts a player exactly where the latest snapshot tells', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showPlayers([PLAYER]);
+    figures.show(makePlayerFrame([PLAYER]));
     figures.update(0.03);
-    figures.showPlayers([{ ...PLAYER, x: 9, z: 2, yaw: -45 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, x: 9, z: 2, yaw: -45 }]));
     figures.update(0.03);
     const view: FigureView = findOnly(figures);
     expect(view.x).toBe(9);
@@ -188,34 +209,34 @@ describe('PlayerFigures', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
     const other: PlayerState = { ...PLAYER, id: 6, appearance: 3 };
-    figures.showPlayers([PLAYER, other]);
-    figures.showPlayers([other]);
+    figures.show(makePlayerFrame([PLAYER, other]));
+    figures.show(makePlayerFrame([other]));
     expect(findOnly(figures).id).toBe(6);
     expect(scene.children.map((root: Object3D) => root.name)).toEqual(
       ['appearance 3'],
     );
-    figures.showPlayers([]);
+    figures.show(makePlayerFrame([]));
     expect(scene.children).toEqual([]);
   });
 
   it('finds the model of a player that is shown, and of no other', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showPlayers([PLAYER]);
+    figures.show(makePlayerFrame([PLAYER]));
     expect(figures.findFigure(PLAYER.id)).toBe(scene.children[0]);
     expect(figures.findFigure(6)).toBeNull();
-    figures.showPlayers([]);
+    figures.show(makePlayerFrame([]));
     expect(figures.findFigure(PLAYER.id)).toBeNull();
   });
 
   it('plays the clip of the action the snapshot tells', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showPlayers([{ ...PLAYER, action: 'Walk', actionCount: 3 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, action: 'Walk', actionCount: 3 }]));
     figures.update(0.5);
     expect(findOnly(figures).clip).toBe('Walk');
     expect(measureArm(scene)).toBeCloseTo(1);
-    figures.showPlayers([{ ...PLAYER, action: 'Idle', actionCount: 4 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, action: 'Idle', actionCount: 4 }]));
     figures.update(0.5);
     expect(findOnly(figures).clip).toBe('Idle');
     expect(measureArm(scene)).toBeCloseTo(0);
@@ -225,9 +246,9 @@ describe('PlayerFigures', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
     const walking: PlayerState = { ...PLAYER, action: 'Walk', actionCount: 1 };
-    figures.showPlayers([walking]);
+    figures.show(makePlayerFrame([walking]));
     figures.update(0.25);
-    figures.showPlayers([{ ...walking, x: 2 }]);
+    figures.show(makePlayerFrame([{ ...walking, x: 2 }]));
     figures.update(0.25);
     expect(measureArm(scene)).toBeCloseTo(1);
   });
@@ -240,16 +261,16 @@ describe('PlayerFigures', () => {
       action: 'Slash',
       actionCount: 1,
     };
-    figures.showPlayers([slashing]);
+    figures.show(makePlayerFrame([slashing]));
     figures.update(0.3);
     expect(measureArm(scene)).toBeCloseTo(3);
-    figures.showPlayers([slashing]);
+    figures.show(makePlayerFrame([slashing]));
     figures.update(0.5);
-    figures.showPlayers([slashing]);
+    figures.show(makePlayerFrame([slashing]));
     figures.update(0.5);
     expect(findOnly(figures).clip).toBe('Slash');
     expect(measureArm(scene)).toBeCloseTo(6);
-    figures.showPlayers([{ ...PLAYER, action: 'Idle', actionCount: 2 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, action: 'Idle', actionCount: 2 }]));
     figures.update(0.1);
     expect(findOnly(figures).clip).toBe('Idle');
     expect(measureArm(scene)).toBeCloseTo(0);
@@ -258,20 +279,20 @@ describe('PlayerFigures', () => {
   it('plays a death once and holds its last pose while dead', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showPlayers([{ ...PLAYER, action: 'Walk', actionCount: 1 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, action: 'Walk', actionCount: 1 }]));
     figures.update(0.25);
     const dead: PlayerState = { ...PLAYER, action: 'Die', actionCount: 2 };
-    figures.showPlayers([dead]);
+    figures.show(makePlayerFrame([dead]));
     figures.update(0.5);
     expect(findOnly(figures).clip).toBe('Die');
     expect(measureArm(scene)).toBeCloseTo(-1);
     for (let frame = 0; frame < 4; frame++) {
-      figures.showPlayers([dead]);
+      figures.show(makePlayerFrame([dead]));
       figures.update(0.5);
     }
     expect(findOnly(figures).clip).toBe('Die');
     expect(measureArm(scene)).toBeCloseTo(-2);
-    figures.showPlayers([{ ...PLAYER, action: 'Idle', actionCount: 3 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, action: 'Idle', actionCount: 3 }]));
     figures.update(0.1);
     expect(findOnly(figures).clip).toBe('Idle');
     expect(measureArm(scene)).toBeCloseTo(0);
@@ -280,10 +301,10 @@ describe('PlayerFigures', () => {
   it('starts a slash over when the action count changes', () => {
     const scene = new Object3D();
     const figures = new PlayerFigures(scene, createFigure);
-    figures.showPlayers([{ ...PLAYER, action: 'Slash', actionCount: 1 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, action: 'Slash', actionCount: 1 }]));
     figures.update(0.6);
     expect(measureArm(scene)).toBeCloseTo(6);
-    figures.showPlayers([{ ...PLAYER, action: 'Slash', actionCount: 3 }]);
+    figures.show(makePlayerFrame([{ ...PLAYER, action: 'Slash', actionCount: 3 }]));
     figures.update(0.1);
     expect(findOnly(figures).clip).toBe('Slash');
     expect(measureArm(scene)).toBeCloseTo(1);
@@ -294,9 +315,9 @@ describe('PlayerFigures', () => {
     const figures = new PlayerFigures(scene, createFigure);
     const first: PlayerState = { ...PLAYER, action: 'Slash', actionCount: 1 };
     const second: PlayerState = { ...first, id: 6 };
-    figures.showPlayers([first, second]);
+    figures.show(makePlayerFrame([first, second]));
     figures.update(0.6);
-    figures.showPlayers([first, { ...second, actionCount: 3 }]);
+    figures.show(makePlayerFrame([first, { ...second, actionCount: 3 }]));
     figures.update(0.1);
     expect(measureArm(scene, 0)).toBeCloseTo(6);
     expect(measureArm(scene, 1)).toBeCloseTo(1);
@@ -309,10 +330,10 @@ describe('PlayerFigures', () => {
       isLoaded ? createFigure(appearance) : null,
     );
     const walking: PlayerState = { ...PLAYER, action: 'Walk', actionCount: 2 };
-    figures.showPlayers([walking]);
+    figures.show(makePlayerFrame([walking]));
     expect(figures.describeFigures()).toEqual([]);
     isLoaded = true;
-    figures.showPlayers([walking]);
+    figures.show(makePlayerFrame([walking]));
     expect(findOnly(figures)).toMatchObject({ id: 5, clip: 'Walk' });
   });
 
@@ -335,25 +356,27 @@ describe('PlayerFigures', () => {
       [20, { action: 'Idle', actionCount: 5 }],
     ];
     for (const [step, state] of states) {
-      const snapshot = createSnapshotMessage(
+      const snapshot = createSnapshotMessage({
         step,
-        [{ ...PLAYER, ...state }],
-        [],
-        OWN,
-        null,
-        NO_WORLD_ITEMS,
-        [],
-        null,
-        [],
-        {},
-        0,
-      );
+        players: [{ ...PLAYER, ...state }],
+        monsters: [],
+        world: NO_WORLD_ITEMS,
+        view: {
+          own: OWN,
+          slash: null,
+          inventory: [],
+          silver: 0,
+          dialogue: null,
+          acquaintances: [],
+          quests: [],
+        },
+      });
       timeline.addSnapshot(snapshot, step * 50);
     }
     // The page shows what was 200 milliseconds ago, 50 times a second.
     const showUntil = (from: number, to: number): void => {
       for (let time = from; time <= to; time += 20) {
-        figures.showPlayers(timeline.readPast(time + 200, 200).players);
+        figures.show(makePlayerFrame(timeline.readPast(time + 200, 200).players));
         figures.update(0.02);
       }
     };

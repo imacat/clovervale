@@ -56,14 +56,18 @@ import {
   reconcileSmoothly,
 } from '../src/correction-smoothing.ts';
 import type { SmoothingSettings } from '../src/correction-smoothing.ts';
-import type { PredictionSettings } from '../src/panel.ts';
+import { DrawnPusherStep } from '../src/drawn-pusher-step.ts';
 import { PlayerPrediction } from '../src/prediction.ts';
+import type { PredictionSettings } from '../src/prediction.ts';
 import {
   FORECAST_HORIZON,
-  PUSH_SPEED,
+  PUSH_SPEED_RATIO,
   PushForecast,
 } from '../src/push-forecast.ts';
 import type { PushForecastSettings } from '../src/push-forecast.ts';
+
+/** The fastest the forecast draws the player pushed, in metres a second. */
+const PUSH_SPEED: number = PUSH_SPEED_RATIO * TOBY_RUN_SPEED;
 
 /** How long one step of the simulation lasts, in milliseconds. */
 const STEP: number = 1000 / SIMULATION_RATE;
@@ -278,7 +282,7 @@ interface Frame {
   /** The time of the frame on the clock of the page, in milliseconds. */
   readonly time: number;
   /** The step of the server Toby is drawn at, which may fall between two. */
-  readonly tobyStep: number;
+  readonly pusherStep: number;
   /** The player as the prediction draws it. */
   readonly truth: PlayerMotion;
   /** The player as the page draws it. */
@@ -430,7 +434,7 @@ function measureFromStretch(
  * @returns {number} How far, in metres, or 0 if it does not reach into him.
  */
 function measureDepth(frame: Frame): number {
-  const toby: TobyPose = findTobyPose(frame.tobyStep);
+  const toby: TobyPose = findTobyPose(frame.pusherStep);
   return Math.max(REACH - measureApart(frame.drawn, toby), 0);
 }
 
@@ -468,6 +472,7 @@ function play(
   const start: PlayerMotion = createMotion(scenario.start, SPAWN_YAW);
   const server = new AuthoritativePlayer(start);
   const predicted = new PlayerPrediction(start, 0, 0, 'village');
+  const drawnPusherStep = new DrawnPusherStep(predicted);
   const smoothingSettings: SmoothingSettings = { isEnabled: true };
   const settings: PushForecastSettings = { isEnabled: scenario.isForeseen };
   const smoothing = new CorrectionSmoothing(smoothingSettings, prediction);
@@ -550,17 +555,23 @@ function play(
         continue;
       }
       predicted.advance(time);
-      let tobyStep: number;
+      let pusherStep: number;
       let drawn: PlayerMotion;
       if (scenario.isForecastLeftOut === true) {
         drawn = smoothing.readDrawn(predicted.readDrawn(time), time);
-        tobyStep = predicted.readDrawnStep(time);
+        pusherStep = drawnPusherStep.read(time);
       } else {
-        tobyStep = predicted.readDrawnStep(time);
-        drawn = forecast.advance(predicted, smoothing, time, tobyStep);
+        pusherStep = drawnPusherStep.read(time);
+        drawn = forecast.advance(
+          predicted,
+          smoothing,
+          time,
+          'village',
+          pusherStep,
+        );
       }
       const truth: PlayerMotion = predicted.readDrawn(time);
-      frames.push({ time, tobyStep, truth, drawn, motion: predicted.motion });
+      frames.push({ time, pusherStep, truth, drawn, motion: predicted.motion });
     }
   }
   return {
@@ -745,15 +756,15 @@ function expectNoOvershoot(on: Run, off: Run, told: string): void {
  *
  * @param {Run} run - What came of playing the player.
  * @param {GroundVector} point - The point.
- * @param {number} tobyStep - The step Toby is drawn at.
+ * @param {number} pusherStep - The step Toby is drawn at.
  * @returns {number} The distance, in metres.
  */
 function measureFromServer(
   run: Run,
   point: GroundVector,
-  tobyStep: number,
+  pusherStep: number,
 ): number {
-  const last: number = Math.floor(tobyStep) + 1;
+  const last: number = Math.floor(pusherStep) + 1;
   let nearest: number = Number.POSITIVE_INFINITY;
   for (let step = 0; step < last && step + 1 < run.server.length; step++) {
     const here: PlayerMotion | undefined = run.server[step];
@@ -791,7 +802,7 @@ function expectOnlyWhereServerHasIt(
     }
     const at = `${told}, ${String(frame.time)} ms`;
     expect(
-      measureFromServer(run, frame.drawn, frame.tobyStep),
+      measureFromServer(run, frame.drawn, frame.pusherStep),
       at,
     ).toBeLessThanOrEqual(PLACE_TOLERANCE);
     if (previous !== null) {
@@ -847,9 +858,9 @@ describe('the forecast of the pushes of Toby', () => {
           told,
         ).toEqual(before.frames.map((frame: Frame) => frame.motion));
         expect(
-          after.frames.map((frame: Frame) => frame.tobyStep),
+          after.frames.map((frame: Frame) => frame.pusherStep),
           told,
-        ).toEqual(before.frames.map((frame: Frame) => frame.tobyStep));
+        ).toEqual(before.frames.map((frame: Frame) => frame.pusherStep));
       }
     }
   });
@@ -875,7 +886,7 @@ describe('the forecast of the pushes of Toby', () => {
         // Between his runs, as he picks at the clover by the gate.
         const between: Frame[] = frames.filter(
           (frame: Frame) =>
-            findTobyPose(frame.tobyStep).activity === 'Pick' &&
+            findTobyPose(frame.pusherStep).activity === 'Pick' &&
             frame.time > 8000 &&
             frame.time < 12_000,
         );
@@ -1173,7 +1184,7 @@ describe('the forecast of the pushes of Toby', () => {
         let place: GroundVector | null = null;
         for (const frame of on.frames) {
           if (
-            frame.tobyStep < lastTold + horizon + 1 ||
+            frame.pusherStep < lastTold + horizon + 1 ||
             frame.time >= silence.to + latency
           ) {
             continue;
@@ -1336,10 +1347,10 @@ describe('the forecast of the pushes of Toby', () => {
               // Never drawn further from where the server has the player
               // than without the forecast.
               expect(
-                measureFromServer(on, frame.drawn, frame.tobyStep),
+                measureFromServer(on, frame.drawn, frame.pusherStep),
                 `${told}, ${String(frame.time)} ms`,
               ).toBeLessThanOrEqual(
-                measureFromServer(on, other.drawn, frame.tobyStep) +
+                measureFromServer(on, other.drawn, frame.pusherStep) +
                   GLIDE_SLACK,
               );
             });

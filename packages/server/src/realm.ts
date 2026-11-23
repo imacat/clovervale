@@ -24,27 +24,54 @@
  */
 
 import {
+  WORLD_MAPS,
   createEventsMessage,
-  createMapMessage,
-  createPhrasedMessage,
-  createSaidMessage,
   createSnapshotMessage,
   createSpeechMessage,
 } from '@clovervale/shared';
 import type {
   EventsMessage,
   GameEvent,
-  InputProgress,
-  MapId,
   MonsterState,
   PlayerState,
+  PrivateView,
   ServerMessage,
   StampedInput,
   WorldItems,
 } from '@clovervale/shared';
 
+import { hearChat, tellSaying } from './chat-channels.ts';
+import type { ChatMessage } from './chat-channels.ts';
+import type { Saying, Speech } from './player.ts';
+import type { ResidentFactories } from './resident.ts';
 import { World } from './world.ts';
-import type { Departure, Saying, Speech } from './world.ts';
+import type { Departure } from './world.ts';
+
+/** What a player alone is to be told now, taken from its world. */
+interface PlayerNews {
+  /** The identifier of the player. */
+  readonly id: number;
+  /** What the player alone is told of itself. */
+  readonly view: PrivateView;
+  /** What the villagers have said to it in passing, in order. */
+  readonly speeches: readonly Speech[];
+  /** What the players have said within its hearing, in order. */
+  readonly sayings: readonly Saying[];
+}
+
+/** What the players of a world are to be told now, taken from it. */
+interface WorldNews {
+  /** The players to be seen in the world. */
+  readonly players: PlayerState[];
+  /** The monsters to be seen in the world. */
+  readonly monsters: MonsterState[];
+  /** What there is to pick in the world. */
+  readonly items: WorldItems;
+  /** The events that have happened in the world, in order. */
+  readonly events: readonly GameEvent[];
+  /** What each player alone is to be told, in the order they came in. */
+  readonly news: readonly PlayerNews[];
+}
 
 /**
  * Every world the server holds: the village, which every player comes into
@@ -54,22 +81,28 @@ import type { Departure, Saying, Speech } from './world.ts';
  * day is the same in every one.
  */
 export class Realm {
+  readonly #residents: ResidentFactories;
   readonly #drawRandom: () => number;
   readonly #village: World;
   readonly #caves = new Map<number, World>();
-  readonly #toldMaps = new Map<number, MapId>();
   #stepCount = 0;
 
   /**
    * Starts with the village alone, without players.
    *
+   * @param {ResidentFactories} residents - How each villager is placed in
+   *   every world.
    * @param {() => number} [drawRandom] - Gives a random number from 0 up to
    *   but not including 1, for what the monsters do.  `Math.random` by
    *   default.
    */
-  constructor(drawRandom: () => number = Math.random) {
+  constructor(
+    residents: ResidentFactories,
+    drawRandom: () => number = Math.random,
+  ) {
+    this.#residents = residents;
     this.#drawRandom = drawRandom;
-    this.#village = new World(drawRandom);
+    this.#village = new World(drawRandom, residents);
   }
 
   /**
@@ -92,21 +125,20 @@ export class Realm {
       (cave: World) =>
         cave.listPlayers().map((player: PlayerState) => player.appearance),
     );
-    const player: PlayerState = this.#village.addPlayer(elsewhere);
-    this.#toldMaps.set(player.id, 'village');
-    return player;
+    return this.#village.addPlayer(elsewhere);
   }
 
   /**
-   * Takes a player out of the world it is in, with whatever it carries,
-   * and lets its cave go, if it is in one.
+   * Takes a player that leaves the game out of the world it is in, with
+   * whatever it carries, has the villagers of the village let go of it, as
+   * {@link World.removePlayer} tells, and lets its cave go, with everything
+   * in it, if it is in one.
    *
    * @param {number} id - The identifier of the player.
    */
   removePlayer(id: number): void {
     this.#village.removePlayer(id);
     this.#caves.delete(id);
-    this.#toldMaps.delete(id);
   }
 
   /**
@@ -120,7 +152,7 @@ export class Realm {
     if (cave !== undefined) {
       return cave;
     }
-    return this.#village.findProgress(id) === null ? null : this.#village;
+    return this.#village.hasPlayer(id) ? this.#village : null;
   }
 
   /**
@@ -137,26 +169,18 @@ export class Realm {
   }
 
   /**
-   * Has a player say a line to the players nearby in the world it is in,
-   * as {@link World.say} tells, which no player of any other world hears.
-   *
-   * @param {number} id - The identifier of the player.
-   * @param {string} text - The text its peer sent.
-   */
-  receiveSay(id: number, text: string): void {
-    this.findWorld(id)?.say(id, text);
-  }
-
-  /**
-   * Has a player say a phrase to the players nearby in the world it is in,
-   * as {@link World.sayPhrase} tells, which no player of any other world
+   * Has a player say what its peer sent to the players nearby in the world
+   * it is in, as {@link hearChat} tells, which no player of any other world
    * hears.
    *
    * @param {number} id - The identifier of the player.
-   * @param {string} code - The code its peer sent.
+   * @param {ChatMessage} message - What its peer sent.
    */
-  receivePhrase(id: number, code: string): void {
-    this.findWorld(id)?.sayPhrase(id, code);
+  receiveChat(id: number, message: ChatMessage): void {
+    const world: World | null = this.findWorld(id);
+    if (world !== null) {
+      hearChat(world, id, message);
+    }
   }
 
   /**
@@ -179,11 +203,11 @@ export class Realm {
     }
     for (const { player, destination, arrival } of departures) {
       this.#caves.delete(player.id);
-      if (destination === 'village') {
+      if (WORLD_MAPS[destination].isShared) {
         this.#village.admitPlayer(player, arrival);
         continue;
       }
-      const cave = new World(this.#drawRandom, {
+      const cave = new World(this.#drawRandom, this.#residents, {
         map: destination,
         step: this.#stepCount,
       });
@@ -197,70 +221,100 @@ export class Realm {
    * of every world, for the slashes to be judged on the world as a peer
    * showed it.
    *
-   * Each player is sent, first, which map it is in, if that is not the map
-   * it was last told of, the village if it was told of none; then a
-   * snapshot of the world it is in, with every player and monster to be
-   * seen there, what there is to pick there and, in its cave, which of the
-   * chests and barrels it has looted, and with what that player alone is
-   * told of itself: what it carries, its silver coins, the dialogue it is
-   * in, the villagers who have told it who they are, and how far it has
-   * got with the quests; then what the villagers have
-   * said to it in passing since the last snapshots, each once; then what
-   * the players have said within its hearing since, each once; and then the
-   * events that have happened in that world since the last snapshots, if
-   * any have, so that each player hears of each event of the world it is
-   * in once.  A player is told nothing of any other world.
+   * Each player is sent, first, a snapshot of the world it is in, with
+   * every player and monster to be seen there, what there is to pick there
+   * and, in its cave, which of the chests and barrels it has looted, and
+   * with what that player alone is told of itself: what it carries, its
+   * silver coins, the dialogue it is in, the villagers who have told it who
+   * they are, and how far it has got with the quests; then what the
+   * villagers have said to it in passing since the last snapshots, each
+   * once; then what the players have said within its hearing since, each
+   * once; and then the events that have happened in that world since the
+   * last snapshots, if any have, so that each player hears of each event of
+   * the world it is in once.  A player is told nothing of any other world.
    *
    * @returns {Map<number, ServerMessage[]>} The messages, by the identifier
    *   of the player, for every player in a world.
    */
   composeMessages(): Map<number, ServerMessage[]> {
-    const composed = new Map<number, ServerMessage[]>();
-    for (const world of [this.#village, ...this.#caves.values()]) {
+    const worlds: World[] = [this.#village, ...this.#caves.values()];
+    this.#recordSnapshots(worlds);
+    return this.#buildMessages(
+      worlds.map((world: World) => this.#takeNews(world)),
+    );
+  }
+
+  /**
+   * Records a snapshot of every world, as a snapshot taken now tells it.
+   *
+   * @param {readonly World[]} worlds - The worlds.
+   */
+  #recordSnapshots(worlds: readonly World[]): void {
+    for (const world of worlds) {
       world.recordSnapshot();
-      const players: PlayerState[] = world.listPlayers();
-      const monsters: MonsterState[] = world.listMonsters();
-      const items: WorldItems = world.describeItems();
-      const events: GameEvent[] = world.takeEvents();
+    }
+  }
+
+  /**
+   * Takes what the players of a world are to be told now, each thing that
+   * is to be told once taken only once.
+   *
+   * @param {World} world - The world.
+   * @returns {WorldNews} What they are to be told.
+   */
+  #takeNews(world: World): WorldNews {
+    const players: PlayerState[] = world.listPlayers();
+    return {
+      players,
+      monsters: world.listMonsters(),
+      items: world.describeItems(),
+      events: world.takeEvents(),
+      news: players.flatMap(({ id }: PlayerState): PlayerNews[] => {
+        const view: PrivateView | null = world.describePrivateView(id);
+        return view === null
+          ? []
+          : [
+              {
+                id,
+                view,
+                speeches: world.takeSpeeches(id),
+                sayings: world.takeSayings(id),
+              },
+            ];
+      }),
+    };
+  }
+
+  /**
+   * Builds the messages every player is to be sent from what it is to be
+   * told.
+   *
+   * @param {readonly WorldNews[]} worlds - What the players of each world
+   *   are to be told.
+   * @returns {Map<number, ServerMessage[]>} The messages, by the identifier
+   *   of the player.
+   */
+  #buildMessages(
+    worlds: readonly WorldNews[],
+  ): Map<number, ServerMessage[]> {
+    const composed = new Map<number, ServerMessage[]>();
+    for (const { players, monsters, items, events, news } of worlds) {
       const eventsMessage: EventsMessage | null =
         events.length === 0 ? null : createEventsMessage(events);
-      for (const { id } of players) {
-        const own: InputProgress | null = world.findProgress(id);
-        if (own === null) {
-          continue;
-        }
-        const messages: ServerMessage[] = [];
-        if (this.#toldMaps.get(id) !== world.map) {
-          this.#toldMaps.set(id, world.map);
-          messages.push(createMapMessage(world.map));
-        }
-        messages.push(
-          createSnapshotMessage(
-            this.#stepCount,
+      for (const { id, view, speeches, sayings } of news) {
+        const messages: ServerMessage[] = [
+          createSnapshotMessage({
+            step: this.#stepCount,
             players,
             monsters,
-            own,
-            world.findSlash(id),
-            items,
-            world.findInventory(id) ?? [],
-            world.findDialogue(id),
-            world.findAcquaintances(id),
-            world.findQuests(id),
-            world.findSilver(id) ?? 0,
+            world: items,
+            view,
+          }),
+          ...speeches.map(({ villager, line }: Speech) =>
+            createSpeechMessage(villager, line),
           ),
-          ...world
-            .takeSpeeches(id)
-            .map(({ villager, line }: Speech) =>
-              createSpeechMessage(villager, line),
-            ),
-          ...world
-            .takeSayings(id)
-            .map((saying: Saying) =>
-              'text' in saying
-                ? createSaidMessage(saying.player, saying.text)
-                : createPhrasedMessage(saying.player, saying.phrase),
-            ),
-        );
+          ...sayings.map(tellSaying),
+        ];
         if (eventsMessage !== null) {
           messages.push(eventsMessage);
         }

@@ -34,12 +34,13 @@ import {
 import type { BufferGeometry, Object3D } from 'three';
 import {
   mergeGeometries,
-} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+} from 'three/addons/utils/BufferGeometryUtils.js';
 
 import { CLOVER_PATCHES } from '@clovervale/shared';
 import type { GroundItem, WorldItems } from '@clovervale/shared';
 
-import { LYING_ITEM_FILES } from './model-catalogue.ts';
+import type { FigureFrame, FigureSet } from './figure-set.ts';
+import { LYING_CLOVER_MODEL, LYING_ITEM_MODELS } from './model-catalogue.ts';
 import type { LoadedModel } from './model-loader.ts';
 
 /** What is shown of the items in the world. */
@@ -224,12 +225,18 @@ export function createHeldClover(): Group {
  * The four-leaved clovers of the patches of clover, and the items on the
  * ground, as the server last told of them.
  */
-export class ItemFigures {
+export class ItemFigures implements FigureSet {
   readonly #parent: Object3D;
   readonly #parts: CloverParts = buildCloverParts();
   readonly #patches: Group[];
   readonly #lying = new Map<number, [GroundItem, Group]>();
-  #models: readonly LoadedModel[] = [];
+  /**
+   * The model of a four-leaved clover lying on the ground, which the page
+   * draws itself.
+   */
+  readonly #lyingClover: LoadedModel;
+  /** The models the items on the ground are drawn with. */
+  #models: readonly LoadedModel[];
 
   /**
    * Starts with a four-leaved clover drawn in no patch, and nothing on the
@@ -239,6 +246,12 @@ export class ItemFigures {
    */
   constructor(parent: Object3D) {
     this.#parent = parent;
+    this.#lyingClover = {
+      file: LYING_CLOVER_MODEL,
+      root: createLyingClover(this.#parts),
+      clips: [],
+    };
+    this.#models = [this.#lyingClover];
     this.#patches = CLOVER_PATCHES.map(({ x, z }) => {
       const clover: Group = createStandingClover(this.#parts);
       clover.position.set(x, 0, z);
@@ -250,12 +263,14 @@ export class ItemFigures {
 
   /**
    * Draws the items on the ground from now on with the models of their
-   * kinds among the models, and those already on the ground at once.
+   * kinds among the models, as {@link LYING_ITEM_MODELS} names them, and
+   * those already on the ground at once.  A four-leaved clover is drawn
+   * whatever the models.
    *
    * @param {readonly LoadedModel[]} models - The models.
    */
   useModels(models: readonly LoadedModel[]): void {
-    this.#models = models;
+    this.#models = [this.#lyingClover, ...models];
     for (const [id, [item, figure]] of this.#lying) {
       this.#parent.remove(figure);
       this.#lying.set(id, [item, this.#layItem(item)]);
@@ -264,15 +279,35 @@ export class ItemFigures {
 
   /**
    * Shows a four-leaved clover standing in each patch of clover that has
-   * its clover, and each item on the ground lying there as what it is, a
-   * four-leaved clover or the model of its kind, where the item lies now,
-   * even if an item of the same number lay elsewhere before, and nothing
-   * else.  An item whose model is not among the models is not drawn.
+   * its clover, and each item on the ground lying there as what it is, as
+   * the model of its kind, where the item lies now, even if an item of the
+   * same number lay elsewhere before, and nothing else.  An item whose
+   * model is not among the models is not drawn.
+   *
+   * @param {FigureFrame} frame - How things are shown at the frame, with
+   *   what there is to pick in the world, or `null` to show nothing.
+   */
+  show(frame: FigureFrame): void {
+    this.#showItems(frame.items);
+  }
+
+  /** Does nothing over time: the items stand still. */
+  update(): void {
+    // The items stand still.
+  }
+
+  /** Shows nothing, as the player of the page leaves its map. */
+  clear(): void {
+    this.#showItems(null);
+  }
+
+  /**
+   * Shows what there is to pick, as {@link show} tells.
    *
    * @param {WorldItems | null} world - What there is to pick in the world,
    *   or `null` to show nothing.
    */
-  show(world: WorldItems | null): void {
+  #showItems(world: WorldItems | null): void {
     const clovers = new Set<number>(world?.clovers ?? []);
     this.#patches.forEach((clover: Group, patch: number) => {
       clover.visible = clovers.has(patch);
@@ -301,26 +336,22 @@ export class ItemFigures {
    * the item before it.
    *
    * @param {GroundItem} item - The item.
-   * @returns {Group} The figure, a four-leaved clover, a copy of the model of
-   *   the kind of the item, or nothing if the model is not among the models.
+   * @returns {Group} The figure, a copy of the model of the kind of the
+   *   item, or nothing if the model is not among the models.
    */
   #layItem(item: GroundItem): Group {
     const figure = new Group();
-    if (item.kind === 'clover') {
-      figure.add(createLyingClover(this.#parts));
-    } else {
-      const file: string = LYING_ITEM_FILES[item.kind];
-      const model: LoadedModel | undefined = this.#models.find(
-        (candidate: LoadedModel) => candidate.file === file,
-      );
-      if (model !== undefined) {
-        const copy: Object3D = model.root.clone();
-        copy.traverse((node: Object3D) => {
-          node.castShadow = true;
-          node.receiveShadow = true;
-        });
-        figure.add(copy);
-      }
+    const name: string = LYING_ITEM_MODELS[item.kind];
+    const model: LoadedModel | undefined = this.#models.find(
+      (candidate: LoadedModel) => candidate.file === name,
+    );
+    if (model !== undefined) {
+      const copy: Object3D = model.root.clone();
+      copy.traverse((node: Object3D) => {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      });
+      figure.add(copy);
     }
     figure.position.set(item.x, 0, item.z);
     figure.rotation.y = (((item.id * LYING_TURN) % 360) * Math.PI) / 180;

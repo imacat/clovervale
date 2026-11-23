@@ -22,13 +22,21 @@
  *   prisoner in the cave, whom a player talks to as to them.
  */
 
-import { CAVE_EDWIN_FILE, CAVE_PLACEMENTS } from './cave.ts';
-import type { MonsterKindId } from './combat.ts';
+import { CAVE_EDWIN_POST } from './cave.ts';
+import { MONSTER_KINDS } from './combat.ts';
+import type { MonsterKindId, MonsterState } from './combat.ts';
 import type { GroundVector } from './movement.ts';
-import type { MonsterState } from './protocol.ts';
-import { TOBY_FILE, findTobyPose } from './toby.ts';
-import { findPlacement } from './village-layout.ts';
-import type { Placement } from './village-layout.ts';
+import type { Pusher } from './pusher.ts';
+import { findQuest } from './quests.ts';
+import type { Quest, QuestId } from './quests.ts';
+import type { Pose } from './terrain.ts';
+import { TOBY_PUSHER, findTobyPose } from './toby.ts';
+import {
+  BASIL_POST,
+  EMMA_POST,
+  MARTHA_POST,
+  NANCY_POST,
+} from './village-layout.ts';
 import type { MapId } from './world-map.ts';
 
 /**
@@ -47,13 +55,26 @@ export type VillagerId =
 export interface Villager {
   /** The identifier of the villager. */
   readonly id: VillagerId;
-  /**
-   * The file name of the model of the villager, which its map has a place
-   * for, unless the villager goes about the village.
-   */
-  readonly file: string;
   /** The map the villager is in. */
   readonly map: MapId;
+  /**
+   * Where the villager stands in its map, and which way it faces, unless
+   * it goes about, as Toby does; for a villager who fights as a monster,
+   * where it stands while it is not among the monsters of its map.
+   */
+  readonly post?: Pose;
+  /**
+   * For a villager who goes about, as Toby does, running his course, finds
+   * where it is, and which way it faces, at a step of the simulation, which
+   * may fall between two steps.
+   */
+  readonly course?: (step: number) => Pose;
+  /**
+   * For a villager who goes about and pushes the players in its way aside,
+   * as Toby does, how it gets in their way.  There is no more than one such
+   * villager in a map.
+   */
+  readonly pusher?: Pusher;
   /**
    * The kind of monster the villager fights as, if it ever fights, whose
    * state among the monsters of its map tells where it stands and whether
@@ -61,12 +82,12 @@ export interface Villager {
    */
   readonly fighter?: MonsterKindId;
   /**
-   * Whether the server chooses which of its lines the villager says in
-   * passing to a player who talks to it, and tells the peer of that
-   * player, rather than the peer choosing one, as it does for any other
-   * villager with lines.
+   * When the server chooses what the villager says to a player who talks
+   * to it, and tells the peer of that player, rather than the peer
+   * choosing one of the lines of the villager: always, or while the player
+   * is on the quest named, taken on and not yet done.  Never if left out.
    */
-  readonly hasServerLines?: boolean;
+  readonly serverWords?: 'always' | QuestId;
   /**
    * Whether the villager, the first time the player of a page talks to it,
    * always says the first of its lines, rather than one picked at random.
@@ -77,20 +98,30 @@ export interface Villager {
 /**
  * The villagers a player can talk to: those of the village, and the
  * prisoner in the north cell of the cave.  Martha, the village chief, is
- * the enemy spy, and fights as a monster.
+ * the enemy spy, and fights as a monster; what she says the server chooses
+ * while the player is on "Toby is hurt", in which Toby, who has fallen and
+ * hurt himself, sends the player to her for her ointment.  What Toby, Basil
+ * the apothecary and Edwin say the server always chooses.
  */
 export const VILLAGERS: readonly Villager[] = [
-  { id: 'nancy', file: 'npc-nancy.glb', map: 'village', greetsFirst: true },
-  { id: 'emma', file: 'npc-emma.glb', map: 'village' },
+  { id: 'nancy', map: 'village', post: NANCY_POST, greetsFirst: true },
+  { id: 'emma', map: 'village', post: EMMA_POST },
   {
     id: 'martha',
-    file: 'npc-martha.glb',
     map: 'village',
+    post: MARTHA_POST,
     fighter: 'martha',
+    serverWords: 'toby-hurt',
   },
-  { id: 'toby', file: TOBY_FILE, map: 'village', hasServerLines: true },
-  { id: 'basil', file: 'npc-basil.glb', map: 'village' },
-  { id: 'edwin', file: CAVE_EDWIN_FILE, map: 'cave' },
+  {
+    id: 'toby',
+    map: 'village',
+    course: findTobyPose,
+    pusher: TOBY_PUSHER,
+    serverWords: 'always',
+  },
+  { id: 'basil', map: 'village', post: BASIL_POST, serverWords: 'always' },
+  { id: 'edwin', map: 'cave', post: CAVE_EDWIN_POST, serverWords: 'always' },
 ];
 
 /**
@@ -101,6 +132,63 @@ export const VILLAGERS: readonly Villager[] = [
  */
 export function isVillagerId(value: unknown): value is VillagerId {
   return VILLAGERS.some((villager: Villager) => villager.id === value);
+}
+
+/**
+ * Gets a villager among {@link VILLAGERS}.
+ *
+ * @param {VillagerId} id - The identifier of the villager.
+ * @returns {Villager} The villager.
+ * @throws {Error} If there is no such villager.
+ */
+export function getVillager(id: VillagerId): Villager {
+  const found: Villager | undefined = VILLAGERS.find(
+    (villager: Villager) => villager.id === id,
+  );
+  if (found === undefined) {
+    throw new Error(`There is no villager ${id}.`);
+  }
+  return found;
+}
+
+/**
+ * Finds how the villager of a map who pushes the players in its way aside
+ * gets in their way, as {@link Villager.pusher} tells.
+ *
+ * @param {MapId} map - The map.
+ * @returns {Pusher | null} How it does, or `null` if no villager of the map
+ *   pushes the players aside.
+ */
+export function findPusher(map: MapId): Pusher | null {
+  for (const villager of VILLAGERS) {
+    if (villager.map === map && villager.pusher !== undefined) {
+      return villager.pusher;
+    }
+  }
+  return null;
+}
+
+/**
+ * Tells whether the server chooses what a villager says to a player who
+ * talks to it, rather than the peer, as {@link Villager.serverWords} tells.
+ *
+ * @param {Villager} villager - The villager.
+ * @param {readonly Quest[]} quests - The quests the player has opened.
+ * @returns {boolean} Whether it does.
+ */
+export function hasServerWords(
+  villager: Villager,
+  quests: readonly Quest[],
+): boolean {
+  const { serverWords } = villager;
+  if (serverWords === 'always') {
+    return true;
+  }
+  if (serverWords === undefined) {
+    return false;
+  }
+  const quest: Quest | undefined = findQuest(quests, serverWords);
+  return quest !== undefined && !quest.isDone;
 }
 
 /**
@@ -130,16 +218,22 @@ function findFighterState(
  * @param {Villager} villager - The villager.
  * @param {readonly MonsterState[]} monsters - The monsters of its map.
  * @returns {boolean} Whether it is: always, but for a villager who fights
- *   as a monster and is among them, who is free only while she idles or
- *   walks back home, not while she walks up to a player, talks with one,
- *   fights or sits on the ground.
+ *   as a monster and is among them, who is free only while up to one of
+ *   the modes its kind is free in, as the free modes of its kind among
+ *   {@link MONSTER_KINDS} tell.
  */
 export function isVillagerFree(
   villager: Villager,
   monsters: readonly MonsterState[],
 ): boolean {
-  const mode: string | undefined = findFighterState(villager, monsters)?.mode;
-  return mode === undefined || mode === 'idle' || mode === 'return';
+  const fighter: MonsterState | undefined = findFighterState(
+    villager,
+    monsters,
+  );
+  return (
+    fighter === undefined ||
+    MONSTER_KINDS[fighter.kind].freeModes?.includes(fighter.mode) === true
+  );
 }
 
 /**
@@ -150,10 +244,11 @@ export function isVillagerFree(
  * @param {number} step - The number of the step, which may fall between
  *   two steps.
  * @param {readonly MonsterState[]} monsters - The monsters of its map.
- * @returns {GroundVector} Where Toby is at the step, as he runs his course,
- *   where a villager who fights as a monster is among the monsters, if she
- *   is among them, or where its map has a place for any other villager.
- * @throws {Error} If its map has no place for the villager.
+ * @returns {GroundVector} Where a villager who fights as a monster is
+ *   among the monsters, if she is among them, where a villager who goes
+ *   about is at the step, as {@link Villager.course} tells, or where any
+ *   other villager stands.
+ * @throws {Error} If the villager has nowhere it stands.
  */
 export function locateVillager(
   villager: Villager,
@@ -167,19 +262,12 @@ export function locateVillager(
   if (fighter !== undefined) {
     return { x: fighter.x, z: fighter.z };
   }
-  if (villager.file === TOBY_FILE) {
-    const { x, z } = findTobyPose(step);
+  if (villager.course !== undefined) {
+    const { x, z } = villager.course(step);
     return { x, z };
   }
-  if (villager.map === 'cave') {
-    const found: Placement | undefined = CAVE_PLACEMENTS.find(
-      (placement: Placement) => placement.file === villager.file,
-    );
-    if (found === undefined) {
-      throw new Error(`The cave has no place for ${villager.file}.`);
-    }
-    return { x: found.x, z: found.z };
+  if (villager.post === undefined) {
+    throw new Error(`The villager ${villager.id} stands nowhere.`);
   }
-  const { x, z } = findPlacement(villager.file);
-  return { x, z };
+  return { x: villager.post.x, z: villager.post.z };
 }

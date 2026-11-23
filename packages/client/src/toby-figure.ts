@@ -19,20 +19,45 @@
 
 /**
  * @module client/toby-figure Showing Toby as his course has him at a step
- *   of the server.
+ *   of the server, with the clovers he finds.
  */
 
 import { AnimationMixer, Box3, LoopRepeat, Vector3 } from 'three';
-import type { AnimationAction, AnimationClip, Object3D } from 'three';
+import type {
+  AnimationAction,
+  AnimationClip,
+  Object3D,
+  Scene,
+} from 'three';
 
 import {
   TOBY_ACTIVITY_STEPS,
+  TOBY_FOUND_LINE,
   TOBY_GRAB_STEPS,
   TOBY_STOW_STEPS,
   findTobyGrab,
   findTobyPose,
+  getVillager,
 } from '@clovervale/shared';
-import type { TobyActivity, TobyPose } from '@clovervale/shared';
+import type {
+  MonsterState,
+  TobyActivity,
+  TobyPose,
+  Villager,
+} from '@clovervale/shared';
+
+import { createVillagerFigure } from './figure-copies.ts';
+import type { FigureFrame } from './figure-set.ts';
+import { createHeldClover } from './item-figures.ts';
+import { MODEL_FILES } from './model-catalogue.ts';
+import { isOnScreen } from './on-screen.ts';
+import type { Figure } from './player-figures.ts';
+import { hasTobyFound } from './toby-finds.ts';
+import { findStandingHead } from './villager-figure.ts';
+import type { FigureContext, VillagerFigure } from './villager-figure.ts';
+
+/** Toby, the child who goes about by the gate, as a villager. */
+const TOBY_VILLAGER: Villager = getVillager('toby');
 
 /** What the figure of Toby shows. */
 export interface TobyView {
@@ -102,7 +127,7 @@ const PICK_ON_STEPS: number = TOBY_ACTIVITY_STEPS.Pick - TOBY_GRAB_STEPS;
  * his picking, and he holds the clover in his right hand until he has put
  * it away.
  */
-export class TobyFigure {
+export class TobyModel {
   readonly #root: Object3D;
   readonly #clips: ReadonlyMap<string, AnimationClip>;
   readonly #mixer: AnimationMixer;
@@ -240,5 +265,140 @@ export class TobyFigure {
       clip.name !== FIND_CLIP && LOOPING_ACTIVITIES.includes(pose.activity);
     action.time = isLooping ? pose.elapsed % clip.duration : pose.elapsed;
     this.#mixer.update(0);
+  }
+}
+
+/**
+ * The figure of Toby, the child who goes about by the gate, as his course
+ * has him at the step of the server the page shows, holding a four-leaved
+ * clover he finds, as {@link hasTobyFound} tells, in the village, and
+ * otherwise as he goes on.  When he finds one, he exclaims a line to the
+ * players nearby, but only while he is on the screen and no other
+ * villager's speech bubble is shown.
+ */
+export class TobyFigure implements VillagerFigure {
+  /** What the figure is shown with. */
+  readonly #context: FigureContext;
+  /** Whether Toby goes about his map, which he does. */
+  readonly goesAbout = true;
+  /** The model of Toby, once it has been loaded. */
+  #model: TobyModel | null = null;
+  /** The root of the model of Toby, once it has been loaded. */
+  #root: Object3D | null = null;
+
+  /**
+   * Makes the figure of Toby, without his model until it is loaded.
+   *
+   * @param {FigureContext} context - What the figure is shown with.
+   */
+  constructor(context: FigureContext) {
+    this.#context = context;
+  }
+
+  /**
+   * Toby, as a villager.
+   *
+   * @returns {Villager} The villager.
+   */
+  get villager(): Villager {
+    return TOBY_VILLAGER;
+  }
+
+  /**
+   * Shows Toby in the village, as far as his model has been loaded.
+   *
+   * @param {Scene} scene - The village.
+   */
+  useModels(scene: Scene): void {
+    const child: Figure | null = createVillagerFigure(
+      this.#context.models.models,
+      MODEL_FILES.toby,
+    );
+    if (child !== null) {
+      scene.add(child.root);
+      this.#root = child.root;
+      this.#model = new TobyModel(child.root, child.clips, createHeldClover());
+    }
+  }
+
+  /**
+   * Shows Toby at the step of the server the page shows: in his map,
+   * holding a four-leaved clover he finds, and elsewhere as he goes on.
+   *
+   * @param {FigureFrame} frame - How things are shown at the frame.
+   */
+  show({ map, shownStep }: FigureFrame): void {
+    if (shownStep === null) {
+      return;
+    }
+    if (map === this.villager.map) {
+      this.#model?.show(
+        shownStep,
+        hasTobyFound(findTobyGrab(shownStep), this.#context.record.worldNews),
+      );
+    } else {
+      this.#model?.show(shownStep);
+    }
+  }
+
+  /** Does nothing over time: the step of the server has him as he is. */
+  update(): void {
+    // Toby is shown wholly by the step of the server.
+  }
+
+  /** Has nothing to forget: he goes on as his course has him. */
+  clear(): void {
+    // Toby is shown wholly by the step of the server.
+  }
+
+  /**
+   * Finds the top of the head of Toby as he is shown.
+   *
+   * @param {number | null} step - The step of the server he is shown at,
+   *   which may fall between two, or `null` while the page shows none.
+   * @param {readonly MonsterState[]} monsters - The monsters as they are
+   *   shown.
+   * @returns {Vector3 | null} The top of his head as his model shows him,
+   *   or where his course has him at the step if it shows him nowhere, or
+   *   `null` while the page shows no step.
+   */
+  findHeadTop(
+    step: number | null,
+    monsters: readonly MonsterState[],
+  ): Vector3 | null {
+    if (step === null) {
+      return null;
+    }
+    return (
+      this.#model?.findHeadTop() ??
+      findStandingHead(TOBY_VILLAGER, this.#context.models, step, monsters)
+    );
+  }
+
+  /**
+   * Tells whether Toby is to say a line the server tells of.
+   *
+   * @param {string} line - The message of the line.
+   * @returns {boolean} Whether it is any line but the one he exclaims as
+   *   he finds a four-leaved clover, or, for that one, whether no other
+   *   bubble of a villager is shown and he is on the screen.
+   */
+  canSay(line: string): boolean {
+    return (
+      line !== TOBY_FOUND_LINE ||
+      (this.#context.speech.describe() === null &&
+        this.#root !== null &&
+        isOnScreen(this.#context.readViewport().getCamera(), this.#root, null))
+    );
+  }
+
+  /**
+   * Describes Toby as he is shown, for looking at.
+   *
+   * @returns {TobyView | null} How he is shown, or `null` before his model
+   *   has been loaded or he has been shown at any step.
+   */
+  describe(): TobyView | null {
+    return this.#model?.describe() ?? null;
   }
 }

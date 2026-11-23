@@ -23,7 +23,7 @@
  *   and the chests and the barrels of the store rooms, shut and open.
  */
 
-import { CAVE_CELLS } from '../../packages/shared/src/cave.ts';
+import { CAVE_CELLS } from '@clovervale/shared';
 
 import {
   createBlock,

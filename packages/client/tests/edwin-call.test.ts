@@ -21,12 +21,6 @@
  * @module client/tests/edwin-call Tests for when Edwin calls out for help.
  */
 
-import {
-  BoxGeometry,
-  Mesh,
-  MeshBasicMaterial,
-  PerspectiveCamera,
-} from 'three';
 import { describe, expect, it } from 'vitest';
 
 import type { MonsterState } from '@clovervale/shared';
@@ -36,7 +30,6 @@ import {
   CALL_INTERVAL,
   EdwinCall,
   areDogsDead,
-  isOnScreen,
 } from '../src/edwin-call.ts';
 import type { EdwinSituation } from '../src/edwin-call.ts';
 
@@ -91,42 +84,6 @@ function makeDog(mode: MonsterState['mode']): MonsterState {
     health: 80,
     mode,
   };
-}
-
-/**
- * Makes a camera looking at the middle of a figure from 10 metres south.
- *
- * @returns {PerspectiveCamera} The camera.
- */
-function makeCamera(): PerspectiveCamera {
-  const camera = new PerspectiveCamera(40, 1, 0.5, 600);
-  camera.position.set(0, 1, 10);
-  camera.lookAt(0, 1, 0);
-  return camera;
-}
-
-/**
- * Makes a box.
- *
- * @param {number} width - Its width along X, in metres.
- * @param {number} height - Its height, in metres.
- * @param {number} depth - Its depth along Z, in metres.
- * @param {number} z - Where its middle stands along Z, in metres.
- * @returns {Mesh} The box, its foot on the ground.
- */
-function makeBox(
-  width: number,
-  height: number,
-  depth: number,
-  z: number,
-): Mesh {
-  const box = new Mesh(
-    new BoxGeometry(width, height, depth),
-    new MeshBasicMaterial(),
-  );
-  box.position.set(0, height / 2, z);
-  box.updateMatrixWorld();
-  return box;
 }
 
 describe('EdwinCall', () => {
@@ -184,24 +141,5 @@ describe('areDogsDead', () => {
     expect(areDogsDead([makeDog('dead'), makeDog('chase')])).toBe(false);
     expect(areDogsDead([makeDog('dead'), makeDog('dead')])).toBe(true);
     expect(areDogsDead([])).toBe(true);
-  });
-});
-
-describe('isOnScreen', () => {
-  it('sees a figure in front of the camera with nothing in between', () => {
-    const figure: Mesh = makeBox(0.6, 1.8, 0.6, 0);
-    const rock: Mesh = makeBox(4, 4, 1, -5);
-    expect(isOnScreen(makeCamera(), figure, rock)).toBe(true);
-  });
-
-  it('does not see a figure out of the view of the camera', () => {
-    const figure: Mesh = makeBox(0.6, 1.8, 0.6, 20);
-    expect(isOnScreen(makeCamera(), figure, null)).toBe(false);
-  });
-
-  it('does not see a figure behind the rock', () => {
-    const figure: Mesh = makeBox(0.6, 1.8, 0.6, 0);
-    const rock: Mesh = makeBox(4, 4, 1, 5);
-    expect(isOnScreen(makeCamera(), figure, rock)).toBe(false);
   });
 });

@@ -24,6 +24,8 @@
 import { VILLAGERS, VILLAGE_PLACEMENTS } from '@clovervale/shared';
 import type { Placement, Villager } from '@clovervale/shared';
 
+import { MODEL_FILES } from './model-catalogue.ts';
+
 export type { Placement } from '@clovervale/shared';
 
 /**
@@ -33,7 +35,7 @@ export type { Placement } from '@clovervale/shared';
 const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
   VILLAGERS.filter(
     (villager: Villager) => villager.fighter !== undefined,
-  ).map((villager: Villager) => villager.file),
+  ).map((villager: Villager) => MODEL_FILES[villager.id]),
 );
 
 /**
@@ -67,7 +69,7 @@ export function layoutVillage(files: readonly string[]): Placement[] {
     if (!FIGHTER_FILES.has(file)) {
       placements.push(
         ...VILLAGE_PLACEMENTS.filter(
-          (placement: Placement) => placement.file === file,
+          (placement: Placement) => MODEL_FILES[placement.model] === file,
         ),
       );
     }

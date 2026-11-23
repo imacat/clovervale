@@ -69,7 +69,7 @@ const POSES: readonly TobyPose[] = LOOP.map(findTobyPose);
 
 /** The clover patches of the village. */
 const CLOVERS: readonly Placement[] = VILLAGE_PLACEMENTS.filter(
-  (placement: Placement) => placement.file === 'prop-clover.glb',
+  (placement: Placement) => placement.model === 'clover',
 );
 
 /**
@@ -82,7 +82,7 @@ const WAY_IN_HALF_WIDTH = 2.6;
  * The cottage on the left of the plaza as one looks into the village from
  * the gate, which faces the plaza.
  */
-const COTTAGE: Placement = findPlacement('prop-cottage.glb');
+const COTTAGE: Placement = findPlacement('cottage');
 
 /**
  * The door of that cottage, on its front, which faces the plaza, 0.9 m to

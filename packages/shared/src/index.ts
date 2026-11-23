@@ -41,9 +41,18 @@ export {
   PLAYER_HEALTH,
   SLASH_DAMAGE,
   SLASH_REACH,
+  isFighting,
   isWithinStrike,
 } from './combat.ts';
-export type { MonsterKind, MonsterKindId } from './combat.ts';
+export type {
+  BeastMode,
+  EntityRef,
+  MonsterKind,
+  MonsterKindId,
+  MonsterMode,
+  MonsterState,
+  MonsterWander,
+} from './combat.ts';
 export {
   DEFAULT_DAY_LENGTH,
   DEFAULT_DAY_ORIGIN,
@@ -54,30 +63,47 @@ export {
 } from './day-cycle.ts';
 export type { DayCycle, DayPhase } from './day-cycle.ts';
 export {
+  CAVE_CELLS,
+  CAVE_CHAMBER_DEPTH,
   CAVE_CONTAINERS,
-  CAVE_CONTAINER_FILES,
+  CAVE_CONTAINER_MODELS,
   CAVE_DOG_HOMES,
-  CAVE_EDWIN_FILE,
-  CAVE_FILE,
+  CAVE_EDWIN_BEHIND_BARS,
+  CAVE_FIXTURE_FOOTPRINTS,
   CAVE_FLAMES,
+  CAVE_FLAME_AHEAD,
   CAVE_FLAME_HEIGHT,
+  CAVE_LANDING,
+  CAVE_MODEL_CENTRE,
   CAVE_MOUTH,
   CAVE_MOUTH_OUTLINE,
   CAVE_PASSAGE,
+  CAVE_PASSAGE_HALF_WIDTH,
   CAVE_PLACEMENTS,
+  CAVE_ROPE,
+  CAVE_SHAFT_RADIUS,
+  CAVE_STORE_ROOMS,
   CAVE_TERRAIN,
-  CAVE_TORCH_FILE,
+  CAVE_TORCH_DEPTH,
 } from './cave.ts';
-export type { CaveContainer, CaveContainerFiles } from './cave.ts';
+export type { CaveContainer, CaveContainerModels } from './cave.ts';
 export {
   FOUNTAIN_HEALING,
-  FOUNTAIN_REACH,
+  findInteractable,
   findInteraction,
-  findPassage,
-  findPickTarget,
   findVillager,
 } from './interaction.ts';
-export type { Passage, PickTarget } from './interaction.ts';
+export type {
+  ContainerTarget,
+  Fountain,
+  Interactable,
+  InteractionInput,
+  ItemTarget,
+  Passage,
+  PickTarget,
+  Surroundings,
+  Talkable,
+} from './interaction.ts';
 export {
   CLOVER_KIND,
   CLOVER_PATCHES,
@@ -99,13 +125,37 @@ export type {
 } from './items.ts';
 export { DIALOGUE_REPLY_LIMIT } from './dialogue.ts';
 export type { DialogueView } from './dialogue.ts';
-export { hasQuestWords } from './quests.ts';
-export type { QuestId, QuestLog, QuestStage } from './quests.ts';
+export {
+  ClovervaleQuest,
+  QUEST_IDS,
+  QUEST_TYPES,
+  TobyQuest,
+  findQuest,
+  isSameCue,
+} from './quests.ts';
+export type {
+  ClovervaleStage,
+  Quest,
+  QuestId,
+  QuestJSON,
+  QuestOpening,
+  QuestStage,
+  QuestType,
+  StoryCue,
+  StoryEventType,
+  StoryNeed,
+  StoryRequest,
+  TobyStage,
+} from './quests.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
+export type { CavePropId, ModelId, VillagePropId } from './models.ts';
 export {
   SIMULATION_RATE,
+  STEP_MILLISECONDS,
   WALK_SPEED,
+  countSteps,
   findYaw,
+  measureDistance,
   movePosition,
 } from './movement.ts';
 export type { GroundVector } from './movement.ts';
@@ -114,6 +164,7 @@ export {
   findMapPath,
 } from './navigation.ts';
 export {
+  APPEARANCE_COUNT,
   TALK_STEPS,
   applyInput,
   canInteract,
@@ -121,9 +172,13 @@ export {
   isResting,
   stepMotion,
 } from './player-motion.ts';
-export type { PlayerInput, PlayerMotion, ReplyInput } from './player-motion.ts';
+export type {
+  PlayerInput,
+  PlayerMotion,
+  PlayerState,
+  ReplyInput,
+} from './player-motion.ts';
 export {
-  APPEARANCE_COUNT,
   DEFAULT_SERVER_PORT,
   PROTOCOL_VERSION,
   SNAPSHOT_RATE,
@@ -142,31 +197,42 @@ export {
   decodeServerMessage,
   encodeClientMessage,
   encodeServerMessage,
-  isFighting,
 } from './protocol.ts';
 export type {
   ClientMessage,
-  EntityRef,
   EventsMessage,
   GameEvent,
   HealEvent,
   HitEvent,
-  MonsterMode,
-  MonsterState,
-  PlayerState,
+  MapMessage,
+  PhraseMessage,
+  PhrasedMessage,
+  PrivateView,
+  SaidMessage,
+  SayMessage,
   ServerMessage,
   SlashJudgement,
+  SnapshotContents,
   SnapshotMessage,
 } from './protocol.ts';
-export { PLAYER_RADIUS, Terrain, placePoint } from './terrain.ts';
+export type { Pusher } from './pusher.ts';
+export {
+  PLAYER_RADIUS,
+  Terrain,
+  findTurn,
+  placePoint,
+  placeShape,
+  turnVector,
+} from './terrain.ts';
 export type { Boundary, Pose, Shape } from './terrain.ts';
 export {
+  TOBY_ACTIVITIES,
   TOBY_ACTIVITY_STEPS,
   TOBY_ENDS,
-  TOBY_FILE,
   TOBY_FOUND_LINE,
   TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
+  TOBY_PATCHES,
   TOBY_RADIUS,
   TOBY_RUN_SPEED,
   TOBY_STOW_STEPS,
@@ -178,9 +244,12 @@ export {
 export type { TobyActivity, TobyGrab, TobyPose } from './toby.ts';
 export {
   FOUNTAIN_RIM_RADIUS,
+  MARTHA_POST,
+  SPAWN_STONES_POSE,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
   PITCHFORK_STAND,
+  WELL_STAND,
   findPlacement,
 } from './village-layout.ts';
 export type { Placement } from './village-layout.ts';
@@ -190,7 +259,19 @@ export {
   SPAWN_YAW,
   findSpawnPoint,
 } from './village.ts';
-export { VILLAGERS, isVillagerFree, locateVillager } from './villagers.ts';
-export { findMapTerrain } from './world-map.ts';
-export type { MapId } from './world-map.ts';
+export {
+  VILLAGERS,
+  findPusher,
+  getVillager,
+  hasServerWords,
+  isVillagerFree,
+  locateVillager,
+} from './villagers.ts';
+export {
+  FOUNTAIN_REACH,
+  HOME_MAP,
+  WORLD_MAPS,
+  areMonstersPaused,
+} from './world-map.ts';
+export type { MapId, WorldMap } from './world-map.ts';
 export type { Villager, VillagerId } from './villagers.ts';

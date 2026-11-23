@@ -26,7 +26,6 @@
 import { INVENTORY_SIZE } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
-import { nameItem } from './interaction-prompt.ts';
 import { BAG_COLUMNS, ITEM_ACTIONS, describeSlots } from './inventory-bag.ts';
 import type {
   InventoryBag,
@@ -34,7 +33,13 @@ import type {
   MenuEntry,
   SlotView,
 } from './inventory-bag.ts';
+import { nameItem } from './item-words.ts';
 import type { Translator } from './translator.ts';
+import {
+  createClickable,
+  createSvgElement,
+  drawPicture,
+} from './view-elements.ts';
 
 /** The bag as the page shows it. */
 export interface BagView {
@@ -58,9 +63,6 @@ export interface BagView {
   readonly render: () => void;
 }
 
-/** The namespace of the elements of SVG. */
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-
 /** The outline of a heart-shaped leaflet of a clover, pointing up. */
 const LEAFLET_PATH =
   'M32 34 C27 31 18 27 18 19 C18 11 28 8 32 18 C36 8 46 11 46 19 ' +
@@ -72,39 +74,6 @@ const BAG_BODY_PATH =
 
 /** The outline of the neck of the bag on its icon, tied up. */
 const BAG_NECK_PATH = 'M22 12 L42 12 L38 22 L26 22Z';
-
-/**
- * Makes an element of SVG.
- *
- * @param {string} name - The name of the element.
- * @param {Readonly<Record<string, string>>} attributes - Its attributes.
- * @returns {SVGElement} The element.
- */
-function createSvgElement(
-  name: string,
-  attributes: Readonly<Record<string, string>>,
-): SVGElement {
-  const element: SVGElement = document.createElementNS(SVG_NAMESPACE, name);
-  for (const [key, value] of Object.entries(attributes)) {
-    element.setAttribute(key, value);
-  }
-  return element;
-}
-
-/**
- * Draws a small picture, 64 units square.
- *
- * @param {readonly SVGElement[]} parts - What the picture is made of.
- * @returns {SVGElement} The picture.
- */
-function drawPicture(parts: readonly SVGElement[]): SVGElement {
-  const svg: SVGElement = createSvgElement('svg', {
-    viewBox: '0 0 64 64',
-    'aria-hidden': 'true',
-  });
-  svg.append(...parts);
-  return svg;
-}
 
 /**
  * Draws a small four-leaved clover.
@@ -400,34 +369,6 @@ export function drawBag(): SVGElement {
     createSvgElement('path', { d: BAG_NECK_PATH, class: 'bag-icon-neck' }),
     createSvgElement('path', { d: 'M24 22 L40 22', class: 'bag-icon-tie' }),
   ]);
-}
-
-/**
- * Makes an element that does something when it is clicked, and keeps the
- * pointer from the game underneath it and itself from taking the focus.
- *
- * @param {string} className - The class of the element.
- * @param {() => void} onClick - What it does when clicked.
- * @returns {HTMLDivElement} The element.
- */
-function createClickable(
-  className: string,
-  onClick: () => void,
-): HTMLDivElement {
-  const element: HTMLDivElement = document.createElement('div');
-  element.className = className;
-  element.setAttribute('role', 'button');
-  element.addEventListener('pointerdown', (event: PointerEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
-  element.addEventListener('click', (event: MouseEvent) => {
-    event.stopPropagation();
-    if (event.button === 0) {
-      onClick();
-    }
-  });
-  return element;
 }
 
 /**

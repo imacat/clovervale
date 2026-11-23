@@ -22,6 +22,7 @@
  *   the inputs of its peer.
  */
 
+import type { MonsterState } from './combat.ts';
 import { SIMULATION_RATE } from './movement.ts';
 import type { GroundVector } from './movement.ts';
 import {
@@ -31,7 +32,6 @@ import {
   stepMotion,
 } from './player-motion.ts';
 import type { PlayerInput, PlayerMotion } from './player-motion.ts';
-import type { MonsterState } from './protocol.ts';
 import type { MapId } from './world-map.ts';
 
 /**

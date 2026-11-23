@@ -24,22 +24,20 @@
  */
 
 import {
-  CAVE_FLAME_HEIGHT,
-  CAVE_MOUTH,
-  CAVE_MOUTH_OUTLINE,
-  CAVE_PASSAGE,
-} from '@clovervale/shared';
-import {
   CAVE_CELLS,
   CAVE_CHAMBER_DEPTH,
   CAVE_FLAME_AHEAD,
+  CAVE_FLAME_HEIGHT,
   CAVE_MODEL_CENTRE,
+  CAVE_MOUTH,
+  CAVE_MOUTH_OUTLINE,
+  CAVE_PASSAGE,
   CAVE_PASSAGE_HALF_WIDTH,
   CAVE_ROPE,
   CAVE_SHAFT_RADIUS,
   CAVE_STORE_ROOMS,
   CAVE_TORCH_DEPTH,
-} from '../../packages/shared/src/cave.ts';
+} from '@clovervale/shared';
 
 import {
   createBlob,

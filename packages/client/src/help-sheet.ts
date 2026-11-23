@@ -22,7 +22,7 @@
  *   page the controls of the game, and opening it on the first visit.
  */
 
-import type { LanguageStorage } from './language.ts';
+import type { PageStorage } from './page-storage.ts';
 import { isGameKey } from './player-input.ts';
 
 /** The key the first visit is remembered by. */
@@ -143,13 +143,13 @@ export class HelpSheet {
  * visit counts as the first.
  *
  * @param {HelpSheet} sheet - The help sheet.
- * @param {LanguageStorage | null} storage - Where the visit is remembered,
- *   or `null` if nowhere.
+ * @param {PageStorage | null} storage - Where the visit is remembered, or
+ *   `null` if nowhere.
  * @param {number} page - The page to open it at.
  */
 export function openHelpOnFirstVisit(
   sheet: HelpSheet,
-  storage: LanguageStorage | null,
+  storage: PageStorage | null,
   page: number,
 ): void {
   let isSeen = false;

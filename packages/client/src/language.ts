@@ -22,6 +22,8 @@
  *   the one it speaks to the person at it.
  */
 
+import type { PageStorage } from './page-storage.ts';
+
 /** A language the page speaks, by its language tag. */
 export type LanguageCode = 'en' | 'es' | 'ja' | 'zh-TW' | 'zh-CN';
 
@@ -36,24 +38,6 @@ export interface Language {
    * so that its characters take the forms the language gives them.
    */
   readonly fontFamily: string;
-}
-
-/** Where the choice of a language is remembered. */
-export interface LanguageStorage {
-  /**
-   * Reads an item.
-   *
-   * @param {string} key - The key of the item.
-   * @returns {string | null} The item, or `null` if there is none.
-   */
-  getItem(key: string): string | null;
-  /**
-   * Writes an item.
-   *
-   * @param {string} key - The key of the item.
-   * @param {string} value - The item.
-   */
-  setItem(key: string, value: string): void;
 }
 
 /**
@@ -180,29 +164,15 @@ export function chooseLanguage(
 }
 
 /**
- * Finds where the browser lets the page remember the choice of a language.
- *
- * @returns {LanguageStorage | null} The local storage of the browser, or
- *   `null` if the browser does not let the page have it.
- */
-export function findLanguageStorage(): LanguageStorage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Reads the language the person chose before.
  *
- * @param {LanguageStorage | null} storage - Where the choice is
- *   remembered, or `null` if nowhere.
+ * @param {PageStorage | null} storage - Where the choice is remembered, or
+ *   `null` if nowhere.
  * @returns {LanguageCode | null} The language, or `null` if none is
  *   remembered, the storage cannot be read, or the page does not speak it.
  */
 export function readSavedLanguage(
-  storage: LanguageStorage | null,
+  storage: PageStorage | null,
 ): LanguageCode | null {
   let saved: string | null;
   try {
@@ -219,12 +189,12 @@ export function readSavedLanguage(
 /**
  * Remembers the language the person chooses, if it can.
  *
- * @param {LanguageStorage | null} storage - Where to remember it, or
- *   `null` if nowhere.
+ * @param {PageStorage | null} storage - Where to remember it, or `null` if
+ *   nowhere.
  * @param {LanguageCode} code - The language.
  */
 export function saveLanguage(
-  storage: LanguageStorage | null,
+  storage: PageStorage | null,
   code: LanguageCode,
 ): void {
   try {

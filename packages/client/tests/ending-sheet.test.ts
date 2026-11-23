@@ -24,8 +24,6 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { ItemKindId } from '@clovervale/shared';
-
 import {
   ENDING_DELAY,
   EndingSheet,
@@ -36,81 +34,58 @@ import {
   findRollOffset,
 } from '../src/ending-sheet.ts';
 
-/** What a player carries once it has both items of the ending. */
-const BOTH: readonly ItemKindId[] = [
-  'sword',
-  'spy-token',
-  'clovervale-message',
-];
-
 describe('an ending watch', () => {
-  it('opens the ending a second after both are held in the village', () => {
+  it('opens the ending a second after the plot is done in the village', () => {
     const watch = new EndingWatch();
-    expect(watch.notice(5000, BOTH, 'village', false)).toBe(false);
-    expect(watch.notice(5000 + ENDING_DELAY - 1, BOTH, 'village', false)).toBe(
+    expect(watch.notice(5000, true, 'village', false)).toBe(false);
+    expect(watch.notice(5000 + ENDING_DELAY - 1, true, 'village', false)).toBe(
       false,
     );
-    expect(watch.notice(5000 + ENDING_DELAY, BOTH, 'village', false)).toBe(
+    expect(watch.notice(5000 + ENDING_DELAY, true, 'village', false)).toBe(
       true,
     );
   });
 
-  it('does not open the ending with only one of the items', () => {
-    for (const carried of [
-      ['clovervale-message'],
-      ['spy-token', 'sword'],
-    ] as const) {
-      const watch = new EndingWatch();
-      watch.notice(0, carried, 'village', false);
-      expect(watch.notice(10_000, carried, 'village', false)).toBe(false);
-    }
+  it('does not open the ending while the plot is not done', () => {
+    const watch = new EndingWatch();
+    watch.notice(0, false, 'village', false);
+    expect(watch.notice(10_000, false, 'village', false)).toBe(false);
   });
 
   it('waits in the cave, and opens a second after the village is back', () => {
     const watch = new EndingWatch();
-    watch.notice(0, BOTH, 'cave', false);
-    expect(watch.notice(10_000, BOTH, 'cave', false)).toBe(false);
-    expect(watch.notice(20_000, BOTH, 'village', false)).toBe(false);
+    watch.notice(0, true, 'cave', false);
+    expect(watch.notice(10_000, true, 'cave', false)).toBe(false);
+    expect(watch.notice(20_000, true, 'village', false)).toBe(false);
     const half: number = 20_000 + ENDING_DELAY / 2;
-    expect(watch.notice(half, BOTH, 'village', false)).toBe(false);
-    expect(watch.notice(20_000 + ENDING_DELAY, BOTH, 'village', false)).toBe(
+    expect(watch.notice(half, true, 'village', false)).toBe(false);
+    expect(watch.notice(20_000 + ENDING_DELAY, true, 'village', false)).toBe(
       true,
     );
   });
 
   it('waits for a dialogue in progress to be over', () => {
     const watch = new EndingWatch();
-    watch.notice(0, BOTH, 'village', true);
-    expect(watch.notice(ENDING_DELAY * 5, BOTH, 'village', true)).toBe(false);
-    expect(watch.notice(ENDING_DELAY * 6, BOTH, 'village', false)).toBe(true);
+    watch.notice(0, true, 'village', true);
+    expect(watch.notice(ENDING_DELAY * 5, true, 'village', true)).toBe(false);
+    expect(watch.notice(ENDING_DELAY * 6, true, 'village', false)).toBe(true);
   });
 
-  it('starts the second afresh once an item is let go of', () => {
+  it('starts over once the page no longer knows the plot is done', () => {
     const watch = new EndingWatch();
-    watch.notice(0, BOTH, 'village', false);
-    watch.notice(ENDING_DELAY / 2, ['spy-token'], 'village', false);
-    watch.notice(ENDING_DELAY * 2, BOTH, 'village', false);
-    expect(
-      watch.notice(ENDING_DELAY * 3 - 1, BOTH, 'village', false),
-    ).toBe(false);
-    expect(watch.notice(ENDING_DELAY * 3, BOTH, 'village', false)).toBe(true);
+    watch.notice(0, true, 'village', false);
+    watch.notice(ENDING_DELAY / 2, false, 'village', false);
+    expect(watch.notice(ENDING_DELAY, true, 'village', false)).toBe(false);
   });
 
-  it('does not count while the page knows of no inventory', () => {
+  it('opens the ending only once, however often the village is back', () => {
     const watch = new EndingWatch();
-    watch.notice(0, BOTH, 'village', false);
-    watch.notice(ENDING_DELAY / 2, null, 'village', false);
-    expect(watch.notice(ENDING_DELAY, BOTH, 'village', false)).toBe(false);
-  });
-
-  it('opens the ending only once, however often both are held again', () => {
-    const watch = new EndingWatch();
-    watch.notice(0, BOTH, 'village', false);
-    expect(watch.notice(ENDING_DELAY, BOTH, 'village', false)).toBe(true);
-    expect(watch.notice(ENDING_DELAY * 2, BOTH, 'village', false)).toBe(false);
-    watch.notice(ENDING_DELAY * 3, ['sword'], 'village', false);
-    watch.notice(ENDING_DELAY * 4, BOTH, 'village', false);
-    expect(watch.notice(ENDING_DELAY * 9, BOTH, 'village', false)).toBe(false);
+    watch.notice(0, true, 'village', false);
+    expect(watch.notice(ENDING_DELAY, true, 'village', false)).toBe(true);
+    expect(watch.notice(ENDING_DELAY * 2, true, 'village', false)).toBe(false);
+    watch.notice(ENDING_DELAY * 3, true, 'cave', false);
+    watch.notice(ENDING_DELAY * 4, true, 'village', false);
+    expect(watch.notice(ENDING_DELAY * 9, true, 'village', false)).toBe(false);
   });
 });
 

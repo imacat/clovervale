@@ -22,521 +22,202 @@
  */
 
 import { Group } from 'three';
-import type { Object3D, Scene, Vector3 } from 'three';
+import type { Object3D } from 'three';
 
-import {
-  CAVE_EDWIN_FILE,
-  CAVE_FILE,
-  CAVE_TERRAIN,
-  NOON,
-  NO_WORLD_ITEMS,
-  PLAYER_HEALTH,
-  PROTOCOL_VERSION,
-  SIMULATION_RATE,
-  SPAWN_YAW,
-  TOBY_FILE,
-  TOBY_FOUND_LINE,
-  VILLAGERS,
-  VILLAGE_TERRAIN,
-  createInteractMessage,
-  createSayMessage,
-  decodeServerMessage,
-  encodeClientMessage,
-  findSpawnPoint,
-  findTobyGrab,
-  hasQuestWords,
-} from '@clovervale/shared';
+import { HOME_MAP, WORLD_MAPS, findSpawnPoint } from '@clovervale/shared';
 import type {
-  ClientMessage,
-  DialogueView,
-  EntityRef,
-  GameEvent,
-  GroundVector,
-  HealEvent,
-  HitEvent,
-  InputProgress,
-  ItemKindId,
   MapId,
   MonsterKindId,
-  MonsterState,
-  PhraseCode,
   PlayerInput,
-  PlayerMotion,
-  PlayerState,
-  QuestLog,
-  ServerMessage,
-  SlashJudgement,
-  StampedInput,
-  Villager,
-  VillagerId,
-  WorldItems,
+  WorldMap,
 } from '@clovervale/shared';
 
-import type { Actor } from './actor.ts';
 import {
   BackgroundMusic,
   MUSIC_FILE,
   listenForSoundGestures,
 } from './background-music.ts';
-import { createBagView } from './bag-view.ts';
-import type { BagView } from './bag-view.ts';
-import { keepFollowedPlayer, listCameraChoices } from './camera-choice.ts';
-import { CameraKeys } from './camera-keys.ts';
 import { createCaveScene } from './cave-scene.ts';
 import type { CaveScene } from './cave-scene.ts';
-import { ChatBox } from './chat-box.ts';
-import { createChatView } from './chat-view.ts';
-import type { ChatView } from './chat-view.ts';
 import { fetchClientConfig } from './client-config.ts';
 import type { ClientConfig } from './client-config.ts';
-import {
-  CorrectionSmoothing,
-  reconcileSmoothly,
-} from './correction-smoothing.ts';
-import { DayClock, findShownTime } from './day-clock.ts';
-import type { DaylightLook } from './daylight.ts';
-import { DialogueBox } from './dialogue-box.ts';
-import type { DialogueRequest, DialogueResponse } from './dialogue-box.ts';
-import { createDialogueView } from './dialogue-view.ts';
-import type { DialogueBoxView } from './dialogue-view.ts';
-import { EdwinCall, areDogsDead, isOnScreen } from './edwin-call.ts';
-import { EndingSheet, EndingWatch, ROLL_DURATION } from './ending-sheet.ts';
-import type { EndingResponse } from './ending-sheet.ts';
-import { createEndingView, prefersReducedMotion } from './ending-view.ts';
-import type { EndingView } from './ending-view.ts';
-import { EventSchedule } from './event-schedule.ts';
-import { ForgeGlow } from './forge-glow.ts';
-import { FountainGlow } from './fountain-glow.ts';
-import { Gamepads, findPadKey } from './gamepad.ts';
-import type { PadButton, PadScreen, PadState } from './gamepad.ts';
-import {
-  GAMEPAD_PAGE,
-  HelpSheet,
-  KEYBOARD_PAGE,
-  TOUCH_PAGE,
-  openHelpOnFirstVisit,
-} from './help-sheet.ts';
-import { createHelpView } from './help-view.ts';
-import type { HelpView } from './help-view.ts';
-import { HitMarkers } from './hit-markers.ts';
-import {
-  createPrompt,
-  describePrompt,
-  describeSpaceKey,
-} from './interaction-prompt.ts';
-import type { Prompt } from './interaction-prompt.ts';
-import { SnapshotTimeline } from './interpolation.ts';
-import type { PlayersView } from './interpolation.ts';
-import { InventoryBag } from './inventory-bag.ts';
-import type { BagResponse, ItemRequest } from './inventory-bag.ts';
-import { ItemFigures, createHeldClover } from './item-figures.ts';
-import {
-  createItemNotices,
-  findGainedItems,
-  findGainedSilver,
-} from './item-notices.ts';
+import { DayClock } from './day-clock.ts';
+import { exposeDebugHook } from './debug-hook.ts';
+import { EdwinFigure } from './edwin-figure.ts';
+import { createMonsterFigure, createPlayerFigure } from './figure-copies.ts';
+import { GameSession } from './game-session.ts';
+import { createItemNotices } from './item-notices.ts';
 import type { ItemNotices } from './item-notices.ts';
-import {
-  chooseLanguage,
-  findLanguageStorage,
-  readSavedLanguage,
-  saveLanguage,
-} from './language.ts';
-import type { LanguageCode, LanguageStorage } from './language.ts';
+import { chooseLanguage, readSavedLanguage, saveLanguage } from './language.ts';
+import type { LanguageCode } from './language.ts';
 import { createMapFade } from './map-fade.ts';
-import {
-  FOUNTAIN_FILE,
-  LYING_PITCHFORK_FILE,
-  PITCHFORK_FILE,
-  REQUIRED_MODEL_FILES,
-  WEAPON_SHOP_FILE,
-  planModels,
-} from './model-catalogue.ts';
-import {
-  MODEL_INDEX_FILE,
-  fetchModelIndex,
-  loadModels,
-} from './model-loader.ts';
-import type { LoadedModel } from './model-loader.ts';
-import { reportFailure, summariseModels } from './model-report.ts';
+import type { MapScene } from './map-scene.ts';
+import { MapStage } from './map-stage.ts';
+import { MarthaFigure } from './martha-figure.ts';
+import { ModelLibrary } from './model-library.ts';
 import type { ModelProblem } from './model-report.ts';
-import { MonsterFigures } from './monster-figures.ts';
-import { DelayLine } from './network-delay.ts';
 import { createObstacleOutlines } from './obstacle-outlines.ts';
+import { OwnPlayer } from './own-player.ts';
+import { findPageStorage } from './page-storage.ts';
+import type { PageStorage } from './page-storage.ts';
 import { createPanel } from './panel.ts';
 import type { Panel } from './panel.ts';
-import { PlayerFigures } from './player-figures.ts';
-import type { Figure } from './player-figures.ts';
-import {
-  MoveKeys,
-  chooseSpaceInput,
-  findKeyCommand,
-  orientWalk,
-} from './player-input.ts';
-import type { KeyCommand } from './player-input.ts';
-import {
-  describeDisplay,
-  describeMonster,
-  describePrediction,
-  describeSlash,
-  describeSnapshot,
-  describeTimeOfDay,
-} from './player-readout.ts';
-import { PlayerPrediction, placeOwnPlayer } from './prediction.ts';
-import { PushForecast } from './push-forecast.ts';
-import { SayQueue } from './say-queue.ts';
+import { PanelReadouts } from './panel-readouts.ts';
+import { PlayControls } from './play-controls.ts';
+import { PlayerRecord } from './player-record.ts';
+import { ServerLink } from './server-link.ts';
 import { resolveServerUrl } from './server-url.ts';
-import {
-  SpeechBubble,
-  findFigureTop,
-  findHeadTop,
-} from './speech-bubble.ts';
+import { createSettings } from './settings.ts';
+import type { ClientSettings } from './settings.ts';
+import { SpeechBubble } from './speech-bubble.ts';
+import { StoryFigures } from './story-figures.ts';
 import './style.css';
-import { TalkWatch } from './talk-watch.ts';
 import { TobyFigure } from './toby-figure.ts';
-import { findShownItems, hasTobyFound } from './toby-finds.ts';
-import type { WorldNews } from './toby-finds.ts';
-import { TouchControls } from './touch-controls.ts';
-import { createTouchView } from './touch-view.ts';
-import type { TouchView } from './touch-view.ts';
-import { Translator, isMessageId } from './translator.ts';
-import {
-  createMonsterFigure,
-  createPlayerFigure,
-  createVillageScene,
-  createVillagerFigure,
-  populateVillage,
-} from './village-scene.ts';
-import { VILLAGE_LEAST_ELEVATION, showScene } from './viewport.ts';
+import { Translator } from './translator.ts';
+import type { FigureContext } from './villager-figure.ts';
+import { createVillageScene } from './village-scene.ts';
+import type { VillageScene } from './village-scene.ts';
+import { showScene } from './viewport.ts';
 import type { Viewport } from './viewport.ts';
-import { describeVillager } from './villager-words.ts';
-import { WindowGlow } from './window-glow.ts';
 
 /** The URL of the directory of the models, relative to the page. */
 const MODELS_URL = `${import.meta.env.BASE_URL}models/`;
 /** The URL of the music of the village, relative to the page. */
 const MUSIC_URL = `${import.meta.env.BASE_URL}music/${MUSIC_FILE}`;
 
-/** How long one step of the simulation lasts, in milliseconds. */
-const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
-
 /**
- * Gets a villager among the villagers.
- *
- * @param {(villager: Villager) => boolean} isWanted - Tells whether a
- *   villager is the one.
- * @returns {Villager} The first such villager.
- * @throws {Error} If there is no such villager.
+ * Where the browser lets the page remember the language chosen, and whether
+ * the help sheet has been opened before.
  */
-function getVillager(isWanted: (villager: Villager) => boolean): Villager {
-  const found: Villager | undefined = VILLAGERS.find(isWanted);
-  if (found === undefined) {
-    throw new Error('There is no such villager.');
-  }
-  return found;
-}
-
-/** Toby, the child who goes about by the gate, as a villager. */
-const TOBY_VILLAGER: Villager = getVillager(
-  (villager: Villager) => villager.file === TOBY_FILE,
-);
-/** Edwin, the prisoner of the cave, as a villager. */
-const EDWIN_VILLAGER: Villager = getVillager(
-  (villager: Villager) => villager.file === CAVE_EDWIN_FILE,
-);
-/** Martha, the village chief, who fights as a monster, as a villager. */
-const MARTHA_VILLAGER: Villager = getVillager(
-  (villager: Villager) => villager.fighter !== undefined,
-);
-
-/**
- * The least angle the camera looks down at the player of the page in the
- * cave, in degrees, steep enough to look over the walls of the passage.
- */
-const CAVE_LEAST_ELEVATION = 40;
-
-/**
- * How far to her right Martha's pitchfork lies from her middle once she
- * has dropped it, beaten, in metres.
- */
-const DROPPED_PITCHFORK_ASIDE = 0.6;
-
-/** The colour of the number of a hit on the player of the page. */
-const OWN_HIT_COLOUR = '#ff4b3e';
-/** The colour of the number of a hit on another player. */
-const PLAYER_HIT_COLOUR = '#ff9a3d';
-/** The colour of the number of a hit on a monster. */
-const MONSTER_HIT_COLOUR = '#ffe14d';
-/**
- * How high above the ground the number of a hit on a monster starts, in
- * metres, just above the health bar of the dog, which is lower than a
- * player.
- */
-const MONSTER_HIT_HEIGHT = 1.8;
-/** The colour of the number of a heal on any player. */
-const HEAL_COLOUR = '#7cf5c0';
-/**
- * The most hits, and the most heals, that are remembered as shown, for
- * looking at.
- */
-const SHOWN_HIT_LIMIT = 100;
-
-/** Where the browser lets the page remember the language chosen. */
-const languageStorage: LanguageStorage | null = findLanguageStorage();
+const storage: PageStorage | null = findPageStorage();
 /** The translator of the text of the page into the language it speaks. */
 const translator = new Translator();
 // The page speaks English if the language chosen cannot be loaded.
 await translator.choose(
-  chooseLanguage(readSavedLanguage(languageStorage), navigator.languages),
+  chooseLanguage(readSavedLanguage(storage), navigator.languages),
 );
 
-/**
- * Words how the connection to the server stands.
- *
- * @returns {string} How it stands, in the language of the page.
- */
-let describeServer = (): string => translator.translate('server.connecting');
-/**
- * Words how showing the models went.
- *
- * @returns {string} How it went, in the language of the page.
- */
-let describeModels = (): string => translator.translate('models.loading');
-/** How the server judged the latest slash of the player of the page. */
-let lastSlash: SlashJudgement | null = null;
-/**
- * What there is to pick in the world, as the server last told, and the
- * step of the snapshot that told it.
- */
-let worldNews: WorldNews | null = null;
-/** What the player of the page carries, as the server last told. */
-let inventory: readonly ItemKindId[] | null = null;
-/**
- * The number of silver coins the player of the page has, as the server
- * last told, or `null` if it has not told it since the page joined.
- */
-let silver: number | null = null;
-/**
- * The villagers who have told the player of the page who they are, as the
- * server last told.
- */
-let acquaintances: readonly VillagerId[] = [];
-/**
- * How far the player of the page has got with the quests, as the server
- * last told.
- */
-let quests: QuestLog = {};
-
-/** The models that stand in the village whoever is connected. */
-const actors: Actor[] = [];
-/** The models that have been loaded so far. */
-let models: readonly LoadedModel[] = [];
-/** The glow of the fountain, once its model has been loaded. */
-let fountainGlow: FountainGlow | null = null;
-/** The glow of the forge, once the model of the weapon shop has been loaded. */
-let forgeGlow: ForgeGlow | null = null;
-/** The light in the windows of the houses, once their models are shown. */
-let windowGlow: WindowGlow | null = null;
-/** Toby, once his model has been loaded. */
-let toby: TobyFigure | null = null;
-/** The root of the model of Toby, once it has been loaded. */
-let tobyRoot: Object3D | null = null;
-/**
- * Martha's pitchfork as it leans against the wall of her house, once its
- * model has been loaded.
- */
-let wallPitchfork: Object3D | null = null;
-/**
- * Martha's pitchfork as it lies on the ground where she has dropped it,
- * once its model has been loaded.
- */
-let lyingPitchfork: Object3D | null = null;
-
+/** What the server has told the page of its player and of the world. */
+const record = new PlayerRecord();
+/** The models the page shows, once they have been loaded. */
+const models = new ModelLibrary();
 /** The time of day of the world, as the page reckons it. */
 const dayClock = new DayClock();
-/**
- * The time of day the page last showed, which it goes on showing while it
- * does not know the time of day of the world.
- */
-let shownTime: number = NOON;
-
-/** The latest snapshots from the server, to show the players from. */
-const timeline = new SnapshotTimeline();
-/** The events from the server that are yet to be shown. */
-const schedule = new EventSchedule();
-/** The monsters as they were last shown. */
-let shownMonsters: readonly MonsterState[] = [];
-/** The latest hits that have been shown, the latest last. */
-const shownHits: HitEvent[] = [];
-/** The latest heals that have been shown, the latest last. */
-const shownHeals: HealEvent[] = [];
-
-const panel: Panel = createPanel(translator, switchLanguage);
-/** The fingers on the screen of a touch device. */
-const touchControls = new TouchControls();
-const touchView: TouchView = createTouchView(
-  document.body,
-  translator,
-  touchControls,
-  () => {
-    // The action button is the space bar, held with the rest of play.
-    if (!isPlayHeld()) {
-      pressGameKey('Space', false);
-    }
-  },
-  () => {
-    bagView.render();
-    dialogueView.render();
-  },
-);
+/** The settings the client runs by. */
+const settings: ClientSettings = createSettings();
+const panel: Panel = createPanel(settings, translator, switchLanguage);
+/** The player of the page as the page draws it. */
+const ownPlayer = new OwnPlayer(settings);
+/** The connection to the game server, once the page has opened it. */
+const link = new ServerLink(settings.network, (data: string) => {
+  session.receiveMessage(data);
+});
 const music = new BackgroundMusic(new Audio(MUSIC_URL));
-const prompt: Prompt = createPrompt(document.body);
-/** The bag of the player of the page, which the person at the page opens. */
-const bag = new InventoryBag();
-const bagView: BagView = createBagView(
+/** The controls of play, and the sheets and the boxes over play. */
+const controls: PlayControls = new PlayControls(
   document.body,
   translator,
-  bag,
-  carryOutItemAction,
-  clickBagIcon,
-  touchView.isTouch,
-);
-/** The box a line is typed in for the player of the page to say. */
-const chatBox = new ChatBox();
-/** The lines the player of the page is yet to say, each in its turn. */
-const sayQueue = new SayQueue();
-// The button of the chat goes under the open bag on a touch device, so it
-// is shown only while the bag is closed.
-const chatView: ChatView = createChatView(
-  document.body,
-  translator,
-  chatBox,
-  clickChatButton,
-  sayLine,
-  () => !bag.isOpen,
-);
-/** The sheet of the ending and the credits of the game. */
-const endingSheet = new EndingSheet();
-/** What tells when the ending opens by itself. */
-const endingWatch = new EndingWatch();
-/** The help sheet that tells the controls of the game. */
-const helpSheet = new HelpSheet();
-const helpView: HelpView = createHelpView(
-  document.body,
-  translator,
-  helpSheet,
-  clickHelpButton,
-  () => {
-    helpSheet.close();
-    helpView.render();
+  storage,
+  {
+    sendInput: (input: PlayerInput): boolean => session.sendInput(input),
+    sayLine: (line: string) => {
+      session.sayLine(line);
+    },
+    hasPlayer: () => record.playerId !== null,
+    isPlayerDead: () => ownPlayer.prediction?.motion.action === 'Die',
+    findSpaceInput: (): PlayerInput | null => session.findSpaceInput(),
+    allowMusic: () => {
+      music.allow(settings.music);
+    },
+    readHeading: () => viewport.getHeading(),
+    zoom: (factor: number) => {
+      viewport.zoom(factor);
+    },
   },
-);
-openHelpOnFirstVisit(
-  helpSheet,
-  languageStorage,
-  touchView.isTouch() ? TOUCH_PAGE : KEYBOARD_PAGE,
-);
-helpView.render();
-const endingView: EndingView = createEndingView(
-  document.body,
-  translator,
-  endingSheet,
-  () => {
-    endingSheet.advance(performance.now());
-    endingView.render();
-  },
-);
-/** The dialogue the player of the page is in, and the reply chosen. */
-const dialogueBox = new DialogueBox();
-const dialogueView: DialogueBoxView = createDialogueView(
-  document.body,
-  translator,
-  dialogueBox,
-  (request: DialogueRequest) => {
-    sendInput(request);
-  },
-  touchView.isTouch,
 );
 /** The notices of the items and the silver coins the player gets. */
 const itemNotices: ItemNotices = createItemNotices(document.body, translator);
-const { scene, daylight } = createVillageScene();
+const village: VillageScene = createVillageScene();
 const cave: CaveScene = createCaveScene();
-/** The map the player of the page is in, as the server last told. */
-let shownMap: MapId = 'village';
-/**
- * The map the server has told the player of the page is in from now on,
- * until the first snapshot of that map comes, or `null` while it has not.
- */
-let comingMap: MapId | null = null;
-/**
- * What stands wherever the player of the page is: the players, the
- * monsters, the items and the hits, which goes with it from map to map.
- */
-const stage = new Group();
-scene.add(stage);
-const itemFigures = new ItemFigures(stage);
-const outlines = createObstacleOutlines(VILLAGE_TERRAIN);
-scene.add(outlines);
-const caveOutlines = createObstacleOutlines(CAVE_TERRAIN);
-cave.scene.add(caveOutlines);
-const figures = new PlayerFigures(stage, (appearance: number) =>
-  createPlayerFigure(models, appearance),
-);
-const monsterFigures = new MonsterFigures(stage, (kind: MonsterKindId) =>
-  createMonsterFigure(models, kind),
-);
-const markers = new HitMarkers(stage);
-const speech = new SpeechBubble(stage, translator);
-/** What notices each talk of the player of the page to a villager. */
-const talks = new TalkWatch();
-/** What tells when Edwin calls out for help. */
-const edwinCall = new EdwinCall();
-const fade = createMapFade(document.body);
-/** The arrow keys held down to turn the camera. */
-const cameraKeys = new CameraKeys();
-/** The gamepads connected, as last read. */
-const gamepads = new Gamepads();
-/**
- * Whether the browser has told of a gamepad connected, before which the
- * gamepads are not read at all.
- */
-let isPadConnected = false;
-const viewport: Viewport = showScene(
-  scene,
-  findSpawnPoint(0),
-  panel.trailingCamera,
-  [cameraKeys, gamepads, touchControls],
-  (seconds: number) => {
-    readGamepads(seconds);
-    readTouch();
-    sendMove();
-    sendDueSay();
-    showPlayers();
-    showEnding();
-    showTimeOfDay();
-    outlines.visible = panel.obstacles.isShown;
-    caveOutlines.visible = panel.obstacles.isShown;
-    music.update(panel.music);
-    for (const actor of actors) {
-      actor.update(seconds);
-    }
-    cave.update(seconds);
-    fountainGlow?.update(seconds);
-    forgeGlow?.update(seconds);
-    figures.update(seconds);
-    // The monsters of the cave stand still while its player is in a
-    // dialogue, as the server holds them.
-    const isPaused: boolean = dialogueBox.isOpen && shownMap === 'cave';
-    monsterFigures.update(isPaused ? 0 : seconds);
-    markers.update(seconds);
-    speech.update(seconds);
-    showEdwinCall(seconds);
+/** Each map, as it is shown whoever is connected. */
+const scenes: Readonly<Record<MapId, MapScene>> = { village, cave };
+/** What goes with the player of the page from map to map. */
+const stageRoot = new Group();
+/** The bubbles of what the villagers and the players say. */
+const speech = new SpeechBubble(stageRoot, translator);
+/** What the figures of the villagers are shown with. */
+const figureContext: FigureContext = {
+  models,
+  speech,
+  record,
+  readViewport: () => viewport,
+  isInDialogue: () => controls.isInDialogue,
+};
+/** Toby, as the page shows him. */
+const toby = new TobyFigure(figureContext);
+/** Martha, as the page shows her, with her pitchfork. */
+const martha = new MarthaFigure(figureContext);
+/** The villagers as the story has them shown. */
+const story = new StoryFigures(figureContext, translator, [
+  toby,
+  martha,
+  new EdwinFigure(figureContext),
+]);
+/** What stands wherever the player of the page is, and the map it is in. */
+const stage = new MapStage({
+  scenes,
+  fade: createMapFade(document.body),
+  root: stageRoot,
+  speech,
+  createPlayer: (appearance: number) =>
+    createPlayerFigure(models.models, appearance),
+  createMonster: (kind: MonsterKindId) =>
+    createMonsterFigure(models.models, kind),
+  others: [story],
+  readViewport: () => viewport,
+});
+/** The outlines of the obstacles of every map, each standing in its map. */
+const outlines: Object3D[] = Object.values(WORLD_MAPS).map(
+  (map: WorldMap): Object3D => {
+    const outline: Object3D = createObstacleOutlines(map.terrain);
+    scenes[map.id].scene.add(outline);
+    return outline;
   },
 );
+/** What the settings panel reads out of the play of the page. */
+const readouts = new PanelReadouts(panel, translator, record);
+const viewport: Viewport = showScene(
+  scenes[HOME_MAP].scene,
+  findSpawnPoint(0),
+  settings.trailingCamera,
+  controls.cameraHolds,
+  (seconds: number) => {
+    session.showFrame(seconds);
+  },
+);
+/** The play of the page with the game server. */
+const session: GameSession = new GameSession({
+  translator,
+  settings,
+  readouts,
+  record,
+  ownPlayer,
+  link,
+  stage,
+  scenes,
+  story,
+  controls,
+  itemNotices,
+  music,
+  dayClock,
+  outlines,
+  showLooted: cave.showLooted,
+  readViewport: () => viewport,
+});
 
 /** Draws the bubbles above the villagers at the size for the view. */
 const fitSpeechToView = (): void => {
-  speech.fitView(
+  stage.speech.fitView(
     window.innerWidth,
     window.innerHeight,
     viewport.getCamera().fov,
@@ -545,1088 +226,34 @@ const fitSpeechToView = (): void => {
 window.addEventListener('resize', fitSpeechToView);
 fitSpeechToView();
 
-// For looking at what the page shows, and at the latest snapshot it shows
-// that from, from the console of the browser.
-Object.defineProperty(window, 'clovervale', {
-  value: {
-    describeCamera: () => viewport.getFocus(),
-    describeHeading: () => viewport.getHeading(),
-    describeCameraDistance: () => {
-      const { x, z } = viewport.getFocus();
-      const { position } = viewport.getCamera();
-      return Math.hypot(position.x - x, position.y, position.z - z);
-    },
-    describeMap: () => shownMap,
-    describeFigures: () => figures.describeFigures(),
-    describeMonsters: () => monsterFigures.describeMonsters(),
-    describeItems: () => itemFigures.describe(),
-    describeContainers: () => cave.describeContainers(),
-    listLatestPlayers: () => timeline.latest ?? [],
-    listLatestMonsters: () => timeline.latestMonsters ?? [],
-    listShownHits: () => [...shownHits],
-    listShownHeals: () => [...shownHeals],
-    describeSpeech: () => speech.describe(),
-    listSaid: () => speech.describeSaid(),
-    describeChat: () => ({ isOpen: chatBox.isOpen }),
-    describeDialogue: () => dialogueView.describe(),
-    describeToby: () => toby?.describe() ?? null,
-    describePitchfork: () => ({
-      isOnWall: wallPitchfork?.visible ?? null,
-      isOnGround: lyingPitchfork?.visible ?? null,
-    }),
-    describeTimeOfDay: () => ({
-      world: dayClock.read(performance.now()),
-      shown: shownTime,
-    }),
-  },
+exposeDebugHook({
+  viewport,
+  stage,
+  cave,
+  controls,
+  toby,
+  martha,
+  dayClock,
+  readShownTime: () => session.shownTime,
 });
 
 /**
- * Shows the available models in the village, and reports those that cannot
+ * Shows the available models in every map, and reports those that cannot
  * be shown in the panel.
  *
  * @returns {Promise<void>} A promise settled once the models are shown.
  */
 async function showModels(): Promise<void> {
-  const problems: ModelProblem[] = [];
-  let available: readonly string[];
-  try {
-    available = await fetchModelIndex(MODELS_URL);
-  } catch (error: unknown) {
-    // Without the list, the required models may still be there.
-    available = REQUIRED_MODEL_FILES;
-    problems.push(reportFailure(MODEL_INDEX_FILE, error));
+  const problems: ModelProblem[] = await models.load(MODELS_URL);
+  for (const scene of Object.values(scenes)) {
+    scene.populate(models.models);
   }
-  const plan = planModels(available);
-  for (const file of plan.missing) {
-    problems.push({ file, reason: 'missing' });
-  }
-  const loaded = await loadModels(MODELS_URL, plan.shown);
-  problems.push(...loaded.problems);
-  models = loaded.models;
-  actors.push(...populateVillage(scene, models));
-  cave.populate(models);
-  itemFigures.useModels(models);
-  windowGlow = new WindowGlow(scene);
-  const child: Figure | null = createVillagerFigure(models, TOBY_FILE);
-  if (child !== null) {
-    scene.add(child.root);
-    tobyRoot = child.root;
-    toby = new TobyFigure(child.root, child.clips, createHeldClover());
-  }
-  wallPitchfork =
-    models.find((model: LoadedModel) => model.file === PITCHFORK_FILE)
-      ?.root ?? null;
-  lyingPitchfork =
-    models.find((model: LoadedModel) => model.file === LYING_PITCHFORK_FILE)
-      ?.root ?? null;
-  if (lyingPitchfork !== null) {
-    lyingPitchfork.visible = false;
-    lyingPitchfork.traverse((node: Object3D) => {
-      node.castShadow = true;
-    });
-    scene.add(lyingPitchfork);
-  }
-  const fountain: LoadedModel | undefined = models.find(
-    (model: LoadedModel) => model.file === FOUNTAIN_FILE,
-  );
-  if (fountain !== undefined) {
-    fountainGlow = new FountainGlow(fountain.root);
-  }
-  const weaponShop: LoadedModel | undefined = models.find(
-    (model: LoadedModel) => model.file === WEAPON_SHOP_FILE,
-  );
-  if (weaponShop !== undefined) {
-    forgeGlow = new ForgeGlow(weaponShop.root);
-  }
-  const shownCount: number = models.length;
-  describeModels = (): string =>
-    summariseModels(translator, shownCount, problems);
-  panel.state.models = describeModels();
-  panel.listProblems(problems);
+  stage.figures.useItemModels(models.models);
+  story.useModels(village.scene);
+  readouts.showModels(models.models.length, problems);
 }
 
 void showModels();
-
-/** The connection to the game server, once the page has found it. */
-let socket: WebSocket | null = null;
-/** The identifier of the player of the page, once the server has told it. */
-let ownId: number | null = null;
-/**
- * The player of the page as predicted, once the server has told where it
- * starts.
- */
-let prediction: PlayerPrediction | null = null;
-/**
- * What draws the player of the page gliding over its corrections, which
- * starts afresh in every map.
- */
-let smoothing = new CorrectionSmoothing(panel.smoothing, panel.prediction);
-/**
- * What draws the player of the page pushed out of the way of Toby while it
- * rests, before the server tells of it, which starts afresh in every map.
- */
-let forecast = new PushForecast(
-  panel.pushForecast,
-  panel.smoothing,
-  panel.prediction,
-);
-/** The direction the server was last told the player wants to move in. */
-let sentDirection: GroundVector = { x: 0, z: 0 };
-const moveKeys = new MoveKeys();
-
-/** What the page sends the server, held back as the panel is set. */
-const outgoing = new DelayLine<string>((data: string) => {
-  if (socket?.readyState === WebSocket.OPEN) {
-    socket.send(data);
-  }
-});
-/** What the server sends the page, held back as the panel is set. */
-const incoming = new DelayLine<string>(receiveMessage);
-
-/**
- * Gives the player of the page an input, which the prediction shows from now
- * on and which is sent to the server, if the server has told the page of the
- * player and the connection is still open.
- *
- * An interaction names the time of the server at which the world was as the
- * page shows it at the step the interaction shows from, for the server to
- * judge it on, if the panel is set so.
- *
- * @param {PlayerInput} input - The input.
- * @returns {boolean} Whether the player was given the input.
- */
-function sendInput(input: PlayerInput): boolean {
-  if (prediction === null || socket?.readyState !== WebSocket.OPEN) {
-    return false;
-  }
-  const stamped: StampedInput = prediction.issueInput(input, performance.now());
-  let message: ClientMessage = stamped;
-  if (stamped.type === 'interact' && panel.compensation.isEnabled) {
-    const { isEnabled, delay } = panel.interpolation;
-    const viewTime: number | null = timeline.findViewTime(
-      prediction.inputStepTime,
-      isEnabled ? delay : null,
-    );
-    message = createInteractMessage(stamped, viewTime);
-  }
-  outgoing.send(encodeClientMessage(message), panel.network.delay);
-  return true;
-}
-
-/**
- * Carries out an action chosen in the menu of an item in the bag: a use has
- * the player of the page use the item of the slot, and a drop has it drop
- * the item at its feet, unless it is dead.  Whether anything comes of it is
- * for the server to decide, and shows once the server tells it.
- *
- * @param {ItemRequest} request - The action, and the slot of the item.
- */
-function carryOutItemAction(request: ItemRequest): void {
-  // The request of each action is its input.
-  if (prediction?.motion.action !== 'Die') {
-    sendInput({ type: request.action, slot: request.slot });
-  }
-}
-
-/**
- * Holds the controls of play while the bag, the help sheet, the ending
- * sheet, a dialogue or the box of the chat opens: the keys held down walk
- * the player and turn the camera no more,
- * the fingers on the screen are let go of, and the gamepads walk, turn and
- * zoom no more while it stays open; a left stick pushed then chooses
- * nothing until it has come back to the centre.  The box of the chat
- * closes without sending, if it was open.
- */
-function holdPlay(): void {
-  chatBox.close();
-  chatView.render();
-  moveKeys.releaseAllKeys();
-  cameraKeys.releaseAllKeys();
-  touchControls.releaseAll();
-  gamepads.isPaused = true;
-  gamepads.holdStickChoice();
-  sendMove();
-}
-
-/**
- * Tells what is open on the page, as it tells what the buttons of the
- * gamepads do.
- *
- * @returns {PadScreen} What is open.
- */
-function findPadScreen(): PadScreen {
-  // On the ending sheet, A and B advance it as Enter and Esc do, and the
-  // left stick scrolls it as the arrow keys do, as in a choice.
-  if (dialogueBox.isOpen || endingSheet.isOpen || bag.isOpen) {
-    return 'choice';
-  }
-  return helpSheet.isOpen ? 'help' : 'play';
-}
-
-/**
- * Tells whether the controls of play are held now: while anything is open
- * on the page, the box of the chat included.
- *
- * @returns {boolean} Whether they are.
- */
-function isPlayHeld(): boolean {
-  return chatBox.isOpen || findPadScreen() !== 'play';
-}
-
-/**
- * Tells whether the box of the chat can be opened now: while the page has
- * a player, and neither a dialogue, the bag, the help sheet nor the ending
- * sheet is open.
- *
- * @returns {boolean} Whether it can.
- */
-function canChat(): boolean {
-  return (
-    ownId !== null &&
-    !dialogueBox.isOpen &&
-    !bag.isOpen &&
-    !helpSheet.isOpen &&
-    !endingSheet.isOpen
-  );
-}
-
-/**
- * Opens the box of the chat, if it can be opened, and holds the controls
- * of play, so that the player stands still while a line is typed.
- */
-function openChat(): void {
-  if (!canChat()) {
-    return;
-  }
-  holdPlay();
-  chatBox.open();
-  chatView.render();
-}
-
-/**
- * Opens the box of the chat if it is closed, and closes it without sending
- * if open, as a click on its button does.
- */
-function clickChatButton(): void {
-  if (chatBox.isOpen) {
-    chatBox.close();
-    chatView.render();
-  } else {
-    openChat();
-  }
-}
-
-/**
- * Has the player of the page say a line to the players nearby, if the
- * connection is open: at once, or, sent too soon after the line before it
- * for the server to take it, as soon as it can be, after any lines still
- * waiting, as {@link SayQueue} tells.  Who hears it is for the server to
- * decide, and it shows above the player once the server tells of it.
- *
- * @param {string} line - The line.
- */
-function sayLine(line: string): void {
-  if (ownId !== null && socket?.readyState === WebSocket.OPEN) {
-    sayQueue.add(line);
-    sendDueSay();
-  }
-}
-
-/**
- * Sends the server the next line the player of the page is yet to say, if
- * its turn has come.
- */
-function sendDueSay(): void {
-  const line: string | null = sayQueue.takeDue(performance.now());
-  if (line !== null) {
-    outgoing.send(
-      encodeClientMessage(createSayMessage(line)),
-      panel.network.delay,
-    );
-  }
-}
-
-/**
- * Shows what a player says in a bubble above its head, if the player is
- * shown and on the screen; what a player off the screen says is not shown.
- *
- * @param {number} player - The identifier of the player.
- * @param {string} line - What the player says.
- */
-function showSaid(player: number, line: string): void {
-  const figure: Object3D | null = figures.findFigure(player);
-  if (figure !== null && isOnScreen(viewport.getCamera(), figure, null)) {
-    speech.sayAs(player, line, findFigureTop(figure));
-  }
-}
-
-/**
- * Shows a phrase a player says, in the language of the page, in a bubble
- * above its head, where and when {@link showSaid} shows a line it typed.
- *
- * @param {number} player - The identifier of the player.
- * @param {PhraseCode} code - The code of the phrase the player says.
- */
-function showPhrase(player: number, code: PhraseCode): void {
-  const figure: Object3D | null = figures.findFigure(player);
-  if (figure !== null && isOnScreen(viewport.getCamera(), figure, null)) {
-    speech.sayPhraseAs(player, code, findFigureTop(figure));
-  }
-}
-
-/**
- * Keeps the bubbles of the players above their heads as they go about:
- * a bubble is not seen while its player is off the screen, and is taken
- * away once its player is shown no more.
- */
-function followSaid(): void {
-  for (const player of speech.listSpeakers()) {
-    const figure: Object3D | null = figures.findFigure(player);
-    if (figure === null) {
-      speech.hushPlayer(player);
-    } else {
-      speech.followPlayer(
-        player,
-        isOnScreen(viewport.getCamera(), figure, null)
-          ? findFigureTop(figure)
-          : null,
-      );
-    }
-  }
-}
-
-/**
- * Reads the gamepads connected, and carries out the buttons pressed on
- * them, as the keys they act as; Start opens the help sheet at the page of
- * the gamepad.  The gamepads walk, turn and zoom only while nothing is open
- * on the page.  Nothing is read until the browser tells of a gamepad
- * connected.
- *
- * @param {number} seconds - The time since they were last read, in seconds.
- */
-function readGamepads(seconds: number): void {
-  if (!isPadConnected) {
-    return;
-  }
-  const states: readonly (PadState | null)[] = navigator.getGamepads();
-  for (const button of gamepads.readPads(states, seconds)) {
-    pressPadButton(button);
-  }
-  // A browser may let the page make sound after a gamepad is pressed, as
-  // after a key; one that does not refuses it harmlessly.
-  if (gamepads.isNudged) {
-    music.allow(panel.music);
-  }
-  gamepads.isPaused = isPlayHeld();
-  viewport.zoom(gamepads.resolveZoom(seconds));
-}
-
-/**
- * Reads the fingers on the screen of a touch device, which walk, turn and
- * zoom only while nothing is open on the page, as the gamepads do, and
- * shows the touch controls and the button of the chat so.
- */
-function readTouch(): void {
-  touchControls.isPaused = isPlayHeld();
-  viewport.zoom(touchControls.takeZoom());
-  touchView.render();
-  chatView.render();
-}
-
-/**
- * Carries out a button pressed on a gamepad, as the key it acts as, unless
- * the box of the chat is open, which no gamepad types in.
- *
- * @param {PadButton} button - The button.
- */
-function pressPadButton(button: PadButton): void {
-  if (chatBox.isOpen) {
-    return;
-  }
-  const screen: PadScreen = findPadScreen();
-  if (
-    button === 'start' &&
-    screen !== 'help' &&
-    !dialogueBox.isOpen &&
-    !endingSheet.isOpen
-  ) {
-    openHelp(GAMEPAD_PAGE);
-    return;
-  }
-  const code: string | null = findPadKey(button, screen);
-  if (code !== null) {
-    pressGameKey(code, false);
-  }
-}
-
-/**
- * Opens the bag if it is closed, and closes it if open, as a click on its
- * icon does, unless the player is in a dialogue or on the ending sheet.
- * The help sheet is open over the icon, so that it cannot be clicked then.
- */
-function clickBagIcon(): void {
-  if (dialogueBox.isOpen || endingSheet.isOpen) {
-    return;
-  }
-  bag.clickIcon();
-  if (bag.isOpen) {
-    holdPlay();
-  }
-  bagView.render();
-}
-
-/**
- * Opens the help sheet, as a click on its button does, unless the player
- * is in a dialogue or on the ending sheet, at the page of touch on a touch
- * device.  The bag closes as the sheet opens.
- */
-function clickHelpButton(): void {
-  if (dialogueBox.isOpen || endingSheet.isOpen) {
-    return;
-  }
-  openHelp(touchView.isTouch() ? TOUCH_PAGE : KEYBOARD_PAGE);
-}
-
-/**
- * Opens the help sheet, closing the bag, and holds the controls of play.
- *
- * @param {number} page - The page to open it at.
- */
-function openHelp(page: number): void {
-  if (bag.isOpen) {
-    bag.clickIcon();
-    bagView.render();
-  }
-  helpSheet.open(page);
-  holdPlay();
-  helpView.render();
-}
-
-/**
- * Opens the ending sheet, closing the bag and the help sheet, and holds the
- * controls of play.  It unrolls, unless the person at the page asks for
- * little motion.  From now on, the help sheet offers the credits on a page
- * of their own.
- */
-function openEnding(): void {
-  if (bag.isOpen) {
-    bag.clickIcon();
-    bagView.render();
-  }
-  helpSheet.close();
-  endingSheet.rollDuration = prefersReducedMotion() ? 0 : ROLL_DURATION;
-  endingSheet.open(performance.now());
-  helpSheet.hasCredits = true;
-  holdPlay();
-  endingView.render();
-  helpView.render();
-}
-
-/** Closes the ending sheet at once, back to play. */
-function closeEnding(): void {
-  endingSheet.close();
-  endingView.render();
-}
-
-/**
- * Shows the ending sheet as it unrolls and rolls up, and opens it with the
- * ending once {@link EndingWatch} tells it is to, as the page knows what
- * its player carries and where.
- */
-function showEnding(): void {
-  if (endingSheet.update(performance.now())) {
-    endingView.render();
-  }
-  if (
-    endingWatch.notice(
-      performance.now(),
-      inventory,
-      shownMap,
-      dialogueBox.isOpen,
-    )
-  ) {
-    openEnding();
-  }
-}
-
-/**
- * Tells the server which way the keys held down move the player, or the
- * left sticks of the gamepads while no walking key is held, or the stick
- * of the touch controls while neither walks it, if that has changed since
- * the server was last told.
- */
-function sendMove(): void {
-  const heading: number = viewport.getHeading();
-  const keyDirection: GroundVector = moveKeys.resolveDirection(heading);
-  let direction: GroundVector = keyDirection;
-  if (keyDirection.x === 0 && keyDirection.z === 0) {
-    const { ahead, aside } = gamepads.resolveWalk();
-    direction = orientWalk(ahead, aside, heading);
-  }
-  if (direction.x === 0 && direction.z === 0) {
-    const { ahead, aside } = touchControls.resolveWalk();
-    direction = orientWalk(ahead, aside, heading);
-  }
-  const isSame: boolean =
-    direction.x === sentDirection.x && direction.z === sentDirection.z;
-  if (!isSame && sendInput({ type: 'move', direction })) {
-    sentDirection = direction;
-  }
-}
-
-/**
- * Shows the hits and the heals whose moment has come in what is shown, each
- * once, with a number that floats up from whoever was hit or healed, where
- * it is shown.  A hit or a heal of whoever is not shown is not shown
- * either.
- *
- * @param {PlayersView} view - The players and the monsters as they are
- *   shown.
- */
-function showEvents(view: PlayersView): void {
-  for (const event of schedule.takeDue(view.time)) {
-    const { target }: { target: EntityRef } = event;
-    const shown: GroundVector | undefined =
-      target.kind === 'player'
-        ? view.players.find((player: PlayerState) => player.id === target.id)
-        : view.monsters.find(
-            (monster: MonsterState) => monster.id === target.id,
-          );
-    if (shown === undefined) {
-      continue;
-    }
-    if (event.type === 'heal') {
-      markers.show(shown, `+${String(event.amount)}`, HEAL_COLOUR);
-      rememberShown(shownHeals, event);
-      continue;
-    }
-    const text = `-${String(event.damage)}`;
-    if (target.kind === 'player') {
-      const colour: string =
-        target.id === ownId ? OWN_HIT_COLOUR : PLAYER_HIT_COLOUR;
-      markers.show(shown, text, colour);
-    } else if ('kind' in shown && shown.kind === 'martha') {
-      markers.show(shown, text, MONSTER_HIT_COLOUR);
-    } else {
-      markers.show(shown, text, MONSTER_HIT_COLOUR, MONSTER_HIT_HEIGHT);
-    }
-    rememberShown(shownHits, event);
-  }
-}
-
-/**
- * Remembers an event as shown, forgetting the earliest of its kind once
- * there are too many to remember.
- *
- * @param {T[]} shown - The events of its kind shown so far, the latest
- *   last.
- * @param {T} event - The event.
- * @template T
- */
-function rememberShown<T extends GameEvent>(shown: T[], event: T): void {
-  shown.push(event);
-  if (shown.length > SHOWN_HIT_LIMIT) {
-    shown.shift();
-  }
-}
-
-/**
- * Shows the players as the panel is set to show them, with the camera on the
- * player the panel has it follow, as it is shown.  The player of the page is
- * shown as predicted, gliding over its corrections and, while it rests, pushed
- * out of the way of Toby as foreseen, if the panel is set so, or like the
- * others.  The others and the monsters are shown either smoothly, as they were
- * a while ago, or exactly as the latest snapshot tells them, and so are the
- * hits among them.  Toby is shown as he is at the step of the server the
- * player of the page is shown at as it walks, running on evenly whether it
- * walks or rests, while the player of the page is shown as predicted, and as
- * he is when the others are shown otherwise; he holds a four-leaved clover
- * he finds, as {@link hasTobyFound} tells, and the patches of clover are
- * shown with their clovers as they are at that step, as far as those he takes
- * go, which the prompt tells of at the step an interaction would start at.
- * Once the player of the page starts to talk to a villager that chatters,
- * as predicted, what the villager says is shown above its head, but for
- * one whose lines the server chooses, always or while the player is on a
- * quest the villager takes part in, which says what the server tells,
- * and follows the head of Toby as he goes on and squats, and that of
- * Martha as she goes about.  What the players say follows them, as
- * {@link followSaid} tells.  Martha's pitchfork is shown where it is, as
- * {@link showPitchfork} tells.  The prompt is hidden while the player is in
- * a dialogue.
- */
-function showPlayers(): void {
-  const now: number = performance.now();
-  const { isEnabled, delay } = panel.interpolation;
-  let view: PlayersView = isEnabled
-    ? timeline.readPast(now, delay)
-    : timeline.readLatest();
-  const isOwn = (player: PlayerState): boolean => player.id === ownId;
-  const latest: PlayerState | undefined = timeline.latest?.find(isOwn);
-  prediction?.advance(now);
-  const shownStep: number | null =
-    panel.prediction.isEnabled && prediction !== null
-      ? prediction.readDrawnStep(now)
-      : view.time === null
-        ? null
-        : view.time / STEP_MILLISECONDS;
-  // The smoothing and the forecast are told of every frame, so that a glide
-  // or a push ends as soon as prediction is switched off.
-  const tobyStep: number | null = shownMap === 'village' ? shownStep : null;
-  const drawn: PlayerMotion | null =
-    prediction === null
-      ? null
-      : forecast.advance(prediction, smoothing, now, tobyStep);
-  if (panel.prediction.isEnabled && drawn !== null && latest !== undefined) {
-    const players: PlayerState[] = placeOwnPlayer(view.players, latest, drawn);
-    view = { ...view, players };
-  }
-  if (worldNews !== null) {
-    itemFigures.show(findShownItems(worldNews, shownStep ?? worldNews.step));
-  }
-  if (tobyStep !== null) {
-    toby?.show(tobyStep, hasTobyFound(findTobyGrab(tobyStep), worldNews));
-  } else if (shownStep !== null) {
-    toby?.show(shownStep);
-  }
-  figures.showPlayers(view.players);
-  followSaid();
-  monsterFigures.showMonsters(view.monsters);
-  shownMonsters = view.monsters;
-  showPitchfork(view.monsters);
-  showEvents(view);
-  panel.showDisplay(describeDisplay(ownId, timeline.latest, view));
-  panel.showPrediction(describePrediction(translator, prediction));
-  const predicted: PlayerMotion | null = prediction?.motion ?? null;
-  // An interaction would start at the next step of the player.
-  const nextStep: number = prediction?.readNextStep(now) ?? 0;
-  const world: WorldItems =
-    worldNews === null ? NO_WORLD_ITEMS : findShownItems(worldNews, nextStep);
-  const carried: readonly ItemKindId[] = inventory ?? [];
-  const monsters: readonly MonsterState[] = timeline.latestMonsters ?? [];
-  prompt.show(
-    dialogueBox.isOpen
-      ? null
-      : describePrompt(
-          translator,
-          predicted,
-          nextStep,
-          world,
-          carried,
-          shownMap,
-          monsters,
-          acquaintances,
-          touchView.isTouch(),
-        ),
-  );
-  panel.showInteraction(
-    describeSpaceKey(
-      translator,
-      predicted,
-      nextStep,
-      world,
-      carried,
-      shownMap,
-      monsters,
-      acquaintances,
-    ),
-  );
-  const villager: Villager | null = talks.noticeTalk(
-    predicted,
-    prediction?.step ?? 0,
-    shownMap,
-    monsters,
-  );
-  // A villager with something to tell says what the server tells it to,
-  // and one with lines of its own one of them, unless the server chooses.
-  if (
-    villager !== null &&
-    villager.hasServerLines !== true &&
-    !hasQuestWords(villager.id, quests) &&
-    describeVillager(translator, villager).lines.length > 0
-  ) {
-    speech.say(villager, findShownHead(villager, shownStep ?? 0));
-  }
-  if (shownStep !== null) {
-    speech.follow(TOBY_VILLAGER, findShownHead(TOBY_VILLAGER, shownStep));
-  }
-  speech.follow(MARTHA_VILLAGER, findShownHead(MARTHA_VILLAGER, 0));
-  const followedId: number | null = panel.camera.followedId ?? ownId;
-  const followed: PlayerState | undefined = view.players.find(
-    (player: PlayerState) => player.id === followedId,
-  );
-  if (followed !== undefined) {
-    viewport.follow(followed);
-  }
-}
-
-/**
- * Shows Martha's pitchfork where it is when she does not hold it: on the
- * ground at her right, lying the way she faces, while she sits beaten,
- * and against the wall of her house otherwise.
- *
- * @param {readonly MonsterState[]} monsters - The monsters as they are
- *   shown.
- */
-function showPitchfork(monsters: readonly MonsterState[]): void {
-  const martha: MonsterState | undefined = monsters.find(
-    (monster: MonsterState) => monster.kind === 'martha',
-  );
-  const isArmed: boolean = martha?.isArmed === true;
-  const isDropped: boolean = martha?.mode === 'sit' && !isArmed;
-  if (wallPitchfork !== null) {
-    wallPitchfork.visible = !isArmed && !isDropped;
-  }
-  if (lyingPitchfork === null) {
-    return;
-  }
-  lyingPitchfork.visible = isDropped;
-  if (martha !== undefined && isDropped) {
-    const yaw: number = (martha.yaw * Math.PI) / 180;
-    lyingPitchfork.position.set(
-      martha.x - Math.cos(yaw) * DROPPED_PITCHFORK_ASIDE,
-      0,
-      martha.z + Math.sin(yaw) * DROPPED_PITCHFORK_ASIDE,
-    );
-    lyingPitchfork.rotation.y = yaw;
-  }
-}
-
-/**
- * Finds the top of the head of a villager as it is shown, and of a
- * villager who fights as a monster where the monsters are shown.
- *
- * @param {Villager} villager - The villager.
- * @param {number} step - The step of the server the villager is shown at,
- *   which may fall between two.
- * @returns {Vector3} The top of its head.
- */
-function findShownHead(villager: Villager, step: number): Vector3 {
-  const shown: Vector3 | null =
-    villager.file === TOBY_FILE ? (toby?.findHeadTop() ?? null) : null;
-  if (shown !== null) {
-    return shown;
-  }
-  const model: LoadedModel | undefined = models.find(
-    (candidate: LoadedModel) => candidate.file === villager.file,
-  );
-  return findHeadTop(villager, model?.root ?? null, step, shownMonsters);
-}
-
-/**
- * Tells whether the page shows a line a villager says to its player, as
- * the server tells of it, in a bubble above the head of the villager.
- *
- * @param {Villager} villager - The villager.
- * @param {string} line - The message of the line.
- * @returns {boolean} Whether the villager is in the map shown and the
- *   player of the page is not in a dialogue, and, for the line Toby
- *   exclaims to the players nearby as he finds a four-leaved clover, also
- *   whether no other bubble of a villager is shown and Toby is on the
- *   screen.
- */
-function canShowSpeech(villager: Villager, line: string): boolean {
-  if (villager.map !== shownMap || dialogueBox.isOpen) {
-    return false;
-  }
-  return (
-    line !== TOBY_FOUND_LINE ||
-    (speech.describe() === null &&
-      tobyRoot !== null &&
-      isOnScreen(viewport.getCamera(), tobyRoot, null))
-  );
-}
-
-/**
- * Has Edwin call out for help in a bubble above his head whenever
- * {@link EdwinCall} tells he does, while the player of the page is in the
- * cave: once both dogs of the cave are dead, as long as he is on the
- * screen, not hidden by the rock of the cave, before he has told the
- * player who he is, and while the player is not in a dialogue.
- *
- * @param {number} seconds - The time since the last frame, in seconds.
- */
-function showEdwinCall(seconds: number): void {
-  const findRoot = (file: string): Object3D | null =>
-    models.find((model: LoadedModel) => model.file === file)?.root ?? null;
-  const figure: Object3D | null = findRoot(CAVE_EDWIN_FILE);
-  const isCalling: boolean = edwinCall.update(seconds, {
-    areDogsDead:
-      ownId !== null &&
-      shownMap === 'cave' &&
-      areDogsDead(timeline.latestMonsters),
-    isAcquainted: acquaintances.includes('edwin'),
-    isInDialogue: dialogueBox.isOpen,
-    isOnScreen: () =>
-      figure !== null &&
-      isOnScreen(viewport.getCamera(), figure, findRoot(CAVE_FILE)),
-  });
-  if (isCalling) {
-    const step: number = prediction?.step ?? 0;
-    speech.say(
-      EDWIN_VILLAGER,
-      findShownHead(EDWIN_VILLAGER, step),
-      'villager.edwin.call',
-    );
-  }
-}
-
-/**
- * Shows the village, and the daylight at the mouth of the burrow in the
- * cave, as they look at the time of day the panel previews, or else at the
- * time of day of the world, and tells the time of day of the world in the
- * panel.  The preview is the page's alone: the server is
- * never told of it.
- */
-function showTimeOfDay(): void {
-  const worldTime: number | null = dayClock.read(performance.now());
-  panel.state.timeOfDay = describeTimeOfDay(translator, worldTime);
-  shownTime = findShownTime(worldTime, panel.timePreview) ?? shownTime;
-  const look: DaylightLook = daylight.show(shownTime);
-  windowGlow?.show(look.windows);
-  cave.showTimeOfDay(shownTime);
-}
-
-/**
- * Handles a message from the game server.
- *
- * @param {string} data - The message as received.
- */
-function receiveMessage(data: string): void {
-  let message: ServerMessage;
-  try {
-    message = decodeServerMessage(data);
-  } catch {
-    showServer(() => translator.translate('server.misbehaving'));
-    return;
-  }
-  if (message.type === 'map') {
-    comingMap = message.map;
-    return;
-  }
-  if (message.type === 'snapshot') {
-    if (ownId !== null) {
-      const now: number = performance.now();
-      const map: MapId | null = comingMap;
-      comingMap = null;
-      if (map !== null) {
-        leaveMap();
-      }
-      timeline.addSnapshot(message, now);
-      dayClock.observe(message.step, now);
-      panel.camera.followedId = keepFollowedPlayer(
-        panel.camera.followedId,
-        message.players,
-      );
-      panel.offerCameraChoices(
-        listCameraChoices(translator, ownId, message.players),
-      );
-      // The monsters tell whether the player slashes rather than talks.
-      prediction?.noteMonsters(message.monsters);
-      if (prediction === null) {
-        prediction = new PlayerPrediction(
-          message.own.motion,
-          message.step,
-          now,
-          map ?? shownMap,
-        );
-        prediction.noteMonsters(message.monsters);
-        if (map !== null) {
-          showMap(map, message.own);
-        }
-      } else if (map !== null) {
-        prediction.enterMap(map, message.own, message.step, now);
-        showMap(map, message.own);
-      } else {
-        reconcileSmoothly(
-          prediction,
-          smoothing,
-          message.own,
-          message.step,
-          now,
-        );
-      }
-      panel.showReadout(describeSnapshot(translator, ownId, message.players));
-      panel.showMonster(describeMonster(translator, message.monsters));
-      lastSlash = message.slash;
-      panel.showSlash(describeSlash(translator, lastSlash));
-      worldNews = {
-        step: message.step,
-        items: {
-          clovers: message.clovers,
-          items: message.items,
-          looted: message.looted,
-          tobyFind: message.tobyFind,
-        },
-      };
-      for (const kind of findGainedItems(inventory, message.inventory)) {
-        itemNotices.show(kind);
-      }
-      inventory = message.inventory;
-      const gained: number = findGainedSilver(silver, message.silver);
-      if (gained > 0) {
-        itemNotices.showSilver(gained);
-      }
-      silver = message.silver;
-      cave.showLooted(message.looted);
-      const health: number =
-        message.players.find((player: PlayerState) => player.id === ownId)
-          ?.health ?? PLAYER_HEALTH;
-      bagView.show(inventory, health, silver);
-      quests = message.quests;
-      showDialogue(message.dialogue, message.acquaintances);
-    }
-    return;
-  }
-  if (message.type === 'speech') {
-    const { line } = message;
-    const villager: Villager | undefined = VILLAGERS.find(
-      (candidate: Villager) => candidate.id === message.villager,
-    );
-    if (
-      ownId !== null &&
-      villager !== undefined &&
-      isMessageId(line) &&
-      canShowSpeech(villager, line)
-    ) {
-      const step: number = prediction?.step ?? 0;
-      speech.say(villager, findShownHead(villager, step), line);
-    }
-    return;
-  }
-  if (message.type === 'said') {
-    if (ownId !== null) {
-      showSaid(message.player, message.text);
-    }
-    return;
-  }
-  if (message.type === 'phrased') {
-    if (ownId !== null) {
-      showPhrase(message.player, message.code);
-    }
-    return;
-  }
-  if (message.type === 'events') {
-    if (ownId !== null) {
-      schedule.receive(message.events);
-    }
-    return;
-  }
-  const version = String(message.protocolVersion);
-  if (message.protocolVersion !== PROTOCOL_VERSION || message.day === null) {
-    showServer(() => translator.translate('server.incompatible', { version }));
-    return;
-  }
-  ownId = message.playerId;
-  dayClock.start(message.day);
-  showServer(() => translator.translate('server.connected', { version }));
-  panel.showReadout(describeSnapshot(translator, ownId, null));
-}
-
-/**
- * Shows the dialogue the player of the page is in, as the server tells,
- * with the villagers called by the names they go by once they have told the
- * player who they are.  As a dialogue opens, the bag, the help sheet and
- * the ending sheet close, the bubble of any villager is taken away, though
- * not those of the players, and the keys held down walk the player and
- * turn the camera no more.
- *
- * @param {DialogueView | null} dialogue - The dialogue, or `null` while
- *   the player is in none.
- * @param {readonly VillagerId[]} known - The villagers who have told the
- *   player who they are.
- */
-function showDialogue(
-  dialogue: DialogueView | null,
-  known: readonly VillagerId[],
-): void {
-  const wasOpen: boolean = dialogueBox.isOpen;
-  acquaintances = known;
-  speech.noticeAcquaintances(known);
-  dialogueView.show(dialogue, known);
-  if (!dialogueBox.isOpen || wasOpen) {
-    return;
-  }
-  speech.hushVillagers();
-  if (bag.isOpen) {
-    bag.clickIcon();
-    bagView.render();
-  }
-  if (helpSheet.isOpen) {
-    helpSheet.close();
-    helpView.render();
-  }
-  if (endingSheet.isOpen) {
-    closeEnding();
-  }
-  holdPlay();
-}
-
-/**
- * Forgets what the page was shown of the map the player of the page has
- * left, before it is shown the first snapshot of the map it is in now: the
- * snapshots, and with them the players and the monsters seen, the items on
- * the ground, the events yet to be shown, those shown, the numbers of the
- * hits and the heals still floating, and what a villager or a player there
- * was saying.  The items, the monsters and the
- * events of each map are numbered on their own, so that nothing of one map
- * is taken for something of another.
- */
-function leaveMap(): void {
-  timeline.clear();
-  schedule.clear();
-  shownHits.length = 0;
-  shownHeals.length = 0;
-  markers.clear();
-  speech.clear();
-  monsterFigures.showMonsters([]);
-  shownMonsters = [];
-  worldNews = null;
-  itemFigures.show(null);
-}
-
-/**
- * Shows the map the player of the page is in now, as the first snapshot
- * there tells of the player.  The view darkens for a moment and shows that
- * map, with the camera at once on the player, looking the way it faces,
- * and down on it steeply, which it goes on doing in the cave, and the
- * players, the monsters, the items and the hits there.  The
- * corrections of the player and the pushes of Toby start afresh, without
- * gliding across from where the player was.
- *
- * @param {MapId} map - The map.
- * @param {InputProgress} own - How far the player had got with the inputs
- *   of the page, and the motion of the player there, as the snapshot tells.
- */
-function showMap(map: MapId, own: InputProgress): void {
-  shownMap = map;
-  const shown: Scene = map === 'cave' ? cave.scene : scene;
-  shown.add(stage);
-  smoothing = new CorrectionSmoothing(panel.smoothing, panel.prediction);
-  forecast = new PushForecast(
-    panel.pushForecast,
-    panel.smoothing,
-    panel.prediction,
-  );
-  viewport.switchScene(
-    shown,
-    own.motion,
-    own.motion.yaw,
-    map === 'cave' ? CAVE_LEAST_ELEVATION : VILLAGE_LEAST_ELEVATION,
-  );
-  fade.darken();
-}
-
-/**
- * Shows how the connection to the server stands, in the language of the
- * page, now and in each language the page comes to speak.
- *
- * @param {() => string} describe - Words how it stands.
- */
-function showServer(describe: () => string): void {
-  describeServer = describe;
-  panel.state.server = describe();
-}
 
 /**
  * Has the page speak a language the owner chooses, and remembers the
@@ -1638,258 +265,59 @@ function showServer(describe: () => string): void {
  */
 async function switchLanguage(code: LanguageCode): Promise<void> {
   if (await translator.choose(code)) {
-    saveLanguage(languageStorage, code);
+    saveLanguage(storage, code);
   }
 }
 
 /**
- * Words everything the page shows in the language it speaks now, outside
- * the names in the panel, which the panel words itself, and what the page
- * words afresh at every frame.
- */
-function relabelPage(): void {
-  document.documentElement.lang = translator.language;
-  document.title = translator.translate('title');
-  panel.state.server = describeServer();
-  panel.state.models = describeModels();
-  const players: readonly PlayerState[] | null = timeline.latest;
-  panel.showReadout(describeSnapshot(translator, ownId, players));
-  panel.showMonster(describeMonster(translator, timeline.latestMonsters));
-  panel.showSlash(describeSlash(translator, lastSlash));
-  panel.offerCameraChoices(listCameraChoices(translator, ownId, players));
-  speech.relabel();
-}
-
-/**
- * Pauses the music if the page is hidden, or resumes it as the panel has it
- * set if the page is shown.
+ * Pauses the music if the page is hidden, or resumes it as the settings
+ * have it if the page is shown.
  */
 function followPageVisibility(): void {
   if (document.visibilityState === 'hidden') {
     music.hide();
   } else {
-    music.show(panel.music);
+    music.show(settings.music);
   }
 }
 
 /**
  * Connects to the game server of the page, which the settings of the site
- * may name.
+ * or the page address may name.  An address that names no server a page
+ * can connect to leaves the page disconnected, as a failed connection does.
  *
- * @returns {Promise<void>} A promise settled once the page is connecting.
+ * @returns {Promise<void>} A promise settled once the page is connecting,
+ *   or is disconnected.
  */
 async function connectToServer(): Promise<void> {
   const config: ClientConfig = await fetchClientConfig(
     import.meta.env.BASE_URL,
   );
-  socket = new WebSocket(
-    resolveServerUrl(new URL(window.location.href), config.serverUrl),
-  );
-  socket.addEventListener('message', (event: MessageEvent<unknown>) => {
-    incoming.send(String(event.data), panel.network.delay);
-  });
-  socket.addEventListener('close', () => {
-    incoming.clear();
-    outgoing.clear();
-    ownId = null;
-    comingMap = null;
-    // A page cut off in the cave shows the village from the plaza, facing
-    // the fountain, as a page does before it connects.
-    if (shownMap !== 'village') {
-      scene.add(stage);
-      shownMap = 'village';
-      viewport.switchScene(
-        scene,
-        findSpawnPoint(0),
-        SPAWN_YAW,
-        VILLAGE_LEAST_ELEVATION,
-      );
-    }
-    prediction = null;
-    chatBox.close();
-    chatView.render();
-    sayQueue.clear();
-    dayClock.reset();
-    showServer(() => translator.translate('server.disconnected'));
-    timeline.clear();
-    schedule.clear();
-    lastSlash = null;
-    worldNews = null;
-    inventory = null;
-    silver = null;
-    itemFigures.show(null);
-    bagView.show(null, PLAYER_HEALTH);
-    quests = {};
-    showDialogue(null, []);
-    panel.showMonster(describeMonster(translator, null));
-    panel.showSlash(describeSlash(translator, null));
-    panel.camera.followedId = null;
-    panel.offerCameraChoices(listCameraChoices(translator, null, null));
-    panel.showReadout(describeSnapshot(translator, null, null));
-  });
+  const showDisconnected = (): void => {
+    session.showDisconnected();
+  };
+  try {
+    link.connect(
+      resolveServerUrl(new URL(window.location.href), config.serverUrl),
+      showDisconnected,
+    );
+  } catch {
+    showDisconnected();
+  }
 }
 
 void connectToServer();
 
-relabelPage();
-translator.addListener(relabelPage);
+session.relabel();
+translator.addListener(() => {
+  session.relabel();
+});
 
-/**
- * Carries out a key pressed, from the keyboard or as a button of a gamepad
- * acts as it.
- *
- * @param {string} code - The code of the key, as in a keyboard event.
- * @param {boolean} isRepeat - Whether the key is held down and repeats.
- * @returns {boolean} Whether the game took the key, which is then for
- *   nothing else, the browser included.
- */
-function pressGameKey(code: string, isRepeat: boolean): boolean {
-  // The dialogue box takes every key of the game while it is open, so that
-  // the player neither moves nor does anything else, and leaves every other
-  // key to the browser.
-  const answer: DialogueResponse = dialogueBox.pressKey(code);
-  if (answer.isHandled) {
-    if (answer.request !== null) {
-      sendInput(answer.request);
-    }
-    dialogueView.render();
-    return true;
-  }
-  if (dialogueBox.isOpen) {
-    return false;
-  }
-  // The ending sheet comes next, over the help sheet and the bag, which are
-  // closed while it is open: it takes every key of the game, and leaves
-  // every other key to the browser.
-  if (endingSheet.isOpen) {
-    const reply: EndingResponse = endingSheet.pressKey(
-      code,
-      performance.now(),
-      isRepeat,
-    );
-    if (reply.scroll !== 0) {
-      endingView.scroll(reply.scroll);
-    }
-    endingView.render();
-    return reply.isHandled;
-  }
-  // The help sheet comes next: the H key opens it over the bag, and while
-  // it is open, it takes every key of the game, and leaves every other key
-  // to the browser.
-  if (code === 'KeyH' || helpSheet.isOpen) {
-    if (isRepeat && code === 'KeyH') {
-      return true;
-    }
-    if (!helpSheet.isOpen) {
-      openHelp(KEYBOARD_PAGE);
-      return true;
-    }
-    if (!helpSheet.pressKey(code)) {
-      return false;
-    }
-    helpView.render();
-    return true;
-  }
-  // The bag takes its keys next, so that while it is open the arrow keys,
-  // Enter and Esc do nothing else, and the keys of play do nothing at all.
-  const wasOpen: boolean = bag.isOpen;
-  const response: BagResponse =
-    isRepeat && code === 'KeyI'
-      ? { isHandled: true, request: null }
-      : bag.pressKey(code);
-  if (response.isHandled) {
-    if (response.request !== null) {
-      carryOutItemAction(response.request);
-    }
-    if (bag.isOpen && !wasOpen) {
-      holdPlay();
-    }
-    bagView.render();
-    return true;
-  }
-  if (bag.isOpen) {
-    return findKeyCommand(code) !== null;
-  }
-  if (cameraKeys.pressKey(code)) {
-    return true;
-  }
-  const command: KeyCommand | null = findKeyCommand(code);
-  if (command === null) {
-    return false;
-  }
-  if (command !== 'interact') {
-    moveKeys.pressKey(code);
-    sendMove();
-    return true;
-  }
-  // A dead player cannot interact, and is not to once it is back for a key
-  // pressed while it was dead.
-  if (
-    isRepeat ||
-    prediction === null ||
-    prediction.motion.action === 'Die'
-  ) {
-    return true;
-  }
-  // The space bar picks what the prompt tells it picks, as the page knows
-  // it now; whether anything comes of it is for the server to decide.
-  const step: number = prediction.readNextStep(performance.now());
-  sendInput(
-    chooseSpaceInput(
-      prediction.motion,
-      step,
-      worldNews === null ? NO_WORLD_ITEMS : findShownItems(worldNews, step),
-      shownMap,
-      timeline.latestMonsters ?? [],
-    ),
-  );
-  return true;
-}
-
-window.addEventListener('keydown', (event: KeyboardEvent) => {
-  // While a line is typed, every key is for the box, the browser and the
-  // input method alone: the game neither acts on it nor keeps it from them.
-  if (chatBox.isOpen) {
-    return;
-  }
-  if (event.altKey || event.ctrlKey || event.metaKey) {
-    return;
-  }
-  if (pressGameKey(event.code, event.repeat)) {
-    event.preventDefault();
-    return;
-  }
-  // A plain Enter that nothing else took opens the box of the chat.
-  const isEnter: boolean =
-    event.code === 'Enter' || event.code === 'NumpadEnter';
-  if (isEnter && !event.shiftKey && !event.isComposing && canChat()) {
-    event.preventDefault();
-    if (!event.repeat) {
-      openChat();
-    }
-  }
-});
-window.addEventListener('keyup', (event: KeyboardEvent) => {
-  if (chatBox.isOpen) {
-    return;
-  }
-  moveKeys.releaseKey(event.code);
-  cameraKeys.releaseKey(event.code);
-  sendMove();
-});
-window.addEventListener('gamepadconnected', () => {
-  isPadConnected = true;
-});
-window.addEventListener('blur', () => {
-  moveKeys.releaseAllKeys();
-  cameraKeys.releaseAllKeys();
-  touchControls.releaseAll();
-  sendMove();
-});
+controls.listen(window);
 // The browser lets the page make sound only once the user has pressed
 // something on it.
 listenForSoundGestures(window, () => {
-  music.allow(panel.music);
+  music.allow(settings.music);
 });
 followPageVisibility();
 document.addEventListener('visibilitychange', followPageVisibility);

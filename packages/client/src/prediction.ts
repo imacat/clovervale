@@ -23,7 +23,7 @@
  */
 
 import {
-  SIMULATION_RATE,
+  STEP_MILLISECONDS,
   applyInput,
   interpolateYaw,
   isResting,
@@ -39,26 +39,16 @@ import type {
   StampedInput,
 } from '@clovervale/shared';
 
-/** How long one step of the simulation lasts, in milliseconds. */
-const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
+import { InputArrival } from './input-arrival.ts';
 
-/**
- * How much faster or slower than the clock of the page the step Toby is
- * drawn at may run while it catches up with where it is to be, as a share.
- */
-const DRAWN_STEP_SLEW = 0.1;
-
-/**
- * How many steps off the step Toby is drawn at may be before it starts over
- * at once instead of catching up little by little: two seconds of them.
- */
-const DRAWN_STEP_RESYNC: number = 2 * SIMULATION_RATE;
-
-/**
- * How far one bound may pass the other and still agree with it, in steps,
- * to allow for rounding.
- */
-const BOUND_TOLERANCE = 1e-9;
+/** How the owner has the player of the page shown. */
+export interface PredictionSettings {
+  /**
+   * Whether the player of the page is shown as predicted, rather than as
+   * the snapshots tell it, like every other player.
+   */
+  isEnabled: boolean;
+}
 
 /** An input that is in effect, or was, and what the player did with it. */
 interface InputRecord {
@@ -78,27 +68,6 @@ interface InputRecord {
   readonly setOff: number | null;
 }
 
-/** An input the page has sent, and when. */
-interface SentInput {
-  /** The number of the input. */
-  readonly sequence: number;
-  /** When the page sent it, on its clock, in milliseconds. */
-  readonly time: number;
-  /**
-   * The number of steps it told the server to take with the input before
-   * it in effect.
-   */
-  readonly after: number;
-}
-
-/** The step of the server at which an input came into effect. */
-interface InputEffect {
-  /** The number of the input. */
-  readonly sequence: number;
-  /** The number of the step. */
-  readonly step: number;
-}
-
 /**
  * The player of the page as the page predicts the server will have it,
  * once the server has all its inputs.
@@ -106,12 +75,13 @@ interface InputEffect {
  * The player moves by the rules of the server, at the rate of the server,
  * from the moment of an input, on the ground of the map it is in.  It takes
  * no steps while it rests, and so leaves it to the server to push it out of
- * the way of Toby then, which shows when a snapshot tells of it, as a
- * correction.
+ * the way of the villagers who push the players aside then, which shows
+ * when a snapshot tells of it, as a correction.
  *
  * Each step the page takes is numbered as the step of the server at which
- * the server is to take the same step, and Toby is where he is at that step
- * of the server, to stop the player or push it aside.  From one step to the
+ * the server is to take the same step, and the villager who pushes the
+ * players aside is where it is at that step of the server, to stop the
+ * player or push it aside.  From one step to the
  * next, the numbers go up by one, as the server takes a step of a player
  * that does not rest at every one of its own steps, and each snapshot sets
  * them right.  A player that sets off from rest takes its first step at the
@@ -147,12 +117,7 @@ export class PlayerPrediction {
   #correctionCount = 0;
   #lastCorrection: number | null = null;
   #inputStepTime: number = Number.NEGATIVE_INFINITY;
-  #sent: SentInput[] = [];
-  #lastEffect: InputEffect | null = null;
-  #leastOffset: number;
-  #mostOffset = Infinity;
-  #drawnStep: number | null = null;
-  #drawnTime = 0;
+  readonly #arrival: InputArrival;
 
   /**
    * Starts from what the server tells of the player, before any input.
@@ -171,7 +136,7 @@ export class PlayerPrediction {
     this.#dueTime = time;
     this.#step = step;
     this.#toldStep = step;
-    this.#leastOffset = step - time / STEP_MILLISECONDS;
+    this.#arrival = new InputArrival(step, time);
   }
 
   /**
@@ -275,7 +240,7 @@ export class PlayerPrediction {
       sequence: ++this.#sequence,
       after: this.#waiting.length > 0 ? 0 : (this.#records.at(-1)?.steps ?? 0),
     };
-    this.#sent.push({ sequence: stamped.sequence, time, after: stamped.after });
+    this.#arrival.noteSent(stamped.sequence, time, stamped.after);
     this.#waiting.push(stamped);
     this.advance(time);
     this.#inputStepTime =
@@ -344,7 +309,7 @@ export class PlayerPrediction {
    */
   reconcile(progress: InputProgress, step: number, time: number): void {
     this.advance(time);
-    this.#learnOffset(progress, step, time);
+    this.#arrival.learn(progress, step, time);
     // The server may have got to an input before the page has.
     while ((this.#waiting[0]?.sequence ?? Infinity) <= progress.sequence) {
       const input: StampedInput | undefined = this.#waiting.shift();
@@ -452,37 +417,16 @@ export class PlayerPrediction {
   }
 
   /**
-   * Tells the step of the server, or the moment between two of its steps,
-   * that Toby is to be drawn at, at a time.
+   * Estimates how far the steps at which the server takes in the inputs of
+   * the page are ahead of the times the page sends them, as the page
+   * reckons from what the server has told so far: the server takes an input
+   * in at the first step it numbers no lower than the time the page sends
+   * it at, in steps, and this.
    *
-   * It is the step a walking player is drawn at, on average, as the page
-   * reckons from when the server takes in its inputs.  It goes on evenly
-   * with the clock of the page, whether the player walks or rests.  When
-   * the page reckons differently, it catches up little by little, running a
-   * little faster or slower, and never backwards, unless it is far off, when
-   * it starts over at once.
-   *
-   * @param {number} time - The time on the clock of the page, in
-   *   milliseconds, which is no earlier than any time told before.
-   * @returns {number} The number of the step, which may fall between two.
+   * @returns {number} The offset, in steps.
    */
-  readDrawnStep(time: number): number {
-    const target: number =
-      time / STEP_MILLISECONDS + this.#estimateOffset() - 0.5;
-    if (this.#drawnStep === null) {
-      this.#drawnStep = target;
-    } else {
-      const span: number = (time - this.#drawnTime) / STEP_MILLISECONDS;
-      const even: number = this.#drawnStep + span;
-      const error: number = target - even;
-      const reach: number = DRAWN_STEP_SLEW * span;
-      this.#drawnStep =
-        Math.abs(error) > DRAWN_STEP_RESYNC
-          ? target
-          : even + Math.min(Math.max(error, -reach), reach);
-    }
-    this.#drawnTime = time;
-    return this.#drawnStep;
+  estimateArrivalOffset(): number {
+    return this.#arrival.estimateOffset();
   }
 
   /**
@@ -529,99 +473,8 @@ export class PlayerPrediction {
   #findSetOffStep(time: number): number {
     return Math.max(
       this.#step + 1,
-      Math.ceil(time / STEP_MILLISECONDS + this.#estimateOffset()),
+      Math.ceil(time / STEP_MILLISECONDS + this.#arrival.estimateOffset()),
     );
-  }
-
-  /**
-   * Estimates the offset of the steps at which the server takes in the
-   * inputs of the page from the times the page sends them: the server
-   * takes an input in at the first step it numbers no lower than the time
-   * the page sends it at, in steps, and the offset.
-   *
-   * @returns {number} The offset, in steps: halfway between the least and
-   *   the most it can be, as far as the page can tell.
-   */
-  #estimateOffset(): number {
-    if (this.#mostOffset === Infinity) {
-      return this.#leastOffset + 0.5;
-    }
-    if (this.#leastOffset === -Infinity) {
-      return this.#mostOffset - 0.5;
-    }
-    return (this.#leastOffset + this.#mostOffset) / 2;
-  }
-
-  /**
-   * Narrows down the offset of the steps at which the server takes in the
-   * inputs of the page by what the server tells.
-   *
-   * No input the page sends after it hears of a step comes into effect
-   * before the next step.  No input comes into effect before the step that
-   * would take it in on its arrival.  An input that comes into effect at a
-   * step after the one the steps before it allow for, does so at that very
-   * step.  What the server tells that cannot be, as the time an input takes
-   * to reach the server changes, takes the place of what came before.
-   *
-   * @param {InputProgress} progress - How far the server had got with the
-   *   inputs of the page.
-   * @param {number} step - The number of steps the server had taken then.
-   * @param {number} time - When the page heard of it, on its clock, in
-   *   milliseconds.
-   */
-  #learnOffset(progress: InputProgress, step: number, time: number): void {
-    this.#bindOffsetBelow(step - time / STEP_MILLISECONDS);
-    const { sequence } = progress;
-    if (sequence === 0 || sequence === this.#lastEffect?.sequence) {
-      return;
-    }
-    const effect: number = step - progress.steps + 1;
-    const previous: InputEffect | null = this.#lastEffect;
-    this.#lastEffect = { sequence, step: effect };
-    const sent: SentInput | undefined = this.#sent.find(
-      (input: SentInput) => input.sequence === sequence,
-    );
-    this.#sent = this.#sent.filter(
-      (input: SentInput) => input.sequence > sequence,
-    );
-    if (sent === undefined) {
-      return;
-    }
-    const offset: number = effect - sent.time / STEP_MILLISECONDS;
-    this.#bindOffsetAbove(offset);
-    const allowed: number | null =
-      sequence === 1
-        ? Number.NEGATIVE_INFINITY
-        : previous?.sequence === sequence - 1
-          ? previous.step + sent.after
-          : null;
-    if (allowed !== null && effect > allowed) {
-      this.#bindOffsetBelow(offset - 1);
-    }
-  }
-
-  /**
-   * Takes note that the offset is no less than a bound.
-   *
-   * @param {number} bound - The bound, in steps.
-   */
-  #bindOffsetBelow(bound: number): void {
-    if (bound > this.#mostOffset + BOUND_TOLERANCE) {
-      this.#mostOffset = Infinity;
-    }
-    this.#leastOffset = Math.max(this.#leastOffset, bound);
-  }
-
-  /**
-   * Takes note that the offset is no more than a bound.
-   *
-   * @param {number} bound - The bound, in steps.
-   */
-  #bindOffsetAbove(bound: number): void {
-    if (bound < this.#leastOffset - BOUND_TOLERANCE) {
-      this.#leastOffset = Number.NEGATIVE_INFINITY;
-    }
-    this.#mostOffset = Math.min(this.#mostOffset, bound);
   }
 }
 

@@ -19,12 +19,28 @@
 
 /**
  * @module shared/world-map The maps a player can be in, each with its own
- *   ground and its own frame.
+ *   ground, its own frame and its own rules.
  */
 
-import { CAVE_TERRAIN } from './cave.ts';
+import {
+  CAVE_CONTAINERS,
+  CAVE_LANDING,
+  CAVE_ROPE,
+  CAVE_TERRAIN,
+} from './cave.ts';
+import type { CaveContainer } from './cave.ts';
+import type { Fountain, Passage } from './interaction.ts';
+import { CLOVER_PATCHES } from './items.ts';
+import type { GroundVector } from './movement.ts';
+import { PLAYER_RADIUS } from './terrain.ts';
 import type { Terrain } from './terrain.ts';
-import { VILLAGE_TERRAIN } from './village-layout.ts';
+import {
+  FOUNTAIN_RIM_RADIUS,
+  SPAWN_STONES_POSE,
+  VILLAGE_TERRAIN,
+  WELL_STAND,
+} from './village-layout.ts';
+import { PLAZA_CENTRE } from './village.ts';
 
 /**
  * The maps a player can be in: the village, which every player shares, and
@@ -37,13 +53,161 @@ export const MAP_IDS = ['village', 'cave'] as const;
 export type MapId = (typeof MAP_IDS)[number];
 
 /**
- * Finds the ground of a map.
- *
- * @param {MapId} map - The map.
- * @returns {Terrain} What stands in the way of the players there.
+ * The map a player first comes into, which a page shows before it
+ * connects.
  */
-export function findMapTerrain(map: MapId): Terrain {
-  return map === 'cave' ? CAVE_TERRAIN : VILLAGE_TERRAIN;
+export const HOME_MAP: MapId = 'village';
+
+/**
+ * The farthest a player can stand from the rim of the fountain to drink
+ * from it, from the edge of the player to the rim, in metres.
+ */
+export const FOUNTAIN_REACH = 0.5;
+
+/**
+ * The farthest a player can stand from the middle of the burrow of the
+ * wild dog, among the spawn stones, to go down into the cave, whichever
+ * way it faces, from centre to centre, in metres.
+ */
+export const BURROW_REACH = 1.2;
+
+/**
+ * The farthest a player can stand from the rope at the bottom of the old
+ * well shaft in the cave to climb up it, from centre to centre, in metres.
+ */
+export const ROPE_REACH = 1.2;
+
+/** What a map is, and how things go there. */
+export interface WorldMap {
+  /** The identifier of the map. */
+  readonly id: MapId;
+  /** What stands in the way of the players there. */
+  readonly terrain: Terrain;
+  /**
+   * Whether every player shares the map, rather than every player who
+   * goes there having one of its own.
+   */
+  readonly isShared: boolean;
+  /**
+   * The map a player who has died there comes back to life in: the map
+   * itself, at a spawn point, or another map it leaves for.
+   */
+  readonly revivalMap: MapId;
+  /** The fountains there, which a player drinks from. */
+  readonly fountains: readonly Fountain[];
+  /** The ways from there into the other maps. */
+  readonly passages: readonly Passage[];
+  /**
+   * Where the patches of clover there are, each numbered by its place in
+   * the list, from 0.
+   */
+  readonly cloverPatches: readonly GroundVector[];
+  /**
+   * The chests and the barrels there, each numbered by its place in the
+   * list, from 0.
+   */
+  readonly containers: readonly CaveContainer[];
+  /**
+   * Whether the monsters there stand still while a player there is in a
+   * dialogue.
+   */
+  readonly pausesInDialogue: boolean;
+  /**
+   * Whether the story can end there, for a player who holds what ends it.
+   */
+  readonly allowsEnding: boolean;
+}
+
+/**
+ * The village, which every player shares, with the fountain on its plaza,
+ * the way down the burrow of the wild dog, among the spawn stones outside
+ * the village gate, whichever way the player faces, to the foot of the
+ * slope in the cave, and its patches of clover, in which a player who dies
+ * there comes back to life, and in which the story ends.
+ */
+const VILLAGE: WorldMap = {
+  id: 'village',
+  terrain: VILLAGE_TERRAIN,
+  isShared: true,
+  revivalMap: 'village',
+  fountains: [
+    {
+      type: 'fountain',
+      input: 'interact',
+      interaction: 'Drink',
+      centre: PLAZA_CENTRE,
+      reach: FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH,
+      nearReach: 0,
+      yieldsToSlash: false,
+    },
+  ],
+  passages: [
+    {
+      type: 'passage',
+      input: 'travel',
+      centre: { x: SPAWN_STONES_POSE.x, z: SPAWN_STONES_POSE.z },
+      reach: BURROW_REACH,
+      nearReach: BURROW_REACH,
+      yieldsToSlash: true,
+      destination: 'cave',
+      arrival: CAVE_LANDING,
+    },
+  ],
+  cloverPatches: CLOVER_PATCHES,
+  containers: [],
+  pausesInDialogue: false,
+  allowsEnding: true,
+};
+
+/**
+ * The cave, of which every player who goes down has one of its own, with
+ * the way up the rope at the bottom of the old well shaft, facing it, to
+ * beside the old well in the yard of the chief's house, and its chests and
+ * barrels, whose monsters stand still while its player is in a dialogue,
+ * and from which a player who dies there leaves for the village.
+ */
+const CAVE: WorldMap = {
+  id: 'cave',
+  terrain: CAVE_TERRAIN,
+  isShared: false,
+  revivalMap: 'village',
+  fountains: [],
+  passages: [
+    {
+      type: 'passage',
+      input: 'travel',
+      centre: CAVE_ROPE,
+      reach: ROPE_REACH,
+      nearReach: 0,
+      yieldsToSlash: true,
+      destination: 'village',
+      arrival: WELL_STAND,
+    },
+  ],
+  cloverPatches: [],
+  containers: CAVE_CONTAINERS,
+  pausesInDialogue: true,
+  allowsEnding: false,
+};
+
+/** Every map, by its identifier. */
+export const WORLD_MAPS: Readonly<Record<MapId, WorldMap>> = {
+  village: VILLAGE,
+  cave: CAVE,
+};
+
+/**
+ * Tells whether the monsters of a world stand still, as they do while a
+ * player is in a dialogue in a map whose monsters do: the cave, and
+ * nowhere else.
+ *
+ * @param {MapId} map - The map of the world.
+ * @param {boolean} isInDialogue - Whether a player of the world is in a
+ *   dialogue.
+ * @returns {boolean} Whether they do.
+ */
+export function areMonstersPaused(map: MapId, isInDialogue: boolean): boolean {
+  return WORLD_MAPS[map].pausesInDialogue && isInDialogue;
 }
 
 /**

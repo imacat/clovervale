@@ -73,6 +73,17 @@ const KEY_TURNS: Readonly<Record<string, CameraTurn>> = {
 };
 
 /**
+ * Tells whether a key turns the camera while it is held: whether it is an
+ * arrow key.
+ *
+ * @param {string} code - The code of the key, as in a keyboard event.
+ * @returns {boolean} Whether it does.
+ */
+export function isCameraKey(code: string): boolean {
+  return Object.hasOwn(KEY_TURNS, code);
+}
+
+/**
  * The arrow keys held down to turn the camera: the left and right arrows
  * orbit it round what it looks at, so that the view turns left and right
  * on the screen, and the up and down arrows lower and raise it, so that
@@ -98,7 +109,7 @@ export class CameraKeys implements CameraHold {
    * @returns {boolean} Whether the key turns the camera.
    */
   pressKey(code: string): boolean {
-    if (!Object.hasOwn(KEY_TURNS, code)) {
+    if (!isCameraKey(code)) {
       return false;
     }
     this.#held.add(code);

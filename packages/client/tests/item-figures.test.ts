@@ -25,12 +25,33 @@
 import { Scene } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import type { GroundItem } from '@clovervale/shared';
+import type { GroundItem, WorldItems } from '@clovervale/shared';
 
+import type { FigureFrame } from '../src/figure-set.ts';
 import { ItemFigures } from '../src/item-figures.ts';
 
 /** An item on the ground. */
 const ITEM: GroundItem = { id: 3, kind: 'clover', x: 2.5, z: -9.25 };
+
+/**
+ * Makes a frame that shows what there is to pick, or nothing.
+ *
+ * @param {WorldItems | null} items - What there is to pick, or nothing.
+ * @returns {FigureFrame} The frame.
+ */
+function makeItemFrame(items: WorldItems | null): FigureFrame {
+  return {
+    map: 'village',
+    ownId: null,
+    view: { players: [], monsters: [], lag: 0, time: null },
+    latestMonsters: null,
+    shownStep: null,
+    items,
+    ownMotion: null,
+    ownStep: 0,
+    areMonstersPaused: false,
+  };
+}
 
 describe('ItemFigures', () => {
   it('shows nothing before it is told of the world', () => {
@@ -40,25 +61,25 @@ describe('ItemFigures', () => {
 
   it('shows the clovers of the patches that have them, and the items', () => {
     const figures = new ItemFigures(new Scene());
-    figures.show({ clovers: [0, 6], items: [ITEM] });
+    figures.show(makeItemFrame({ clovers: [0, 6], items: [ITEM] }));
     expect(figures.describe()).toEqual({ clovers: [0, 6], items: [ITEM] });
   });
 
   it('shows no more of what is gone', () => {
     const figures = new ItemFigures(new Scene());
     const other: GroundItem = { ...ITEM, id: 4, x: -1 };
-    figures.show({ clovers: [0, 6], items: [ITEM, other] });
-    figures.show({ clovers: [6], items: [other] });
+    figures.show(makeItemFrame({ clovers: [0, 6], items: [ITEM, other] }));
+    figures.show(makeItemFrame({ clovers: [6], items: [other] }));
     expect(figures.describe()).toEqual({ clovers: [6], items: [other] });
-    figures.show(null);
+    figures.show(makeItemFrame(null));
     expect(figures.describe()).toEqual({ clovers: [], items: [] });
   });
 
   it('shows an item where it lies now, once its number is that of another', () => {
     const figures = new ItemFigures(new Scene());
     const elsewhere: GroundItem = { ...ITEM, x: 18, z: 0.5 };
-    figures.show({ clovers: [], items: [ITEM] });
-    figures.show({ clovers: [], items: [elsewhere] });
+    figures.show(makeItemFrame({ clovers: [], items: [ITEM] }));
+    figures.show(makeItemFrame({ clovers: [], items: [elsewhere] }));
     expect(figures.describe()).toEqual({ clovers: [], items: [elsewhere] });
   });
 
@@ -66,9 +87,9 @@ describe('ItemFigures', () => {
     const scene = new Scene();
     const figures = new ItemFigures(scene);
     const before: number = scene.children.length;
-    figures.show({ clovers: [], items: [ITEM] });
+    figures.show(makeItemFrame({ clovers: [], items: [ITEM] }));
     expect(scene.children.length).toBe(before + 1);
-    figures.show({ clovers: [], items: [] });
+    figures.show(makeItemFrame({ clovers: [], items: [] }));
     expect(scene.children.length).toBe(before);
   });
 });

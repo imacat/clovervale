@@ -23,15 +23,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  CAVE_EDWIN_FILE,
-  TOBY_FILE,
-  findSpawnPoint,
-} from '@clovervale/shared';
+import { findSpawnPoint } from '@clovervale/shared';
 
 import {
   CHARACTER_FILES,
-  MARTHA_FILE,
+  MODEL_FILES,
   MONSTER_FILE,
   REQUIRED_MODEL_FILES,
 } from '../src/model-catalogue.ts';
@@ -59,6 +55,16 @@ function measureDistance(a: Placement, b: Placement): number {
 }
 
 /**
+ * Finds the file name of the model that stands in a place.
+ *
+ * @param {Placement} placement - Where the model stands.
+ * @returns {string} The file name of the model.
+ */
+function findFile(placement: Placement): string {
+  return MODEL_FILES[placement.model];
+}
+
+/**
  * Finds where the only copy of a model stands.
  *
  * @param {readonly Placement[]} placements - Where the models stand.
@@ -68,7 +74,7 @@ function measureDistance(a: Placement, b: Placement): number {
  */
 function findOnly(placements: readonly Placement[], file: string): Placement {
   const found: Placement[] = placements.filter(
-    (placement: Placement) => placement.file === file,
+    (placement: Placement) => findFile(placement) === file,
   );
   const [only] = found;
   if (only === undefined || found.length !== 1) {
@@ -80,14 +86,14 @@ function findOnly(placements: readonly Placement[], file: string): Placement {
 describe('layoutVillage', () => {
   it('stands each required model of the village that never moves in one place', () => {
     const placements: Placement[] = layoutVillage(REQUIRED_MODEL_FILES);
-    expect(placements.map((placement: Placement) => placement.file)).toEqual(
+    expect(placements.map(findFile)).toEqual(
       REQUIRED_MODEL_FILES.filter(
         (file: string) =>
           !CHARACTER_FILES.includes(file) &&
           file !== MONSTER_FILE &&
-          file !== TOBY_FILE &&
-          file !== MARTHA_FILE &&
-          file !== CAVE_EDWIN_FILE,
+          file !== MODEL_FILES.toby &&
+          file !== MODEL_FILES.martha &&
+          file !== MODEL_FILES.edwin,
       ),
     );
   });
@@ -97,8 +103,8 @@ describe('layoutVillage', () => {
       layoutVillage([
         ...CHARACTER_FILES,
         MONSTER_FILE,
-        MARTHA_FILE,
-        TOBY_FILE,
+        MODEL_FILES.martha,
+        MODEL_FILES.toby,
       ]),
     ).toEqual([]);
   });
@@ -117,7 +123,7 @@ describe('layoutVillage', () => {
           'prop-chief-house.glb',
           'prop-cottage.glb',
           'weapon-shop.glb',
-        ].includes(placement.file),
+        ].includes(findFile(placement)),
     );
     expect(buildings).toHaveLength(4);
     const corners = new Set<string>();
@@ -182,7 +188,7 @@ describe('layoutVillage', () => {
         'weapon-shop.glb',
         'prop-chief-house.glb',
         'prop-cottage.glb',
-      ].includes(villager.file);
+      ].includes(findFile(villager));
       if (isVillager) {
         expect(measureDistance(stones, fountain)).toBeGreaterThan(
           measureDistance(villager, fountain),
@@ -196,7 +202,7 @@ describe('layoutVillage', () => {
       'prop-cave.glb',
       'prop-cave-torch.glb',
       'prop-rock.glb',
-    ]).map((placement: Placement) => placement.file);
+    ]).map(findFile);
     expect(files).not.toContain('prop-cave.glb');
     expect(files).not.toContain('prop-cave-torch.glb');
     expect(files).toContain('prop-rock.glb');

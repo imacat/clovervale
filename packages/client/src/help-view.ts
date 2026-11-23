@@ -32,6 +32,11 @@ import type { HelpSheet } from './help-sheet.ts';
 import type { PlainMessageId } from './messages/en.ts';
 import { drawHand } from './touch-view.ts';
 import type { Translator } from './translator.ts';
+import {
+  createClickable,
+  createSvgElement,
+  drawPicture,
+} from './view-elements.ts';
 
 /** The help sheet as the page shows it. */
 export interface HelpView {
@@ -160,42 +165,6 @@ const ARROWS_PATH =
 /** The labels of the key caps drawn wide. */
 const WIDE_CAPS: ReadonlySet<string> = new Set(['Space', 'Enter', 'Esc']);
 
-/** The namespace of the elements of SVG. */
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-
-/**
- * Makes an element of SVG.
- *
- * @param {string} name - The name of the element.
- * @param {Readonly<Record<string, string>>} attributes - Its attributes.
- * @returns {SVGElement} The element.
- */
-function createSvgElement(
-  name: string,
-  attributes: Readonly<Record<string, string>>,
-): SVGElement {
-  const element: SVGElement = document.createElementNS(SVG_NAMESPACE, name);
-  for (const [key, value] of Object.entries(attributes)) {
-    element.setAttribute(key, value);
-  }
-  return element;
-}
-
-/**
- * Draws a small picture, 64 units square.
- *
- * @param {readonly SVGElement[]} parts - What the picture is made of.
- * @returns {SVGElement} The picture.
- */
-function drawPicture(parts: readonly SVGElement[]): SVGElement {
-  const svg: SVGElement = createSvgElement('svg', {
-    viewBox: '0 0 64 64',
-    'aria-hidden': 'true',
-  });
-  svg.append(...parts);
-  return svg;
-}
-
 /**
  * Draws a small piece of parchment, its corners curled, with a question
  * mark in the middle.
@@ -259,32 +228,6 @@ function drawMouse(): SVGElement {
       class: 'help-mouse-drag',
     }),
   ]);
-}
-
-/**
- * Makes an element that does something when it is clicked, and keeps the
- * pointer from the game underneath it and itself from taking the focus.
- *
- * @param {string} className - The class of the element.
- * @param {() => void} onClick - What it does when clicked.
- * @returns {HTMLDivElement} The element.
- */
-function createClickable(
-  className: string,
-  onClick: () => void,
-): HTMLDivElement {
-  const element: HTMLDivElement = document.createElement('div');
-  element.className = className;
-  element.setAttribute('role', 'button');
-  element.addEventListener('pointerdown', (event: PointerEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
-  element.addEventListener('click', (event: MouseEvent) => {
-    event.stopPropagation();
-    onClick();
-  });
-  return element;
 }
 
 /**

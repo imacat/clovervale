@@ -22,6 +22,13 @@
  */
 
 import {
+  CHARACTER_FILES,
+  LYING_ITEM_MODELS,
+  LYING_PITCHFORK_FILE,
+  MODEL_FILES,
+  MONSTER_FILE,
+} from '../../packages/client/src/model-catalogue.ts';
+import {
   buildBarrel,
   buildHerbCrate,
   buildHerbRack,
@@ -76,8 +83,8 @@ import { buildWildDog } from './wild-dog.ts';
 
 /** A model to generate. */
 interface ModelEntry {
-  /** The file name of the model, without its extension. */
-  readonly name: string;
+  /** The file name of the model. */
+  readonly file: string;
   /** Builds the model. */
   readonly build: () => BuiltModel;
 }
@@ -85,63 +92,90 @@ interface ModelEntry {
 /**
  * Lists the models to generate.
  *
- * @returns {ModelEntry[]} The models, in the order to generate them.
+ * @returns {ModelEntry[]} The models, in the order to generate them, under
+ *   the file names the client loads them by.
  */
 export function listModels(): ModelEntry[] {
   return [
     ...VARIANTS.map(
       (_: unknown, index: number): ModelEntry => ({
-        name: `character-0${String(index + 1)}`,
+        file: findCharacterFile(index),
         build: (): BuiltModel => buildCharacter(index),
       }),
     ),
-    { name: 'npc-nancy', build: buildNpcNancy },
-    { name: 'npc-emma', build: buildNpcEmma },
-    { name: 'npc-martha', build: buildNpcMartha },
-    { name: 'npc-toby', build: buildNpcToby },
-    { name: 'npc-basil', build: buildNpcBasil },
-    { name: 'npc-edwin', build: buildNpcEdwin },
-    { name: 'wild-dog', build: buildWildDog },
-    { name: 'weapon-shop', build: buildWeaponShop },
-    { name: 'fountain', build: buildFountain },
-    { name: 'prop-cottage', build: buildCottage },
-    { name: 'prop-apothecary', build: buildApothecary },
-    { name: 'prop-herb-rack', build: buildHerbRack },
-    { name: 'prop-potion-crate', build: buildPotionCrate },
-    { name: 'prop-herb-crate', build: buildHerbCrate },
-    { name: 'prop-potted-plant', build: buildPottedPlant },
-    { name: 'prop-barrel', build: buildBarrel },
-    { name: 'prop-great-tree', build: buildGreatTree },
-    { name: 'prop-pine-tree', build: buildPineTree },
-    { name: 'prop-bush', build: buildBush },
-    { name: 'prop-rock', build: buildRock },
-    { name: 'prop-fence', build: buildFence },
-    { name: 'prop-clover', build: buildClover },
-    { name: 'prop-spawn-stones', build: buildSpawnStones },
-    { name: 'prop-healing-stele', build: buildHealingStele },
-    { name: 'prop-village-sign', build: buildVillageSign },
-    { name: 'prop-chief-house', build: buildChiefHouse },
-    { name: 'prop-yard-wall', build: buildYardWall },
-    { name: 'prop-yard-wall-end', build: buildYardWallEnd },
-    { name: 'prop-old-well', build: buildOldWell },
-    { name: 'prop-pitchfork', build: buildPropPitchfork },
-    { name: 'prop-pitchfork-lying', build: buildPropPitchforkLying },
-    { name: 'prop-cave', build: buildCave },
-    { name: 'prop-cave-torch', build: buildCaveTorch },
-    { name: 'prop-cave-bars', build: buildCaveBars },
-    { name: 'prop-cave-skeleton', build: buildCaveSkeleton },
-    { name: 'prop-cave-chest', build: buildCaveChest },
-    { name: 'prop-cave-chest-open', build: buildCaveChestOpen },
-    { name: 'prop-cave-barrel', build: buildCaveBarrel },
-    { name: 'prop-cave-barrel-open', build: buildCaveBarrelOpen },
-    { name: 'prop-item-sword', build: buildItemSword },
-    { name: 'prop-item-leather-armour', build: buildItemLeatherArmour },
-    { name: 'prop-item-healing-potion', build: buildItemHealingPotion },
+    { file: MODEL_FILES.nancy, build: buildNpcNancy },
+    { file: MODEL_FILES.emma, build: buildNpcEmma },
+    { file: MODEL_FILES.martha, build: buildNpcMartha },
+    { file: MODEL_FILES.toby, build: buildNpcToby },
+    { file: MODEL_FILES.basil, build: buildNpcBasil },
+    { file: MODEL_FILES.edwin, build: buildNpcEdwin },
+    { file: MONSTER_FILE, build: buildWildDog },
+    { file: MODEL_FILES['weapon-shop'], build: buildWeaponShop },
+    { file: MODEL_FILES.fountain, build: buildFountain },
+    { file: MODEL_FILES.cottage, build: buildCottage },
+    { file: MODEL_FILES.apothecary, build: buildApothecary },
+    { file: MODEL_FILES['herb-rack'], build: buildHerbRack },
+    { file: MODEL_FILES['potion-crate'], build: buildPotionCrate },
+    { file: MODEL_FILES['herb-crate'], build: buildHerbCrate },
+    { file: MODEL_FILES['potted-plant'], build: buildPottedPlant },
+    { file: MODEL_FILES.barrel, build: buildBarrel },
+    { file: MODEL_FILES['great-tree'], build: buildGreatTree },
+    { file: MODEL_FILES['pine-tree'], build: buildPineTree },
+    { file: MODEL_FILES.bush, build: buildBush },
+    { file: MODEL_FILES.rock, build: buildRock },
+    { file: MODEL_FILES.fence, build: buildFence },
+    { file: MODEL_FILES.clover, build: buildClover },
+    { file: MODEL_FILES['spawn-stones'], build: buildSpawnStones },
+    { file: MODEL_FILES['healing-stele'], build: buildHealingStele },
+    { file: MODEL_FILES['village-sign'], build: buildVillageSign },
+    { file: MODEL_FILES['chief-house'], build: buildChiefHouse },
+    { file: MODEL_FILES['yard-wall'], build: buildYardWall },
+    { file: MODEL_FILES['yard-wall-end'], build: buildYardWallEnd },
+    { file: MODEL_FILES['old-well'], build: buildOldWell },
+    { file: MODEL_FILES.pitchfork, build: buildPropPitchfork },
+    { file: LYING_PITCHFORK_FILE, build: buildPropPitchforkLying },
+    { file: MODEL_FILES.cave, build: buildCave },
+    { file: MODEL_FILES['cave-torch'], build: buildCaveTorch },
+    { file: MODEL_FILES['cave-bars'], build: buildCaveBars },
+    { file: MODEL_FILES['cave-skeleton'], build: buildCaveSkeleton },
+    { file: MODEL_FILES['cave-chest'], build: buildCaveChest },
+    { file: MODEL_FILES['cave-chest-open'], build: buildCaveChestOpen },
+    { file: MODEL_FILES['cave-barrel'], build: buildCaveBarrel },
+    { file: MODEL_FILES['cave-barrel-open'], build: buildCaveBarrelOpen },
+    { file: LYING_ITEM_MODELS.sword, build: buildItemSword },
     {
-      name: 'prop-item-clovervale-message',
+      file: LYING_ITEM_MODELS['leather-armour'],
+      build: buildItemLeatherArmour,
+    },
+    {
+      file: LYING_ITEM_MODELS['healing-potion'],
+      build: buildItemHealingPotion,
+    },
+    {
+      file: LYING_ITEM_MODELS['clovervale-message'],
       build: buildItemClovervaleMessage,
     },
-    { name: 'prop-item-spy-token', build: buildItemSpyToken },
-    { name: 'prop-item-martha-ointment', build: buildItemMarthaOintment },
+    { file: LYING_ITEM_MODELS['spy-token'], build: buildItemSpyToken },
+    {
+      file: LYING_ITEM_MODELS['martha-ointment'],
+      build: buildItemMarthaOintment,
+    },
   ];
+}
+
+/**
+ * Finds the file name of the character of a variant.
+ *
+ * @param {number} index - The number of the variant, from 0.
+ * @returns {string} The file name of the character.
+ * @throws {Error} If the client has no character for the variant.
+ */
+function findCharacterFile(index: number): string {
+  const file: string | undefined = CHARACTER_FILES[index];
+  if (file === undefined) {
+    throw new Error(
+      `The client has no character for variant ${String(index)}.`,
+    );
+  }
+  return file;
 }

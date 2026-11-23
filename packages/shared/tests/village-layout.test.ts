@@ -40,7 +40,12 @@ import {
   findVillager,
   placePoint,
 } from '../src/index.ts';
-import type { GroundVector, Placement, Shape } from '../src/index.ts';
+import type {
+  GroundVector,
+  ModelId,
+  Placement,
+  Shape,
+} from '../src/index.ts';
 import { findTurn, turnVector } from '../src/terrain.ts';
 import { VILLAGE_BOUNDARY } from '../src/village-layout.ts';
 import type { CircleShape } from '../src/terrain.ts';
@@ -50,11 +55,11 @@ import type { CircleShape } from '../src/terrain.ts';
  * stands in the way of nobody, and her pitchfork, which leans against the
  * wall of her house.
  */
-const OPEN_FILES: readonly string[] = [
-  'prop-clover.glb',
-  'prop-spawn-stones.glb',
-  'npc-martha.glb',
-  'prop-pitchfork.glb',
+const OPEN_MODELS: readonly ModelId[] = [
+  'clover',
+  'spawn-stones',
+  'martha',
+  'pitchfork',
 ];
 
 /** A gap in a fence that the way goes through. */
@@ -73,10 +78,10 @@ interface Gate extends GroundVector {
  *   spawn stones.
  */
 function findGate(): Gate {
-  const stones: Placement = findPlacement('prop-spawn-stones.glb');
+  const stones: Placement = findPlacement('spawn-stones');
   const fences: Placement[] = VILLAGE_PLACEMENTS.filter(
     (placement: Placement) =>
-      placement.file === 'prop-fence.glb' &&
+      placement.model === 'fence' &&
       placement.yaw === 0 &&
       placement.z > PLAZA_CENTRE.z &&
       placement.z < stones.z,
@@ -203,17 +208,14 @@ function walkGrid(
   return points;
 }
 
-/** The file name of the house of the village chief. */
-const CHIEF_HOUSE_FILE = 'prop-chief-house.glb';
+/** The model of the house of the village chief. */
+const CHIEF_HOUSE: ModelId = 'chief-house';
 
-/** The file name of the old well in the yard of the chief's house. */
-const WELL_FILE = 'prop-old-well.glb';
+/** The model of the old well in the yard of the chief's house. */
+const WELL: ModelId = 'old-well';
 
-/** The file names of the pieces of the low wall of the chief's yard. */
-const YARD_WALL_FILES: readonly string[] = [
-  'prop-yard-wall.glb',
-  'prop-yard-wall-end.glb',
-];
+/** The models of the pieces of the low wall of the chief's yard. */
+const YARD_WALLS: readonly ModelId[] = ['yard-wall', 'yard-wall-end'];
 
 /**
  * How far in front of the chief's house its low wall runs, as the model of
@@ -221,8 +223,8 @@ const YARD_WALL_FILES: readonly string[] = [
  */
 const YARD_WALL_LINE = 4.8;
 
-/** The file name of Martha, the village chief. */
-const MARTHA_FILE = 'npc-martha.glb';
+/** The model of Martha, the village chief. */
+const MARTHA: ModelId = 'martha';
 
 /**
  * The place on the porch of the chief's house where Martha the chief
@@ -291,7 +293,7 @@ const YARD_WALKS: readonly (readonly [string, GroundVector, GroundVector])[] =
  * @returns {GroundVector} The point in the world.
  */
 function placeOnChiefHouse(local: GroundVector): GroundVector {
-  return placePoint(findPlacement(CHIEF_HOUSE_FILE), local);
+  return placePoint(findPlacement(CHIEF_HOUSE), local);
 }
 
 /**
@@ -303,7 +305,7 @@ function placeOnChiefHouse(local: GroundVector): GroundVector {
  */
 function findYardWallTerrain(): Terrain {
   const pieces: Placement[] = VILLAGE_PLACEMENTS.filter(
-    (placement: Placement) => YARD_WALL_FILES.includes(placement.file),
+    (placement: Placement) => YARD_WALLS.includes(placement.model),
   );
   return new Terrain(
     VILLAGE_TERRAIN.shapes.filter((shape: Shape) =>
@@ -319,15 +321,17 @@ function findYardWallTerrain(): Terrain {
 describe('VILLAGE_TERRAIN', () => {
   it('stands in the way where the scenery stands', () => {
     for (const placement of VILLAGE_PLACEMENTS) {
-      if (!OPEN_FILES.includes(placement.file)) {
-        expect(VILLAGE_TERRAIN.isClear(placement), placement.file).toBe(false);
+      if (!OPEN_MODELS.includes(placement.model)) {
+        expect(VILLAGE_TERRAIN.isClear(placement), placement.model).toBe(
+          false,
+        );
       }
     }
   });
 
   it('lets players walk over the clover', () => {
     for (const placement of VILLAGE_PLACEMENTS) {
-      if (placement.file === 'prop-clover.glb') {
+      if (placement.model === 'clover') {
         const isOverlapped: boolean = VILLAGE_PLACEMENTS.some(
           (other: Placement) =>
             other !== placement &&
@@ -341,7 +345,7 @@ describe('VILLAGE_TERRAIN', () => {
   });
 
   it('rings the spawn point of the monster with standing stones', () => {
-    const stones: Placement = findPlacement('prop-spawn-stones.glb');
+    const stones: Placement = findPlacement('spawn-stones');
     expect(VILLAGE_TERRAIN.isClear(stones)).toBe(true);
     let blocked = 0;
     for (let degrees = 0; degrees < 360; degrees += 5) {
@@ -359,8 +363,8 @@ describe('VILLAGE_TERRAIN', () => {
   });
 
   it('stands the healing stele by the fountain, clear of its front', () => {
-    const fountain: Placement = findPlacement('fountain.glb');
-    const stele: Placement = findPlacement('prop-healing-stele.glb');
+    const fountain: Placement = findPlacement('fountain');
+    const stele: Placement = findPlacement('healing-stele');
     const distance: number = Math.hypot(
       stele.x - fountain.x,
       stele.z - fountain.z,
@@ -380,7 +384,7 @@ describe('VILLAGE_TERRAIN', () => {
   });
 
   it('takes up the ground the foot of the healing stele stands on', () => {
-    const stele: Placement = findPlacement('prop-healing-stele.glb');
+    const stele: Placement = findPlacement('healing-stele');
     // The foot of the boulder is 0.71 m wide and 0.48 m deep.  A player a
     // little closer than touching to a side of it is in its way, and one a
     // little farther is not.
@@ -405,7 +409,7 @@ describe('VILLAGE_TERRAIN', () => {
   });
 
   it('takes up the ground the anvil of the smithy stands on', () => {
-    const shop: Placement = findPlacement('weapon-shop.glb');
+    const shop: Placement = findPlacement('weapon-shop');
     const isClear = (x: number, z: number): boolean =>
       VILLAGE_TERRAIN.isClear(placePoint(shop, { x, z }));
     // As the model of the shop has it, the stump of the anvil is an octagon
@@ -434,7 +438,7 @@ describe('VILLAGE_TERRAIN', () => {
   });
 
   it('takes up the ground the box of coal by the forge stands on', () => {
-    const shop: Placement = findPlacement('weapon-shop.glb');
+    const shop: Placement = findPlacement('weapon-shop');
     const isClear = (x: number, z: number): boolean =>
       VILLAGE_TERRAIN.isClear(placePoint(shop, { x, z }));
     // As the model of the shop has it, the box stands between x = 3.6 and
@@ -447,7 +451,7 @@ describe('VILLAGE_TERRAIN', () => {
   });
 
   it('leaves a way round the fountain between its rim and the stele', () => {
-    const fountain: Placement = findPlacement('fountain.glb');
+    const fountain: Placement = findPlacement('fountain');
     const radius: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + 0.05;
     const findPoint = (degrees: number): GroundVector => ({
       x: fountain.x + radius * Math.sin((degrees * Math.PI) / 180),
@@ -463,8 +467,8 @@ describe('VILLAGE_TERRAIN', () => {
 
   it('stands the village sign outside the gate, beside the way', () => {
     const gate: Gate = findGate();
-    const stones: Placement = findPlacement('prop-spawn-stones.glb');
-    const sign: Placement = findPlacement('prop-village-sign.glb');
+    const stones: Placement = findPlacement('spawn-stones');
+    const sign: Placement = findPlacement('village-sign');
     // Just outside the gap in the fence, on the side of the way away from
     // the stones.
     expect(Math.abs(sign.x - gate.x)).toBeLessThan(gate.halfWidth);
@@ -487,7 +491,7 @@ describe('VILLAGE_TERRAIN', () => {
       if (placement !== sign) {
         expect(
           Math.hypot(placement.x - sign.x, placement.z - sign.z),
-          placement.file,
+          placement.model,
         ).toBeGreaterThan(1.5);
       }
     }
@@ -502,7 +506,7 @@ describe('VILLAGE_TERRAIN', () => {
 
 describe('Emma the smith', () => {
   it('takes up the ground she stands on, overlapping no other footprint', () => {
-    const emma: Placement = findPlacement('npc-emma.glb');
+    const emma: Placement = findPlacement('emma');
     expect(VILLAGE_TERRAIN.isClear(emma)).toBe(false);
     const own: CircleShape[] = VILLAGE_TERRAIN.shapes.filter(
       (shape: Shape): shape is CircleShape =>
@@ -518,8 +522,8 @@ describe('Emma the smith', () => {
   });
 
   it('faces away from the house, with the plaza on her right', () => {
-    const emma: Placement = findPlacement('npc-emma.glb');
-    const shop: Placement = findPlacement('weapon-shop.glb');
+    const emma: Placement = findPlacement('emma');
+    const shop: Placement = findPlacement('weapon-shop');
     // The house stands along the -X axis of the shop from the forge.
     const away: GroundVector = turnVector({ x: 1, z: 0 }, findTurn(shop.yaw));
     const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(emma.yaw));
@@ -538,7 +542,7 @@ describe('Emma the smith', () => {
   });
 
   it('turns her front or side, not her back, to the camera along -Z', () => {
-    const emma: Placement = findPlacement('npc-emma.glb');
+    const emma: Placement = findPlacement('emma');
     const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(emma.yaw));
     expect(front.z).toBeGreaterThanOrEqual(0);
   });
@@ -547,7 +551,7 @@ describe('Emma the smith', () => {
     // A square of points around the weapon shop, a tenth of a metre apart.
     // From those on its edge, which open onto the rest of the village, a
     // player can walk to every point it can stand on.
-    const shop: Placement = findPlacement('weapon-shop.glb');
+    const shop: Placement = findPlacement('weapon-shop');
     const reach = 6;
     const step = 0.1;
     const count: number = Math.round((2 * reach) / step) + 1;
@@ -610,7 +614,7 @@ describe('Emma the smith', () => {
  * @returns {GroundVector} The way, a metre long.
  */
 function findChiefHouseFront(): GroundVector {
-  const house: Placement = findPlacement(CHIEF_HOUSE_FILE);
+  const house: Placement = findPlacement(CHIEF_HOUSE);
   return turnVector({ x: 0, z: 1 }, findTurn(house.yaw));
 }
 
@@ -639,7 +643,7 @@ function measureAlignment(a: GroundVector, b: GroundVector): number {
 
 describe('the house of the village chief', () => {
   it('stands in place of the cottage at the back on the north-east', () => {
-    const house: Placement = findPlacement(CHIEF_HOUSE_FILE);
+    const house: Placement = findPlacement(CHIEF_HOUSE);
     expect(Math.hypot(house.x - 10.5, house.z + 16.5)).toBeLessThan(1.5);
     const toPlaza: GroundVector = findWay(house, PLAZA_CENTRE);
     expect(measureAlignment(findChiefHouseFront(), toPlaza)).toBeGreaterThan(
@@ -714,7 +718,7 @@ describe('the house of the village chief', () => {
   });
 
   it('leaves the ground open from the porch to the great tree', () => {
-    const tree: Placement = findPlacement('prop-great-tree.glb');
+    const tree: Placement = findPlacement('great-tree');
     const porch: GroundVector = placeOnChiefHouse({ x: 0, z: 3.75 });
     const toPorch: GroundVector = findWay(tree, porch);
     // The trunk reaches no farther than 2.1 m from the middle of the tree.
@@ -727,7 +731,7 @@ describe('the house of the village chief', () => {
 
   it('leaves no ground in or around its yard that cannot be reached', () => {
     const points: GridPoint[] = walkGrid(
-      findPlacement(CHIEF_HOUSE_FILE),
+      findPlacement(CHIEF_HOUSE),
       10,
       0.1,
     );
@@ -743,12 +747,12 @@ describe('the house of the village chief', () => {
  * @returns {GroundVector} The way, a metre long.
  */
 function findMarthaFront(): GroundVector {
-  return turnVector({ x: 0, z: 1 }, findTurn(findPlacement(MARTHA_FILE).yaw));
+  return turnVector({ x: 0, z: 1 }, findTurn(findPlacement(MARTHA).yaw));
 }
 
 describe('Martha the village chief', () => {
   it('faces the plaza', () => {
-    const martha: Placement = findPlacement(MARTHA_FILE);
+    const martha: Placement = findPlacement(MARTHA);
     expect(
       measureAlignment(findMarthaFront(), findWay(martha, PLAZA_CENTRE)),
     ).toBeGreaterThan(Math.cos((5 * Math.PI) / 180));
@@ -759,7 +763,7 @@ describe('Martha the village chief', () => {
   });
 
   it('stands in the way of nobody, as the monsters do', () => {
-    expect(VILLAGE_TERRAIN.isClear(findPlacement(MARTHA_FILE))).toBe(true);
+    expect(VILLAGE_TERRAIN.isClear(findPlacement(MARTHA))).toBe(true);
   });
 
   it('stands out of the way from the plaza to the door', () => {
@@ -772,7 +776,7 @@ describe('Martha the village chief', () => {
   });
 
   it('lets a player walk up onto the porch and stand in front of her', () => {
-    const martha: Placement = findPlacement(MARTHA_FILE);
+    const martha: Placement = findPlacement(MARTHA);
     const front: GroundVector = findMarthaFront();
     const reach: number = MARTHA_RADIUS + PLAYER_RADIUS + 0.1;
     const spot: GroundVector = {
@@ -791,9 +795,9 @@ describe('the old well', () => {
     // As the model of the house has it, the well stands at x = 5.6, and the
     // plaza reaches the wall in front of it.
     const wall: Terrain = findYardWallTerrain();
-    const well: Placement = findPlacement(WELL_FILE);
+    const well: Placement = findPlacement(WELL);
     const plaza: GroundVector[] = [
-      findPlacement('fountain.glb'),
+      findPlacement('fountain'),
       placeOnChiefHouse({ x: 5.6, z: 7 }),
       placeOnChiefHouse({ x: 7.5, z: 6.5 }),
     ];
@@ -804,16 +808,16 @@ describe('the old well', () => {
 
   it('is open to the side of the weapon shop', () => {
     const wall: Terrain = findYardWallTerrain();
-    const well: Placement = findPlacement(WELL_FILE);
-    expect(wall.isPathClear(well, findPlacement('weapon-shop.glb'))).toBe(
+    const well: Placement = findPlacement(WELL);
+    expect(wall.isPathClear(well, findPlacement('weapon-shop'))).toBe(
       true,
     );
   });
 
   it('stands beside the house of the chief, towards the weapon shop', () => {
-    const well: Placement = findPlacement(WELL_FILE);
-    const house: Placement = findPlacement(CHIEF_HOUSE_FILE);
-    const shop: Placement = findPlacement('weapon-shop.glb');
+    const well: Placement = findPlacement(WELL);
+    const house: Placement = findPlacement(CHIEF_HOUSE);
+    const shop: Placement = findPlacement('weapon-shop');
     expect(Math.hypot(well.x - shop.x, well.z - shop.z)).toBeLessThan(
       Math.hypot(house.x - shop.x, house.z - shop.z),
     );
@@ -825,7 +829,7 @@ describe('the old well', () => {
   });
 
   it('lets a player beside it see the porch, with nothing between', () => {
-    const well: Placement = findPlacement(WELL_FILE);
+    const well: Placement = findPlacement(WELL);
     const place: GroundVector = placeOnChiefHouse(PORCH_PLACE);
     const toPlace: GroundVector = findWay(well, place);
     // The stonework of the well is 0.7 m round from its middle.
@@ -846,22 +850,22 @@ describe('the old well', () => {
   });
 });
 
-/** The file name of the apothecary's. */
-const APOTHECARY_FILE = 'prop-apothecary.glb';
+/** The model of the apothecary's. */
+const APOTHECARY: ModelId = 'apothecary';
 
-/** The file name of Basil the apothecary. */
-const BASIL_FILE = 'npc-basil.glb';
+/** The model of Basil the apothecary. */
+const BASIL: ModelId = 'basil';
 
 /**
- * The file names of what stands about the front of the apothecary's: the
- * herb rack, the crates, the potted plant and the barrels.
+ * The models of what stands about the front of the apothecary's: the herb
+ * rack, the crates, the potted plant and the barrels.
  */
-const APOTHECARY_PROP_FILES: readonly string[] = [
-  'prop-herb-rack.glb',
-  'prop-potion-crate.glb',
-  'prop-herb-crate.glb',
-  'prop-potted-plant.glb',
-  'prop-barrel.glb',
+const APOTHECARY_PROPS: readonly ModelId[] = [
+  'herb-rack',
+  'potion-crate',
+  'herb-crate',
+  'potted-plant',
+  'barrel',
 ];
 
 /**
@@ -878,7 +882,7 @@ const BEFORE_SHOP_DOOR: GroundVector = { x: 0.9, z: 4.1 };
  * @returns {GroundVector} The point in the world.
  */
 function placeOnApothecary(local: GroundVector): GroundVector {
-  return placePoint(findPlacement(APOTHECARY_FILE), local);
+  return placePoint(findPlacement(APOTHECARY), local);
 }
 
 /**
@@ -901,7 +905,7 @@ function findFootprintsAt(
 
 describe("the apothecary's", () => {
   it('stands in place of the cottage at the back on the north-west', () => {
-    const shop: Placement = findPlacement(APOTHECARY_FILE);
+    const shop: Placement = findPlacement(APOTHECARY);
     const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(shop.yaw));
     const toPlaza: GroundVector = findWay(shop, PLAZA_CENTRE);
     expect(measureAlignment(front, toPlaza)).toBeGreaterThan(
@@ -910,15 +914,15 @@ describe("the apothecary's", () => {
   });
 
   it('stands its rack and its props about it, in the way', () => {
-    const shop: Placement = findPlacement(APOTHECARY_FILE);
-    for (const file of APOTHECARY_PROP_FILES) {
+    const shop: Placement = findPlacement(APOTHECARY);
+    for (const model of APOTHECARY_PROPS) {
       const props: Placement[] = VILLAGE_PLACEMENTS.filter(
-        (placement: Placement) => placement.file === file,
+        (placement: Placement) => placement.model === model,
       );
-      expect(props.length, file).toBeGreaterThan(0);
+      expect(props.length, model).toBeGreaterThan(0);
       for (const prop of props) {
-        expect(VILLAGE_TERRAIN.isClear(prop), file).toBe(false);
-        expect(Math.hypot(prop.x - shop.x, prop.z - shop.z), file).toBeLessThan(
+        expect(VILLAGE_TERRAIN.isClear(prop), model).toBe(false);
+        expect(Math.hypot(prop.x - shop.x, prop.z - shop.z), model).toBeLessThan(
           4,
         );
       }
@@ -929,7 +933,7 @@ describe("the apothecary's", () => {
     // As the model of the shop has it, the front window is 0.95 m wide
     // round x = -1.1, and its sill reaches 2.12 m out from the middle.
     const rack: Shape[] = findFootprintsAt(
-      (placement: Placement) => placement.file === 'prop-herb-rack.glb',
+      (placement: Placement) => placement.model === 'herb-rack',
     );
     for (let u = -1.6; u <= -0.6; u += 0.1) {
       const point: GroundVector = placeOnApothecary({ x: u, z: 2.35 });
@@ -947,11 +951,11 @@ describe("the apothecary's", () => {
 
   it('keeps its props clear of the clover and the spawn points', () => {
     const props: Shape[] = findFootprintsAt((placement: Placement) =>
-      APOTHECARY_PROP_FILES.includes(placement.file),
+      APOTHECARY_PROPS.includes(placement.model),
     );
     const points: GroundVector[] = [
       ...VILLAGE_PLACEMENTS.filter(
-        (placement: Placement) => placement.file === 'prop-clover.glb',
+        (placement: Placement) => placement.model === 'clover',
       ),
       ...Array.from({ length: SPAWN_POINT_COUNT }, (_, index: number) =>
         findSpawnPoint(index),
@@ -974,7 +978,7 @@ describe("the apothecary's", () => {
 
   it('leaves no ground in or around it that cannot be reached', () => {
     const points: GridPoint[] = walkGrid(
-      findPlacement(APOTHECARY_FILE),
+      findPlacement(APOTHECARY),
       6,
       0.1,
     );
@@ -986,8 +990,8 @@ describe("the apothecary's", () => {
 
 describe('Basil the apothecary', () => {
   it('stands outside the door of his shop, facing out', () => {
-    const basil: Placement = findPlacement(BASIL_FILE);
-    const shop: Placement = findPlacement(APOTHECARY_FILE);
+    const basil: Placement = findPlacement(BASIL);
+    const shop: Placement = findPlacement(APOTHECARY);
     const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(basil.yaw));
     const shopFront: GroundVector = turnVector(
       { x: 0, z: 1 },
@@ -1001,14 +1005,14 @@ describe('Basil the apothecary', () => {
   });
 
   it('turns his front or side, not his back, to the camera along -Z', () => {
-    const basil: Placement = findPlacement(BASIL_FILE);
+    const basil: Placement = findPlacement(BASIL);
     expect(
       turnVector({ x: 0, z: 1 }, findTurn(basil.yaw)).z,
     ).toBeGreaterThanOrEqual(0);
   });
 
   it('takes up the ground he stands on, overlapping no other footprint', () => {
-    const basil: Placement = findPlacement(BASIL_FILE);
+    const basil: Placement = findPlacement(BASIL);
     expect(VILLAGE_TERRAIN.isClear(basil)).toBe(false);
     const own: CircleShape[] = VILLAGE_TERRAIN.shapes.filter(
       (shape: Shape): shape is CircleShape =>
@@ -1024,7 +1028,7 @@ describe('Basil the apothecary', () => {
   });
 
   it('is talked to by a player in front of the door, facing him', () => {
-    const basil: Placement = findPlacement(BASIL_FILE);
+    const basil: Placement = findPlacement(BASIL);
     const spot: GroundVector = placeOnApothecary(BEFORE_SHOP_DOOR);
     const yaw: number =
       (Math.atan2(basil.x - spot.x, basil.z - spot.z) * 180) / Math.PI;
@@ -1034,12 +1038,12 @@ describe('Basil the apothecary', () => {
 
 describe('findPlacement', () => {
   it('finds where a model of the village stands', () => {
-    expect(findPlacement('weapon-shop.glb')).toMatchObject({
-      file: 'weapon-shop.glb',
+    expect(findPlacement('weapon-shop')).toMatchObject({
+      model: 'weapon-shop',
     });
   });
 
   it('fails for a model the village has no place for', () => {
-    expect(() => findPlacement('prop-windmill.glb')).toThrow();
+    expect(() => findPlacement('cave-torch')).toThrow();
   });
 });

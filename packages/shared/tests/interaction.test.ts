@@ -38,12 +38,12 @@ import {
   VILLAGERS,
   VILLAGE_TERRAIN,
   createMotion,
+  findInteractable,
   findInteraction,
-  findPassage,
-  findPickTarget,
   findPlacement,
   findTobyPose,
   findVillager,
+  getVillager,
   locateVillager,
   placePoint,
   stepMotion,
@@ -51,8 +51,11 @@ import {
 import type {
   GroundItem,
   GroundVector,
+  Interactable,
+  MapId,
   MonsterState,
   Passage,
+  PickTarget,
   Placement,
   PlayerMotion,
   Pose,
@@ -61,14 +64,13 @@ import type {
 } from '../src/index.ts';
 import { CAVE_LANDING, CAVE_ROPE } from '../src/cave.ts';
 import {
-  BURROW_REACH,
   INTERACTION_HALF_ANGLE,
   PICK_REACH,
   TALK_REACH,
-  ROPE_REACH,
 } from '../src/interaction.ts';
 import { findTurn, turnVector } from '../src/terrain.ts';
 import { WELL_STAND } from '../src/village-layout.ts';
+import { BURROW_REACH, ROPE_REACH } from '../src/world-map.ts';
 
 /**
  * The farthest a player can stand from the centre of the fountain to drink
@@ -76,8 +78,59 @@ import { WELL_STAND } from '../src/village-layout.ts';
  */
 const REACH: number = FOUNTAIN_RIM_RADIUS + PLAYER_RADIUS + FOUNTAIN_REACH;
 
+/**
+ * Finds what a player picks with a pick, as {@link findInteractable} tells.
+ *
+ * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @param {number} step - The number of the step.
+ * @param {WorldItems} items - What there is to pick in the map.
+ * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map.
+ * @returns {PickTarget | null} What it picks, or `null` if nothing.
+ */
+function findPickTarget(
+  pose: Pose,
+  step: number,
+  items: WorldItems,
+  map: MapId,
+  monsters: readonly MonsterState[],
+): PickTarget | null {
+  const found: Interactable | null = findInteractable(
+    pose,
+    step,
+    { map, monsters, items },
+    'pick',
+  );
+  return found?.input === 'pick' ? found : null;
+}
+
+/**
+ * Finds the way a player takes with a travel, as {@link findInteractable}
+ * tells.
+ *
+ * @param {Pose} pose - Where the player stands, and which way it faces.
+ * @param {number} step - The number of the step.
+ * @param {MapId} map - The map the player is in.
+ * @param {readonly MonsterState[]} monsters - The monsters in the map.
+ * @returns {Passage | null} The way, or `null` if none.
+ */
+function findPassage(
+  pose: Pose,
+  step: number,
+  map: MapId,
+  monsters: readonly MonsterState[],
+): Passage | null {
+  const found: Interactable | null = findInteractable(
+    pose,
+    step,
+    { map, monsters },
+    'travel',
+  );
+  return found?.type === 'passage' ? found : null;
+}
+
 /** Where Nancy the villager stands. */
-const NANCY: Placement = findPlacement('npc-nancy.glb');
+const NANCY: Placement = findPlacement('nancy');
 
 /**
  * Makes the pose of a player some way south of Nancy.
@@ -92,7 +145,7 @@ function standByNancy(distance: number, yaw: number): Pose {
 }
 
 /** Where Martha the village chief stands, on the porch of her house. */
-const MARTHA: Placement = findPlacement('npc-martha.glb');
+const MARTHA: Placement = findPlacement('martha');
 
 /**
  * Makes the pose of a player on the porch in front of Martha, facing her.
@@ -117,7 +170,7 @@ function standBeforeMartha(): Pose {
  * @returns {Pose[]} The poses, of which there is at least one.
  */
 function listPosesFacingEmma(): Pose[] {
-  const emma: Placement = findPlacement('npc-emma.glb');
+  const emma: Placement = findPlacement('emma');
   const poses: Pose[] = [];
   for (let degrees = 0; degrees < 360; degrees += 15) {
     const angle: number = (degrees * Math.PI) / 180;
@@ -204,11 +257,7 @@ describe('findInteraction by Emma the smith', () => {
   it('talks to her close by, facing her', () => {
     for (const pose of listPosesFacingEmma()) {
       expect(findInteraction(pose, 0)).toBe('Talk');
-      expect(findVillager(pose, 0, 'village', [])).toEqual({
-        id: 'emma',
-        file: 'npc-emma.glb',
-        map: 'village',
-      });
+      expect(findVillager(pose, 0, 'village', [])).toBe(getVillager('emma'));
     }
   });
 
@@ -236,21 +285,11 @@ describe('findVillager', () => {
   it('finds Nancy, facing her', () => {
     expect(
       findVillager(standByNancy(TALK_REACH - 0.1, 180), 0, 'village', []),
-    ).toEqual({
-      id: 'nancy',
-      file: 'npc-nancy.glb',
-      map: 'village',
-      greetsFirst: true,
-    });
+    ).toBe(getVillager('nancy'));
   });
 
   it('finds Martha, facing her on the porch', () => {
-    expect(findVillager(standBeforeMartha(), 0, 'village', [])).toEqual({
-      id: 'martha',
-      file: 'npc-martha.glb',
-      map: 'village',
-      fighter: 'martha',
-    });
+    expect(findVillager(standBeforeMartha(), 0, 'village', [])).toBe(getVillager('martha'));
   });
 
   it('finds nobody by her, facing away from her', () => {
@@ -326,7 +365,7 @@ describe('findVillager by Martha, who fights as a monster', () => {
         findPickTarget(pose, 0, { clovers: [], items: [item] }, 'village', [
           martha,
         ]),
-      ).toMatchObject({ source: 'ground', id: 7 });
+      ).toMatchObject({ type: 'ground', id: 7 });
     },
   );
 
@@ -338,7 +377,7 @@ describe('findVillager by Martha, who fights as a monster', () => {
       findPickTarget(pose, 0, { clovers: [], items: [item] }, 'village', [
         martha,
       ]),
-    ).toMatchObject({ source: 'ground', id: 7 });
+    ).toMatchObject({ type: 'ground', id: 7 });
   });
 
   it('leaves talking to her at her porch before picking', () => {
@@ -368,12 +407,7 @@ describe('findVillager by Toby', () => {
   it('finds him where he is at the step, facing him, as he runs', () => {
     const toby: Pose = findTobyPose(RUNNING);
     const facing: Pose = { x: toby.x, z: toby.z + TALK_REACH - 0.1, yaw: 180 };
-    expect(findVillager(facing, RUNNING, 'village', [])).toEqual({
-      id: 'toby',
-      file: 'npc-toby.glb',
-      map: 'village',
-      hasServerLines: true,
-    });
+    expect(findVillager(facing, RUNNING, 'village', [])).toBe(getVillager('toby'));
     expect(findInteraction(facing, RUNNING)).toBe('Talk');
   });
 
@@ -430,7 +464,7 @@ describe('findPickTarget', () => {
         'village',
         [],
       ),
-    ).toEqual({ source: 'patch', id: PATCH, kind: 'clover' });
+    ).toMatchObject({ type: 'patch', id: PATCH, kind: 'clover' });
   });
 
   it('picks nothing from a patch whose clover is gone', () => {
@@ -473,7 +507,7 @@ describe('findPickTarget', () => {
         'village',
         [],
       ),
-    ).toEqual({ source: 'ground', id: 3, kind: 'clover' });
+    ).toMatchObject({ type: 'ground', id: 3, kind: 'clover' });
   });
 
   it('picks the nearest of what is within reach', () => {
@@ -494,7 +528,7 @@ describe('findPickTarget', () => {
         'village',
         [],
       ),
-    ).toMatchObject({ source: 'ground', id: 5 });
+    ).toMatchObject({ type: 'ground', id: 5 });
     expect(
       findPickTarget(
         pose,
@@ -503,7 +537,7 @@ describe('findPickTarget', () => {
         'village',
         [],
       ),
-    ).toMatchObject({ source: 'ground', id: 4 });
+    ).toMatchObject({ type: 'ground', id: 4 });
   });
 
   it('leaves drinking and talking before picking', () => {
@@ -524,7 +558,7 @@ describe('findPickTarget', () => {
 });
 
 /** The middle of the burrow of the wild dog, among the spawn stones. */
-const BURROW: Placement = findPlacement('prop-spawn-stones.glb');
+const BURROW: Placement = findPlacement('spawn-stones');
 
 /**
  * Makes the wild dog, standing somewhere.
@@ -629,7 +663,7 @@ describe('findPassage at the rope in the cave', () => {
 
 describe('the spot beside the old well', () => {
   /** The old well in the yard of the chief's house. */
-  const well: Placement = findPlacement('prop-old-well.glb');
+  const well: Placement = findPlacement('old-well');
 
   it('is clear, right beside the well', () => {
     expect(VILLAGE_TERRAIN.isClear(WELL_STAND, 0.1)).toBe(true);
@@ -639,7 +673,7 @@ describe('the spot beside the old well', () => {
   });
 
   it('faces the porch of the house of the chief, roughly', () => {
-    const house: Placement = findPlacement('prop-chief-house.glb');
+    const house: Placement = findPlacement('chief-house');
     const porch: GroundVector = placePoint(house, { x: 0, z: 3.45 });
     const yaw: number = (WELL_STAND.yaw * Math.PI) / 180;
     const dx: number = porch.x - WELL_STAND.x;
@@ -785,11 +819,14 @@ describe('findPickTarget by the containers of the cave', () => {
 
   it('takes what a container holds while it has not been looted', () => {
     CAVE_CONTAINERS.forEach((container, id: number) => {
-      expect(findPickTarget(standBefore(id), 0, NOTHING, 'cave', [])).toEqual({
-        source: 'container',
+      expect(
+        findPickTarget(standBefore(id), 0, NOTHING, 'cave', []),
+      ).toMatchObject({
+        type: 'container',
         id,
+        containerKind: container.kind,
         kind: container.item,
-        ...(container.silver === undefined ? {} : { silver: container.silver }),
+        silver: container.silver ?? 0,
       });
     });
   });
@@ -799,8 +836,10 @@ describe('findPickTarget by the containers of the cave', () => {
       (id: number) => CAVE_CONTAINERS[id]?.item === null,
     );
     const last: number = empty.at(-1) ?? -1;
-    expect(findPickTarget(standBefore(last), 0, NOTHING, 'cave', [])).toEqual({
-      source: 'container',
+    expect(
+      findPickTarget(standBefore(last), 0, NOTHING, 'cave', []),
+    ).toMatchObject({
+      type: 'container',
       id: last,
       kind: null,
       silver: 5,
@@ -812,7 +851,7 @@ describe('findPickTarget by the containers of the cave', () => {
     CAVE_CONTAINERS.forEach((_, id: number) => {
       expect(
         findPickTarget(standBefore(id), 0, { ...NOTHING, looted }, 'cave', []),
-      ).toEqual({ source: 'container', id, kind: null });
+      ).toMatchObject({ type: 'container', id, kind: null, silver: 0 });
     });
   });
 
@@ -828,7 +867,7 @@ describe('findPickTarget by the containers of the cave', () => {
         'cave',
         [],
       ),
-    ).toEqual({ source: 'ground', id: 7, kind: 'clover' });
+    ).toMatchObject({ type: 'ground', id: 7, kind: 'clover' });
   });
 
   it('finds no container facing away, nor in the village', () => {

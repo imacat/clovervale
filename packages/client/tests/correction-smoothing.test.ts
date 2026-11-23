@@ -46,8 +46,8 @@ import {
   reconcileSmoothly,
 } from '../src/correction-smoothing.ts';
 import type { SmoothingSettings } from '../src/correction-smoothing.ts';
-import type { PredictionSettings } from '../src/panel.ts';
 import { PlayerPrediction } from '../src/prediction.ts';
+import type { PredictionSettings } from '../src/prediction.ts';
 
 /** How long one step of the simulation lasts, in milliseconds. */
 const STEP: number = 1000 / SIMULATION_RATE;

@@ -40,7 +40,7 @@ import {
 } from '@clovervale/shared';
 import type { TobyActivity, TobyPose } from '@clovervale/shared';
 
-import { TobyFigure } from '../src/toby-figure.ts';
+import { TobyModel } from '../src/toby-figure.ts';
 
 /** How long each clip of the made-up model of Toby lasts, in seconds. */
 const DURATIONS: Readonly<Record<string, number>> = {
@@ -114,10 +114,10 @@ function findStep(activity: TobyActivity, elapsed: number): number {
   throw new Error(`Toby never does ${activity}.`);
 }
 
-describe('TobyFigure', () => {
+describe('TobyModel', () => {
   it('stands Toby where his course has him, facing his way', () => {
     const { root, clips } = makeModel();
-    const figure = new TobyFigure(root, clips, new Object3D());
+    const figure = new TobyModel(root, clips, new Object3D());
     expect(root.visible).toBe(false);
     expect(figure.describe()).toBeNull();
     for (const step of [0, 37, 120.5, 140.25, 300]) {
@@ -133,7 +133,7 @@ describe('TobyFigure', () => {
 
   it('plays the clip of what he does, from when he started it', () => {
     const { root, clips } = makeModel();
-    const figure = new TobyFigure(root, clips, new Object3D());
+    const figure = new TobyModel(root, clips, new Object3D());
     figure.show(findStep('Squat', 0.25));
     expect(figure.describe()).toMatchObject({ activity: 'Squat' });
     expect(figure.describe()?.clip).toBe('Squat');
@@ -145,7 +145,7 @@ describe('TobyFigure', () => {
 
   it('picks at the clover over and over while he squats there', () => {
     const { root, clips } = makeModel();
-    const figure = new TobyFigure(root, clips, new Object3D());
+    const figure = new TobyModel(root, clips, new Object3D());
     figure.show(findStep('Pick', 2.5));
     expect(figure.describe()?.clip).toBe('Pick');
     expect(readClipTime(root, 'Pick')).toBeCloseTo(0.5, 9);
@@ -154,7 +154,7 @@ describe('TobyFigure', () => {
   it('holds a clover he finds in his hand from his grab until he puts it away', () => {
     const { root, hand, clips } = makeModel();
     const clover = new Object3D();
-    const figure = new TobyFigure(root, clips, clover);
+    const figure = new TobyModel(root, clips, clover);
     expect(clover.parent).toBe(hand);
     const grab: number = findStep('Pick', TOBY_GRAB_STEPS / SIMULATION_RATE);
     const hold: number = TOBY_STOW_STEPS - TOBY_GRAB_STEPS;
@@ -184,7 +184,7 @@ describe('TobyFigure', () => {
   it('holds nothing at a grab that finds nothing', () => {
     const { root, clips } = makeModel();
     const clover = new Object3D();
-    const figure = new TobyFigure(root, clips, clover);
+    const figure = new TobyModel(root, clips, clover);
     const grab: number = findStep('Pick', TOBY_GRAB_STEPS / SIMULATION_RATE);
     figure.show(grab + 5, false);
     expect(figure.describe()).toMatchObject({ clip: 'Pick', isHolding: false });
@@ -195,7 +195,7 @@ describe('TobyFigure', () => {
 
   it('runs his clip on in step with the ground he covers', () => {
     const { root, clips } = makeModel();
-    const figure = new TobyFigure(root, clips, new Object3D());
+    const figure = new TobyModel(root, clips, new Object3D());
     figure.show(findStep('Run', 1));
     expect(figure.describe()?.clip).toBe('Run');
     expect(readClipTime(root, 'Run')).toBeCloseTo(0.3, 9);
@@ -205,7 +205,7 @@ describe('TobyFigure', () => {
 
   it('tells where he is shown and what he does', () => {
     const { root, clips } = makeModel();
-    const figure = new TobyFigure(root, clips, new Object3D());
+    const figure = new TobyModel(root, clips, new Object3D());
     const step: number = findStep('Run', 1);
     figure.show(step);
     const pose: TobyPose = findTobyPose(step);
@@ -249,7 +249,7 @@ describe('TobyFigure', () => {
         ),
       ]),
     ];
-    const figure = new TobyFigure(root, clips, new Object3D());
+    const figure = new TobyModel(root, clips, new Object3D());
     expect(figure.findHeadTop()).toBeNull();
     const running: number = findStep('Run', 0.5);
     figure.show(running);

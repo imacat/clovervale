@@ -58,6 +58,7 @@ import type {
 import { CAVE_LANDING } from '../../shared/src/cave.ts';
 import { SLASH_STEPS, killMotion } from '../../shared/src/player-motion.ts';
 
+import { DrawnPusherStep } from '../src/drawn-pusher-step.ts';
 import { PlayerPrediction, placeOwnPlayer } from '../src/prediction.ts';
 
 /** How long one step of the simulation lasts, in milliseconds. */
@@ -223,6 +224,7 @@ function play(
   const server = new AuthoritativePlayer(start);
   let prediction: PlayerPrediction | null =
     joining === null ? new PlayerPrediction(start, 0, 0, 'village') : null;
+  let pusherStep: DrawnPusherStep | null = null;
   let origin: number = joining === null ? 0 : Infinity;
   const upward = new Map<number, StampedInput[]>();
   const downward = new Map<number, SentSnapshot[]>();
@@ -334,7 +336,8 @@ function play(
     downward.delete(time);
     if (prediction !== null && time % link.frame === 0) {
       prediction.readDrawn(time);
-      drawnSteps.push({ time, step: prediction.readDrawnStep(time) });
+      pusherStep ??= new DrawnPusherStep(prediction);
+      drawnSteps.push({ time, step: pusherStep.read(time) });
     }
   }
   if (prediction === null) {
@@ -979,18 +982,6 @@ describe('the prediction of the player of the page', () => {
     prediction.advance(1100);
     expect(prediction.step).toBe(123);
     expect(prediction.motion.action).toBe('Slash');
-  });
-
-  it('shows the step of the server Toby is at, as it draws the player', () => {
-    const prediction = new PlayerPrediction(START, 100, 0, 'village');
-    expect(prediction.readDrawnStep(0)).toBe(100);
-    expect(prediction.readDrawnStep(1000)).toBe(120);
-    prediction.issueInput(steer(1, 0), 1000);
-    expect(prediction.readDrawnStep(1000)).toBe(120);
-    expect(prediction.readDrawnStep(1025)).toBe(120.5);
-    prediction.issueInput(STOP, 1030);
-    expect(prediction.readDrawnStep(1050)).toBe(121);
-    expect(prediction.readDrawnStep(3050)).toBe(161);
   });
 });
 

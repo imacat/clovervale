@@ -21,10 +21,11 @@
  * @module shared/navigation Finding a way around the obstacles.
  */
 
+import { measureDistance } from './movement.ts';
 import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS, placePoint } from './terrain.ts';
 import type { Shape, Terrain } from './terrain.ts';
-import { findMapTerrain } from './world-map.ts';
+import { WORLD_MAPS } from './world-map.ts';
 import type { MapId } from './world-map.ts';
 
 /**
@@ -50,19 +51,6 @@ interface Link {
   readonly index: number;
   /** The length of the walk, in metres. */
   readonly distance: number;
-}
-
-/**
- * Measures how far apart two points are.
- *
- * @param {GroundVector} a - One point.
- * @param {GroundVector} b - The other point.
- * @returns {number} The distance between them, in metres.
- */
-function measureDistance(a: GroundVector, b: GroundVector): number {
-  const dx: number = a.x - b.x;
-  const dz: number = a.z - b.z;
-  return Math.sqrt(dx * dx + dz * dz);
 }
 
 /**
@@ -234,7 +222,7 @@ export function findMapPath(
 ): GroundVector[] | null {
   let graph: NavigationGraph | undefined = mapGraphs.get(map);
   if (graph === undefined) {
-    graph = new NavigationGraph(findMapTerrain(map));
+    graph = new NavigationGraph(WORLD_MAPS[map].terrain);
     mapGraphs.set(map, graph);
   }
   return graph.findPath(from, to);

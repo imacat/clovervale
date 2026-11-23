@@ -21,31 +21,57 @@
  * @module client/vite.config The Vite configuration of the browser client.
  */
 
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { findPackageJSON } from 'node:module';
+import { dirname, join } from 'node:path';
 
 import { defineConfig } from 'vite';
 
 import { omitClientConfig } from './plugins/client-config.ts';
 import { listModels } from './plugins/model-index.ts';
 
-/** The style sheet of the panel, as the client imports it. */
-const PANEL_STYLE_IMPORT = 'lil-gui/dist/lil-gui.css';
-
-/** The file of that style sheet, which is next to the code of the panel. */
-const panelStyleFile: string = fileURLToPath(
-  new URL('lil-gui.css', import.meta.resolve('lil-gui')),
+/** The package.json of lil-gui. */
+const lilGuiPackage: string | undefined = findPackageJSON(
+  'lil-gui',
+  import.meta.url,
+);
+if (lilGuiPackage === undefined) {
+  throw new Error('Cannot find the package.json of lil-gui.');
+}
+/**
+ * The stylesheet lil-gui names in config.style, which is bundled because
+ * the CSP of the site forbids the inline style lil-gui would inject.  Its
+ * exports do not list it, so it cannot be imported by its package path.
+ */
+const lilGuiStyle: string = join(
+  dirname(lilGuiPackage),
+  (
+    JSON.parse(readFileSync(lilGuiPackage, 'utf8')) as {
+      config: { style: string };
+    }
+  ).config.style,
 );
 
 export default defineConfig({
   // Relative asset URLs let the built client be served from any directory.
   base: './',
-  resolve: {
-    // The package of the panel does not export its style sheet by name.
-    alias: [{ find: PANEL_STYLE_IMPORT, replacement: panelStyleFile }],
-  },
   plugins: [listModels(), omitClientConfig()],
+  resolve: {
+    alias: [{ find: /^lil-gui\/style$/, replacement: lilGuiStyle }],
+  },
   build: {
     // Three.js alone exceeds the default 500 kB warning threshold.
     chunkSizeWarningLimit: 1000,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          // Three.js in a chunk of its own stays cached across releases
+          // that change only the code of the game.
+          groups: [
+            { name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ },
+          ],
+        },
+      },
+    },
   },
 });

@@ -22,38 +22,74 @@
  */
 
 import { ACTION_STATES, MONSTER_ACTIONS } from './actions.ts';
-import type { ActionState, MonsterAction } from './actions.ts';
 import type { InputProgress, InputStamp } from './authoritative-player.ts';
-import { CAVE_CONTAINERS } from './cave.ts';
 import { isPhraseCode, isSayText } from './chat.ts';
 import type { PhraseCode } from './chat.ts';
-import { isMonsterKindId } from './combat.ts';
-import type { MonsterKindId } from './combat.ts';
+import { MONSTER_KINDS, isMonsterKindId } from './combat.ts';
+import type {
+  EntityKind,
+  EntityRef,
+  MonsterKind,
+  MonsterKindId,
+  MonsterState,
+} from './combat.ts';
 import type { DayCycle } from './day-cycle.ts';
 import { DIALOGUE_REPLY_LIMIT, isDialogueText } from './dialogue.ts';
 import type { DialogueView } from './dialogue.ts';
-import { CLOVER_PATCHES, INVENTORY_SIZE, isItemKindId } from './items.ts';
+import { INVENTORY_SIZE, isItemKindId } from './items.ts';
 import type { GroundItem, ItemKindId, WorldItems } from './items.ts';
 import type { GroundVector } from './movement.ts';
-import { isQuestLog } from './quests.ts';
-import type { QuestLog } from './quests.ts';
+import {
+  MalformedValueError,
+  parseBoolean,
+  parseCount,
+  parseFinite,
+  parseGuarded,
+  parseInteger,
+  parseList,
+  parseMember,
+  parseNullable,
+  parseRecord,
+  rejectValue,
+} from './parse.ts';
+import { parseQuests } from './quests.ts';
+import type { Quest } from './quests.ts';
 import type {
   DropInput,
   InteractInput,
   MoveInput,
   PickInput,
   PlayerMotion,
+  PlayerState,
   ReplyInput,
   TravelInput,
   UseInput,
 } from './player-motion.ts';
 import { isVillagerId } from './villagers.ts';
 import type { VillagerId } from './villagers.ts';
-import { isMapId } from './world-map.ts';
-import type { MapId } from './world-map.ts';
+import { WORLD_MAPS, isMapId } from './world-map.ts';
+import type { MapId, WorldMap } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 32;
+export const PROTOCOL_VERSION = 33;
+
+/**
+ * The most patches of clover any map has, which a snapshot, which does not
+ * name its map, can tell of.
+ */
+const MOST_CLOVER_PATCHES: number = Math.max(
+  ...Object.values(WORLD_MAPS).map(
+    (map: WorldMap) => map.cloverPatches.length,
+  ),
+);
+
+/**
+ * The most chests and barrels any map has, which a snapshot, which does not
+ * name its map, can tell of.
+ */
+const MOST_CONTAINERS: number = Math.max(
+  ...Object.values(WORLD_MAPS).map((map: WorldMap) => map.containers.length),
+);
 
 /** The TCP port the server listens on unless told otherwise. */
 export const DEFAULT_SERVER_PORT = 8080;
@@ -61,107 +97,8 @@ export const DEFAULT_SERVER_PORT = 8080;
 /** The number of snapshots the server sends every second. */
 export const SNAPSHOT_RATE = 10;
 
-/** The number of appearances a player can have, numbered from 1. */
-export const APPEARANCE_COUNT = 8;
-
-/** A player, as the server knows it at one moment. */
-export interface PlayerState {
-  /** The identifier of the player, unique while the server runs. */
-  readonly id: number;
-  /** The number of the appearance of the player, from 1. */
-  readonly appearance: number;
-  /** The position along the X axis, in metres. */
-  readonly x: number;
-  /** The position along the Z axis, in metres. */
-  readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
-  readonly yaw: number;
-  /** What the player is doing. */
-  readonly action: ActionState;
-  /**
-   * The number of actions the player has started so far.  It changes
-   * whenever the player starts an action, even the same one again.
-   */
-  readonly actionCount: number;
-  /** The health of the player, from 0 to its full health. */
-  readonly health: number;
-}
-
-/** What a monster can be up to. */
-export const MONSTER_MODES = [
-  'idle',
-  'wander',
-  'chase',
-  'return',
-  'dead',
-  'approach',
-  'talk',
-  'sit',
-] as const;
-
-/**
- * What a monster is up to: idling or wandering near its home, chasing a
- * player, walking back home after giving up, or lying dead.  Martha, who
- * fights as a monster, also walks up to a player, talks with it, and sits
- * on the ground once beaten, and chases only the player she fights.
- */
-export type MonsterMode = (typeof MONSTER_MODES)[number];
-
-/** A monster, as the server knows it at one moment. */
-export interface MonsterState {
-  /** The identifier of the monster, unique among the monsters of its world. */
-  readonly id: number;
-  /** The kind of the monster, which tells its full health. */
-  readonly kind: MonsterKindId;
-  /** The position along the X axis, in metres. */
-  readonly x: number;
-  /** The position along the Z axis, in metres. */
-  readonly z: number;
-  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
-  readonly yaw: number;
-  /** What the monster is doing. */
-  readonly action: MonsterAction;
-  /**
-   * The number of actions the monster has started so far.  It changes
-   * whenever the monster starts an action, even the same one again.
-   */
-  readonly actionCount: number;
-  /** The health of the monster, from 0 to its full health. */
-  readonly health: number;
-  /** What the monster is up to. */
-  readonly mode: MonsterMode;
-  /**
-   * Whether Martha holds her pitchfork, rather than leaving it against the
-   * wall of her house, or on the ground beside her as she sits beaten,
-   * which is left out for every other monster.
-   */
-  readonly isArmed?: boolean;
-}
-
-/**
- * Tells whether a monster is in a fight, which a slash can hit, and which
- * a player slashes at rather than talks to a villager: a monster that is
- * alive, or Martha only while she chases the player she fights.
- *
- * @param {MonsterState} monster - The monster.
- * @returns {boolean} Whether it is.
- */
-export function isFighting(monster: MonsterState): boolean {
-  return monster.kind === 'martha'
-    ? monster.mode === 'chase'
-    : monster.mode !== 'dead';
-}
-
 /** What can take part in a fight. */
-export type EntityKind = 'player' | 'monster';
-
-/** Who takes part in something that happens: a player or a monster. */
-export interface EntityRef {
-  /** Whether it is a player or a monster. */
-  readonly kind: EntityKind;
-  /** The identifier of the player or of the monster. */
-  readonly id: number;
-}
+const ENTITY_KINDS: readonly EntityKind[] = ['player', 'monster'];
 
 /** That something took damage from something else, once. */
 export interface HitEvent {
@@ -236,22 +173,13 @@ export interface WelcomeMessage {
 }
 
 /**
- * The state of every player, and of what there is to pick in the world,
- * which the server sends every peer again and again, with what that peer
- * alone is told of its own player.
+ * What a snapshot tells the peer of a player alone, of that player: how
+ * far it has got with the inputs of the peer, how its latest slash was
+ * judged, what it carries, its silver coins, the dialogue it is in, the
+ * villagers who have told it who they are, and how far it has got with the
+ * quests.
  */
-export interface SnapshotMessage {
-  /** The message discriminator. */
-  readonly type: 'snapshot';
-  /**
-   * The number of simulation steps the world had taken when the snapshot
-   * was taken, which tells when that was on the clock of the server.
-   */
-  readonly step: number;
-  /** Every player in the world. */
-  readonly players: readonly PlayerState[];
-  /** Every monster in the world that is to be seen. */
-  readonly monsters: readonly MonsterState[];
+export interface PrivateView {
   /**
    * How far the player of the peer had got with the inputs of the peer
    * when the snapshot was taken.
@@ -262,26 +190,6 @@ export interface SnapshotMessage {
    * or `null` before its first.
    */
   readonly slash: SlashJudgement | null;
-  /**
-   * The numbers of the patches of clover that have their four-leaved
-   * clover, in ascending order.
-   */
-  readonly clovers: readonly number[];
-  /** The items that lie on the ground. */
-  readonly items: readonly GroundItem[];
-  /**
-   * The numbers of the containers of the cave that have been looted, in
-   * ascending order, which are none outside the cave.
-   */
-  readonly looted: readonly number[];
-  /**
-   * The number of the latest step at which Toby took the four-leaved
-   * clover of a patch of clover, or `null` if he has taken none, as he
-   * never has outside the village.  Every snapshot tells it again, so that
-   * a peer learns of each clover he takes from any snapshot taken after,
-   * until he takes the next.
-   */
-  readonly tobyFind: number | null;
   /**
    * The items the player of the peer carries, one for each filled slot of
    * its inventory, in the order of the slots.
@@ -303,10 +211,66 @@ export interface SnapshotMessage {
    */
   readonly acquaintances: readonly VillagerId[];
   /**
-   * How far the player of the peer has got with each quest it has taken
-   * on.
+   * The quests the player of the peer has opened, in the order it opened
+   * them, each at the stage it has got to, which only the server moves on.
    */
-  readonly quests: QuestLog;
+  readonly quests: readonly Quest[];
+}
+
+/**
+ * The state of every player, and of what there is to pick in the world,
+ * which the server sends every peer again and again, with what that peer
+ * alone is told of its own player.
+ */
+export interface SnapshotMessage extends PrivateView {
+  /** The message discriminator. */
+  readonly type: 'snapshot';
+  /**
+   * The number of simulation steps the world had taken when the snapshot
+   * was taken, which tells when that was on the clock of the server.
+   */
+  readonly step: number;
+  /** Every player in the world. */
+  readonly players: readonly PlayerState[];
+  /** Every monster in the world that is to be seen. */
+  readonly monsters: readonly MonsterState[];
+  /**
+   * The numbers of the patches of clover that have their four-leaved
+   * clover, in ascending order.
+   */
+  readonly clovers: readonly number[];
+  /** The items that lie on the ground. */
+  readonly items: readonly GroundItem[];
+  /**
+   * The numbers of the containers of the cave that have been looted, in
+   * ascending order, which are none outside the cave.
+   */
+  readonly looted: readonly number[];
+  /**
+   * The number of the latest step at which Toby took the four-leaved
+   * clover of a patch of clover, or `null` if he has taken none, as he
+   * never has outside the village.  Every snapshot tells it again, so that
+   * a peer learns of each clover he takes from any snapshot taken after,
+   * until he takes the next.
+   */
+  readonly tobyFind: number | null;
+}
+
+/** What a snapshot message for one peer is made from. */
+export interface SnapshotContents {
+  /** The number of simulation steps the world has taken. */
+  readonly step: number;
+  /** Every player in the world. */
+  readonly players: readonly PlayerState[];
+  /** Every monster in the world that is to be seen. */
+  readonly monsters: readonly MonsterState[];
+  /**
+   * What there is to pick in the world, which containers have been looted
+   * there, and when Toby last took a four-leaved clover there.
+   */
+  readonly world: WorldItems;
+  /** What the peer alone is told of its own player. */
+  readonly view: PrivateView;
 }
 
 /**
@@ -489,44 +453,19 @@ export function createWelcomeMessage(
 /**
  * Creates a snapshot message for one peer.
  *
- * @param {number} step - The number of simulation steps the world has
- *   taken.
- * @param {readonly PlayerState[]} players - Every player in the world.
- * @param {readonly MonsterState[]} monsters - Every monster in the world
- *   that is to be seen.
- * @param {InputProgress} own - How far the player of the peer has got with
- *   the inputs of the peer.
- * @param {SlashJudgement | null} slash - The latest slash of the player
- *   of the peer, as the server judged it, or `null` before its first.
- * @param {WorldItems} world - What there is to pick in the world, which
- *   containers have been looted there, and when Toby last took a
- *   four-leaved clover there.
- * @param {readonly ItemKindId[]} inventory - The items the player of the
- *   peer carries, in the order of its slots.
- * @param {DialogueView | null} dialogue - The dialogue the player of the
- *   peer is in, or `null` while it is in none.
- * @param {readonly VillagerId[]} acquaintances - The villagers who have
- *   told the player of the peer who they are, in the order they did.
- * @param {QuestLog} quests - How far the player of the peer has got with
- *   each quest it has taken on.
- * @param {number} silver - The number of silver coins the player of the
- *   peer has.
+ * @param {SnapshotContents} contents - What the snapshot is made from.
  * @returns {SnapshotMessage} The snapshot message.
  */
-export function createSnapshotMessage(
-  step: number,
-  players: readonly PlayerState[],
-  monsters: readonly MonsterState[],
-  own: InputProgress,
-  slash: SlashJudgement | null,
-  world: WorldItems,
-  inventory: readonly ItemKindId[],
-  dialogue: DialogueView | null,
-  acquaintances: readonly VillagerId[],
-  quests: QuestLog,
-  silver: number,
-): SnapshotMessage {
+export function createSnapshotMessage({
+  step,
+  players,
+  monsters,
+  world,
+  view,
+}: SnapshotContents): SnapshotMessage {
   const { clovers, items, looted = [], tobyFind = null } = world;
+  const { own, slash, inventory, silver, dialogue, acquaintances, quests } =
+    view;
   return {
     type: 'snapshot',
     step,
@@ -691,121 +630,22 @@ export function encodeServerMessage(message: ServerMessage): string {
  * @throws {Error} If the data is not a well-formed server message.
  */
 export function decodeServerMessage(data: string): ServerMessage {
-  const value: Record<string, unknown> = parseObject(data, 'server');
-  if (
-    value.type === 'welcome' &&
-    Number.isInteger(value.protocolVersion) &&
-    Number.isInteger(value.playerId)
-  ) {
-    const protocolVersion = value.protocolVersion as number;
-    const playerId = value.playerId as number;
-    if (protocolVersion !== PROTOCOL_VERSION) {
-      return { type: 'welcome', protocolVersion, playerId, day: null };
-    }
-    if (isDayCycle(value.day)) {
-      const { origin, length } = value.day;
-      const day: DayCycle = { origin, length };
-      return { type: 'welcome', protocolVersion, playerId, day };
-    }
+  return decodeMessage(data, 'server', parseServerMessage);
+}
+
+/**
+ * Parses a decoded server message.
+ *
+ * @param {Record<string, unknown>} value - The decoded message.
+ * @returns {ServerMessage} A copy of the message.
+ * @throws {MalformedValueError} If the message is malformed.
+ */
+function parseServerMessage(value: Record<string, unknown>): ServerMessage {
+  if (value.type === 'welcome') {
+    return parseWelcomeMessage(value);
   }
-  if (
-    value.type === 'snapshot' &&
-    Number.isInteger(value.step) &&
-    Array.isArray(value.players) &&
-    Array.isArray(value.monsters) &&
-    isInputProgress(value.own) &&
-    (value.slash === null || isSlashJudgement(value.slash)) &&
-    isNumberList(value.clovers, CLOVER_PATCHES.length) &&
-    Array.isArray(value.items) &&
-    isNumberList(value.looted, CAVE_CONTAINERS.length) &&
-    (value.tobyFind === null || Number.isInteger(value.tobyFind)) &&
-    isInventory(value.inventory) &&
-    isCount(value.silver) &&
-    (value.dialogue === null || isDialogueView(value.dialogue)) &&
-    isAcquaintanceList(value.acquaintances) &&
-    isQuestLog(value.quests)
-  ) {
-    const players: unknown[] = value.players;
-    const monsters: unknown[] = value.monsters;
-    const items: unknown[] = value.items;
-    const { sequence, steps, motion } = value.own;
-    const slash: SlashJudgement | null = value.slash;
-    const dialogue: DialogueView | null = value.dialogue;
-    if (
-      players.every(isPlayerState) &&
-      monsters.every(isMonsterState) &&
-      hasUniqueIds(monsters) &&
-      items.every(isGroundItem)
-    ) {
-      return {
-        type: 'snapshot',
-        step: value.step as number,
-        players: players.map((player: PlayerState) => ({
-          id: player.id,
-          appearance: player.appearance,
-          x: player.x,
-          z: player.z,
-          yaw: player.yaw,
-          action: player.action,
-          actionCount: player.actionCount,
-          health: player.health,
-        })),
-        monsters: monsters.map((monster: MonsterState) => ({
-          id: monster.id,
-          kind: monster.kind,
-          x: monster.x,
-          z: monster.z,
-          yaw: monster.yaw,
-          action: monster.action,
-          actionCount: monster.actionCount,
-          health: monster.health,
-          mode: monster.mode,
-          ...(monster.isArmed === undefined
-            ? {}
-            : { isArmed: monster.isArmed }),
-        })),
-        own: {
-          sequence,
-          steps,
-          motion: {
-            x: motion.x,
-            z: motion.z,
-            yaw: motion.yaw,
-            action: motion.action,
-            actionCount: motion.actionCount,
-            direction: { x: motion.direction.x, z: motion.direction.z },
-            isInteracting: motion.isInteracting,
-            actionSteps: motion.actionSteps,
-          },
-        },
-        slash:
-          slash === null
-            ? null
-            : { step: slash.step, rewind: slash.rewind, isHit: slash.isHit },
-        clovers: [...value.clovers],
-        items: items.map(({ id, kind, x, z }: GroundItem) => ({
-          id,
-          kind,
-          x,
-          z,
-        })),
-        looted: [...value.looted],
-        tobyFind: value.tobyFind as number | null,
-        inventory: [...value.inventory],
-        silver: value.silver,
-        dialogue:
-          dialogue === null
-            ? null
-            : {
-                villager: dialogue.villager,
-                line: dialogue.line,
-                replies: [...dialogue.replies],
-                turn: dialogue.turn,
-              },
-        acquaintances: [...value.acquaintances],
-        quests: { ...value.quests },
-      };
-    }
+  if (value.type === 'snapshot') {
+    return parseSnapshotMessage(value);
   }
   if (value.type === 'map' && isMapId(value.map)) {
     return { type: 'map', map: value.map };
@@ -839,13 +679,10 @@ export function decodeServerMessage(data: string): ServerMessage {
       code: value.code,
     };
   }
-  if (value.type === 'events' && Array.isArray(value.events)) {
-    const events: unknown[] = value.events;
-    if (events.every(isGameEvent)) {
-      return { type: 'events', events: events.map(copyEvent) };
-    }
+  if (value.type === 'events') {
+    return { type: 'events', events: parseList(value.events, parseGameEvent) };
   }
-  throw new Error('The server message is malformed.');
+  return rejectValue();
 }
 
 /**
@@ -869,187 +706,238 @@ export function encodeClientMessage(message: ClientMessage): string {
  * @throws {Error} If the data is not a well-formed client message.
  */
 export function decodeClientMessage(data: string): ClientMessage {
-  const value: Record<string, unknown> = parseObject(data, 'client');
+  return decodeMessage(data, 'client', parseClientMessage);
+}
+
+/**
+ * Parses a decoded client message.
+ *
+ * @param {Record<string, unknown>} value - The decoded message.
+ * @returns {ClientMessage} A copy of the message.
+ * @throws {MalformedValueError} If the message is malformed.
+ */
+function parseClientMessage(value: Record<string, unknown>): ClientMessage {
   if (value.type === 'say' && typeof value.text === 'string') {
     return { type: 'say', text: value.text };
   }
   if (value.type === 'phrase' && typeof value.code === 'string') {
     return { type: 'phrase', code: value.code };
   }
-  const { sequence, after } = value;
-  if (isCount(sequence) && sequence > 0 && isCount(after)) {
-    const { viewTime } = value;
-    if (value.type === 'interact' && viewTime === undefined) {
-      return { type: 'interact', sequence, after };
-    }
-    if (value.type === 'interact' && Number.isFinite(viewTime)) {
+  const sequence: number = parseCount(value.sequence);
+  const after: number = parseCount(value.after);
+  if (sequence === 0) {
+    rejectValue();
+  }
+  switch (value.type) {
+    case 'interact':
+      return value.viewTime === undefined
+        ? { type: 'interact', sequence, after }
+        : {
+            type: 'interact',
+            sequence,
+            after,
+            viewTime: parseFinite(value.viewTime),
+          };
+    case 'move':
       return {
-        type: 'interact',
+        type: 'move',
         sequence,
         after,
-        viewTime: viewTime as number,
+        direction: parseGroundVector(value.direction),
       };
-    }
-    if (value.type === 'move' && isGroundVector(value.direction)) {
-      const { x, z } = value.direction;
-      return { type: 'move', sequence, after, direction: { x, z } };
-    }
-    if (value.type === 'pick') {
+    case 'pick':
       return { type: 'pick', sequence, after };
-    }
-    if (value.type === 'travel') {
+    case 'travel':
       return { type: 'travel', sequence, after };
-    }
-    if (value.type === 'drop' && isCount(value.slot)) {
-      return { type: 'drop', sequence, after, slot: value.slot };
-    }
-    if (value.type === 'use' && isCount(value.slot)) {
-      return { type: 'use', sequence, after, slot: value.slot };
-    }
-    if (value.type === 'reply' && isCount(value.choice)) {
-      return { type: 'reply', sequence, after, choice: value.choice };
-    }
+    case 'drop':
+      return { type: 'drop', sequence, after, slot: parseCount(value.slot) };
+    case 'use':
+      return { type: 'use', sequence, after, slot: parseCount(value.slot) };
+    case 'reply':
+      return {
+        type: 'reply',
+        sequence,
+        after,
+        choice: parseCount(value.choice),
+      };
+    default:
+      return rejectValue();
   }
-  throw new Error('The client message is malformed.');
 }
 
 /**
- * Parses an encoded message into the object it holds.
+ * Decodes a message received from the wire with a parse function.
  *
+ * @template T - What the parse function returns.
  * @param {string} data - The encoded message.
  * @param {string} sender - Who sends such messages, for the error messages.
- * @returns {Record<string, unknown>} The object.
- * @throws {Error} If the data is not a JSON object.
+ * @param {(value: Record<string, unknown>) => T} parse - The parse function
+ *   of the decoded message.
+ * @returns {T} What the parse function returns.
+ * @throws {Error} If the data is not a JSON object, or the parse function
+ *   does not take it.
  */
-function parseObject(data: string, sender: string): Record<string, unknown> {
+function decodeMessage<T>(
+  data: string,
+  sender: string,
+  parse: (value: Record<string, unknown>) => T,
+): T {
   let value: unknown;
   try {
     value = JSON.parse(data);
   } catch {
     throw new Error(`The ${sender} message is not valid JSON.`);
   }
-  if (!isRecord(value)) {
-    throw new Error(`The ${sender} message is malformed.`);
+  try {
+    return parse(parseRecord(value));
+  } catch (error: unknown) {
+    if (error instanceof MalformedValueError) {
+      throw new Error(`The ${sender} message is malformed.`, {
+        cause: error,
+      });
+    }
+    throw error;
   }
-  return value;
 }
 
 /**
- * Checks whether a decoded value is an object with named members.
+ * Parses a welcome message.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is such an object.
+ * @param {Record<string, unknown>} value - The decoded message.
+ * @returns {WelcomeMessage} A copy of the message, without its day if it is
+ *   of another protocol version.
+ * @throws {Error} If the message is malformed.
  */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * Checks whether a decoded value is a count: a whole number from 0.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is a count.
- */
-function isCount(value: unknown): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= 0;
-}
-
-/**
- * Checks whether a decoded value is a point or a direction on the ground.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is one.
- */
-function isGroundVector(value: unknown): value is GroundVector {
-  return (
-    isRecord(value) && Number.isFinite(value.x) && Number.isFinite(value.z)
-  );
-}
-
-/**
- * Checks whether a decoded value describes how the time of day goes.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether it does.
- */
-function isDayCycle(value: unknown): value is DayCycle {
-  if (!isRecord(value)) {
-    return false;
+function parseWelcomeMessage(value: Record<string, unknown>): WelcomeMessage {
+  const protocolVersion: number = parseInteger(value.protocolVersion);
+  const playerId: number = parseInteger(value.playerId);
+  if (protocolVersion !== PROTOCOL_VERSION) {
+    return { type: 'welcome', protocolVersion, playerId, day: null };
   }
-  const { origin, length } = value;
-  return (
-    Number.isFinite(origin) &&
-    (origin as number) >= 0 &&
-    (origin as number) < 1 &&
-    (length === null ||
-      (Number.isFinite(length) && (length as number) > 0))
-  );
+  const day: DayCycle = parseDayCycle(value.day);
+  return { type: 'welcome', protocolVersion, playerId, day };
 }
 
 /**
- * Checks whether a decoded value is an action a player can be doing.
+ * Parses a snapshot message.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is such an action.
+ * @param {Record<string, unknown>} value - The decoded message.
+ * @returns {SnapshotMessage} A copy of the message, without anything else
+ *   it may carry.
+ * @throws {Error} If the message is malformed.
  */
-function isActionState(value: unknown): value is ActionState {
-  return ACTION_STATES.some((action: ActionState) => action === value);
+function parseSnapshotMessage(
+  value: Record<string, unknown>,
+): SnapshotMessage {
+  const monsters: MonsterState[] = parseList(value.monsters, parseMonsterState);
+  if (!hasUniqueIds(monsters)) {
+    rejectValue();
+  }
+  return {
+    type: 'snapshot',
+    step: parseInteger(value.step),
+    players: parseList(value.players, parsePlayerState),
+    monsters,
+    own: parseInputProgress(value.own),
+    slash: parseNullable(value.slash, parseSlashJudgement),
+    clovers: parseNumberList(value.clovers, MOST_CLOVER_PATCHES),
+    items: parseList(value.items, parseGroundItem),
+    looted: parseNumberList(value.looted, MOST_CONTAINERS),
+    tobyFind: parseNullable(value.tobyFind, parseInteger),
+    inventory: parseInventory(value.inventory),
+    silver: parseCount(value.silver),
+    dialogue: parseNullable(value.dialogue, parseDialogueView),
+    acquaintances: parseAcquaintanceList(value.acquaintances),
+    quests: parseQuests(value.quests),
+  };
 }
 
 /**
- * Checks whether a decoded value is the motion of a player.
+ * Parses a decoded value that is a point or a direction on the ground.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is the motion of a player.
+ * @param {unknown} value - The value to parse.
+ * @returns {GroundVector} A copy of the point or the direction.
+ * @throws {Error} If the value is neither.
  */
-function isPlayerMotion(value: unknown): value is PlayerMotion {
-  return (
-    isRecord(value) &&
-    Number.isFinite(value.x) &&
-    Number.isFinite(value.z) &&
-    Number.isFinite(value.yaw) &&
-    isActionState(value.action) &&
-    isCount(value.actionCount) &&
-    isGroundVector(value.direction) &&
-    typeof value.isInteracting === 'boolean' &&
-    isCount(value.actionSteps)
-  );
+function parseGroundVector(value: unknown): GroundVector {
+  const record: Record<string, unknown> = parseRecord(value);
+  return { x: parseFinite(record.x), z: parseFinite(record.z) };
 }
 
 /**
- * Checks whether a decoded value tells how far a player has got with the
+ * Parses a decoded value that describes how the time of day goes.
+ *
+ * @param {unknown} value - The value to parse.
+ * @returns {DayCycle} A copy of what it describes.
+ * @throws {Error} If the value does not describe that.
+ */
+function parseDayCycle(value: unknown): DayCycle {
+  const record: Record<string, unknown> = parseRecord(value);
+  const origin: number = parseFinite(record.origin);
+  const length: number | null = parseNullable(record.length, parseFinite);
+  if (origin < 0 || origin >= 1 || (length !== null && length <= 0)) {
+    rejectValue();
+  }
+  return { origin, length };
+}
+
+/**
+ * Parses a decoded value that is the motion of a player.
+ *
+ * @param {unknown} value - The value to parse.
+ * @returns {PlayerMotion} A copy of the motion.
+ * @throws {Error} If the value is not the motion of a player.
+ */
+function parsePlayerMotion(value: unknown): PlayerMotion {
+  const record: Record<string, unknown> = parseRecord(value);
+  return {
+    x: parseFinite(record.x),
+    z: parseFinite(record.z),
+    yaw: parseFinite(record.yaw),
+    action: parseMember(record.action, ACTION_STATES),
+    actionCount: parseCount(record.actionCount),
+    direction: parseGroundVector(record.direction),
+    isInteracting: parseBoolean(record.isInteracting),
+    actionSteps: parseCount(record.actionSteps),
+  };
+}
+
+/**
+ * Parses a decoded value that tells how far a player has got with the
  * inputs of its peer.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value tells that.
+ * @param {unknown} value - The value to parse.
+ * @returns {InputProgress} A copy of what it tells.
+ * @throws {Error} If the value does not tell that.
  */
-function isInputProgress(value: unknown): value is InputProgress {
-  return (
-    isRecord(value) &&
-    isCount(value.sequence) &&
-    isCount(value.steps) &&
-    isPlayerMotion(value.motion)
-  );
+function parseInputProgress(value: unknown): InputProgress {
+  const record: Record<string, unknown> = parseRecord(value);
+  return {
+    sequence: parseCount(record.sequence),
+    steps: parseCount(record.steps),
+    motion: parsePlayerMotion(record.motion),
+  };
 }
 
 /**
- * Checks whether a decoded value is the state of a player.
+ * Parses a decoded value that is the state of a player.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is the state of a player.
+ * @param {unknown} value - The value to parse.
+ * @returns {PlayerState} A copy of the state.
+ * @throws {Error} If the value is not the state of a player.
  */
-function isPlayerState(value: unknown): value is PlayerState {
-  return (
-    isRecord(value) &&
-    Number.isInteger(value.id) &&
-    Number.isInteger(value.appearance) &&
-    Number.isFinite(value.x) &&
-    Number.isFinite(value.z) &&
-    Number.isFinite(value.yaw) &&
-    isActionState(value.action) &&
-    Number.isInteger(value.actionCount) &&
-    isCount(value.health)
-  );
+function parsePlayerState(value: unknown): PlayerState {
+  const record: Record<string, unknown> = parseRecord(value);
+  return {
+    id: parseInteger(record.id),
+    appearance: parseInteger(record.appearance),
+    x: parseFinite(record.x),
+    z: parseFinite(record.z),
+    yaw: parseFinite(record.yaw),
+    action: parseMember(record.action, ACTION_STATES),
+    actionCount: parseInteger(record.actionCount),
+    health: parseCount(record.health),
+  };
 }
 
 /**
@@ -1066,208 +954,194 @@ function hasUniqueIds(monsters: readonly MonsterState[]): boolean {
 }
 
 /**
- * Checks whether a decoded value is the state of a monster.
+ * Parses a decoded value that is the state of a monster, up to one of the
+ * modes of its kind.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is the state of a monster.
+ * @param {unknown} value - The value to parse.
+ * @returns {MonsterState} A copy of the state, telling whether the monster
+ *   holds its weapon only for a kind that holds one now and then.
+ * @throws {Error} If the value is not the state of a monster.
  */
-function isMonsterState(value: unknown): value is MonsterState {
-  return (
-    isRecord(value) &&
-    Number.isInteger(value.id) &&
-    isMonsterKindId(value.kind) &&
-    Number.isFinite(value.x) &&
-    Number.isFinite(value.z) &&
-    Number.isFinite(value.yaw) &&
-    MONSTER_ACTIONS.some((action: MonsterAction) => action === value.action) &&
-    Number.isInteger(value.actionCount) &&
-    isCount(value.health) &&
-    MONSTER_MODES.some((mode: MonsterMode) => mode === value.mode) &&
-    (value.isArmed === undefined || typeof value.isArmed === 'boolean')
-  );
+function parseMonsterState(value: unknown): MonsterState {
+  const record: Record<string, unknown> = parseRecord(value);
+  const kind: MonsterKindId = parseGuarded(record.kind, isMonsterKindId);
+  const { modes, hasWeapon }: MonsterKind = MONSTER_KINDS[kind];
+  return {
+    id: parseInteger(record.id),
+    kind,
+    x: parseFinite(record.x),
+    z: parseFinite(record.z),
+    yaw: parseFinite(record.yaw),
+    action: parseMember(record.action, MONSTER_ACTIONS),
+    actionCount: parseInteger(record.actionCount),
+    health: parseCount(record.health),
+    mode: parseMember(record.mode, modes),
+    ...(!hasWeapon || record.isArmed === undefined
+      ? {}
+      : { isArmed: parseBoolean(record.isArmed) }),
+  };
 }
 
 /**
- * Checks whether a decoded value tells how a slash was judged.
+ * Parses a decoded value that tells how a slash was judged.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value tells that.
+ * @param {unknown} value - The value to parse.
+ * @returns {SlashJudgement} A copy of what it tells.
+ * @throws {Error} If the value does not tell that.
  */
-function isSlashJudgement(value: unknown): value is SlashJudgement {
-  return (
-    isRecord(value) &&
-    isCount(value.step) &&
-    Number.isFinite(value.rewind) &&
-    (value.rewind as number) >= 0 &&
-    typeof value.isHit === 'boolean'
-  );
+function parseSlashJudgement(value: unknown): SlashJudgement {
+  const record: Record<string, unknown> = parseRecord(value);
+  const rewind: number = parseFinite(record.rewind);
+  if (rewind < 0) {
+    rejectValue();
+  }
+  return {
+    step: parseCount(record.step),
+    rewind,
+    isHit: parseBoolean(record.isHit),
+  };
 }
 
 /**
- * Checks whether a decoded value lists things by their numbers, such as
+ * Parses a decoded value that lists things by their numbers, such as
  * patches of clover or containers: numbers of things there are, each once,
  * in ascending order.
  *
- * @param {unknown} value - The value to check.
+ * @param {unknown} value - The value to parse.
  * @param {number} count - How many such things there are, numbered from 0.
- * @returns {boolean} Whether it does.
+ * @returns {number[]} A copy of the list.
+ * @throws {Error} If the value lists no such things.
  */
-function isNumberList(value: unknown, count: number): value is number[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (number: unknown, index: number) =>
-        isCount(number) &&
-        number < count &&
-        (index === 0 || number > (value[index - 1] as number)),
-    )
-  );
+function parseNumberList(value: unknown, count: number): number[] {
+  const numbers: number[] = parseList(value, parseCount);
+  let previous = -1;
+  for (const number of numbers) {
+    if (number >= count || number <= previous) {
+      rejectValue();
+    }
+    previous = number;
+  }
+  return numbers;
 }
 
 /**
- * Checks whether a decoded value is an item on the ground.
+ * Parses a decoded value that is an item on the ground.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether it is.
+ * @param {unknown} value - The value to parse.
+ * @returns {GroundItem} A copy of the item.
+ * @throws {Error} If the value is no item on the ground.
  */
-function isGroundItem(value: unknown): value is GroundItem {
-  return (
-    isRecord(value) &&
-    isCount(value.id) &&
-    isItemKindId(value.kind) &&
-    Number.isFinite(value.x) &&
-    Number.isFinite(value.z)
-  );
+function parseGroundItem(value: unknown): GroundItem {
+  const record: Record<string, unknown> = parseRecord(value);
+  return {
+    id: parseCount(record.id),
+    kind: parseGuarded(record.kind, isItemKindId),
+    x: parseFinite(record.x),
+    z: parseFinite(record.z),
+  };
 }
 
 /**
- * Checks whether a decoded value is what a player carries: no more items
+ * Parses a decoded value that is what a player carries: no more items
  * than an inventory has slots, each of a kind there is.
  *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether it is.
+ * @param {unknown} value - The value to parse.
+ * @returns {ItemKindId[]} A copy of what the player carries.
+ * @throws {Error} If the value is not what a player can carry.
  */
-function isInventory(value: unknown): value is ItemKindId[] {
-  return (
-    Array.isArray(value) &&
-    value.length <= INVENTORY_SIZE &&
-    value.every(isItemKindId)
+function parseInventory(value: unknown): ItemKindId[] {
+  const inventory: ItemKindId[] = parseList(value, (item: unknown) =>
+    parseGuarded(item, isItemKindId),
   );
-}
-
-/**
- * Checks whether a decoded value is a dialogue as it stands: a villager,
- * what it has just said, no more replies than a player is offered at
- * once, and a number of the line from 1.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether it is.
- */
-function isDialogueView(value: unknown): value is DialogueView {
-  return (
-    isRecord(value) &&
-    isVillagerId(value.villager) &&
-    isDialogueText(value.line) &&
-    Array.isArray(value.replies) &&
-    value.replies.length <= DIALOGUE_REPLY_LIMIT &&
-    value.replies.every(isDialogueText) &&
-    isCount(value.turn) &&
-    value.turn > 0
-  );
-}
-
-/**
- * Checks whether a decoded value lists villagers, each once.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether it does.
- */
-function isAcquaintanceList(value: unknown): value is VillagerId[] {
-  return (
-    Array.isArray(value) &&
-    value.every(isVillagerId) &&
-    new Set(value).size === value.length
-  );
-}
-
-/**
- * Checks whether a decoded value tells who takes part in something.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value tells that.
- */
-function isEntityRef(value: unknown): value is EntityRef {
-  return (
-    isRecord(value) &&
-    (value.kind === 'player' || value.kind === 'monster') &&
-    Number.isInteger(value.id)
-  );
-}
-
-/**
- * Checks whether a decoded value is a hit.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is a hit.
- */
-function isHitEvent(value: unknown): value is HitEvent {
-  return (
-    isRecord(value) &&
-    value.type === 'hit' &&
-    isCount(value.id) &&
-    isCount(value.step) &&
-    isEntityRef(value.attacker) &&
-    isEntityRef(value.target) &&
-    isCount(value.damage)
-  );
-}
-
-/**
- * Checks whether a decoded value is a heal.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is a heal.
- */
-function isHealEvent(value: unknown): value is HealEvent {
-  return (
-    isRecord(value) &&
-    value.type === 'heal' &&
-    isCount(value.id) &&
-    isCount(value.step) &&
-    isEntityRef(value.target) &&
-    isCount(value.amount)
-  );
-}
-
-/**
- * Checks whether a decoded value is an event.
- *
- * @param {unknown} value - The value to check.
- * @returns {boolean} Whether the value is a hit or a heal.
- */
-function isGameEvent(value: unknown): value is GameEvent {
-  return isHitEvent(value) || isHealEvent(value);
-}
-
-/**
- * Copies a decoded event, without anything else it may carry.
- *
- * @param {GameEvent} event - The event.
- * @returns {GameEvent} The copy.
- */
-function copyEvent(event: GameEvent): GameEvent {
-  const { id, step } = event;
-  const target: EntityRef = { kind: event.target.kind, id: event.target.id };
-  if (event.type === 'heal') {
-    return { type: 'heal', id, step, target, amount: event.amount };
+  if (inventory.length > INVENTORY_SIZE) {
+    rejectValue();
   }
-  const { kind, id: attackerId } = event.attacker;
+  return inventory;
+}
+
+/**
+ * Parses a decoded value that is a dialogue as it stands: a villager, what
+ * it has just said, no more replies than a player is offered at once, and
+ * a number of the line from 1.
+ *
+ * @param {unknown} value - The value to parse.
+ * @returns {DialogueView} A copy of the dialogue.
+ * @throws {Error} If the value is no such dialogue.
+ */
+function parseDialogueView(value: unknown): DialogueView {
+  const record: Record<string, unknown> = parseRecord(value);
+  const replies: string[] = parseList(record.replies, (reply: unknown) =>
+    parseGuarded(reply, isDialogueText),
+  );
+  const turn: number = parseCount(record.turn);
+  if (replies.length > DIALOGUE_REPLY_LIMIT || turn === 0) {
+    rejectValue();
+  }
   return {
-    type: 'hit',
-    id,
-    step,
-    attacker: { kind, id: attackerId },
-    target,
-    damage: event.damage,
+    villager: parseGuarded(record.villager, isVillagerId),
+    line: parseGuarded(record.line, isDialogueText),
+    replies,
+    turn,
   };
+}
+
+/**
+ * Parses a decoded value that lists villagers, each once.
+ *
+ * @param {unknown} value - The value to parse.
+ * @returns {VillagerId[]} A copy of the list.
+ * @throws {Error} If the value lists no villagers each once.
+ */
+function parseAcquaintanceList(value: unknown): VillagerId[] {
+  const villagers: VillagerId[] = parseList(value, (item: unknown) =>
+    parseGuarded(item, isVillagerId),
+  );
+  if (new Set(villagers).size !== villagers.length) {
+    rejectValue();
+  }
+  return villagers;
+}
+
+/**
+ * Parses a decoded value that tells who takes part in something.
+ *
+ * @param {unknown} value - The value to parse.
+ * @returns {EntityRef} A copy of what it tells.
+ * @throws {Error} If the value does not tell that.
+ */
+function parseEntityRef(value: unknown): EntityRef {
+  const record: Record<string, unknown> = parseRecord(value);
+  return {
+    kind: parseMember(record.kind, ENTITY_KINDS),
+    id: parseInteger(record.id),
+  };
+}
+
+/**
+ * Parses a decoded value that is an event: a hit or a heal.
+ *
+ * @param {unknown} value - The value to parse.
+ * @returns {GameEvent} A copy of the event, without anything else it may
+ *   carry.
+ * @throws {Error} If the value is no event.
+ */
+function parseGameEvent(value: unknown): GameEvent {
+  const record: Record<string, unknown> = parseRecord(value);
+  const id: number = parseCount(record.id);
+  const step: number = parseCount(record.step);
+  const target: EntityRef = parseEntityRef(record.target);
+  if (record.type === 'heal') {
+    return { type: 'heal', id, step, target, amount: parseCount(record.amount) };
+  }
+  if (record.type === 'hit') {
+    return {
+      type: 'hit',
+      id,
+      step,
+      attacker: parseEntityRef(record.attacker),
+      target,
+      damage: parseCount(record.damage),
+    };
+  }
+  return rejectValue();
 }

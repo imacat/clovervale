@@ -49,6 +49,7 @@ import { Rig, easeProgress } from './rig.ts';
 import type {
   ArmBones,
   BuiltModel,
+  ClipReport,
   Pose,
   PoseKey,
   PoseSample,
@@ -247,27 +248,234 @@ function turnWithHips(point: Triple, turn: Triple): Triple {
 }
 
 /**
- * Builds Martha, the village chief: a sturdy woman of mature years, her
- * greying hair gone silver at the temples and coiled in a low knot, in a
- * long skirt and a buttoned waistcoat over a blouse with its sleeves
- * rolled to the elbows, a small clover pinned to her breast, who stands at
- * ease with her hands on her hips, shifts her weight and looks about her.
- * She walks with her arms swinging.  Holding a pitchfork, which hangs on a
- * bone of its own, `Pitchfork`, for the game to show only while she holds
- * it, she stands and walks on her guard, holding it diagonally across her
- * body in both hands, its tines forward and a little up, in clips of
- * their own, `IdleArmed` and `WalkArmed`; she
- * thrusts it forward with both hands, its tines reaching two metres in
- * front of her; and she sits down on the ground, beaten, for a breather,
- * her skirt spread before her, bent a little forward with her hands on her
- * knees and her head bowed, catching her breath, as she has dropped the
- * pitchfork, which the game shows lying beside her.
+ * Turns a bone in a pose to between two turns in model space, whatever its
+ * parent.
  *
- * @returns {BuiltModel} The animated model and the measurements taken while
- *   baking.
+ * @param {Model} model - The model.
+ * @param {Pose} pose - The pose, with the parents of the bone turned.
+ * @param {number} bone - The index of the bone.
+ * @param {Quaternion} from - The turn of the bone in model space at 0.
+ * @param {Quaternion} to - The turn of the bone in model space at 1.
+ * @param {number} weight - How far from one turn to the other, from 0 to 1.
  */
-export function buildNpcMartha(): BuiltModel {
-  const model = new Model('NpcMartha');
+function turnBone(
+  model: Model,
+  pose: Pose,
+  bone: number,
+  from: Quaternion,
+  to: Quaternion,
+  weight: number,
+): void {
+  const parent: number = getItem(model.bones, bone).parent;
+  const turn: Quaternion = from.clone().slerp(to, weight);
+  getItem(pose.rotations, bone).copy(
+    findWorldTurn(model, pose, parent).invert().multiply(turn),
+  );
+}
+
+/**
+ * Poses Martha, with her hands on her hips or on her pitchfork, and keeps
+ * how far her hands fell short of where they were to be.
+ */
+class MarthaPoser {
+  /** The rig of her model. */
+  readonly rig: Rig;
+  /**
+   * How far her hands have fallen short of where they were to be since it
+   * was last set to 0, in metres.
+   */
+  overreach = 0;
+  /**
+   * How the pitchfork is turned at rest, lying level with its tines
+   * forward, and so while she does not hold it, out of sight.
+   */
+  readonly level = new Quaternion();
+  /** The index of the bone of her head. */
+  readonly #head: number;
+  /** The index of the bone of her right hand. */
+  readonly #hand: number;
+  /** The index of the bone of the pitchfork. */
+  readonly #fork: number;
+  /** Where she looks about her as she idles. */
+  readonly #looks: PoseKey[];
+
+  /**
+   * Creates the poser of her model.
+   *
+   * @param {Model} model - Her model, with its bones and its geometry.
+   */
+  constructor(model: Model) {
+    this.rig = new Rig(model);
+    this.#head = model.findBone('Head');
+    // She looks to her left, back ahead, then to her right, and back.
+    const rest: PoseSpec = { Head: [0, 0, 0] };
+    this.#looks = [
+      { t: 0, pose: this.rig.createPose(rest) },
+      { t: 1.2, pose: this.rig.createPose(rest) },
+      { t: 2, pose: this.rig.createPose({ Head: [2, 24, 3] }) },
+      { t: 3, pose: this.rig.createPose({ Head: [2, 24, 3] }) },
+      { t: 3.8, pose: this.rig.createPose({ Head: [-2, 0, 0] }) },
+      { t: 4.6, pose: this.rig.createPose({ Head: [3, -20, -3] }) },
+      { t: 5.4, pose: this.rig.createPose({ Head: [3, -20, -3] }) },
+      { t: 6.4, pose: this.rig.createPose(rest) },
+      { t: 7.2, pose: this.rig.createPose(rest) },
+    ];
+    this.#hand = model.findBone('HandR');
+    this.#fork = model.findBone('Pitchfork');
+  }
+
+  /**
+   * Puts her hands on her hips, however her hips turn.
+   *
+   * @param {Pose} pose - The pose.
+   * @param {Triple} hips - The angles of her hips, in degrees.
+   * @returns {Pose} The pose.
+   */
+  setHands(pose: Pose, hips: Triple): Pose {
+    for (const [side, x] of SIDES) {
+      const wrist: Triple = turnWithHips(
+        [WRIST_ON_HIP[0] * x, WRIST_ON_HIP[1], WRIST_ON_HIP[2]],
+        hips,
+      );
+      this.overreach = Math.max(
+        this.overreach,
+        this.rig.reachArm(pose, side === 'L' ? ARMS.L : ARMS.R, wrist, {
+          yaw: (ELBOW_YAW + hips[1]) * x,
+        }),
+      );
+    }
+    return pose;
+  }
+
+  /**
+   * Turns the pitchfork in her right hand as it is to be turned in model
+   * space, wherever her hand is.
+   *
+   * @param {Pose} pose - The pose.
+   * @param {Quaternion} turn - The turn of the pitchfork in model space.
+   * @returns {Pose} The pose.
+   */
+  turnFork(pose: Pose, turn: Quaternion): Pose {
+    getItem(pose.rotations, this.#fork).copy(
+      findWorldTurn(this.rig.model, pose, this.#hand)
+        .invert()
+        .multiply(turn),
+    );
+    return pose;
+  }
+
+  /**
+   * Puts both her hands on the shaft of the pitchfork, her right hand
+   * where it is gripped and her left further along it, towards its head,
+   * which points on from her right hand past her left.
+   *
+   * @param {Pose} pose - The pose.
+   * @param {ForkGrip} grip - Where she holds the pitchfork.
+   * @returns {Pose} The pose.
+   */
+  holdFork(pose: Pose, { right, left }: ForkGrip): Pose {
+    this.overreach = Math.max(
+      this.overreach,
+      this.rig.reachArm(pose, ARMS.R, right, { yaw: 0 }),
+      this.rig.reachArm(pose, ARMS.L, left, { yaw: 0 }),
+    );
+    const along: Vector3 = new Vector3(...left)
+      .sub(new Vector3(...right))
+      .normalize();
+    return this.turnFork(
+      pose,
+      new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), along),
+    );
+  }
+
+  /**
+   * Samples her idling, with her hands on her hips, or on her guard.
+   *
+   * @param {number} t - The time, in seconds.
+   * @param {boolean} [isArmed] - Whether she is on her guard.
+   * @returns {PoseSample} The pose at that time.
+   */
+  sampleIdle(t: number, isArmed = false): PoseSample {
+    // Her weight shifts from one foot to the other and back, and she
+    // breathes, twice as often.
+    const shift: number = Math.sin((2 * Math.PI * t) / 7.2);
+    const breath: number = (1 - Math.cos((2 * Math.PI * t) / 3.6)) / 2;
+    const hips: Triple = [0, 3 * shift, 0.6 * shift];
+    const twist: number = isArmed ? GUARD_TWIST : 0;
+    const pose: Pose = this.rig.createPose({
+      Hips: [hips[0], hips[1] + twist / 3, hips[2]],
+      Chest: [
+        1.5 * breath + (isArmed ? GUARD_LEAN : 0),
+        -2 * shift + (twist * 2) / 3,
+        -1.8 * shift,
+      ],
+    });
+    // Her head stays level as her body sways; on her guard, leaning a
+    // little forward and turned to her right, she keeps her eyes ahead.
+    getItem(pose.rotations, this.#head)
+      .copy(
+        isArmed
+          ? createRotation([-GUARD_LEAN, -GUARD_TWIST, 0])
+          : getItem(
+              this.rig.interpolate(this.#looks, t).rotations,
+              this.#head,
+            ),
+      )
+      .multiply(createRotation([-1.5 * breath, 0, 1.2 * shift]));
+    return {
+      pose: isArmed
+        ? this.holdFork(pose, GUARD_GRIP)
+        : this.turnFork(this.setHands(pose, hips), this.level),
+    };
+  }
+
+  /**
+   * Samples her walk, with her arms swinging at her sides, or on her
+   * guard.
+   *
+   * @param {number} t - The time, in seconds.
+   * @param {boolean} isArmed - Whether she is on her guard.
+   * @returns {PoseSample} The pose at that time.
+   */
+  sampleWalk(t: number, isArmed: boolean): PoseSample {
+    const swing: number = Math.sin((2 * Math.PI * t) / STRIDE_DURATION);
+    const step: number = Math.cos((4 * Math.PI * t) / STRIDE_DURATION);
+    const pose: Pose = this.rig.createPose({
+      offset: [0, 0.012 * (1 - step), 0],
+      Hips: [0, 5 * swing + (isArmed ? GUARD_TWIST / 3 : 0), 1.5 * swing],
+      Chest: [
+        3 + (isArmed ? GUARD_LEAN : 0),
+        -7 * swing + (isArmed ? (GUARD_TWIST * 2) / 3 : 0),
+        -1.5 * swing,
+      ],
+      Head: [
+        -2 - (isArmed ? GUARD_LEAN : 0),
+        2 * swing - (isArmed ? GUARD_TWIST : 0),
+        0,
+      ],
+      ...(isArmed
+        ? {}
+        : {
+            UpperArmL: [24 * swing, 0, 10],
+            ForeArmL: [-18 + 8 * swing, 0, 0],
+            UpperArmR: [-24 * swing, 0, -10],
+            ForeArmR: [-18 - 8 * swing, 0, 0],
+          }),
+    });
+    return {
+      pose: isArmed
+        ? this.holdFork(pose, GUARD_GRIP)
+        : this.turnFork(pose, this.level),
+    };
+  }
+}
+
+/**
+ * Defines the materials of Martha.
+ *
+ * @param {Model} model - The model.
+ */
+function setMaterials(model: Model): void {
   setFaceMaterials(model, SKINS.light);
   model.setMaterial('blush', '#efb2a0');
   model.setMaterial('hair', '#6f6762');
@@ -282,7 +490,15 @@ export function buildNpcMartha(): BuiltModel {
   model.setMaterial('hem', '#34445f');
   model.setMaterial('shoe', '#4a3222');
   model.setMaterial('clover', '#3f9d4f');
+}
 
+/**
+ * Adds her skeleton: the hips, the chest, the head and the arms, with no
+ * legs under her long skirt, and the pitchfork in her right hand.
+ *
+ * @param {Model} model - The model, without bones yet.
+ */
+function addBones(model: Model): void {
   model.addBone('Hips', null, HIPS_PIVOT);
   model.addBone('Chest', 'Hips', [0, 0.66, 0]);
   model.addBone('Head', 'Chest', [0, 0.98, 0]);
@@ -292,9 +508,15 @@ export function buildNpcMartha(): BuiltModel {
     model.addBone(`Hand${side}`, `ForeArm${side}`, [0.25 * x, 0.57, 0]);
   }
   model.addBone('Pitchfork', 'HandR', FORK_GRIP);
+}
 
-  // The head, with level brows and lids lowered a little over the eyes, and
-  // the hair swept back into a low knot, silver at the temples.
+/**
+ * Adds her head, with level brows and lids lowered a little over the eyes,
+ * and the hair swept back into a low knot, silver at the temples.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addFace(model: Model): void {
   addHead(model);
   const hair: Hair = createHair('chignon');
   model.add('hair', hair.hair, 'Head');
@@ -317,9 +539,15 @@ export function buildNpcMartha(): BuiltModel {
       'Head',
     );
   }
+}
 
-  // The long, full skirt, down to the ground, with a darker band at its
-  // hem, and the toes of her shoes peeping out in front.
+/**
+ * Adds her long, full skirt, down to the ground, with a darker band at its
+ * hem, her belt, and the toes of her shoes peeping out in front.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addSkirt(model: Model): void {
   const flat: Placement = { scale: [1, 1, 0.9] };
   model.add(
     'skirt',
@@ -380,10 +608,16 @@ export function buildNpcMartha(): BuiltModel {
       'Hips',
     );
   }
+}
 
-  // The broad body: the blouse, the waistcoat over it, open down the front
-  // of the blouse, with brass buttons down its edges, and the clover pinned
-  // to it.
+/**
+ * Adds her broad body: the blouse, the waistcoat over it, open down the
+ * front of the blouse, with brass buttons down its edges, and the clover
+ * pinned to it.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addBody(model: Model): void {
   const thin: Placement = { scale: [1, 1, 0.84] };
   model.add(
     'skin',
@@ -470,9 +704,15 @@ export function buildNpcMartha(): BuiltModel {
       'Chest',
     );
   }
+}
 
-  // The strong arms, in full sleeves rolled up to the elbows, with the
-  // forearms bare.
+/**
+ * Adds her strong arms, in full sleeves rolled up to the elbows, with the
+ * forearms bare.
+ *
+ * @param {Model} model - The model, with her materials and bones defined.
+ */
+function addArms(model: Model): void {
   for (const [side, x] of SIDES) {
     const moveAside = (shape: Shape): Shape =>
       place(shape, { pos: [0.25 * x, 0, 0] });
@@ -530,162 +770,64 @@ export function buildNpcMartha(): BuiltModel {
       `Hand${side}`,
     );
   }
+}
 
-  // The pitchfork, gripped in her right fist.
-  addPitchfork(model, 'Pitchfork', FORK_GRIP);
-
-  const rig = new Rig(model);
-  const head: number = model.findBone('Head');
-  let overreach = 0;
-  // Her hands stay on her hips, however her hips turn.
-  const setHands = (pose: Pose, hips: Triple): Pose => {
-    for (const [side, x] of SIDES) {
-      const wrist: Triple = turnWithHips(
-        [WRIST_ON_HIP[0] * x, WRIST_ON_HIP[1], WRIST_ON_HIP[2]],
-        hips,
-      );
-      overreach = Math.max(
-        overreach,
-        rig.reachArm(pose, side === 'L' ? ARMS.L : ARMS.R, wrist, {
-          yaw: (ELBOW_YAW + hips[1]) * x,
-        }),
-      );
-    }
-    return pose;
-  };
-  // She looks to her left, back ahead, then to her right, and back.
-  const rest: PoseSpec = { Head: [0, 0, 0] };
-  const looks: PoseKey[] = [
-    { t: 0, pose: rig.createPose(rest) },
-    { t: 1.2, pose: rig.createPose(rest) },
-    { t: 2, pose: rig.createPose({ Head: [2, 24, 3] }) },
-    { t: 3, pose: rig.createPose({ Head: [2, 24, 3] }) },
-    { t: 3.8, pose: rig.createPose({ Head: [-2, 0, 0] }) },
-    { t: 4.6, pose: rig.createPose({ Head: [3, -20, -3] }) },
-    { t: 5.4, pose: rig.createPose({ Head: [3, -20, -3] }) },
-    { t: 6.4, pose: rig.createPose(rest) },
-    { t: 7.2, pose: rig.createPose(rest) },
-  ];
-  const hand: number = model.findBone('HandR');
-  const fork: number = model.findBone('Pitchfork');
-  // Turns the pitchfork in her right hand as it is to be turned in model
-  // space, wherever her hand is.
-  const turnFork = (pose: Pose, turn: Quaternion): Pose => {
-    getItem(pose.rotations, fork).copy(
-      findWorldTurn(model, pose, hand).invert().multiply(turn),
-    );
-    return pose;
-  };
-  // Puts both her hands on the shaft of the pitchfork, her right hand
-  // where it is gripped and her left further along it, towards its head,
-  // which points on from her right hand past her left.
-  const holdFork = (pose: Pose, { right, left }: ForkGrip): Pose => {
-    overreach = Math.max(
-      overreach,
-      rig.reachArm(pose, ARMS.R, right, { yaw: 0 }),
-      rig.reachArm(pose, ARMS.L, left, { yaw: 0 }),
-    );
-    const along: Vector3 = new Vector3(...left)
-      .sub(new Vector3(...right))
-      .normalize();
-    return turnFork(
-      pose,
-      new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), along),
-    );
-  };
-  // The pitchfork lies level, its tines forward, at rest, and so it is
-  // turned while she does not hold it, out of sight.
-  const level = new Quaternion();
-
-  const sampleIdle = (t: number, isArmed = false): PoseSample => {
-    // Her weight shifts from one foot to the other and back, and she
-    // breathes, twice as often.
-    const shift: number = Math.sin((2 * Math.PI * t) / 7.2);
-    const breath: number = (1 - Math.cos((2 * Math.PI * t) / 3.6)) / 2;
-    const hips: Triple = [0, 3 * shift, 0.6 * shift];
-    const twist: number = isArmed ? GUARD_TWIST : 0;
-    const pose: Pose = rig.createPose({
-      Hips: [hips[0], hips[1] + twist / 3, hips[2]],
-      Chest: [
-        1.5 * breath + (isArmed ? GUARD_LEAN : 0),
-        -2 * shift + (twist * 2) / 3,
-        -1.8 * shift,
-      ],
-    });
-    // Her head stays level as her body sways; on her guard, leaning a
-    // little forward and turned to her right, she keeps her eyes ahead.
-    getItem(pose.rotations, head)
-      .copy(
-        isArmed
-          ? createRotation([-GUARD_LEAN, -GUARD_TWIST, 0])
-          : getItem(rig.interpolate(looks, t).rotations, head),
-      )
-      .multiply(createRotation([-1.5 * breath, 0, 1.2 * shift]));
-    return {
-      pose: isArmed
-        ? holdFork(pose, GUARD_GRIP)
-        : turnFork(setHands(pose, hips), level),
-    };
-  };
-  rig.bake('Idle', 7.2, (t: number) => sampleIdle(t), { loop: true });
-  rig.noteOverreach('Idle', overreach);
+/**
+ * Bakes her idling, with her hands on her hips, `Idle`, and on her guard,
+ * `IdleArmed`.
+ *
+ * @param {MarthaPoser} poser - The poser of her model.
+ */
+function bakeIdles(poser: MarthaPoser): void {
+  const { rig } = poser;
+  poser.overreach = 0;
+  rig.bake('Idle', 7.2, (t: number) => poser.sampleIdle(t), { loop: true });
+  rig.noteOverreach('Idle', poser.overreach);
   // On her guard, she holds the pitchfork diagonally across her body in
   // both hands, her right hand at her hip and her left before her chest,
   // its tines forward and a little up.
-  overreach = 0;
-  rig.bake('IdleArmed', 7.2, (t: number) => sampleIdle(t, true), {
+  poser.overreach = 0;
+  rig.bake('IdleArmed', 7.2, (t: number) => poser.sampleIdle(t, true), {
     loop: true,
   });
-  rig.noteOverreach('IdleArmed', overreach);
-  const guardStart: Pose = sampleIdle(0, true).pose;
+  rig.noteOverreach('IdleArmed', poser.overreach);
+}
 
-  // She strides along, her skirt swaying, and rises a little at every
-  // step: with her arms swinging at her sides, clear of her skirt, or on
-  // her guard, with the pitchfork held as she stands on it.
-  const sampleWalk = (t: number, isArmed: boolean): PoseSample => {
-    const swing: number = Math.sin((2 * Math.PI * t) / STRIDE_DURATION);
-    const step: number = Math.cos((4 * Math.PI * t) / STRIDE_DURATION);
-    const pose: Pose = rig.createPose({
-      offset: [0, 0.012 * (1 - step), 0],
-      Hips: [0, 5 * swing + (isArmed ? GUARD_TWIST / 3 : 0), 1.5 * swing],
-      Chest: [
-        3 + (isArmed ? GUARD_LEAN : 0),
-        -7 * swing + (isArmed ? (GUARD_TWIST * 2) / 3 : 0),
-        -1.5 * swing,
-      ],
-      Head: [
-        -2 - (isArmed ? GUARD_LEAN : 0),
-        2 * swing - (isArmed ? GUARD_TWIST : 0),
-        0,
-      ],
-      ...(isArmed
-        ? {}
-        : {
-            UpperArmL: [24 * swing, 0, 10],
-            ForeArmL: [-18 + 8 * swing, 0, 0],
-            UpperArmR: [-24 * swing, 0, -10],
-            ForeArmR: [-18 - 8 * swing, 0, 0],
-          }),
-    });
-    return {
-      pose: isArmed ? holdFork(pose, GUARD_GRIP) : turnFork(pose, level),
-    };
-  };
-  overreach = 0;
-  rig.bake('Walk', STRIDE_DURATION, (t: number) => sampleWalk(t, false), {
+/**
+ * Bakes her walk, with her arms swinging at her sides, `Walk`, and on her
+ * guard, `WalkArmed`: she strides along, her skirt swaying, and rises a
+ * little at every step.
+ *
+ * @param {MarthaPoser} poser - The poser of her model.
+ */
+function bakeWalks(poser: MarthaPoser): void {
+  const { rig } = poser;
+  poser.overreach = 0;
+  rig.bake('Walk', STRIDE_DURATION, (t: number) => poser.sampleWalk(t, false), {
     loop: true,
   });
-  rig.bake('WalkArmed', STRIDE_DURATION, (t: number) => sampleWalk(t, true), {
-    loop: true,
-  });
-  rig.noteOverreach('WalkArmed', overreach);
+  rig.bake(
+    'WalkArmed',
+    STRIDE_DURATION,
+    (t: number) => poser.sampleWalk(t, true),
+    { loop: true },
+  );
+  rig.noteOverreach('WalkArmed', poser.overreach);
+}
 
-  // She thrusts the pitchfork forward with both hands on its shaft from
-  // her guard: she winds up, drawing it back as she leans back and turns
-  // further from the waist; she lunges, driving it forward and level at her
-  // waist, its butt under her right arm, which strikes halfway through; she
-  // holds it out a moment; and she recovers, drawing it back onto her guard
-  // again.
+/**
+ * Bakes her thrust of the pitchfork, `Attack`, forward with both hands on
+ * its shaft from her guard: she winds up, drawing it back as she leans
+ * back and turns further from the waist; she lunges, driving it forward
+ * and level at her waist, its butt under her right arm, which strikes
+ * halfway through; she holds it out a moment; and she recovers, drawing it
+ * back onto her guard again.
+ *
+ * @param {MarthaPoser} poser - The poser of her model.
+ * @param {Pose} guardStart - How she stands on her guard.
+ */
+function bakeAttack(poser: MarthaPoser, guardStart: Pose): void {
+  const { rig } = poser;
   const thrustKeys: ThrustKey[] = [
     { t: 0, grip: GUARD_GRIP, lean: 0, twist: GUARD_TWIST },
     { t: 0.15, grip: findThrustGrip(-0.14, 0.04), lean: -0.35, twist: -42 },
@@ -694,7 +836,7 @@ export function buildNpcMartha(): BuiltModel {
     { t: 0.48, grip: findThrustGrip(0, 0), lean: 0.3, twist: -26 },
     { t: THRUST_DURATION, grip: GUARD_GRIP, lean: 0, twist: GUARD_TWIST },
   ];
-  overreach = 0;
+  poser.overreach = 0;
   rig.bake(
     'Attack',
     THRUST_DURATION,
@@ -717,20 +859,30 @@ export function buildNpcMartha(): BuiltModel {
         Chest: [GUARD_LEAN + 16 * lean, (twist * 2) / 3, 0],
         Head: [-GUARD_LEAN - 10 * lean, -twist, 0],
       });
-      return { pose: holdFork(pose, mixGrips(a.grip, b.grip, w)) };
+      return { pose: poser.holdFork(pose, mixGrips(a.grip, b.grip, w)) };
     },
     { settle: true },
   );
-  rig.noteOverreach('Attack', overreach);
+  rig.noteOverreach('Attack', poser.overreach);
+}
 
-  // Beaten, she sits down on the ground from her guard, as one sits down
-  // to catch one's breath after a run: her hips tip back, her skirt
-  // spreading out before her with the toes of her shoes peeping up at its
-  // end; she bends a little forward, her hands resting on her knees and
-  // her elbows out to the sides; and she bows her head.  She has dropped
-  // the pitchfork, out of sight, which turns level.
+/**
+ * Bakes her sitting down on the ground, beaten, from her guard, `Sit`, as
+ * one sits down to catch one's breath after a run: her hips tip back, her
+ * skirt spreading out before her with the toes of her shoes peeping up at
+ * its end; she bends a little forward, her hands resting on her knees and
+ * her elbows out to the sides; and she bows her head.  She has dropped the
+ * pitchfork, out of sight, which turns level.
+ *
+ * @param {MarthaPoser} poser - The poser of her model.
+ * @param {Pose} guardStart - How she stands on her guard.
+ */
+function bakeSit(poser: MarthaPoser, guardStart: Pose): void {
+  const { rig } = poser;
+  const { model } = rig;
   const hips: number = model.findBone('Hips');
   const chest: number = model.findBone('Chest');
+  const head: number = model.findBone('Head');
   const guardTurns: Quaternion[] = [hips, chest, head].map((bone: number) =>
     findWorldTurn(model, guardStart, bone),
   );
@@ -739,44 +891,73 @@ export function buildNpcMartha(): BuiltModel {
     Quaternion,
     Quaternion,
   ];
-  const guardFork: Quaternion = findWorldTurn(model, guardStart, fork);
+  const guardFork: Quaternion = findWorldTurn(
+    model,
+    guardStart,
+    model.findBone('Pitchfork'),
+  );
   const sitHips: Quaternion = createRotation([SIT_HIPS, 0, 0]);
   const sitChest: Quaternion = createRotation(SIT_CHEST);
   const sitHead: Quaternion = createRotation(SIT_HEAD);
-  // Turns a bone between how it is turned in model space on her guard and
-  // as she sits, whatever its parent.
-  const turnBone = (
-    pose: Pose,
-    bone: number,
-    from: Quaternion,
-    to: Quaternion,
-    weight: number,
-  ): void => {
-    const parent: number = getItem(model.bones, bone).parent;
-    const turn: Quaternion = from.clone().slerp(to, weight);
-    getItem(pose.rotations, bone).copy(
-      findWorldTurn(model, pose, parent).invert().multiply(turn),
-    );
-  };
-  overreach = 0;
+  poser.overreach = 0;
   rig.bake('Sit', SIT_DURATION, (t: number): PoseSample => {
     const down: number = easeProgress(t / (SIT_DURATION - 0.2));
     const pose: Pose = rig.createPose({ offset: [0, -SIT_DROP * down, 0] });
-    turnBone(pose, hips, guardHips, sitHips, down);
-    turnBone(pose, chest, guardChest, sitChest, down);
-    turnBone(pose, head, guardHead, sitHead, down);
+    turnBone(model, pose, hips, guardHips, sitHips, down);
+    turnBone(model, pose, chest, guardChest, sitChest, down);
+    turnBone(model, pose, head, guardHead, sitHead, down);
     const { right, left } = mixGrips(GUARD_GRIP, SIT_HANDS, down);
-    overreach = Math.max(
-      overreach,
+    poser.overreach = Math.max(
+      poser.overreach,
       rig.reachArm(pose, ARMS.R, right, { yaw: -ELBOW_YAW * down }),
       rig.reachArm(pose, ARMS.L, left, { yaw: ELBOW_YAW * down }),
     );
     return {
-      pose: turnFork(pose, guardFork.clone().slerp(level, down)),
+      pose: poser.turnFork(pose, guardFork.clone().slerp(poser.level, down)),
       snap: 1,
     };
   });
-  rig.noteOverreach('Sit', overreach);
+  rig.noteOverreach('Sit', poser.overreach);
+}
+
+/**
+ * Builds Martha, the village chief: a sturdy woman of mature years, her
+ * greying hair gone silver at the temples and coiled in a low knot, in a
+ * long skirt and a buttoned waistcoat over a blouse with its sleeves
+ * rolled to the elbows, a small clover pinned to her breast, who stands at
+ * ease with her hands on her hips, shifts her weight and looks about her.
+ * She walks with her arms swinging.  Holding a pitchfork, which hangs on a
+ * bone of its own, `Pitchfork`, for the game to show only while she holds
+ * it, she stands and walks on her guard, holding it diagonally across her
+ * body in both hands, its tines forward and a little up, in clips of
+ * their own, `IdleArmed` and `WalkArmed`; she
+ * thrusts it forward with both hands, its tines reaching two metres in
+ * front of her; and she sits down on the ground, beaten, for a breather,
+ * her skirt spread before her, bent a little forward with her hands on her
+ * knees and her head bowed, catching her breath, as she has dropped the
+ * pitchfork, which the game shows lying beside her.
+ *
+ * @returns {BuiltModel} The animated model and the measurements taken while
+ *   baking.
+ */
+export function buildNpcMartha(): BuiltModel {
+  const model = new Model('NpcMartha');
+  setMaterials(model);
+  addBones(model);
+  addFace(model);
+  addSkirt(model);
+  addBody(model);
+  addArms(model);
+  // The pitchfork, gripped in her right fist.
+  addPitchfork(model, 'Pitchfork', FORK_GRIP);
+
+  const poser = new MarthaPoser(model);
+  bakeIdles(poser);
+  const guardStart: Pose = poser.sampleIdle(0, true).pose;
+  bakeWalks(poser);
+  bakeAttack(poser, guardStart);
+  bakeSit(poser, guardStart);
+  const report: ReadonlyMap<string, ClipReport> = poser.rig.report;
   model.centreOn([]);
-  return { model, report: rig.report };
+  return { model, report };
 }

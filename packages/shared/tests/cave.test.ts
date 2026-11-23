@@ -33,7 +33,7 @@ import {
   VILLAGERS,
   WALK_SPEED,
   createMotion,
-  findPickTarget,
+  findInteractable,
   locateVillager,
   stepMotion,
 } from '../src/index.ts';
@@ -177,8 +177,13 @@ describe('the ground of the cave', () => {
       expect(graph.findPath(CAVE_LANDING, spot)).not.toBeNull();
       const motion: PlayerMotion = createMotion(spot, spot.yaw);
       expect(
-        findPickTarget(motion, 0, NO_WORLD_ITEMS, 'cave', []),
-      ).toMatchObject({ source: 'container', id });
+        findInteractable(
+          motion,
+          0,
+          { map: 'cave', monsters: [], items: NO_WORLD_ITEMS },
+          'pick',
+        ),
+      ).toMatchObject({ type: 'container', id });
     });
   });
 

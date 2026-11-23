@@ -19,36 +19,39 @@
 
 /**
  * @module client/push-forecast Drawing the player of the page pushed out of
- *   the way of Toby before the server tells of it.
+ *   the way of a villager who pushes the players aside, before the server
+ *   tells of it.
  */
 
 import {
-  PLAYER_RADIUS,
-  TOBY_RADIUS,
   SIMULATION_RATE,
-  TOBY_RUN_SPEED,
-  VILLAGE_TERRAIN,
-  findTobyPose,
+  WORLD_MAPS,
+  findPusher,
   isResting,
-  pushAside,
 } from '@clovervale/shared';
-import type { GroundVector, PlayerMotion } from '@clovervale/shared';
+import type {
+  GroundVector,
+  MapId,
+  PlayerMotion,
+  Pusher,
+  Terrain,
+} from '@clovervale/shared';
 
 import { SMOOTHING_DURATION, SMOOTHING_LIMIT } from './correction-smoothing.ts';
 import type {
   CorrectionSmoothing,
   SmoothingSettings,
 } from './correction-smoothing.ts';
-import type { PredictionSettings } from './panel.ts';
-import type { PlayerPrediction } from './prediction.ts';
+import type { PlayerPrediction, PredictionSettings } from './prediction.ts';
 
 /**
- * The fastest the forecast moves the player along the places the server
- * pushes it to, in metres a second: twice as fast as Toby runs.  Toby pushes
- * a player square in his way aside faster than this as he first touches it,
- * and the player is drawn reaching into him a little for a few frames then.
+ * How many times as fast as the villager who pushes it goes, as
+ * {@link Pusher.speed} tells, the forecast at the fastest moves the player
+ * along the places the server pushes it to: twice.  A villager pushes a
+ * player square in its way aside faster than this as it first touches it,
+ * and the player is drawn reaching into it a little for a few frames then.
  */
-export const PUSH_SPEED: number = 2 * TOBY_RUN_SPEED;
+export const PUSH_SPEED_RATIO = 2;
 
 /**
  * How long after the step the server last told of the player the forecast
@@ -57,12 +60,9 @@ export const PUSH_SPEED: number = 2 * TOBY_RUN_SPEED;
  */
 export const FORECAST_HORIZON = 3;
 
-/** The least distance between the centres of Toby and a player, in metres. */
-const REACH: number = TOBY_RADIUS + PLAYER_RADIUS;
-
 /**
- * How far a player may reach into Toby and still count as touching him
- * only, in metres, to allow for rounding.
+ * How far a player may reach into a villager who pushes it and still count
+ * as touching it only, in metres, to allow for rounding.
  */
 const OVERLAP_TOLERANCE = 1e-9;
 
@@ -72,11 +72,15 @@ const OVERLAP_TOLERANCE = 1e-9;
  */
 const PAUSE_LIMIT = 100;
 
-/** Whether the owner has the pushes of Toby drawn before the server tells. */
+/**
+ * Whether the owner has the pushes of the villagers who push the players
+ * aside drawn before the server tells.
+ */
 export interface PushForecastSettings {
   /**
    * Whether the player of the page at rest is drawn pushed out of the way of
-   * Toby as he is drawn, rather than when the server tells of the push.
+   * a villager who pushes the players aside as the villager is drawn, rather
+   * than when the server tells of the push.
    */
   isEnabled: boolean;
 }
@@ -87,6 +91,8 @@ export interface PushForecastSettings {
  * player is drawn.
  */
 class PushCourse {
+  readonly #pusher: Pusher;
+  readonly #terrain: Terrain;
   #first: number;
   #horizon: number;
   readonly #places: GroundVector[];
@@ -99,8 +105,18 @@ class PushCourse {
    * @param {number} step - The number of the step the server told of the
    *   player after.
    * @param {GroundVector} position - Where the server had the player then.
+   * @param {Pusher} pusher - How the villager who pushes the player gets in
+   *   its way.
+   * @param {Terrain} terrain - The ground the player stands on.
    */
-  constructor(step: number, position: GroundVector) {
+  constructor(
+    step: number,
+    position: GroundVector,
+    pusher: Pusher,
+    terrain: Terrain,
+  ) {
+    this.#pusher = pusher;
+    this.#terrain = terrain;
     this.#first = step;
     this.#horizon = step + FORECAST_HORIZON * SIMULATION_RATE;
     this.#places = [position];
@@ -142,23 +158,27 @@ class PushCourse {
   /**
    * Moves the player drawn along the course on to a frame.
    *
-   * It is drawn at the place the server has it at the step Toby is drawn
-   * at, or between that and the next, as far towards the next as it takes
-   * to keep it clear of him, if that does, but never further back along
-   * the course than it was drawn before, and no faster than
-   * {@link PUSH_SPEED} from frame to frame.
+   * It is drawn at the place the server has it at the step the villager
+   * who pushes it is drawn at, or between that and the next, as far
+   * towards the next as it takes to keep it clear of the villager, if that
+   * does, but never further back along the course than it was drawn
+   * before, and no faster than {@link PUSH_SPEED_RATIO} times the speed of
+   * the villager from frame to frame.
    *
-   * @param {number} tobyStep - The step of the server Toby is drawn at,
-   *   which may fall between two.
+   * @param {number} pusherStep - The step of the server the villager who
+   *   pushes the player is drawn at, which may fall between two.
    * @param {number} time - The time of the frame on the clock of the page,
    *   in milliseconds, which is no earlier than any time told before.
    * @returns {GroundVector} Where the player is to be drawn.
    */
-  advance(tobyStep: number, time: number): GroundVector {
+  advance(pusherStep: number, time: number): GroundVector {
     const span: number =
       this.#time === null ? 0 : (time - this.#time) / 1000;
     this.#time = time;
-    this.#moveTowards(this.#findTarget(tobyStep), PUSH_SPEED * span);
+    this.#moveTowards(
+      this.#findTarget(pusherStep),
+      PUSH_SPEED_RATIO * this.#pusher.speed * span,
+    );
     return this.#findPoint(this.#progress);
   }
 
@@ -166,22 +186,27 @@ class PushCourse {
    * Finds how far along the course the player is to be drawn, as far as it
    * can be.
    *
-   * @param {number} tobyStep - The step of the server Toby is drawn at.
+   * @param {number} pusherStep - The step of the server the villager who
+   *   pushes the player is drawn at.
    * @returns {number} How far along, in steps, no earlier than it is drawn
-   *   already, and no later than the step after the one Toby is drawn at,
-   *   nor than the last step the course foresees.
+   *   already, and no later than the step after the one the villager is
+   *   drawn at, nor than the last step the course foresees.
    */
-  #findTarget(tobyStep: number): number {
-    const last: number = Math.min(Math.floor(tobyStep) + 1, this.#horizon);
+  #findTarget(pusherStep: number): number {
+    const last: number = Math.min(Math.floor(pusherStep) + 1, this.#horizon);
     if (this.#progress >= last) {
       return this.#progress;
     }
-    const start: number = Math.min(Math.max(tobyStep, this.#progress), last);
+    const start: number = Math.min(
+      Math.max(pusherStep, this.#progress),
+      last,
+    );
     const step: number = Math.floor(start);
     const share: number = findClearShare(
       this.#findPlace(step),
       this.#findPlace(step + 1),
-      findTobyPose(tobyStep),
+      this.#pusher.locate(pusherStep),
+      this.#pusher.reach,
       start - step,
     );
     return step + share;
@@ -253,7 +278,9 @@ class PushCourse {
       if (from === undefined) {
         throw new Error('A course keeps at least one place.');
       }
-      this.#places.push(pushAside(from, findTobyPose(next), VILLAGE_TERRAIN));
+      this.#places.push(
+        this.#pusher.pushAside(from, this.#pusher.locate(next), this.#terrain),
+      );
       place = this.#places[index];
     }
     return place;
@@ -262,32 +289,36 @@ class PushCourse {
 
 /**
  * Finds the first point from a share of the way between two places onwards
- * that is clear of Toby.
+ * that is clear of a villager who pushes the players aside.
  *
  * @param {GroundVector} from - The place the way starts at.
  * @param {GroundVector} to - The place it ends at.
- * @param {GroundVector} toby - Where Toby is.
+ * @param {GroundVector} at - Where the villager is.
+ * @param {number} reach - The least distance between the centres of the
+ *   villager and a player, in metres.
  * @param {number} share - The share of the way to look from, from 0 to 1.
- * @returns {number} The share of the way to the first point no nearer him
- *   than a player may be, from the given one to 1, or 1 if there is none.
+ * @returns {number} The share of the way to the first point no nearer the
+ *   villager than a player may be, from the given one to 1, or 1 if there
+ *   is none.
  */
 function findClearShare(
   from: GroundVector,
   to: GroundVector,
-  toby: GroundVector,
+  at: GroundVector,
+  reach: number,
   share: number,
 ): number {
   const wayX: number = to.x - from.x;
   const wayZ: number = to.z - from.z;
-  const apartX: number = from.x + wayX * share - toby.x;
-  const apartZ: number = from.z + wayZ * share - toby.z;
-  const least: number = REACH - OVERLAP_TOLERANCE;
+  const apartX: number = from.x + wayX * share - at.x;
+  const apartZ: number = from.z + wayZ * share - at.z;
+  const least: number = reach - OVERLAP_TOLERANCE;
   const a: number = wayX * wayX + wayZ * wayZ;
   if (apartX * apartX + apartZ * apartZ >= least * least || a === 0) {
     return share;
   }
   const b: number = 2 * (apartX * wayX + apartZ * wayZ);
-  const c: number = apartX * apartX + apartZ * apartZ - REACH * REACH;
+  const c: number = apartX * apartX + apartZ * apartZ - reach * reach;
   const out: number = (-b + Math.sqrt(b * b - 4 * a * c)) / 2 / a;
   return Math.min(share + out, 1);
 }
@@ -417,31 +448,35 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
 }
 
 /**
- * Draws the player of the page pushed out of the way of Toby as he is
- * drawn, while it rests, before the server tells of the push.
+ * Draws the player of the page pushed out of the way of the pusher of its
+ * map, the villager there who pushes the players aside, as
+ * {@link findPusher} tells, as the pusher is drawn, while the player rests,
+ * before the server tells of the push.
  *
  * The page leaves it to the server to push a player that rests, and learns
- * of each push only from a snapshot, while Toby runs on as he is drawn.  The
- * forecast draws a player only while it rests, and only once a snapshot has
- * told the page so: from the place and the step the snapshot tells, until
- * the page moves the player on by a step of its own, the server pushes it
- * by the rule the page knows, with Toby where his course has him at each of
- * its steps.  The forecast draws the player at the places the server pushes
- * it to as Toby is drawn: between the place after the step Toby is drawn at
- * and the place after the next, as far towards the latter as it takes to
- * keep clear of him, but never back along those places, and no faster than
- * {@link PUSH_SPEED}, setting out from where the snapshot has it.  A
- * snapshot that tells of a push the forecast foresaw leaves the player drawn
- * where it was.  A resting player Toby does not push is drawn just as
- * without the forecast.
+ * of each push only from a snapshot, while the pusher runs on as it is
+ * drawn.  The forecast draws a player only while it rests, and only once a
+ * snapshot has told the page so: from the place and the step the snapshot
+ * tells, until the page moves the player on by a step of its own, the
+ * server pushes it by the rule the page knows, with the pusher where its
+ * course has it at each of its steps.  The forecast draws the player at the
+ * places the server pushes it to as the pusher is drawn: between the place
+ * after the step the pusher is drawn at and the place after the next, as
+ * far towards the latter as it takes to keep clear of the pusher, but never
+ * back along those places, and no faster than {@link PUSH_SPEED_RATIO}
+ * times as fast as the pusher runs, setting out from where the snapshot has
+ * it.  A snapshot that tells of a push the forecast foresaw leaves the
+ * player drawn where it was.  A resting player the pusher does not push is
+ * drawn just as without the forecast.
  *
  * So, while the player rests, it is drawn only at places the server has it
  * at, or between two it has it at one step after the other, at a step no
- * later than the one after the step Toby is drawn at, and it never moves
- * back towards his run but as the server moves it.  It reaches into Toby
- * only for the first few frames he touches it, as he pushes it faster than
- * the forecast draws it, and where the server itself leaves it reaching into
- * him, by a wall or the fence.
+ * later than the one after the step the pusher is drawn at, and it never
+ * moves back towards the run of the pusher but as the server moves it.  It
+ * reaches into the pusher only for the first few frames the pusher touches
+ * it, as the pusher pushes it faster than the forecast draws it, and where
+ * the server itself leaves it reaching into the pusher, by a wall or the
+ * fence.
  *
  * As the player sets off, starts to interact or dies, or as the owner
  * switches the forecast or the smoothing of the corrections off, the
@@ -468,18 +503,19 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
  * sets off drawn pushed glides back towards where the prediction has it, and
  * the push of the server then shows as a correction, as without the
  * forecast.  A player that has just stopped is drawn as without the
- * forecast, reaching into Toby if he runs into it, until a snapshot tells
- * the page that it rests.  The forecast cannot foresee what only the server
- * does: a player killed as it is pushed may have been drawn pushed further
- * than the server pushed it, and glides back to where it lies.  A player the
- * owner switches the forecast off and on again for as Toby pushes it glides
- * back to where it is drawn without the forecast, and out again.  While the
- * step Toby is drawn at lags behind that of the server, as his drawn clock
- * catches up at a tenth of its pace after the latency falls sharply, a
- * player the snapshots already tell pushed is still drawn where it was
- * until the drawn Toby reaches it: up to about a second after a fall from
- * 1000 ms to none, 0.3 s after one from 300 ms to 20 ms, and up to 0.39 m
- * away.  And as nothing is judged from where the player is drawn, the
+ * forecast, reaching into the pusher if it runs into the player, until a
+ * snapshot tells the page that it rests.  The forecast cannot foresee what
+ * only the server does: a player killed as it is pushed may have been drawn
+ * pushed further than the server pushed it, and glides back to where it
+ * lies.  A player the owner switches the forecast off and on again for as
+ * the pusher pushes it glides back to where it is drawn without the
+ * forecast, and out again.  While the step the pusher is drawn at lags
+ * behind that of the server, as its drawn clock catches up at a tenth of
+ * its pace after the latency falls sharply, a player the snapshots already
+ * tell pushed is still drawn where it was until the drawn pusher reaches
+ * it: with Toby, up to about a second after a fall from 1000 ms to none,
+ * 0.3 s after one from 300 ms to 20 ms, and up to 0.39 m away.  And as
+ * nothing is judged from where the player is drawn, the
  * prompts for what it can interact with go by where it is not yet pushed
  * for longer than without the forecast.
  *
@@ -529,9 +565,12 @@ export class PushForecast {
    *   corrections, which this tells of the frame as well.
    * @param {number} time - The time of the frame on the clock of the page,
    *   in milliseconds, which is no earlier than any time told before.
-   * @param {number | null} tobyStep - The step of the server Toby is drawn
-   *   at in the frame, which may fall between two, or `null` if he is not
-   *   drawn.
+   * @param {MapId} map - The map the player is drawn in, which tells the
+   *   villager who pushes the players aside there, if any, as
+   *   {@link findPusher} tells.
+   * @param {number | null} shownStep - The step of the server the villagers
+   *   are drawn at in the frame, which may fall between two, or `null` if
+   *   they are not drawn.
    * @returns {PlayerMotion} The player as it is to be drawn: as the
    *   smoothing draws it, unless the forecast draws it elsewhere.
    */
@@ -539,14 +578,19 @@ export class PushForecast {
     prediction: PlayerPrediction,
     smoothing: CorrectionSmoothing,
     time: number,
-    tobyStep: number | null,
+    map: MapId,
+    shownStep: number | null,
   ): PlayerMotion {
     const truth: PlayerMotion = prediction.readDrawn(time);
     const smoothed: PlayerMotion = smoothing.readDrawn(truth, time);
-    const isNewCourse: boolean = this.#followCourse(prediction, tobyStep);
+    const isNewCourse: boolean = this.#followCourse(
+      prediction,
+      map,
+      shownStep,
+    );
     let foreseen: PlayerMotion | null = null;
-    if (this.#course !== null && tobyStep !== null) {
-      const place: GroundVector = this.#course.advance(tobyStep, time);
+    if (this.#course !== null && shownStep !== null) {
+      const place: GroundVector = this.#course.advance(shownStep, time);
       const { motion } = prediction;
       foreseen = isSamePlace(place, motion)
         ? truth
@@ -599,24 +643,29 @@ export class PushForecast {
 
   /**
    * Keeps the course of the pushes on the player as the server last told of
-   * it, if it rests and the owner has the pushes foreseen.
+   * it, if it rests in a map with a villager who pushes the players aside,
+   * and the owner has the pushes foreseen.
    *
    * @param {PlayerPrediction} prediction - The prediction of the player.
-   * @param {number | null} tobyStep - The step of the server Toby is drawn
-   *   at, or `null` if he is not drawn.
+   * @param {MapId} map - The map the player is drawn in.
+   * @param {number | null} shownStep - The step of the server the villagers
+   *   are drawn at, or `null` if they are not drawn.
    * @returns {boolean} Whether the course starts afresh at this frame.
    */
   #followCourse(
     prediction: PlayerPrediction,
-    tobyStep: number | null,
+    map: MapId,
+    shownStep: number | null,
   ): boolean {
     const step: number | null = prediction.toldStep;
     const { motion } = prediction;
+    const pusher: Pusher | null = findPusher(map);
     if (
       !this.#settings.isEnabled ||
       !this.#smoothing.isEnabled ||
       !this.#prediction.isEnabled ||
-      tobyStep === null ||
+      pusher === null ||
+      shownStep === null ||
       step === null ||
       !isResting(motion)
     ) {
@@ -627,7 +676,12 @@ export class PushForecast {
       this.#course.forgetBefore(step);
       return false;
     }
-    this.#course = new PushCourse(step, motion);
+    this.#course = new PushCourse(
+      step,
+      motion,
+      pusher,
+      WORLD_MAPS[map].terrain,
+    );
     return true;
   }
 }

@@ -27,6 +27,7 @@ import { PLAYER_HEALTH } from '@clovervale/shared';
 import type { PlayerState } from '@clovervale/shared';
 
 import { Actor } from './actor.ts';
+import type { FigureFrame, FigureSet } from './figure-set.ts';
 import { HealthBar } from './health-bar.ts';
 
 /** The colour of the health bars of the players. */
@@ -82,7 +83,7 @@ interface ShownPlayer {
 }
 
 /** The players, shown exactly as they are told from moment to moment. */
-export class PlayerFigures {
+export class PlayerFigures implements FigureSet {
   readonly #parent: Object3D;
   readonly #createFigure: FigureSource;
   readonly #shown = new Map<number, ShownPlayer>();
@@ -100,7 +101,7 @@ export class PlayerFigures {
   }
 
   /**
-   * Shows the given players, and no others.
+   * Shows the players of a frame, and no others.
    *
    * Each player stands where its state tells, facing the way it tells, and
    * plays the clip of the action it tells, which starts over whenever the
@@ -108,10 +109,12 @@ export class PlayerFigures {
    * shows its health.  A player without a model to show it with is left
    * out.
    *
-   * @param {readonly PlayerState[]} players - The players as they are to be
-   *   shown, whether a snapshot tells them so or they lie between two.
+   * @param {FigureFrame} frame - How things are shown at the frame, with the
+   *   players as they are to be shown, whether a snapshot tells them so or
+   *   they lie between two.
    */
-  showPlayers(players: readonly PlayerState[]): void {
+  show(frame: FigureFrame): void {
+    const { players } = frame.view;
     const ids = new Set<number>(
       players.map((player: PlayerState) => player.id),
     );
@@ -146,6 +149,14 @@ export class PlayerFigures {
     for (const shown of this.#shown.values()) {
       shown.actor.update(seconds);
     }
+  }
+
+  /** Takes every player away, as the player of the page leaves its map. */
+  clear(): void {
+    for (const shown of this.#shown.values()) {
+      this.#parent.remove(shown.root);
+    }
+    this.#shown.clear();
   }
 
   /**

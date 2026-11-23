@@ -43,6 +43,8 @@ import type {
 import { CAVE_ROPE } from '../../shared/src/cave.ts';
 import { killMotion } from '../../shared/src/player-motion.ts';
 
+import { findSpaceAction } from '../src/space-action.ts';
+import type { SpaceAction, SpaceContext } from '../src/space-action.ts';
 import {
   MoveKeys,
   chooseSpaceInput,
@@ -51,6 +53,30 @@ import {
 
 /** The heading of a camera that looks towards -Z, in degrees. */
 const NORTHWARD = 180;
+
+/**
+ * Works out what the space bar makes a player do, at the first step, with
+ * nothing to pick and nothing carried, in the village and without monsters,
+ * unless told otherwise.
+ *
+ * @param {PlayerMotion} motion - The motion of the player.
+ * @param {Partial<SpaceContext>} [context] - What differs from that.
+ * @returns {SpaceAction} What the player does.
+ */
+function findAction(
+  motion: PlayerMotion,
+  context: Partial<SpaceContext> = {},
+): SpaceAction {
+  return findSpaceAction({
+    step: 0,
+    world: NO_WORLD_ITEMS,
+    inventory: [],
+    map: 'village',
+    monsters: [],
+    ...context,
+    motion,
+  });
+}
 
 /**
  * Resolves the direction a set of keys moves the player in.
@@ -107,15 +133,13 @@ describe('chooseSpaceInput', () => {
 
   it('picks while the clover of the patch is within reach', () => {
     const world = { clovers: [6], items: [] };
-    expect(chooseSpaceInput(BY_PATCH, 0, world, 'village', [])).toEqual({
+    expect(chooseSpaceInput(findAction(BY_PATCH, { world }))).toEqual({
       type: 'pick',
     });
   });
 
   it('interacts while there is nothing to pick within reach', () => {
-    expect(
-      chooseSpaceInput(BY_PATCH, 0, NO_WORLD_ITEMS, 'village', []),
-    ).toEqual({
+    expect(chooseSpaceInput(findAction(BY_PATCH))).toEqual({
       type: 'interact',
     });
   });
@@ -123,14 +147,14 @@ describe('chooseSpaceInput', () => {
   it('interacts while the player cannot interact', () => {
     const world = { clovers: [6], items: [] };
     expect(
-      chooseSpaceInput(killMotion(BY_PATCH), 0, world, 'village', []),
+      chooseSpaceInput(findAction(killMotion(BY_PATCH), { world })),
     ).toEqual({
       type: 'interact',
     });
   });
 
   it('picks before the porch of Martha while she is away', () => {
-    const porch: GroundVector = findPlacement('npc-martha.glb');
+    const porch: GroundVector = findPlacement('martha');
     const martha: MonsterState = {
       id: 2,
       kind: 'martha',
@@ -148,7 +172,9 @@ describe('chooseSpaceInput', () => {
       { x: porch.x, z: porch.z + 0.8 },
       180,
     );
-    expect(chooseSpaceInput(pose, 0, world, 'village', [martha])).toEqual({
+    expect(
+      chooseSpaceInput(findAction(pose, { world, monsters: [martha] })),
+    ).toEqual({
       type: 'pick',
     });
   });
@@ -156,7 +182,7 @@ describe('chooseSpaceInput', () => {
 
 describe('chooseSpaceInput by the ways into and out of the cave', () => {
   /** The middle of the burrow of the wild dog. */
-  const BURROW: GroundVector = findPlacement('prop-spawn-stones.glb');
+  const BURROW: GroundVector = findPlacement('spawn-stones');
 
   /** A player in the burrow, facing north. */
   const IN_BURROW: PlayerMotion = createMotion(BURROW, 180);
@@ -183,29 +209,27 @@ describe('chooseSpaceInput by the ways into and out of the cave', () => {
   }
 
   it('goes down the burrow, with no dog about', () => {
-    expect(
-      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', []),
-    ).toEqual({ type: 'travel' });
+    expect(chooseSpaceInput(findAction(IN_BURROW))).toEqual({ type: 'travel' });
   });
 
   it('goes down the burrow, with the living dog behind the player', () => {
     const dog: MonsterState = placeDog(1, false);
     expect(
-      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', [dog]),
+      chooseSpaceInput(findAction(IN_BURROW, { monsters: [dog] })),
     ).toEqual({ type: 'travel' });
   });
 
   it('slashes at the living dog in front of the player', () => {
     const dog: MonsterState = placeDog(-1, false);
     expect(
-      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', [dog]),
+      chooseSpaceInput(findAction(IN_BURROW, { monsters: [dog] })),
     ).toEqual({ type: 'interact' });
   });
 
   it('goes down the burrow by the dead dog in front of the player', () => {
     const dog: MonsterState = placeDog(-1, true);
     expect(
-      chooseSpaceInput(IN_BURROW, 0, NO_WORLD_ITEMS, 'village', [dog]),
+      chooseSpaceInput(findAction(IN_BURROW, { monsters: [dog] })),
     ).toEqual({ type: 'travel' });
   });
 
@@ -214,17 +238,15 @@ describe('chooseSpaceInput by the ways into and out of the cave', () => {
       { x: CAVE_ROPE.x + 0.8, z: CAVE_ROPE.z },
       -90,
     );
-    expect(chooseSpaceInput(byRope, 0, NO_WORLD_ITEMS, 'cave', [])).toEqual({
+    expect(chooseSpaceInput(findAction(byRope, { map: 'cave' }))).toEqual({
       type: 'travel',
     });
-    expect(
-      chooseSpaceInput(byRope, 0, NO_WORLD_ITEMS, 'village', []),
-    ).toEqual({ type: 'interact' });
+    expect(chooseSpaceInput(findAction(byRope))).toEqual({ type: 'interact' });
   });
 
   it('does nothing of the kind while the player cannot interact', () => {
     expect(
-      chooseSpaceInput(killMotion(IN_BURROW), 0, NO_WORLD_ITEMS, 'village', []),
+      chooseSpaceInput(findAction(killMotion(IN_BURROW))),
     ).toEqual({ type: 'interact' });
   });
 });
@@ -318,7 +340,7 @@ describe('chooseSpaceInput in the cave', () => {
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       180,
     );
-    expect(chooseSpaceInput(before, 0, NO_WORLD_ITEMS, 'cave', [])).toEqual({
+    expect(chooseSpaceInput(findAction(before, { map: 'cave' }))).toEqual({
       type: 'interact',
     });
   });
@@ -327,11 +349,16 @@ describe('chooseSpaceInput in the cave', () => {
     const looted: number[] = CAVE_CONTAINERS.map((_, id: number) => id);
     for (const container of CAVE_CONTAINERS) {
       const motion: PlayerMotion = standBefore(container);
-      expect(chooseSpaceInput(motion, 0, NO_WORLD_ITEMS, 'cave', [])).toEqual({
+      expect(chooseSpaceInput(findAction(motion, { map: 'cave' }))).toEqual({
         type: 'pick',
       });
       expect(
-        chooseSpaceInput(motion, 0, { ...NO_WORLD_ITEMS, looted }, 'cave', []),
+        chooseSpaceInput(
+          findAction(motion, {
+            world: { ...NO_WORLD_ITEMS, looted },
+            map: 'cave',
+          }),
+        ),
       ).toEqual({ type: 'pick' });
     }
   });

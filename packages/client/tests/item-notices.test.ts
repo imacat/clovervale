@@ -27,50 +27,8 @@ import { describe, expect, it } from 'vitest';
 import { ITEM_KINDS } from '../../shared/src/items.ts';
 import type { ItemKindId } from '@clovervale/shared';
 
-import {
-  findGainedItems,
-  findGainedSilver,
-  wordItemNotice,
-  wordSilverNotice,
-} from '../src/item-notices.ts';
+import { wordItemNotice, wordSilverNotice } from '../src/item-notices.ts';
 import { Translator } from '../src/translator.ts';
-
-describe('findGainedItems', () => {
-  it('finds a clover picked and an item looted', () => {
-    expect(findGainedItems(['clover'], ['clover', 'clover'])).toEqual([
-      'clover',
-    ]);
-    expect(findGainedItems(['clover'], ['clover', 'sword'])).toEqual([
-      'sword',
-    ]);
-  });
-
-  it('finds nothing as the inventory is first told on joining', () => {
-    expect(findGainedItems(null, ['clover', 'sword'])).toEqual([]);
-  });
-
-  it('finds nothing as the same inventory comes back on another map', () => {
-    expect(findGainedItems(['sword', 'clover'], ['sword', 'clover'])).toEqual(
-      [],
-    );
-  });
-
-  it('finds nothing as an item is dropped and the rest close up', () => {
-    expect(
-      findGainedItems(['clover', 'sword', 'clover'], ['sword', 'clover']),
-    ).toEqual([]);
-  });
-
-  it('finds the item got in the same snapshot as another is dropped', () => {
-    expect(
-      findGainedItems(['clover', 'sword'], ['sword', 'leather-armour']),
-    ).toEqual(['leather-armour']);
-  });
-
-  it('finds nothing once there is no player', () => {
-    expect(findGainedItems(['clover'], null)).toEqual([]);
-  });
-});
 
 describe('wordItemNotice', () => {
   it('names the item got in the language of the page', async () => {
@@ -122,26 +80,6 @@ describe('wordItemNotice', () => {
       'Obtienes la insignia de la espía de Valtrébol',
       'Obtienes un frasco de ungüento de Marta',
     ]);
-  });
-});
-
-describe('findGainedSilver', () => {
-  it('finds the silver coins got', () => {
-    expect(findGainedSilver(0, 2)).toBe(2);
-    expect(findGainedSilver(3, 8)).toBe(5);
-  });
-
-  it('finds none as the count is first told on joining', () => {
-    expect(findGainedSilver(null, 12)).toBe(0);
-  });
-
-  it('finds none as the count stays or goes down', () => {
-    expect(findGainedSilver(4, 4)).toBe(0);
-    expect(findGainedSilver(4, 1)).toBe(0);
-  });
-
-  it('finds none once there is no player', () => {
-    expect(findGainedSilver(4, null)).toBe(0);
   });
 });
 

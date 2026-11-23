@@ -133,6 +133,26 @@ export interface Step {
   readonly pitch: number;
 }
 
+/** Where the joints of the arms of a grown-up NPC are, in the rest pose. */
+export interface NpcArm {
+  /** How far out to the side of the middle the arm hangs. */
+  readonly x: number;
+  /** The height of the shoulder. */
+  readonly shoulder: number;
+  /** The height of the elbow. */
+  readonly elbow: number;
+  /** The height of the wrist. */
+  readonly wrist: number;
+}
+
+/** A layer worn over the shin of a grown-up NPC. */
+export interface ShinLayer {
+  /** The material name. */
+  readonly material: string;
+  /** The [radius, height] profile of the layer, turned round the shin. */
+  readonly profile: readonly Pair[];
+}
+
 /** The clips every character shares. */
 interface SharedClips {
   /** The clips. */
@@ -158,6 +178,17 @@ const HEAD_RADII: Triple = [0.3, 0.285, 0.285];
 
 /** The skin tones. */
 export const SKINS = { light: '#f7cfa4', tan: '#e0a877', brown: '#a56a43' };
+
+/** Where the joints of the arms of most grown-up NPCs are. */
+export const NPC_ARM: NpcArm = {
+  x: 0.25,
+  shoulder: 0.9,
+  elbow: 0.73,
+  wrist: 0.57,
+};
+
+/** How far out to the side of the middle the legs of a grown-up NPC are. */
+const NPC_LEG_X = 0.1;
 
 /** The looks of the eight characters. */
 export const VARIANTS: readonly Look[] = [
@@ -776,6 +807,83 @@ export function setFaceMaterials(model: Model, skin: string): void {
  */
 function createSideProfile(profile: readonly Pair[], width: number): Shape {
   return place(createExtrusion(profile, width), { rot: [0, -90, 0] });
+}
+
+/**
+ * Adds the skeleton of a grown-up NPC: the hips, the chest and the head,
+ * and the arms and the legs of either side.
+ *
+ * @param {Model} model - The model, without bones yet.
+ * @param {NpcArm} [arm] - Where the joints of the arms are.
+ */
+export function addNpcBones(model: Model, arm: NpcArm = NPC_ARM): void {
+  model.addBone('Hips', null, [0, 0.56, 0]);
+  model.addBone('Chest', 'Hips', [0, 0.66, 0]);
+  model.addBone('Head', 'Chest', [0, 0.98, 0]);
+  for (const [side, x] of SIDES) {
+    model.addBone(`UpperArm${side}`, 'Chest', [arm.x * x, arm.shoulder, 0]);
+    model.addBone(`ForeArm${side}`, `UpperArm${side}`, [
+      arm.x * x,
+      arm.elbow,
+      0,
+    ]);
+    model.addBone(`Hand${side}`, `ForeArm${side}`, [arm.x * x, arm.wrist, 0]);
+    model.addBone(`Thigh${side}`, 'Hips', [NPC_LEG_X * x, 0.55, 0]);
+    model.addBone(`Shin${side}`, `Thigh${side}`, [NPC_LEG_X * x, 0.3, 0]);
+    model.addBone(`Foot${side}`, `Shin${side}`, [NPC_LEG_X * x, 0.08, 0]);
+  }
+}
+
+/**
+ * Adds the legs of a grown-up NPC on either side: trousers over the thigh,
+ * the given layers over the shin, and a boot on the foot.
+ *
+ * @param {Model} model - The model, with the bones of
+ *   {@link addNpcBones} and the materials `trousers` and `boot` defined,
+ *   and those of the layers.
+ * @param {readonly ShinLayer[]} shin - What covers the shin, from the
+ *   first layer added to the last.
+ */
+export function addNpcLegs(model: Model, shin: readonly ShinLayer[]): void {
+  for (const [side, x] of SIDES) {
+    const moveAside = (shape: Shape): Shape =>
+      place(shape, { pos: [NPC_LEG_X * x, 0, 0] });
+    model.add(
+      'trousers',
+      moveAside(
+        createLathe(
+          [
+            [0, 0.6],
+            [0.095, 0.575],
+            [0.085, 0.3],
+            [0, 0.285],
+          ],
+          6,
+        ),
+      ),
+      `Thigh${side}`,
+    );
+    for (const { material, profile } of shin) {
+      model.add(material, moveAside(createLathe(profile, 6)), `Shin${side}`);
+    }
+    model.add(
+      'boot',
+      moveAside(
+        createSideProfile(
+          [
+            [-0.095, 0],
+            [0.175, 0],
+            [0.185, 0.045],
+            [0.135, 0.09],
+            [0.03, 0.11],
+            [-0.095, 0.11],
+          ],
+          0.165,
+        ),
+      ),
+      `Foot${side}`,
+    );
+  }
 }
 
 /**

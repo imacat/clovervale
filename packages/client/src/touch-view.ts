@@ -27,6 +27,7 @@ import { CHAT_INPUT_CLASS } from './chat-view.ts';
 import { noticePointerType } from './touch-controls.ts';
 import type { StickPlace, StickPush, TouchControls } from './touch-controls.ts';
 import type { Translator } from './translator.ts';
+import { createSvgElement, drawPicture } from './view-elements.ts';
 
 /** The class of the root of the page while it is used by touch. */
 const TOUCH_CLASS = 'is-touch';
@@ -46,27 +47,6 @@ export interface TouchView {
   readonly render: () => void;
 }
 
-/** The namespace of the elements of SVG. */
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-
-/**
- * Makes an element of SVG.
- *
- * @param {string} name - The name of the element.
- * @param {Readonly<Record<string, string>>} attributes - Its attributes.
- * @returns {SVGElement} The element.
- */
-function createSvgElement(
-  name: string,
-  attributes: Readonly<Record<string, string>>,
-): SVGElement {
-  const element: SVGElement = document.createElementNS(SVG_NAMESPACE, name);
-  for (const [key, value] of Object.entries(attributes)) {
-    element.setAttribute(key, value);
-  }
-  return element;
-}
-
 /**
  * Draws an open hand, its fingers up, 64 units square, as on the action
  * button.
@@ -74,17 +54,13 @@ function createSvgElement(
  * @returns {SVGElement} The hand.
  */
 export function drawHand(): SVGElement {
-  const svg: SVGElement = createSvgElement('svg', {
-    viewBox: '0 0 64 64',
-    'aria-hidden': 'true',
-  });
   const fingers: readonly (readonly [number, number, number, number])[] = [
     [21, 10, 8, 30],
     [30, 6, 8, 34],
     [39, 9, 8, 31],
     [48, 16, 7, 26],
   ];
-  svg.append(
+  return drawPicture([
     ...fingers.map(([x, y, width, height]) =>
       createSvgElement('rect', {
         x: String(x),
@@ -108,8 +84,7 @@ export function drawHand(): SVGElement {
       d: 'M21 32 L55 32 L55 44 C55 54 48 60 38 60 C28 60 21 54 21 46Z',
       class: 'touch-hand',
     }),
-  );
-  return svg;
+  ]);
 }
 
 /**

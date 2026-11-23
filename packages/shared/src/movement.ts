@@ -27,12 +27,38 @@ export const WALK_SPEED = 1.5;
 /** The number of steps the simulation of the world takes every second. */
 export const SIMULATION_RATE = 20;
 
+/** How long a step of the simulation of the world lasts, in milliseconds. */
+export const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
+
 /** A point or a direction on the ground plane. */
 export interface GroundVector {
   /** The east-west component. */
   readonly x: number;
   /** The north-south component. */
   readonly z: number;
+}
+
+/**
+ * Counts the simulation steps a time lasts.
+ *
+ * @param {number} seconds - The time, in seconds.
+ * @returns {number} The number of steps, at least one.
+ */
+export function countSteps(seconds: number): number {
+  return Math.max(Math.round(seconds * SIMULATION_RATE), 1);
+}
+
+/**
+ * Measures how far apart two points are.
+ *
+ * @param {GroundVector} a - One point.
+ * @param {GroundVector} b - The other point.
+ * @returns {number} The distance between them, in metres.
+ */
+export function measureDistance(a: GroundVector, b: GroundVector): number {
+  const dx: number = a.x - b.x;
+  const dz: number = a.z - b.z;
+  return Math.sqrt(dx * dx + dz * dz);
 }
 
 /**

@@ -24,8 +24,7 @@
 
 import type { InputProgress, PlayerMotion } from '@clovervale/shared';
 
-import type { PredictionSettings } from './panel.ts';
-import type { PlayerPrediction } from './prediction.ts';
+import type { PlayerPrediction, PredictionSettings } from './prediction.ts';
 
 /**
  * How long the player of the page takes to glide over a correction, in
@@ -42,7 +41,7 @@ export const SMOOTHING_DURATION = 150;
  * metres, which it never reaches.  A correction that moves the player this
  * far or farther is drawn as a jump, whatever is left of the glide before,
  * and so is one that would leave it drawn this far or farther from where
- * it truly is: either is far more than Toby pushes a player between two
+ * it truly is: either is far more than a villager pushes a player between two
  * snapshots, and a glide over it would be quicker than anything moves in
  * the village.
  */

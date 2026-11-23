@@ -85,19 +85,21 @@ function createPlainSnapshot(
   monsters: readonly MonsterState[],
   own: InputProgress,
 ): SnapshotMessage {
-  return createSnapshotMessage(
+  return createSnapshotMessage({
     step,
     players,
     monsters,
-    own,
-    null,
-    NO_WORLD_ITEMS,
-    [],
-    null,
-    [],
-    {},
-    0,
-  );
+    world: NO_WORLD_ITEMS,
+    view: {
+      own,
+      slash: null,
+      inventory: [],
+      silver: 0,
+      dialogue: null,
+      acquaintances: [],
+      quests: [],
+    },
+  });
 }
 
 /**

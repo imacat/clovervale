@@ -21,19 +21,9 @@
  * @module client/player-input Turning the keys held into what a player wants.
  */
 
-import {
-  canInteract,
-  findPassage,
-  findPickTarget,
-} from '@clovervale/shared';
-import type {
-  GroundVector,
-  MapId,
-  MonsterState,
-  PlayerInput,
-  PlayerMotion,
-  WorldItems,
-} from '@clovervale/shared';
+import type { GroundVector, PlayerInput } from '@clovervale/shared';
+
+import type { SpaceAction } from './space-action.ts';
 
 /** What a key tells the player of the page to do. */
 export type KeyCommand = 'forward' | 'backward' | 'left' | 'right' | 'interact';
@@ -94,40 +84,17 @@ export function findKeyCommand(code: string): KeyCommand | null {
 }
 
 /**
- * Chooses the input the space bar gives the player of the page now: a
- * travel while a way into another map is within its reach and nothing
- * comes before it, as {@link findPassage} tells; or else a pick while
- * something to pick, or a chest or a barrel of the cave, is within its
- * reach and nothing comes before it, whether or not the player has room
- * for it and whether or not the container holds anything; and an
- * interaction otherwise.
+ * Chooses the input the space bar gives the player of the page for what it
+ * makes the player do: the input that uses what the player would use,
+ * whether or not the player has room for it and whether or not a container
+ * holds anything, which is a travel for a way into another map, a pick for
+ * something to pick or a container, and an interaction otherwise.
  *
- * @param {PlayerMotion} motion - The motion of the player as predicted.
- * @param {number} step - The number of the step of the server the input
- *   would come into effect at, which tells where Toby would be then.
- * @param {WorldItems} world - What there is to pick in the map, as the
- *   server last told.
- * @param {MapId} map - The map the player is in.
- * @param {readonly MonsterState[]} monsters - The monsters in the map, as
- *   the server last told.
+ * @param {SpaceAction} action - What the space bar makes the player do.
  * @returns {PlayerInput} The input.
  */
-export function chooseSpaceInput(
-  motion: PlayerMotion,
-  step: number,
-  world: WorldItems,
-  map: MapId,
-  monsters: readonly MonsterState[],
-): PlayerInput {
-  if (!canInteract(motion)) {
-    return { type: 'interact' };
-  }
-  if (findPassage(motion, step, map, monsters) !== null) {
-    return { type: 'travel' };
-  }
-  return findPickTarget(motion, step, world, map, monsters) !== null
-    ? { type: 'pick' }
-    : { type: 'interact' };
+export function chooseSpaceInput(action: SpaceAction): PlayerInput {
+  return { type: action.input };
 }
 
 /** The keys held down to move the player. */

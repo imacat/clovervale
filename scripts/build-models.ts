@@ -30,17 +30,17 @@ const rootDir: string = path.resolve(import.meta.dirname, '..');
 const modelsDir: string = path.join(rootDir, 'packages/client/public/models');
 
 mkdirSync(modelsDir, { recursive: true });
-for (const { name, build } of listModels()) {
+for (const { file, build } of listModels()) {
   const { model, report } = build();
   const glb: Buffer = model.encodeGlb();
-  writeFileSync(path.join(modelsDir, `${name}.glb`), glb);
+  writeFileSync(path.join(modelsDir, file), glb);
   const size = `${(glb.length / 1024).toFixed(1)} KB`;
   const measured: string =
     report === undefined
       ? ''
       : ` ${JSON.stringify(Object.fromEntries(report))}`;
   console.log(
-    `${name}.glb: ${String(model.countTriangles())} triangles, ${size}` +
+    `${file}: ${String(model.countTriangles())} triangles, ${size}` +
       measured,
   );
 }

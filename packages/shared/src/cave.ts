@@ -28,6 +28,7 @@
  */
 
 import type { ItemKindId } from './items.ts';
+import type { ModelId } from './models.ts';
 import { findYaw } from './movement.ts';
 import type { GroundVector } from './movement.ts';
 import { Terrain, placeShape } from './terrain.ts';
@@ -183,27 +184,6 @@ export const CAVE_MOUTH_OUTLINE: readonly (readonly [
   [1.15, 3.12],
 ];
 
-/** The file name of the model of the rock, the floor and the stonework. */
-export const CAVE_FILE = 'prop-cave.glb';
-
-/** The file name of the model of a torch on a wall. */
-export const CAVE_TORCH_FILE = 'prop-cave-torch.glb';
-
-/**
- * The file name of the model of the row of iron bars that closes off a cell
- * from the passage, across its whole opening.
- */
-export const CAVE_BARS_FILE = 'prop-cave-bars.glb';
-
-/** The file name of the model of the prisoner in the north cell. */
-export const CAVE_EDWIN_FILE = 'npc-edwin.glb';
-
-/**
- * The file name of the model of the bones of a dead prisoner, slumped
- * against the back wall of the south cell.
- */
-export const CAVE_SKELETON_FILE = 'prop-cave-skeleton.glb';
-
 /**
  * How far the bars of a cell reach to either side of the edge of the
  * passage they stand on, in metres.
@@ -238,23 +218,20 @@ export interface CaveContainer extends Pose {
   readonly silver?: number;
 }
 
-/** The file names of the models of a kind of container. */
-export interface CaveContainerFiles {
+/** The identifiers of the models of a kind of container. */
+export interface CaveContainerModels {
   /** The model of the container shut, as it stands while it holds its item. */
-  readonly closed: string;
+  readonly closed: ModelId;
   /** The model of the container open and empty. */
-  readonly open: string;
+  readonly open: ModelId;
 }
 
-/** The file names of the models of each kind of container. */
-export const CAVE_CONTAINER_FILES: Readonly<
-  Record<CaveContainerKind, CaveContainerFiles>
+/** The identifiers of the models of each kind of container. */
+export const CAVE_CONTAINER_MODELS: Readonly<
+  Record<CaveContainerKind, CaveContainerModels>
 > = {
-  chest: { closed: 'prop-cave-chest.glb', open: 'prop-cave-chest-open.glb' },
-  barrel: {
-    closed: 'prop-cave-barrel.glb',
-    open: 'prop-cave-barrel-open.glb',
-  },
+  chest: { closed: 'cave-chest', open: 'cave-chest-open' },
+  barrel: { closed: 'cave-barrel', open: 'cave-barrel-open' },
 };
 
 /** The radius of a barrel, round the widest of its belly, in metres. */
@@ -360,6 +337,17 @@ const TORCH_SPOTS: readonly Pose[] = TORCH_DISTANCES.flatMap(
 );
 
 /**
+ * Where Edwin, the prisoner in the north cell, stands, and which way he
+ * faces: right behind the bars of his cell, half way along them, facing
+ * the passage.
+ */
+export const CAVE_EDWIN_POST: Pose = {
+  x: (CAVE_CELLS[0].west + CAVE_CELLS[0].east) / 2,
+  z: CAVE_CELLS[0].south - CAVE_EDWIN_BEHIND_BARS,
+  yaw: 0,
+};
+
+/**
  * Where the models of the cave stand, but for its containers: the rock,
  * the floor and the stonework in one; the torches on the walls of the
  * passage; the bars across the opening of each cell, along the edge of the
@@ -373,24 +361,19 @@ export const CAVE_PLACEMENTS: readonly Placement[] = (() => {
   const edge: number = CAVE_PASSAGE_HALF_WIDTH;
   return [
     {
-      file: CAVE_FILE,
+      model: 'cave',
       x: CAVE_MODEL_CENTRE.x,
       z: CAVE_MODEL_CENTRE.z,
       yaw: 0,
     },
     ...TORCH_SPOTS.map(
-      (spot: Pose): Placement => ({ file: CAVE_TORCH_FILE, ...spot }),
+      (spot: Pose): Placement => ({ model: 'cave-torch', ...spot }),
     ),
-    { file: CAVE_BARS_FILE, x: middle, z: -edge, yaw: 0 },
-    { file: CAVE_BARS_FILE, x: middle, z: edge, yaw: 180 },
+    { model: 'cave-bars', x: middle, z: -edge, yaw: 0 },
+    { model: 'cave-bars', x: middle, z: edge, yaw: 180 },
+    { model: 'edwin', ...CAVE_EDWIN_POST },
     {
-      file: CAVE_EDWIN_FILE,
-      x: middle,
-      z: northCell.south - CAVE_EDWIN_BEHIND_BARS,
-      yaw: 0,
-    },
-    {
-      file: CAVE_SKELETON_FILE,
+      model: 'cave-skeleton',
       x: middle + 0.6,
       z: southCell.south - SKELETON_HALF_DEPTH,
       yaw: 180,
@@ -499,10 +482,10 @@ const CAVE_SHAPES: readonly Shape[] = (() => {
  * dead prisoner lie where nobody can come.
  */
 export const CAVE_FIXTURE_FOOTPRINTS: Readonly<
-  Record<string, readonly Shape[]>
+  Partial<Record<ModelId, readonly Shape[]>>
 > = (() => {
   const half: number = (CAVE_CELLS[0].east - CAVE_CELLS[0].west) / 2;
-  const { chest, barrel } = CAVE_CONTAINER_FILES;
+  const { chest, barrel } = CAVE_CONTAINER_MODELS;
   const chestShape: Shape = makeBox(
     -CHEST_HALF_WIDTH,
     CHEST_HALF_WIDTH,
@@ -516,10 +499,10 @@ export const CAVE_FIXTURE_FOOTPRINTS: Readonly<
     radius: BARREL_RADIUS,
   };
   return {
-    [CAVE_BARS_FILE]: [
+    'cave-bars': [
       makeBox(-half, half, -CAVE_BARS_HALF_DEPTH, CAVE_BARS_HALF_DEPTH),
     ],
-    [CAVE_EDWIN_FILE]: [{ shape: 'circle', x: 0, z: 0, radius: 0.3 }],
+    edwin: [{ shape: 'circle', x: 0, z: 0, radius: 0.3 }],
     [chest.closed]: [chestShape],
     [barrel.closed]: [barrelShape],
   };
@@ -534,11 +517,11 @@ const FIXTURE_SHAPES: readonly Shape[] = [
   ...CAVE_CONTAINERS.map(
     (container: CaveContainer): Placement => ({
       ...container,
-      file: CAVE_CONTAINER_FILES[container.kind].closed,
+      model: CAVE_CONTAINER_MODELS[container.kind].closed,
     }),
   ),
 ].flatMap((placement: Placement) =>
-  (CAVE_FIXTURE_FOOTPRINTS[placement.file] ?? []).map((shape: Shape) =>
+  (CAVE_FIXTURE_FOOTPRINTS[placement.model] ?? []).map((shape: Shape) =>
     placeShape(placement, shape),
   ),
 );

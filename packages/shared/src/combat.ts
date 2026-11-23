@@ -22,6 +22,13 @@
  *   take and deal, how they go about it, and what a strike reaches.
  */
 
+import type { MonsterAction } from './actions.ts';
+import {
+  MARTHA_FIGHT_MODES,
+  MARTHA_FREE_MODES,
+  MARTHA_MODES,
+} from './martha.ts';
+import type { MarthaMode } from './martha.ts';
 import type { GroundVector } from './movement.ts';
 import type { Pose } from './terrain.ts';
 
@@ -40,7 +47,18 @@ export const MONSTER_KIND_IDS = ['village-dog', 'cave-dog', 'martha'] as const;
 /** A kind of monster. */
 export type MonsterKindId = (typeof MONSTER_KIND_IDS)[number];
 
-/** The numbers of a kind of monster, which every monster of it shares. */
+/** How a monster that wanders near its home does so. */
+export interface MonsterWander {
+  /** The speed the monster wanders at, in metres per second. */
+  readonly speed: number;
+  /** The farthest from its home the monster wanders to, in metres. */
+  readonly radius: number;
+}
+
+/**
+ * The numbers of a kind of monster, which every monster of it shares, and
+ * what a monster of it can be up to.
+ */
 export interface MonsterKind {
   /** The health of a monster of the kind at full health. */
   readonly health: number;
@@ -56,10 +74,11 @@ export interface MonsterKind {
    * metres per second.
    */
   readonly chaseSpeed: number;
-  /** The speed the monster wanders at, in metres per second. */
-  readonly wanderSpeed: number;
-  /** The farthest from its home the monster wanders to, in metres. */
-  readonly wanderRadius: number;
+  /**
+   * How the monster wanders near its home, if it does, or left out for a
+   * kind that never wanders.
+   */
+  readonly wander?: MonsterWander;
   /** The farthest the monster notices a player from, in metres. */
   readonly noticeRange: number;
   /**
@@ -69,8 +88,8 @@ export interface MonsterKind {
   readonly leashRange: number;
   /**
    * How long after it dies the monster comes back to life at its home, in
-   * seconds, or, for Martha, who never dies, how long she sits on the
-   * ground once beaten before she gets up.
+   * seconds, or, for a kind that never dies, how long one sits on the
+   * ground once beaten before it gets up.
    */
   readonly respawnDelay: number;
   /**
@@ -79,7 +98,56 @@ export interface MonsterKind {
    * any other.
    */
   readonly maxSilver: number;
+  /** What a monster of the kind can be up to. */
+  readonly modes: readonly MonsterMode[];
+  /**
+   * The modes in which a monster of the kind is in a fight, which a slash
+   * can hit, and which a player slashes at rather than talks to a villager.
+   */
+  readonly fightModes: readonly MonsterMode[];
+  /**
+   * For a kind a villager fights as, the modes in which the villager is
+   * free to be talked to; left out for a kind no villager fights as.
+   */
+  readonly freeModes?: readonly MonsterMode[];
+  /**
+   * Whether a monster of the kind holds a weapon now and then, which its
+   * state tells, as {@link MonsterState.isArmed}.
+   */
+  readonly hasWeapon: boolean;
 }
+
+/**
+ * What a wild monster, one that no villager fights as, can be up to:
+ * idling or wandering near its home, chasing a player, walking back home
+ * after giving up, or lying dead.
+ */
+export const BEAST_MODES = [
+  'idle',
+  'wander',
+  'chase',
+  'return',
+  'dead',
+] as const;
+
+/** What a wild monster is up to, as {@link BEAST_MODES} tells. */
+export type BeastMode = (typeof BEAST_MODES)[number];
+
+/**
+ * What a monster is up to: as a wild monster is, as {@link BEAST_MODES}
+ * tells, or, for Martha, who fights as a monster, as she is, as
+ * {@link MARTHA_MODES} tells.  Which of them a monster can be up to its
+ * kind tells, as {@link MonsterKind.modes}.
+ */
+export type MonsterMode = BeastMode | MarthaMode;
+
+/** The modes in which a wild monster is in a fight: whenever it is alive. */
+const BEAST_FIGHT_MODES: readonly BeastMode[] = [
+  'idle',
+  'wander',
+  'chase',
+  'return',
+];
 
 /**
  * The numbers of each kind of monster: the wild dog of the village, which
@@ -89,8 +157,9 @@ export interface MonsterKind {
  * the enemy spy, and fights with a pitchfork at the pace of the dogs, never
  * wandering from her porch, and giving up well short of the fountain, so
  * that her yard and its well are hers, and the plaza is not.  Her bite is
- * the thrust of her pitchfork.  The wild dog of the village alone gives
- * silver coins when killed.
+ * the thrust of her pitchfork, which she holds only now and then, and she
+ * is in a fight only while she chases the player she fights.  The wild dog
+ * of the village alone gives silver coins when killed.
  */
 export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
   'village-dog': {
@@ -98,36 +167,42 @@ export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
     biteDamage: 15,
     biteInterval: 1.5,
     chaseSpeed: 1.3,
-    wanderSpeed: 0.8,
-    wanderRadius: 3,
+    wander: { speed: 0.8, radius: 3 },
     noticeRange: 5,
     leashRange: 8,
     respawnDelay: 10,
     maxSilver: 2,
+    modes: BEAST_MODES,
+    fightModes: BEAST_FIGHT_MODES,
+    hasWeapon: false,
   },
   'cave-dog': {
     health: 80,
     biteDamage: 15,
     biteInterval: 1.2,
     chaseSpeed: 1.3,
-    wanderSpeed: 0.8,
-    wanderRadius: 1.2,
+    wander: { speed: 0.8, radius: 1.2 },
     noticeRange: 5,
     leashRange: 12,
     respawnDelay: 300,
     maxSilver: 0,
+    modes: BEAST_MODES,
+    fightModes: BEAST_FIGHT_MODES,
+    hasWeapon: false,
   },
   martha: {
     health: 100,
     biteDamage: 20,
     biteInterval: 1.5,
     chaseSpeed: 1.3,
-    wanderSpeed: 0.8,
-    wanderRadius: 0,
     noticeRange: 5,
     leashRange: 7,
     respawnDelay: 10,
     maxSilver: 0,
+    modes: MARTHA_MODES,
+    fightModes: MARTHA_FIGHT_MODES,
+    freeModes: MARTHA_FREE_MODES,
+    hasWeapon: true,
   },
 };
 
@@ -139,6 +214,60 @@ export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
  */
 export function isMonsterKindId(value: unknown): value is MonsterKindId {
   return MONSTER_KIND_IDS.some((kind: MonsterKindId) => kind === value);
+}
+
+/** A monster, as the server knows it at one moment. */
+export interface MonsterState {
+  /** The identifier of the monster, unique among the monsters of its world. */
+  readonly id: number;
+  /** The kind of the monster, which tells its full health. */
+  readonly kind: MonsterKindId;
+  /** The position along the X axis, in metres. */
+  readonly x: number;
+  /** The position along the Z axis, in metres. */
+  readonly z: number;
+  /** The turn around the Y axis from facing +Z towards +X, in degrees. */
+  readonly yaw: number;
+  /** What the monster is doing. */
+  readonly action: MonsterAction;
+  /**
+   * The number of actions the monster has started so far.  It changes
+   * whenever the monster starts an action, even the same one again.
+   */
+  readonly actionCount: number;
+  /** The health of the monster, from 0 to its full health. */
+  readonly health: number;
+  /** What the monster is up to, among the modes of its kind. */
+  readonly mode: MonsterMode;
+  /**
+   * Whether the monster holds its weapon now, for a kind that holds one
+   * now and then, as {@link MonsterKind.hasWeapon} tells, which is left
+   * out for any other kind.
+   */
+  readonly isArmed?: boolean;
+}
+
+/**
+ * Tells whether a monster is in a fight, which a slash can hit, and which
+ * a player slashes at rather than talks to a villager.
+ *
+ * @param {MonsterState} monster - The monster.
+ * @returns {boolean} Whether it is up to one of the modes its kind is in a
+ *   fight in, as {@link MonsterKind.fightModes} tells.
+ */
+export function isFighting(monster: MonsterState): boolean {
+  return MONSTER_KINDS[monster.kind].fightModes.includes(monster.mode);
+}
+
+/** What can take part in a fight. */
+export type EntityKind = 'player' | 'monster';
+
+/** Who takes part in something that happens: a player or a monster. */
+export interface EntityRef {
+  /** Whether it is a player or a monster. */
+  readonly kind: EntityKind;
+  /** The identifier of the player or of the monster. */
+  readonly id: number;
 }
 
 /**

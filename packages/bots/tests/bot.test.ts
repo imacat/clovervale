@@ -40,7 +40,8 @@ import type {
 } from '@clovervale/shared';
 
 import { startBot } from '../src/bot.ts';
-import type { PatrolSettings, RunningBot } from '../src/bot.ts';
+import type { RunningBot } from '../src/bot.ts';
+import type { PatrolSettings } from '../src/patroller.ts';
 import { SPEAK_CHANCE, STEP_DISTANCE } from '../src/patrol.ts';
 
 /** How long a test waits for something at most, in milliseconds. */

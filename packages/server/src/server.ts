@@ -34,6 +34,7 @@ import type { RawData } from 'ws';
 import {
   SIMULATION_RATE,
   SNAPSHOT_RATE,
+  STEP_MILLISECONDS,
   createWelcomeMessage,
   decodeClientMessage,
   encodeServerMessage,
@@ -41,11 +42,16 @@ import {
 import type {
   ClientMessage,
   DayCycle,
+  MapId,
+  MapMessage,
   PlayerState,
   ServerMessage,
 } from '@clovervale/shared';
 
+import { isChatMessage } from './chat-channels.ts';
 import { Realm } from './realm.ts';
+import { RESIDENT_FACTORIES } from './resident-factories.ts';
+import { ToldMaps } from './told-maps.ts';
 
 /** A running game server. */
 export interface RunningServer {
@@ -69,8 +75,36 @@ export interface RunningServer {
   stop(): Promise<void>;
 }
 
-/** How long one step of the simulation lasts, in milliseconds. */
-const STEP_MILLISECONDS: number = 1000 / SIMULATION_RATE;
+/** How long a server bears with its peers before it drops them. */
+export interface PeerLimits {
+  /**
+   * How often every peer is pinged, in milliseconds.  A peer that has not
+   * answered by the next ping is dropped.
+   */
+  readonly heartbeatInterval: number;
+  /**
+   * The most bytes that may wait to be sent to a peer.  A peer that has
+   * more waiting is dropped.
+   */
+  readonly unsentLimit: number;
+}
+
+/**
+ * How long a server bears with its peers unless it is told otherwise: a
+ * peer that has gone silent is dropped within half a minute, and one that
+ * has fallen a megabyte behind, many seconds of snapshots, is dropped.
+ */
+export const DEFAULT_PEER_LIMITS: PeerLimits = {
+  heartbeatInterval: 15_000,
+  unsentLimit: 1024 * 1024,
+};
+
+/**
+ * The most bytes a message from a peer may have.  The longest message a
+ * client sends is the longest line a player may say, each character of
+ * which may take the six bytes of an escape: some 600 bytes in all.
+ */
+const MESSAGE_SIZE_LIMIT = 4096;
 
 /** The number of simulation steps from one snapshot to the next. */
 const STEPS_PER_SNAPSHOT: number = SIMULATION_RATE / SNAPSHOT_RATE;
@@ -92,15 +126,20 @@ const SOCKET_FILE_MODE = 0o660;
  * world it is in when the peer disconnects.  The welcome also tells the
  * peer how the day goes.  A peer that sends anything but well-formed
  * client messages, or inputs that are not numbered upwards, or more inputs
- * than can wait for their turn, is disconnected.  A line a peer has its
- * player say is heard as {@link Realm.receiveSay} tells, and a phrase as
- * {@link Realm.receivePhrase} tells.  Every peer is sent what
- * {@link Realm.composeMessages} composes for its player, again and again,
- * as the simulation of the worlds goes on: which map its player is in,
- * whenever that changes, and snapshots of the world its player is in and
- * the events that happen there.  A slash that names the time of the world
- * its peer showed is judged on the world as it was then, as far as the
- * world allows.
+ * than can wait for their turn, is disconnected.  A line or a phrase a
+ * peer has its player say is heard as {@link Realm.receiveChat} tells.
+ * Every peer is sent what
+ * {@link Realm.composeMessages} composes for its player, again and again
+ * as the simulation of the worlds goes on: snapshots of the world its
+ * player is in and the events that happen there.  Whenever the map its
+ * player is in changes, the peer is first told which map that is.  A slash
+ * that names the time of the world its peer showed is judged on the world
+ * as it was then, as far as the world allows.
+ *
+ * A peer that sends a message longer than any client sends, or anything
+ * that breaks the WebSocket protocol, is disconnected, and so is a peer
+ * that does not answer the pings of the server in time, or that falls too
+ * far behind with what it is sent, as the limits tell.
  *
  * A Unix socket file is created for its owner and its group to connect to.
  * A socket file that nothing listens on any more is replaced.
@@ -109,6 +148,8 @@ const SOCKET_FILE_MODE = 0o660;
  *   free port, or the path of the Unix socket file to listen on.
  * @param {DayCycle} day - How the time of day goes, counted from step 0
  *   of the simulation.
+ * @param {PeerLimits} [limits] - How long the server bears with its peers,
+ *   or as long as a server on the Internet does by default.
  * @returns {Promise<RunningServer>} The running server.
  * @throws {Error} If the server cannot listen there: the port is taken,
  *   another server is listening on the socket file, or the path of the
@@ -117,6 +158,7 @@ const SOCKET_FILE_MODE = 0o660;
 export async function startServer(
   target: number | string,
   day: DayCycle,
+  limits: PeerLimits = DEFAULT_PEER_LIMITS,
 ): Promise<RunningServer> {
   if (typeof target === 'string') {
     await removeStaleSocket(target);
@@ -126,9 +168,13 @@ export async function startServer(
   if (typeof target === 'string') {
     chmodSync(target, SOCKET_FILE_MODE);
   }
-  const sockets = new WebSocketServer({ server: listener });
-  const realm = new Realm();
+  const sockets = new WebSocketServer({
+    server: listener,
+    maxPayload: MESSAGE_SIZE_LIMIT,
+  });
+  const realm = new Realm(RESIDENT_FACTORIES);
   const playerIds = new Map<WebSocket, number>();
+  const toldMaps = new ToldMaps();
   sockets.on('connection', (socket: WebSocket) => {
     const player: PlayerState = realm.addPlayer();
     playerIds.set(socket, player.id);
@@ -140,12 +186,8 @@ export async function startServer(
         socket.close(POLICY_VIOLATION, 'The message is malformed.');
         return;
       }
-      if (message.type === 'say') {
-        realm.receiveSay(player.id, message.text);
-        return;
-      }
-      if (message.type === 'phrase') {
-        realm.receivePhrase(player.id, message.code);
+      if (isChatMessage(message)) {
+        realm.receiveChat(player.id, message);
         return;
       }
       if (!realm.receiveInput(player.id, message)) {
@@ -154,16 +196,29 @@ export async function startServer(
     });
     socket.on('close', () => {
       playerIds.delete(socket);
+      toldMaps.forget(player.id);
       realm.removePlayer(player.id);
+    });
+    socket.on('error', () => {
+      socket.terminate();
     });
     socket.send(encodeServerMessage(createWelcomeMessage(player.id, day)));
   });
-  const stopSimulation: () => void = runSimulation(realm, playerIds);
+  const stopHeartbeat: () => void = keepHeartbeat(
+    sockets,
+    limits.heartbeatInterval,
+  );
+  const stopSimulation: () => void = runSimulation(
+    realm,
+    { playerIds, toldMaps },
+    limits.unsentLimit,
+  );
   const address = listener.address();
   return {
     port: address === null || typeof address === 'string' ? null : address.port,
     socketPath: typeof target === 'string' ? target : null,
     stop: () => {
+      stopHeartbeat();
       stopSimulation();
       return stopServer(sockets, listener);
     },
@@ -272,18 +327,67 @@ function readText(data: RawData): string {
 }
 
 /**
+ * Pings every peer again and again, and drops a peer that has not answered
+ * by the next ping.
+ *
+ * @param {WebSocketServer} sockets - The WebSocket server the peers are
+ *   connected to.
+ * @param {number} interval - How often to ping, in milliseconds.
+ * @returns {() => void} Stops the pings.
+ */
+function keepHeartbeat(
+  sockets: WebSocketServer,
+  interval: number,
+): () => void {
+  const answered = new WeakSet<WebSocket>();
+  sockets.on('connection', (socket: WebSocket) => {
+    answered.add(socket);
+    socket.on('pong', () => {
+      answered.add(socket);
+    });
+  });
+  const timer: NodeJS.Timeout = setInterval(() => {
+    for (const socket of sockets.clients) {
+      if (answered.delete(socket)) {
+        socket.ping();
+      } else {
+        socket.terminate();
+      }
+    }
+  }, interval);
+  return () => {
+    clearInterval(timer);
+  };
+}
+
+/** The connected peers, as far as sending them their messages goes. */
+interface Peers {
+  /** The identifiers of their players, by their connections. */
+  readonly playerIds: ReadonlyMap<WebSocket, number>;
+  /** Which map each has been told its player is in. */
+  readonly toldMaps: ToldMaps;
+}
+
+/**
  * Keeps the simulation of the worlds going at its fixed rate, and sends
  * every peer what the realm composes for its player at the snapshot rate.
- * A message that several peers are sent alike is encoded once.
+ * Whenever its player is in a map other than the one the peer was last
+ * told of, or than the village if it has been told of none, the peer is
+ * first told which map its player is in.  A message that
+ * several peers are sent alike is encoded once.  A peer that has more than
+ * its limit waiting to be sent when it is due another snapshot is dropped
+ * instead.
  *
  * @param {Realm} realm - The worlds to simulate.
- * @param {ReadonlyMap<WebSocket, number>} playerIds - The identifiers of
- *   the players of the connected peers, by their connections.
+ * @param {Peers} peers - The connected peers.
+ * @param {number} unsentLimit - The most bytes that may wait to be sent to
+ *   a peer.
  * @returns {() => void} Stops the simulation and the snapshots.
  */
 function runSimulation(
   realm: Realm,
-  playerIds: ReadonlyMap<WebSocket, number>,
+  { playerIds, toldMaps }: Peers,
+  unsentLimit: number,
 ): () => void {
   const startTime: number = performance.now();
   let timer: NodeJS.Timeout;
@@ -303,7 +407,17 @@ function runSimulation(
         if (socket.readyState !== WebSocket.OPEN) {
           continue;
         }
-        for (const message of composed.get(id) ?? []) {
+        if (socket.bufferedAmount > unsentLimit) {
+          socket.terminate();
+          continue;
+        }
+        const map: MapId | undefined = realm.findWorld(id)?.map;
+        const notice: MapMessage | null =
+          map === undefined ? null : toldMaps.tell(id, map);
+        const messages: ServerMessage[] = composed.get(id) ?? [];
+        for (const message of notice === null
+          ? messages
+          : [notice, ...messages]) {
           let data: string | undefined = encoded.get(message);
           if (data === undefined) {
             data = encodeServerMessage(message);

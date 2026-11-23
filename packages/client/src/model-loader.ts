@@ -22,7 +22,7 @@
  */
 
 import type { AnimationClip, Object3D } from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 import { reportFailure } from './model-report.ts';
 import type { ModelProblem } from './model-report.ts';
