@@ -136,8 +136,8 @@ function isInArea(player: GroundVector): boolean {
 }
 
 /**
- * Tells whether a player is on Martha's map and in her area, for her to
- * set out to it.
+ * Tells whether a player is on Martha's map, alive and in her area, for
+ * her to set out to it.
  *
  * @param {readonly Suspect[]} players - The players of her map.
  * @param {number} id - The identifier of the player.
@@ -145,7 +145,7 @@ function isInArea(player: GroundVector): boolean {
  */
 function isReachable(players: readonly Suspect[], id: number): boolean {
   const player: Suspect | undefined = findSuspect(players, id);
-  return player !== undefined && isInArea(player);
+  return player?.isAlive === true && isInArea(player);
 }
 
 /**
@@ -168,12 +168,12 @@ function isReachable(players: readonly Suspect[], id: number): boolean {
  * wait in the order they came.  A player she is told needs her, and that
  * she does not hunt, waits as long as it stays on her map; any other waits
  * as long as it stays in her area, no farther from her home than her
- * leash.  She passes over a waiting player while it is out of her area,
- * and turns to it once it is back, if she is free.  To a player that has found
- * the prisoner in her cave, or that holds his message, and that she does not
- * hunt, she walks up, around the obstacles, and once near enough opens a
- * dialogue with it; once the dialogue is over, she fights it.  A
- * player she hunts she fights at once, without a word, and she hunts a
+ * leash.  She passes over a waiting player while it is dead or out of her
+ * area, and turns to it once it is alive and back, if she is free.  To a
+ * player that has found the prisoner in her cave, or that holds his message,
+ * and that she does not hunt, she walks up, around the obstacles, and once
+ * near enough opens a dialogue with it; once the dialogue is over, she fights
+ * it.  A player she hunts she fights at once, without a word, and she hunts a
  * player she notices, within her notice, in her area.  Whenever she sets
  * out to a player without her pitchfork, she first takes it up from the
  * wall of her house, at {@link PITCHFORK_STAND}, and she comes up to the
@@ -184,9 +184,9 @@ function isReachable(players: readonly Suspect[], id: number): boolean {
  * from then on, or until it beats her, when she drops her pitchfork beside
  * her and sits on the ground for a while, then gets up at full health and
  * takes it up again.  Whenever a fight ends with her not beaten, she is
- * at full health again at once.  A player who dies before she has come up
- * to it she lets go, and one who leaves her area before then waits for her
- * again, before the others.  With nobody in her area to deal with, she
+ * at full health again at once.  A player who dies or leaves her area
+ * before she has come up to it, or dies as they talk, waits for her again,
+ * before the others.  With nobody in her area to deal with, she
  * walks back home and stands there as she does.  Only the player
  * she fights can hurt her.  She is stopped by the obstacles like the
  * players, but does not stand in their way, nor they in hers.
@@ -339,8 +339,7 @@ export class Martha
    * her to deal with it once she is done with those before it, as she sees
    * fit for the need, unless she deals with it already.  A player that
    * waits for her already keeps its place, with the need it is told to
-   * have now.  She lets it go if it dies before she has come up to it, and
-   * passes over it while it is out of her area.
+   * have now.  She passes over it while it is dead or out of her area.
    *
    * @param {number} player - The identifier of the player.
    * @param {StoryNeed} need - What it needs of her.
@@ -587,8 +586,8 @@ export class Martha
 
   /**
    * Walks up to the player she is to talk with, and opens a dialogue with
-   * it once near enough.  She lets it go if it is gone or dead, and has it
-   * wait again, first, if it is out of her area.
+   * it once near enough.  She lets it go if it is gone, and has it wait
+   * again, first, if it is dead or out of her area.
    *
    * @param {Suspect | undefined} target - The player, if it is in the
    *   village.
@@ -601,11 +600,11 @@ export class Martha
     players: readonly Suspect[],
     deeds: MarthaDeed[],
   ): void {
-    if (target?.isAlive !== true) {
+    if (target === undefined) {
       this.#serveNext(players);
       return;
     }
-    if (!isInArea(target)) {
+    if (!target.isAlive || !isInArea(target)) {
       this.#queue.putBack(target.id);
       this.#serveNext(players);
       return;
@@ -630,14 +629,20 @@ export class Martha
 
   /**
    * Stands facing the player she talks with, and fights it once the
-   * dialogue is over.  She lets it go if it is gone or dead.
+   * dialogue is over.  She lets it go if it is gone, and has it wait again,
+   * first, if it is dead.
    *
    * @param {Suspect | undefined} target - The player, if it is in the
    *   village.
    * @param {readonly Suspect[]} players - The players.
    */
   #talk(target: Suspect | undefined, players: readonly Suspect[]): void {
-    if (target?.isAlive !== true) {
+    if (target === undefined) {
+      this.#serveNext(players);
+      return;
+    }
+    if (!target.isAlive) {
+      this.#queue.putBack(target.id);
       this.#serveNext(players);
       return;
     }
@@ -682,9 +687,9 @@ export class Martha
   }
 
   /**
-   * Turns to the next player waiting for her in her area, if any, to walk
-   * up to it, or to fight it at once if she hunts it, or else sets out for
-   * home, at full health either way.
+   * Turns to the next player waiting for her alive in her area, if any, to
+   * walk up to it, or to fight it at once if she hunts it, or else sets out
+   * for home, at full health either way.
    *
    * @param {readonly Suspect[]} players - The players.
    */

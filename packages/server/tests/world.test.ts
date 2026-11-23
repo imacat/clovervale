@@ -3696,6 +3696,62 @@ describe('Martha in the village', () => {
     });
   });
 
+  /**
+   * Has a player that has died come back on the plaza, wait there until
+   * Martha is home, and walk back to the well.
+   *
+   * @param {World} world - The village.
+   * @param {number} id - The identifier of the player.
+   */
+  function comeBackToWell(world: World, id: number): void {
+    stepTimes(world, DEATH_STEPS);
+    expect(findPlayer(world, id).health).toBe(PLAYER_HEALTH);
+    waitForMartha(world, 'idle');
+    expect(findMartha(world)).toMatchObject({ x: PORCH.x, z: PORCH.z });
+    walkPlayer(world, id, WELL_STAND);
+    waitForMartha(world, 'talk');
+  }
+
+  it('comes up to a player that dies before she reaches it, once it is back', () => {
+    const world: World = createVillage();
+    const player: Player = climbOut(world);
+    world.step();
+    expect(findMartha(world).mode).toBe('approach');
+    player.hurt(PLAYER_HEALTH);
+    comeBackToWell(world, player.id);
+    expect(world.describePrivateView(player.id)?.dialogue).toMatchObject({
+      villager: 'martha',
+      line: 'dialogue.martha.ask',
+    });
+  });
+
+  it('comes up to a player that dies as they talk, once it is back', () => {
+    const world: World = createVillage();
+    const player: Player = climbOut(world);
+    waitForMartha(world, 'talk');
+    player.hurt(PLAYER_HEALTH);
+    comeBackToWell(world, player.id);
+    expect(world.describePrivateView(player.id)?.dialogue).toMatchObject({
+      villager: 'martha',
+      line: 'dialogue.martha.ask',
+    });
+  });
+
+  it('comes up to a player that dies while it waits, once it is back', () => {
+    const world: World = createVillage();
+    const { id: first }: Player = climbOut(world);
+    waitForMartha(world, 'talk');
+    const second: Player = climbOut(world);
+    world.step();
+    second.hurt(PLAYER_HEALTH);
+    world.removePlayer(first);
+    comeBackToWell(world, second.id);
+    expect(world.describePrivateView(second.id)?.dialogue).toMatchObject({
+      villager: 'martha',
+      line: 'dialogue.martha.ask',
+    });
+  });
+
   it('hunts a player that gets away in a fight, without a word', () => {
     const world: World = createVillage();
     const id: number = startFight(world);
