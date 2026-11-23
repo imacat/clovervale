@@ -46,6 +46,8 @@ export interface Waiting {
   readonly id: number;
   /** How she is to set out to it. */
   readonly approach: MarthaApproach;
+  /** Whether she has been asked to deal with it, for what it needs of her. */
+  readonly isRequested: boolean;
 }
 
 /**
@@ -56,12 +58,14 @@ export class MarthaQueue {
   #waiting: Waiting[] = [];
 
   /**
-   * Whether no player waits.
+   * Tells whether any player that passes a test waits.
    *
-   * @returns {boolean} Whether none does.
+   * @param {(id: number) => boolean} test - Tells whether a player, by its
+   *   identifier, counts.
+   * @returns {boolean} Whether any does.
    */
-  get isEmpty(): boolean {
-    return this.#waiting.length === 0;
+  hasAny(test: (id: number) => boolean): boolean {
+    return this.#waiting.some((waiting: Waiting) => test(waiting.id));
   }
 
   /**
@@ -83,7 +87,11 @@ export class MarthaQueue {
    * @param {StoryNeed} need - What it needs of her.
    */
   request(id: number, need: StoryNeed): void {
-    const waiting: Waiting = { id, approach: NEED_APPROACHES[need] };
+    const waiting: Waiting = {
+      id,
+      approach: NEED_APPROACHES[need],
+      isRequested: true,
+    };
     const place: number = this.#waiting.findIndex(
       (other: Waiting) => other.id === id,
     );
@@ -102,7 +110,17 @@ export class MarthaQueue {
    * @param {MarthaApproach} approach - How Martha is to set out to it.
    */
   enqueue(id: number, approach: MarthaApproach): void {
-    this.#waiting.push({ id, approach });
+    this.#waiting.push({ id, approach, isRequested: false });
+  }
+
+  /**
+   * Has a player Martha was asked to walk up to, and that does not wait,
+   * wait again, first, to be walked up to.
+   *
+   * @param {number} id - The identifier of the player.
+   */
+  putBack(id: number): void {
+    this.#waiting.unshift({ id, approach: 'greet', isRequested: true });
   }
 
   /**
@@ -119,22 +137,26 @@ export class MarthaQueue {
   /**
    * Has only the players that pass a test go on waiting, in their places.
    *
-   * @param {(id: number) => boolean} test - Tells whether a player, by its
-   *   identifier, is to go on waiting.
+   * @param {(waiting: Waiting) => boolean} test - Tells whether a waiting
+   *   player is to go on waiting.
    */
-  keep(test: (id: number) => boolean): void {
-    this.#waiting = this.#waiting.filter((waiting: Waiting) =>
-      test(waiting.id),
-    );
+  keep(test: (waiting: Waiting) => boolean): void {
+    this.#waiting = this.#waiting.filter(test);
   }
 
   /**
-   * Takes the player that has waited longest out of the queue.
+   * Takes the player that has waited longest, of those that pass a test,
+   * out of the queue.
    *
+   * @param {(id: number) => boolean} test - Tells whether a player, by its
+   *   identifier, can be taken.
    * @returns {Waiting | undefined} The player, with how Martha is to set
-   *   out to it, or `undefined` if none waits.
+   *   out to it, or `undefined` if none that passes waits.
    */
-  takeNext(): Waiting | undefined {
-    return this.#waiting.shift();
+  takeNext(test: (id: number) => boolean): Waiting | undefined {
+    const place: number = this.#waiting.findIndex((waiting: Waiting) =>
+      test(waiting.id),
+    );
+    return place === -1 ? undefined : this.#waiting.splice(place, 1)[0];
   }
 }

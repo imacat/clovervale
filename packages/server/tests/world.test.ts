@@ -3680,15 +3680,20 @@ describe('Martha in the village', () => {
     expect(findMartha(world).health).toBe(MARTHA.health);
   });
 
-  it('lets a player go that leaves before she comes up to it', () => {
+  it('comes up to a player that leaves before she reaches it, once it is back', () => {
     const world: World = createVillage();
     const { id }: Player = climbOut(world);
     runAway(world, id);
     waitForMartha(world, 'idle');
     expect(findMartha(world)).toMatchObject({ x: PORCH.x, z: PORCH.z });
-    walkPlayer(world, id, WELL_STAND);
     stepTimes(world, 2 * SIMULATION_RATE);
     expect(findMartha(world).mode).toBe('idle');
+    walkPlayer(world, id, WELL_STAND);
+    waitForMartha(world, 'talk');
+    expect(world.describePrivateView(id)?.dialogue).toMatchObject({
+      villager: 'martha',
+      line: 'dialogue.martha.ask',
+    });
   });
 
   it('hunts a player that gets away in a fight, without a word', () => {

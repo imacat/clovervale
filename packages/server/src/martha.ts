@@ -136,6 +136,19 @@ function isInArea(player: GroundVector): boolean {
 }
 
 /**
+ * Tells whether a player is on Martha's map and in her area, for her to
+ * set out to it.
+ *
+ * @param {readonly Suspect[]} players - The players of her map.
+ * @param {number} id - The identifier of the player.
+ * @returns {boolean} Whether it is.
+ */
+function isReachable(players: readonly Suspect[], id: number): boolean {
+  const player: Suspect | undefined = findSuspect(players, id);
+  return player !== undefined && isInArea(player);
+}
+
+/**
  * Martha, the village chief, who is the enemy spy, as the server moves
  * her among the players of her map, with the numbers
  * {@link MONSTER_KINDS} tells of her.
@@ -152,11 +165,14 @@ function isInArea(player: GroundVector): boolean {
  * `martha-beaten`.
  *
  * She deals with one player at a time, and the others she is to deal with
- * wait in the order they came, each as long as it stays in her area, no
- * farther from her home than her leash.  To a player that has found the
- * prisoner in her cave, or that holds his message, and that she does not
- * hunt, she walks up, around the obstacles, and once near enough
- * opens a dialogue with it; once the dialogue is over, she fights it.  A
+ * wait in the order they came.  A player she is told needs her, and that
+ * she does not hunt, waits as long as it stays on her map; any other waits
+ * as long as it stays in her area, no farther from her home than her
+ * leash.  She passes over a waiting player while it is out of her area,
+ * and turns to it once it is back, if she is free.  To a player that has found
+ * the prisoner in her cave, or that holds his message, and that she does not
+ * hunt, she walks up, around the obstacles, and once near enough opens a
+ * dialogue with it; once the dialogue is over, she fights it.  A
  * player she hunts she fights at once, without a word, and she hunts a
  * player she notices, within her notice, in her area.  Whenever she sets
  * out to a player without her pitchfork, she first takes it up from the
@@ -168,9 +184,10 @@ function isInArea(player: GroundVector): boolean {
  * from then on, or until it beats her, when she drops her pitchfork beside
  * her and sits on the ground for a while, then gets up at full health and
  * takes it up again.  Whenever a fight ends with her not beaten, she is
- * at full health again at once.  A player who leaves her area, or who
- * dies, before she has come up to it she lets go.  With nobody to deal
- * with, she walks back home and stands there as she does.  Only the player
+ * at full health again at once.  A player who dies before she has come up
+ * to it she lets go, and one who leaves her area before then waits for her
+ * again, before the others.  With nobody in her area to deal with, she
+ * walks back home and stands there as she does.  Only the player
  * she fights can hurt her.  She is stopped by the obstacles like the
  * players, but does not stand in their way, nor they in hers.
  */
@@ -322,8 +339,8 @@ export class Martha
    * her to deal with it once she is done with those before it, as she sees
    * fit for the need, unless she deals with it already.  A player that
    * waits for her already keeps its place, with the need it is told to
-   * have now.  She lets it go if it leaves her area, or dies, before she has
-   * come up to it.
+   * have now.  She lets it go if it dies before she has come up to it, and
+   * passes over it while it is out of her area.
    *
    * @param {number} player - The identifier of the player.
    * @param {StoryNeed} need - What it needs of her.
@@ -479,9 +496,12 @@ export class Martha
    */
   #act(players: readonly Suspect[]): MarthaDeed[] {
     const deeds: MarthaDeed[] = [];
-    this.#queue.keep((id: number): boolean => {
-      const player: Suspect | undefined = findSuspect(players, id);
-      return player !== undefined && isInArea(player);
+    this.#queue.keep((waiting: Waiting): boolean => {
+      const player: Suspect | undefined = findSuspect(players, waiting.id);
+      return (
+        player !== undefined &&
+        (isInArea(player) || (waiting.isRequested && !player.isHunted))
+      );
     });
     for (const player of players) {
       if (
@@ -526,7 +546,11 @@ export class Martha
         this.#chase(target, players, deeds);
         break;
       default:
-        if (!this.#queue.isEmpty) {
+        if (
+          this.#queue.hasAny((id: number): boolean =>
+            isReachable(players, id),
+          )
+        ) {
           this.#serveNext(players);
         } else if (this.#body.mode === 'return') {
           this.#goHome();
@@ -563,8 +587,8 @@ export class Martha
 
   /**
    * Walks up to the player she is to talk with, and opens a dialogue with
-   * it once near enough.  She lets it go if it is gone, dead or out of her
-   * area.
+   * it once near enough.  She lets it go if it is gone or dead, and has it
+   * wait again, first, if it is out of her area.
    *
    * @param {Suspect | undefined} target - The player, if it is in the
    *   village.
@@ -577,7 +601,12 @@ export class Martha
     players: readonly Suspect[],
     deeds: MarthaDeed[],
   ): void {
-    if (target === undefined || !target.isAlive || !isInArea(target)) {
+    if (target?.isAlive !== true) {
+      this.#serveNext(players);
+      return;
+    }
+    if (!isInArea(target)) {
+      this.#queue.putBack(target.id);
       this.#serveNext(players);
       return;
     }
@@ -653,15 +682,17 @@ export class Martha
   }
 
   /**
-   * Turns to the next player waiting for her, if any, to walk up to it, or
-   * to fight it at once if she hunts it, or else sets out for home, at
-   * full health either way.
+   * Turns to the next player waiting for her in her area, if any, to walk
+   * up to it, or to fight it at once if she hunts it, or else sets out for
+   * home, at full health either way.
    *
    * @param {readonly Suspect[]} players - The players.
    */
   #serveNext(players: readonly Suspect[]): void {
     this.#body.restoreHealth();
-    const waiting: Waiting | undefined = this.#queue.takeNext();
+    const waiting: Waiting | undefined = this.#queue.takeNext(
+      (id: number): boolean => isReachable(players, id),
+    );
     const next: Suspect | undefined =
       waiting === undefined ? undefined : findSuspect(players, waiting.id);
     if (waiting !== undefined && next !== undefined) {
