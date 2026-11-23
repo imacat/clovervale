@@ -253,9 +253,9 @@ export class SnapshotTimeline {
    * earlier one tells to where the later one tells, by the time that has
    * passed between them, and is turned likewise, the shorter way around.  It
    * does what the earlier one tells, and is there only if the earlier one
-   * tells so.  A player that has moved further than it can walk, and than
+   * tells so.  A player that has moved farther than it can walk, and than
    * a villager can have pushed it, stays where it was until the time of the later
-   * snapshot.  So does a monster that has moved further than it can walk.
+   * snapshot.  So does a monster that has moved farther than it can walk.
    *
    * Past the latest snapshot, everyone stays as it tells them.  Before the
    * earliest snapshot that is kept, there is nobody.

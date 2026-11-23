@@ -26,6 +26,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CAVE_CONTAINERS,
   CAVE_PASSAGE,
+  CAVE_ROPE,
   CLOVER_PATCHES,
   PLAYER_RADIUS,
   VILLAGERS,
@@ -40,7 +41,6 @@ import type {
   MonsterState,
   PlayerMotion,
 } from '@clovervale/shared';
-import { CAVE_ROPE } from '../../shared/src/cave.ts';
 import { killMotion } from '../../shared/src/player-motion.ts';
 
 import { findSpaceAction } from '../src/space-action.ts';

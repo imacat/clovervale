@@ -25,7 +25,7 @@
 import { WALK_SPEED } from './movement.ts';
 
 /**
- * How many times further than it can walk anything must have moved between
+ * How many times farther than it can walk anything must have moved between
  * two snapshots to have jumped.
  */
 const JUMP_FACTOR = 1.5;
@@ -64,7 +64,7 @@ export function interpolateYaw(
 /**
  * Places everything part of the way from where one snapshot tells to where
  * the next tells, turned likewise, the shorter way around.  Anything that
- * has moved further than it can walk in the time between them, and than it
+ * has moved farther than it can walk in the time between them, and than it
  * can have been moved otherwise, stays where the earlier one tells.
  *
  * @param {readonly T[]} before - Everything as the earlier snapshot tells.

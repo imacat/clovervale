@@ -63,16 +63,14 @@ import type {
   InputProgress,
   ItemKindId,
   MonsterState,
+  PhrasedMessage,
   PlayerState,
+  SaidMessage,
   ServerMessage,
   SlashJudgment,
 } from '@clovervale/shared';
 import { SLASH_DURATION } from '../../shared/src/actions.ts';
-import type {
-  PhrasedMessage,
-  SaidMessage,
-  WelcomeMessage,
-} from '../../shared/src/protocol.ts';
+import type { WelcomeMessage } from '../../shared/src/protocol.ts';
 
 import { DEFAULT_PEER_LIMITS, startServer } from '../src/server.ts';
 import type { RunningServer } from '../src/server.ts';

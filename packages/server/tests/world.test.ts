@@ -28,6 +28,7 @@ import {
   AuthoritativePlayer,
   CAVE_CONTAINERS,
   CAVE_DOG_HOMES,
+  CAVE_LANDING,
   CAVE_TERRAIN,
   CLOVER_PATCHES,
   CLOVER_REGROW_DURATION,
@@ -54,9 +55,11 @@ import {
   TOBY_FOUND_LINE,
   TOBY_GRAB_STEPS,
   TOBY_LOOP_STEPS,
+  TOBY_PATCHES,
   TOBY_RADIUS,
   VILLAGERS,
   WALK_SPEED,
+  WELL_STAND,
   PITCHFORK_STAND,
   ClovervaleQuest,
   TobyQuest,
@@ -90,11 +93,8 @@ import type {
   Villager,
 } from '@clovervale/shared';
 import { SLASH_DURATION } from '../../shared/src/actions.ts';
-import { CAVE_LANDING } from '../../shared/src/cave.ts';
 import { NavigationGraph } from '../../shared/src/navigation.ts';
 import { DRINK_STEPS } from '../../shared/src/player-motion.ts';
-import { TOBY_PATCHES } from '../../shared/src/toby.ts';
-import { WELL_STAND } from '../../shared/src/village-layout.ts';
 
 import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
 import type { MonsterSpawn } from '../src/monster.ts';
@@ -1903,7 +1903,7 @@ describe('a player on the quest of Toby, hurt, who talks to him', () => {
       expect(world.describePrivateView(id)?.dialogue).toBeNull();
       expect(world.describePrivateView(id)?.inventory).toEqual(['spy-token']);
       expect(talkToToby(world, id)).toEqual(['toby:dialogue.toby.moan']);
-        expect(tellQuests(world, id)).toEqual([{ id: 'toby-hurt', stage }]);;
+      expect(tellQuests(world, id)).toEqual([{ id: 'toby-hurt', stage }]);
     }
   });
 

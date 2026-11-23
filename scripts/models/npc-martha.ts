@@ -112,7 +112,7 @@ const GUARD_TWIST = -35;
 interface ForkGrip {
   /** Where her right wrist is, which grips it, in model space. */
   readonly right: Triple;
-  /** Where her left wrist is, further along it, in model space. */
+  /** Where her left wrist is, farther along it, in model space. */
   readonly left: Triple;
 }
 
@@ -366,7 +366,7 @@ class MarthaPoser {
 
   /**
    * Puts both her hands on the shaft of the pitchfork, her right hand
-   * where it is gripped and her left further along it, toward its head,
+   * where it is gripped and her left farther along it, toward its head,
    * which points on from her right hand past her left.
    *
    * @param {Pose} pose - The pose.

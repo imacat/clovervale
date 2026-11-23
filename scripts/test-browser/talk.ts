@@ -91,7 +91,7 @@ const TALK_LEAST_Z = -6.55;
 /** The greatest position along the Z axis of that stretch, in meters. */
 const TALK_MOST_Z = -6.25;
 /**
- * The furthest the foot of the bubble of what Nancy says may be from where
+ * The farthest the foot of the bubble of what Nancy says may be from where
  * she stands along the ground, in meters.
  */
 const SPEECH_NEARNESS = 0.05;
@@ -442,7 +442,7 @@ const SPEECH_SIDE_Z = -5.6;
 const SPEECH_RETURN_Z = -6.2;
 /**
  * How far short of where it brings Nancy to the edge of the view a player
- * lets go of the key that walks it there, in meters, which is further than
+ * lets go of the key that walks it there, in meters, which is farther than
  * it walks on before the key is let go of.
  */
 const SPEECH_STOP_SHORT = 0.4;

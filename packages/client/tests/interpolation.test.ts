@@ -137,15 +137,15 @@ function findOnly(view: PlayersView): PlayerState {
 }
 
 /**
- * Finds the snapshot after which a player has moved furthest since the
+ * Finds the snapshot after which a player has moved farthest since the
  * snapshot before, among the places of the player after each step.
  *
  * @param {readonly PlayerState[]} places - The player after each step,
  *   from step 1.
  * @returns {number} The number of the step of the snapshot, which is even.
  */
-function findFurthestPush(places: readonly PlayerState[]): number {
-  let furthest = 0;
+function findFarthestPush(places: readonly PlayerState[]): number {
+  let farthest = 0;
   let found = 2;
   for (let step = 4; step <= places.length; step += 2) {
     const before: PlayerState | undefined = places[step - 3];
@@ -154,8 +154,8 @@ function findFurthestPush(places: readonly PlayerState[]): number {
       continue;
     }
     const distance: number = Math.hypot(after.x - before.x, after.z - before.z);
-    if (distance > furthest) {
-      furthest = distance;
+    if (distance > farthest) {
+      farthest = distance;
       found = step;
     }
   }
@@ -410,9 +410,9 @@ describe('SnapshotTimeline', () => {
       motion = stepMotion(motion, step, 'village', []);
       places.push({ ...PLAYER, x: motion.x, z: motion.z, yaw: motion.yaw });
     }
-    // The step after which the player has been pushed furthest since the
+    // The step after which the player has been pushed farthest since the
     // snapshot before.
-    const step: number = findFurthestPush(places);
+    const step: number = findFarthestPush(places);
     const before: PlayerState = places[step - 3] ?? PLAYER;
     const after: PlayerState = places[step - 1] ?? PLAYER;
     expect(Math.hypot(after.x - before.x, after.z - before.z)).toBeGreaterThan(

@@ -68,7 +68,7 @@ const OVERLAP_TOLERANCE = 1e-9;
 
 /**
  * The longest time between two frames, in milliseconds, over which a
- * hand-over is still drawn as a glide: a few frames' worth.
+ * handover is still drawn as a glide: a few frames' worth.
  */
 const PAUSE_LIMIT = 100;
 
@@ -161,7 +161,7 @@ class PushCourse {
    * It is drawn at the place the server has it at the step the villager
    * who pushes it is drawn at, or between that and the next, as far
    * toward the next as it takes to keep it clear of the villager, if that
-   * does, but never further back along the course than it was drawn
+   * does, but never farther back along the course than it was drawn
    * before, and no faster than {@link PUSH_SPEED_RATIO} times the speed of
    * the villager from frame to frame.
    *
@@ -328,13 +328,13 @@ function findClearShare(
  * another draws it, as the forecast hands over from one to the other.
  *
  * The player glides at an even pace from where it was drawn to where it is
- * to be drawn, which it reaches {@link SMOOTHING_DURATION} after the hand-
- * over, moving all the while as it is to be drawn as well, but never beyond
- * both: as where it is to be drawn moves toward where it was drawn, it
- * glides no further that way than where it was drawn, and once where it is
- * to be drawn passes that, it is drawn there.  A hand-over that comes as it
- * glides takes it on from where it is drawn then.  It is drawn where it is
- * to be drawn at once when the hand-over is told to be drawn so, when it
+ * to be drawn, which it reaches {@link SMOOTHING_DURATION} after the
+ * handover, moving all the while as it is to be drawn as well, but never
+ * beyond both: as where it is to be drawn moves toward where it was drawn,
+ * it glides no farther that way than where it was drawn, and once where it
+ * is to be drawn passes that, it is drawn there.  A handover that comes as
+ * it glides takes it on from where it is drawn then.  It is drawn where it
+ * is to be drawn at once when the handover is told to be drawn so, when it
  * moves the player {@link SMOOTHING_LIMIT} or farther, and while the owner
  * has it shown without prediction.
  */
@@ -357,16 +357,16 @@ class HandoverGlide {
   }
 
   /**
-   * Takes note of a hand-over.
+   * Takes note of a handover.
    *
    * @param {PlayerMotion} before - The player as it was to be drawn before
-   *   the hand-over, without this glide.
+   *   the handover, without this glide.
    * @param {PlayerMotion} after - The player as it was to be drawn at the
-   *   same time by what draws it after the hand-over.
+   *   same time by what draws it after the handover.
    * @param {number} time - The time on the clock of the page the glide
    *   starts at, in milliseconds, which is no earlier than any time told
    *   before.
-   * @param {boolean} isAtOnce - Whether the hand-over is to be drawn at
+   * @param {boolean} isAtOnce - Whether the handover is to be drawn at
    *   once, however far it moves the player.
    */
   notice(
@@ -486,7 +486,7 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
  * just as without the forecast from then on, until it rests again and a
  * snapshot tells so.  A snapshot that tells of the player resting elsewhere
  * than the forecast foresaw hands over likewise, from where it was drawn to
- * where the snapshot has it.  A hand-over is drawn as a jump when it moves
+ * where the snapshot has it.  A handover is drawn as a jump when it moves
  * the player {@link SMOOTHING_LIMIT} or more, when the frame it comes at is
  * drawn more than a few frames' time after the one before, and when the
  * snapshot that tells of the player resting elsewhere shows it has done
@@ -506,7 +506,7 @@ function isSamePlace(a: GroundVector, b: GroundVector): boolean {
  * forecast, reaching into the pusher if it runs into the player, until a
  * snapshot tells the page that it rests.  The forecast cannot foresee what
  * only the server does: a player killed as it is pushed may have been drawn
- * pushed further than the server pushed it, and glides back to where it
+ * pushed farther than the server pushed it, and glides back to where it
  * lies.  A player the owner switches the forecast off and on again for as
  * the pusher pushes it glides back to where it is drawn without the
  * forecast, and out again.  While the step the pusher is drawn at lags

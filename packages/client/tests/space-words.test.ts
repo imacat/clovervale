@@ -27,6 +27,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CAVE_CONTAINERS,
   CAVE_PASSAGE,
+  CAVE_ROPE,
   CLOVER_PATCHES,
   FOUNTAIN_RIM_RADIUS,
   INVENTORY_SIZE,
@@ -40,8 +41,10 @@ import {
   createMotion,
   findPlacement,
   findTobyPose,
+  findTurn,
   locateVillager,
   stepMotion,
+  turnVector,
 } from '@clovervale/shared';
 import type {
   CaveContainer,
@@ -53,10 +56,8 @@ import type {
   TobyPose,
   WorldItems,
 } from '@clovervale/shared';
-import { CAVE_ROPE } from '../../shared/src/cave.ts';
 import { TALK_REACH } from '../../shared/src/interaction.ts';
 import { killMotion } from '../../shared/src/player-motion.ts';
-import { findTurn, turnVector } from '../../shared/src/terrain.ts';
 
 import { findSpaceAction } from '../src/space-action.ts';
 import type { SpaceAction, SpaceContext } from '../src/space-action.ts';

@@ -1344,7 +1344,7 @@ describe('the forecast of the pushes of Toby', () => {
               if (other === undefined || !isResting(frame.truth)) {
                 return;
               }
-              // Never drawn further from where the server has the player
+              // Never drawn farther from where the server has the player
               // than without the forecast.
               expect(
                 measureFromServer(on, frame.drawn, frame.pusherStep),

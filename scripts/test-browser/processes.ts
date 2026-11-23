@@ -138,7 +138,7 @@ async function stopProcessGroup(child: ChildProcess): Promise<void> {
 }
 
 /**
- * Starts a program in its own process group, to be stopped on clean-up.
+ * Starts a program in its own process group, to be stopped on cleanup.
  *
  * @param {string} command - The program to run.
  * @param {string[]} args - The arguments of the program.

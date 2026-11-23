@@ -457,7 +457,7 @@ describe('pushAside', () => {
     expect(pushed.z).toBeLessThan(point.z - 0.2);
   });
 
-  it('pushes a player no further than walls let it go', () => {
+  it('pushes a player no farther than walls let it go', () => {
     // A wall runs along his left, so close that a player can stand
     // between the two only overlapping him.
     const wall: Shape = {
@@ -593,7 +593,7 @@ describe('resolveWalk', () => {
     );
   });
 
-  it('lets a player that overlaps him walk out, but not further in', () => {
+  it('lets a player that overlaps him walk out, but not farther in', () => {
     const from: GroundVector = { x: SQUATTING.x, z: SQUATTING.z - 0.4 };
     const out: GroundVector = { x: from.x, z: from.z - 0.075 };
     expect(resolveWalk(from, out, SQUATTING, VILLAGE_TERRAIN)).toEqual(out);

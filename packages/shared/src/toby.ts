@@ -374,7 +374,7 @@ export function pushAside(
  * Toby stops the player as the obstacles do: a player that walks into him
  * at an angle slides around him, and one that walks straight into him stops.
  * A player that overlaps him already, having had no room to be pushed out
- * of his way, may walk anywhere that does not take it further into him.
+ * of his way, may walk anywhere that does not take it farther into him.
  *
  * @param {GroundVector} from - Where the player stands, clear of the
  *   obstacles.
@@ -419,7 +419,7 @@ export function resolveWalk(
  * @param {GroundVector} position - Where the player is after the step.
  * @param {number} step - The number of the step.
  * @param {number} span - The time, in milliseconds.
- * @returns {number} The furthest he pushes a player as he passes it, in
+ * @returns {number} The farthest he pushes a player as he passes it, in
  *   meters, if the player is near enough to him to have been pushed within
  *   the time, or 0 otherwise.
  */

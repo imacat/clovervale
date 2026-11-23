@@ -765,7 +765,7 @@ function animate(
 
 /**
  * Builds Basil, the apothecary: a young man, eager and a little
- * scatter-brained, his brown hair in a mop of tufts, with round glasses
+ * scatterbrained, his brown hair in a mop of tufts, with round glasses
  * and his brows raised, in a green shirt with its sleeves rolled up, a long
  * apron over it and brown pants and boots.  He holds a writing board in
  * his left hand and a pen in his right.  He idles writing on his board,

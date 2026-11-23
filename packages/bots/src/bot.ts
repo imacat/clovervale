@@ -51,8 +51,8 @@ export interface RunningBot {
 }
 
 /**
- * Starts a bot that connects to a game server as a player, and patrols for
- * ever, as a {@link Patroller} has it.
+ * Starts a bot that connects to a game server as a player, and patrols
+ * forever, as a {@link Patroller} has it.
  *
  * @param {string} url - The WebSocket URL of the server.
  * @param {PatrolSettings} [patrol] - How the bot patrols, or between the

@@ -26,6 +26,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AuthoritativePlayer,
+  CAVE_LANDING,
   CAVE_PASSAGE,
   DEATH_DURATION,
   PLAYER_RADIUS,
@@ -55,7 +56,6 @@ import type {
   TobyPose,
   Villager,
 } from '@clovervale/shared';
-import { CAVE_LANDING } from '../../shared/src/cave.ts';
 import { SLASH_STEPS, killMotion } from '../../shared/src/player-motion.ts';
 
 import { DrawnPusherStep } from '../src/drawn-pusher-step.ts';

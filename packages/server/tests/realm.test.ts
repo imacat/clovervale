@@ -27,6 +27,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CAVE_CONTAINERS,
   CAVE_DOG_HOMES,
+  CAVE_LANDING,
+  CAVE_ROPE,
   CAVE_TERRAIN,
   CLOVER_PATCHES,
   DEATH_DURATION,
@@ -37,6 +39,7 @@ import {
   SLASH_REACH,
   SPAWN_POINT_COUNT,
   WALK_SPEED,
+  WELL_STAND,
   createInteractMessage,
   createMoveMessage,
   createPhraseMessage,
@@ -52,18 +55,17 @@ import type {
   GroundVector,
   MapId,
   MonsterState,
+  PhrasedMessage,
   PlayerInput,
   PlayerState,
   Quest,
+  SaidMessage,
   ServerMessage,
   SnapshotMessage,
   WorldItems,
 } from '@clovervale/shared';
 import { SLASH_DURATION } from '../../shared/src/actions.ts';
-import { CAVE_LANDING, CAVE_ROPE } from '../../shared/src/cave.ts';
 import { NavigationGraph } from '../../shared/src/navigation.ts';
-import { WELL_STAND } from '../../shared/src/village-layout.ts';
-import type { PhrasedMessage, SaidMessage } from '../../shared/src/protocol.ts';
 
 import { Realm } from '../src/realm.ts';
 import { RESIDENT_FACTORIES } from '../src/resident-factories.ts';
