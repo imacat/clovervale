@@ -18,10 +18,9 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module scripts/release Packs the built project into release archives.
+ * @module scripts/release Stages the built project as a release directory.
  */
 
-import { execFileSync } from 'node:child_process';
 import {
   cpSync,
   existsSync,
@@ -166,17 +165,15 @@ function copyBuilt(source: string, target: string): void {
 }
 
 /**
- * Packs the built project into versioned .tar.gz and .zip archives.
+ * Stages the built project in a versioned directory under release/,
+ * replacing any earlier one.
  */
-function packRelease(): void {
+function stageRelease(): void {
   const root: Manifest = readManifest(rootDir);
   const name = `${root.name}-${root.version}`;
   const stageDir: string = path.join(releaseDir, name);
-  const archives: string[] = [`${name}.tar.gz`, `${name}.zip`];
 
-  for (const stale of [name, ...archives]) {
-    rmSync(path.join(releaseDir, stale), { recursive: true, force: true });
-  }
+  rmSync(stageDir, { recursive: true, force: true });
   mkdirSync(stageDir, { recursive: true });
 
   copyBuilt('packages/server/dist/server.cjs', `${stageDir}/server/server.cjs`);
@@ -207,12 +204,7 @@ function packRelease(): void {
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
 
-  execFileSync('tar', ['-czf', `${name}.tar.gz`, name], { cwd: releaseDir });
-  execFileSync('zip', ['-qrX', `${name}.zip`, name], { cwd: releaseDir });
-  rmSync(stageDir, { recursive: true });
-  for (const archive of archives) {
-    console.log(`Packed release/${archive}`);
-  }
+  console.log(`Staged release/${name}/`);
 }
 
-packRelease();
+stageRelease();

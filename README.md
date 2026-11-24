@@ -9,7 +9,6 @@ Requirements
 ------------
 
 - [Node.js] 24 or later, with npm.
-- `tar` and `zip`, only for building the release archives.
 - [Firefox], only for the browser check.
 
 
@@ -42,9 +41,10 @@ Lints everything.
 
 Generates the API documentation in `docs/api/`.
 
-### `npm run release`
+### `npm run release:stage`
 
-Builds the release archives in `release/`.
+Builds the release and stages it in `release/clovervale-<version>/`,
+ready to be packed.
 
 ### `npm run clean`
 

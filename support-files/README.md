@@ -76,7 +76,7 @@ Change the site name and the paths in them to your own.  As root, with
  2. Unpack the release into a new temporary directory, and go there.
 
         cd "$(mktemp -d)"
-        tar -xzf /path/to/clovervale-*.tar.gz --strip-components=1 \
+        tar -xzf /path/to/clovervale-*-bin.tar.gz --strip-components=1 \
             --no-same-owner
 
  3. Copy the game server, the client and the bots to
