@@ -147,7 +147,7 @@ const CLOVER_HEIGHT = 0.12;
  */
 const CLOVER_AHEAD = 0.12;
 /** The clips that loop. */
-const LOOPING_CLIPS: readonly string[] = [
+const LOOPING_CLIPS: ReadonlySet<string> = new Set([
   'Idle',
   'IdleArmed',
   'Walk',
@@ -155,9 +155,9 @@ const LOOPING_CLIPS: readonly string[] = [
   'Work',
   'Run',
   'Pick',
-];
+]);
 /** The clips that end on the pose they start from. */
-const SETTLING_CLIPS: readonly string[] = ['Slash', 'Attack'];
+const SETTLING_CLIPS: ReadonlySet<string> = new Set(['Slash', 'Attack']);
 
 /**
  * Checks where a clip of a model starts and ends: a looping clip ends on
@@ -181,7 +181,7 @@ function checkClipEnds(
 ): void {
   const chain: readonly [string, string] | undefined =
     file === TOBY_FILE ? CHILD_CLIP_CHAIN[name] : undefined;
-  if (LOOPING_CLIPS.includes(name)) {
+  if (LOOPING_CLIPS.has(name)) {
     check(clip.seam < TOLERANCE, `${name} does not loop seamlessly`);
   } else if (chain !== undefined) {
     const [from, to] = chain;
@@ -206,7 +206,7 @@ function checkClipEnds(
         measureDifference(clip.start, originStart) < TOLERANCE,
       `${name} does not start from the first ${origin} frame`,
     );
-    if (SETTLING_CLIPS.includes(name)) {
+    if (SETTLING_CLIPS.has(name)) {
       check(
         measureDifference(clip.end, originStart) < TOLERANCE,
         `${name} does not end on the first ${origin} frame`,
@@ -262,12 +262,13 @@ export function checkClips(
   measured: ModelMeasurements,
   check: Check,
 ): void {
-  const required =
-    file === TOBY_FILE
-      ? CHILD_CLIP_DURATIONS
-      : file === CHIEF_FILE
-        ? CHIEF_CLIP_DURATIONS
-        : CLIP_DURATIONS[kind];
+  let required: Readonly<Record<string, readonly [number, number]>> =
+    CLIP_DURATIONS[kind];
+  if (file === TOBY_FILE) {
+    required = CHILD_CLIP_DURATIONS;
+  } else if (file === CHIEF_FILE) {
+    required = CHIEF_CLIP_DURATIONS;
+  }
   const durations = {
     ...(kind === 'npc' ? OPTIONAL_NPC_CLIP_DURATIONS : {}),
     ...required,

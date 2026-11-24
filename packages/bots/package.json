@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node24 --outfile=dist/bots.cjs",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/bots.mjs",
     "dev": "node src/main.ts"
   },
   "dependencies": {

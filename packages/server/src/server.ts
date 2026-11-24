@@ -386,7 +386,7 @@ interface Peers {
  */
 function runSimulation(
   realm: Realm,
-  { playerIds, toldMaps }: Peers,
+  peers: Peers,
   unsentLimit: number,
 ): () => void {
   const startTime: number = performance.now();
@@ -401,31 +401,7 @@ function runSimulation(
       isSnapshotDue ||= realm.stepCount % STEPS_PER_SNAPSHOT === 0;
     }
     if (isSnapshotDue) {
-      const composed: Map<number, ServerMessage[]> = realm.composeMessages();
-      const encoded = new Map<ServerMessage, string>();
-      for (const [socket, id] of playerIds) {
-        if (socket.readyState !== WebSocket.OPEN) {
-          continue;
-        }
-        if (socket.bufferedAmount > unsentLimit) {
-          socket.terminate();
-          continue;
-        }
-        const map: MapId | undefined = realm.findWorld(id)?.map;
-        const notice: MapMessage | null =
-          map === undefined ? null : toldMaps.tell(id, map);
-        const messages: ServerMessage[] = composed.get(id) ?? [];
-        for (const message of notice === null
-          ? messages
-          : [notice, ...messages]) {
-          let data: string | undefined = encoded.get(message);
-          if (data === undefined) {
-            data = encodeServerMessage(message);
-            encoded.set(message, data);
-          }
-          socket.send(data);
-        }
-      }
+      sendSnapshots(realm, peers, unsentLimit);
     }
     const nextTime: number =
       startTime + (realm.stepCount + 1) * STEP_MILLISECONDS;
@@ -435,6 +411,50 @@ function runSimulation(
   return () => {
     clearTimeout(timer);
   };
+}
+
+/**
+ * Sends every open peer what the realm composes for its player now, first
+ * telling it which map its player is in whenever that is a map other than
+ * the one it was last told of, or than the village if it has been told of
+ * none.  A message that several peers are sent alike is encoded once.  A
+ * peer that has more than its limit waiting to be sent is dropped instead.
+ *
+ * @param {Realm} realm - The worlds whose snapshots to send.
+ * @param {Peers} peers - The connected peers.
+ * @param {number} unsentLimit - The most bytes that may wait to be sent to
+ *   a peer.
+ */
+function sendSnapshots(
+  realm: Realm,
+  { playerIds, toldMaps }: Peers,
+  unsentLimit: number,
+): void {
+  const composed: Map<number, ServerMessage[]> = realm.composeMessages();
+  const encoded = new Map<ServerMessage, string>();
+  for (const [socket, id] of playerIds) {
+    if (socket.readyState !== WebSocket.OPEN) {
+      continue;
+    }
+    if (socket.bufferedAmount > unsentLimit) {
+      socket.terminate();
+      continue;
+    }
+    const map: MapId | undefined = realm.findWorld(id)?.map;
+    const notice: MapMessage | null =
+      map === undefined ? null : toldMaps.tell(id, map);
+    const messages: ServerMessage[] = composed.get(id) ?? [];
+    for (const message of notice === null
+      ? messages
+      : [notice, ...messages]) {
+      let data: string | undefined = encoded.get(message);
+      if (data === undefined) {
+        data = encodeServerMessage(message);
+        encoded.set(message, data);
+      }
+      socket.send(data);
+    }
+  }
 }
 
 /**

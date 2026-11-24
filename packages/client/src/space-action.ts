@@ -22,7 +22,12 @@
  *   player of the page do.
  */
 
-import { canInteract, findInteractable, hasRoom } from '@clovervale/shared';
+import {
+  assertNever,
+  canInteract,
+  findInteractable,
+  hasRoom,
+} from '@clovervale/shared';
 import type {
   ContainerTarget,
   Interactable,
@@ -132,5 +137,7 @@ function findTargetAction(target: Interactable, isRoom: boolean): SpaceAction {
         input,
         container: target,
       };
+    default:
+      return assertNever(target);
   }
 }

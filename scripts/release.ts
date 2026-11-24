@@ -176,8 +176,8 @@ function stageRelease(): void {
   rmSync(stageDir, { recursive: true, force: true });
   mkdirSync(stageDir, { recursive: true });
 
-  copyBuilt('packages/server/dist/server.cjs', `${stageDir}/server/server.cjs`);
-  copyBuilt('packages/bots/dist/bots.cjs', `${stageDir}/bots/bots.cjs`);
+  copyBuilt('packages/server/dist/server.mjs', `${stageDir}/server/server.mjs`);
+  copyBuilt('packages/bots/dist/bots.mjs', `${stageDir}/bots/bots.mjs`);
   copyBuilt('packages/client/dist', `${stageDir}/client`);
   copyBuilt('LICENSE', `${stageDir}/LICENSE`);
   for (const file of readdirSync(path.join(rootDir, supportDir))) {
@@ -195,8 +195,8 @@ function stageRelease(): void {
     license: root.license,
     engines: root.engines,
     scripts: {
-      start: 'node server/server.cjs',
-      bots: 'node bots/bots.cjs',
+      start: 'node server/server.mjs',
+      bots: 'node bots/bots.mjs',
     },
   };
   writeFileSync(

@@ -88,8 +88,8 @@ describe('ItemFigures', () => {
     const figures = new ItemFigures(scene);
     const before: number = scene.children.length;
     figures.show(makeItemFrame({ clovers: [], items: [ITEM] }));
-    expect(scene.children.length).toBe(before + 1);
+    expect(scene.children).toHaveLength(before + 1);
     figures.show(makeItemFrame({ clovers: [], items: [] }));
-    expect(scene.children.length).toBe(before);
+    expect(scene.children).toHaveLength(before);
   });
 });

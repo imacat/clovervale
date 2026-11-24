@@ -51,9 +51,9 @@ const DOG_WANDER_RADIUS: number = DOG.wander?.radius ?? 0;
 
 /** Where the wild dog of the village lives, and how it faces there. */
 const HOME: MonsterSpawn['home'] = MONSTER_SPAWNS.village[0]?.home ?? {
-  x: NaN,
-  z: NaN,
-  yaw: NaN,
+  x: Number.NaN,
+  z: Number.NaN,
+  yaw: Number.NaN,
 };
 
 /** A player near the home of the monster, where nothing stands. */
@@ -204,7 +204,7 @@ describe('a monster with a player near', () => {
       lastCount = state.actionCount;
       if (isStriking) {
         strikes.push(step);
-        expect(step - (attackStart ?? NaN)).toBe(
+        expect(step - (attackStart ?? Number.NaN)).toBe(
           MONSTER_STRIKE_DELAY * SIMULATION_RATE,
         );
       }

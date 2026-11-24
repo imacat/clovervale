@@ -699,7 +699,7 @@ describe('SpeechBubble on the screen', () => {
     bubble.say(NANCY, HEAD);
     bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
     expect(widths).toHaveLength(2);
-    expect(widths[1]).toBeLessThan(widths[0] ?? NaN);
+    expect(widths[1]).toBeLessThan(widths[0] ?? Number.NaN);
     expect(bubble.describe()?.line).toBe(NANCY_WELCOME);
     bubble.fitView(PORTRAIT.width, PORTRAIT.height, FIELD_OF_VIEW);
     expect(widths).toHaveLength(2);
@@ -889,7 +889,7 @@ describe('SpeechBubble with players who speak', () => {
     bubble.sayAs(createTyped(8, 'Two.'), PLAYER_HEAD);
     bubble.sayAs(createTyped(7, 'Three.'), PLAYER_HEAD);
     const [second, third] = parent.children;
-    expect(second?.renderOrder).toBeLessThan(third?.renderOrder ?? NaN);
+    expect(second?.renderOrder).toBeLessThan(third?.renderOrder ?? Number.NaN);
   });
 
   it('leaves the bubble of a villager as it is, and is left by it', () => {

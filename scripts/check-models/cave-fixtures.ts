@@ -170,8 +170,13 @@ async function checkFixtureGround(failures: string[]): Promise<number> {
       },
     ),
   ];
-  for (const [placement, groundModel] of placements) {
-    const model: GLTF = await loadAt(placement);
+  const loaded: (readonly [Placement, ModelId, GLTF])[] = await Promise.all(
+    placements.map(
+      async ([placement, groundModel]: readonly [Placement, ModelId]) =>
+        [placement, groundModel, await loadAt(placement)] as const,
+    ),
+  );
+  for (const [placement, groundModel, model] of loaded) {
     const box: Box3 = new Box3().setFromObject(model.scene, true);
     const shapes: Shape[] = (CAVE_FIXTURE_FOOTPRINTS[groundModel] ?? []).map(
       (shape: Shape) => placeShape(placement, shape),
@@ -179,35 +184,118 @@ async function checkFixtureGround(failures: string[]): Promise<number> {
     const where =
       `${MODEL_FILES[placement.model]} at (${placement.x.toFixed(2)}, ` +
       `${placement.z.toFixed(2)})`;
-    if (shapes.length > 0) {
-      const [minX, maxX, minZ, maxZ] = measureShapes(shapes);
-      const gaps: number[] = [
-        box.min.x - minX,
-        maxX - box.max.x,
-        box.min.z - minZ,
-        maxZ - box.max.z,
-      ];
-      if (gaps.some((gap: number) => Math.abs(gap) > FOOTPRINT_TOLERANCE)) {
-        failures.push(`${where} does not take up the ground it stands on`);
-      }
+    if (!isTakingUpShapes(box, shapes)) {
+      failures.push(`${where} does not take up the ground it stands on`);
     }
-    if (placement.model === 'cave-bars') {
-      const cell = CAVE_CELLS[placement.z < 0 ? 0 : 1];
-      if (
-        Math.abs(box.min.x - cell.west) > FOOTPRINT_TOLERANCE ||
-        Math.abs(box.max.x - cell.east) > FOOTPRINT_TOLERANCE
-      ) {
-        failures.push(`${where} does not close off the whole cell`);
-      }
-    }
-    if (placement.model === 'cave-skeleton') {
-      const wall: number = CAVE_CELLS[1].south;
-      if (box.max.z > wall || box.max.z < wall - FOOTPRINT_TOLERANCE) {
-        failures.push(`${where} does not lean on the back wall of its cell`);
-      }
+    const misfit: string | null = findFixtureMisfit(placement, box);
+    if (misfit !== null) {
+      failures.push(`${where} ${misfit}`);
     }
   }
   return placements.length;
+}
+
+/**
+ * Checks whether a model reaches out to the edges of the ground some
+ * shapes take up, and no farther.
+ *
+ * @param {Box3} box - The box around the model, standing in its place.
+ * @param {readonly Shape[]} shapes - The shapes, in the world.
+ * @returns {boolean} Whether it does, or true if there are no shapes.
+ */
+function isTakingUpShapes(box: Box3, shapes: readonly Shape[]): boolean {
+  if (shapes.length === 0) {
+    return true;
+  }
+  const [minX, maxX, minZ, maxZ] = measureShapes(shapes);
+  const gaps: number[] = [
+    box.min.x - minX,
+    maxX - box.max.x,
+    box.min.z - minZ,
+    maxZ - box.max.z,
+  ];
+  return !gaps.some((gap: number) => Math.abs(gap) > FOOTPRINT_TOLERANCE);
+}
+
+/**
+ * Checks that the bars of a cell run across its whole opening, and that
+ * the bones lean on the back wall of the south cell.
+ *
+ * @param {Placement} placement - Where the model stands.
+ * @param {Box3} box - The box around the model, standing in its place.
+ * @returns {string | null} What the model does not do, to follow its name,
+ *   or null if it does all it must, or is neither the bars nor the bones.
+ */
+function findFixtureMisfit(placement: Placement, box: Box3): string | null {
+  if (placement.model === 'cave-bars') {
+    const cell = CAVE_CELLS[placement.z < 0 ? 0 : 1];
+    const isShort: boolean =
+      Math.abs(box.min.x - cell.west) > FOOTPRINT_TOLERANCE ||
+      Math.abs(box.max.x - cell.east) > FOOTPRINT_TOLERANCE;
+    return isShort ? 'does not close off the whole cell' : null;
+  }
+  if (placement.model === 'cave-skeleton') {
+    const wall: number = CAVE_CELLS[1].south;
+    const isAway: boolean =
+      box.max.z > wall || box.max.z < wall - FOOTPRINT_TOLERANCE;
+    return isAway ? 'does not lean on the back wall of its cell' : null;
+  }
+  return null;
+}
+
+/**
+ * Measures how loosely the prisoner, as he stands posed, holds the bars:
+ * how far the middle of the looser of his fists is from the bar it holds.
+ *
+ * @param {Object3D} root - The model of the prisoner, posed in his place.
+ * @param {number} centerX - Where he stands along X, between his fists.
+ * @param {(p: Vector3) => number} findBarDistance - Finds how far a point
+ *   is from the nearest axis of a bar, along the ground, in meters.
+ * @returns {number} The distance, in meters, or Infinity if he has no hand
+ *   on one side.
+ */
+function measureFistGrip(
+  root: Object3D,
+  centerX: number,
+  findBarDistance: (p: Vector3) => number,
+): number {
+  const hands: Vector3[] = listMaterialVertices(root, HAND_MATERIAL);
+  let loosest = 0;
+  for (const side of [-1, 1]) {
+    const fist: Vector3[] = hands.filter(
+      (p: Vector3) => Math.sign(p.x - centerX) === side,
+    );
+    const middle = new Vector3();
+    for (const p of fist) {
+      middle.add(p);
+    }
+    middle.divideScalar(fist.length);
+    const grip: number =
+      fist.length === 0 ? Infinity : findBarDistance(middle);
+    loosest = Math.max(loosest, grip);
+  }
+  return loosest;
+}
+
+/**
+ * Lists the vertices of the prisoner, as he stands posed, but those of his
+ * hands.
+ *
+ * @param {Object3D} root - The model of the prisoner, posed in his place.
+ * @returns {Vector3[]} The vertices, in the world.
+ */
+function listBodyVertices(root: Object3D): Vector3[] {
+  const rest: Mesh[] = [];
+  root.traverse((node: Object3D) => {
+    if (
+      isMesh(node) &&
+      !Array.isArray(node.material) &&
+      node.material.name !== HAND_MATERIAL
+    ) {
+      rest.push(node);
+    }
+  });
+  return rest.flatMap((node: Mesh) => listWorldVertices(node).positions);
 }
 
 /**
@@ -252,36 +340,16 @@ async function checkEdwinGrip(failures: string[]): Promise<Grip> {
       clip,
       (clip.duration * k) / EDWIN_SAMPLES,
     );
-    const hands: Vector3[] = listMaterialVertices(edwin.scene, HAND_MATERIAL);
-    for (const side of [-1, 1]) {
-      const fist: Vector3[] = hands.filter(
-        (p: Vector3) => Math.sign(p.x - edwinPlacement.x) === side,
-      );
-      const middle = new Vector3();
-      for (const p of fist) {
-        middle.add(p);
-      }
-      middle.divideScalar(fist.length);
-      const grip: number =
-        fist.length === 0 ? Infinity : findBarDistance(middle);
-      loosest = Math.max(loosest, grip);
-      if (grip > GRIP_TOLERANCE) {
-        isHeld = false;
-      }
+    const grip: number = measureFistGrip(
+      edwin.scene,
+      edwinPlacement.x,
+      findBarDistance,
+    );
+    loosest = Math.max(loosest, grip);
+    if (grip > GRIP_TOLERANCE) {
+      isHeld = false;
     }
-    const rest: Mesh[] = [];
-    edwin.scene.traverse((node: Object3D) => {
-      if (
-        isMesh(node) &&
-        !Array.isArray(node.material) &&
-        node.material.name !== HAND_MATERIAL
-      ) {
-        rest.push(node);
-      }
-    });
-    for (const p of rest.flatMap(
-      (node: Mesh) => listWorldVertices(node).positions,
-    )) {
+    for (const p of listBodyVertices(edwin.scene)) {
       const distance: number = findBarDistance(p);
       closest = Math.min(closest, distance);
       if (p.z > barZ || (p.y < barTop && distance < BAR_CLEARANCE)) {

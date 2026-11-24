@@ -37,8 +37,8 @@ const NOTICE_DURATION = 1.5;
  * them, which a line may break before or after without a space.
  */
 const WIDE_PATTERN = new RegExp(
-  '[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}' +
-    '\\p{Script=Bopomofo}\\u3000-\\u303f\\u30fb\\u30fc\\uff00-\\uffef]',
+  String.raw`[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}` +
+    String.raw`\p{Script=Bopomofo}\u3000-\u303f\u30fb\u30fc\uff00-\uffef]`,
   'u',
 );
 /**
@@ -147,10 +147,9 @@ function wrapRow(
   const lines: string[] = [];
   let line = '';
   for (const piece of cutText(text)) {
+    const space: string = piece.isSpaced ? ' ' : '';
     const longer: string =
-      line === ''
-        ? piece.text
-        : `${line}${piece.isSpaced ? ' ' : ''}${piece.text}`;
+      line === '' ? piece.text : `${line}${space}${piece.text}`;
     if (line !== '' && measure(longer) > width) {
       lines.push(line);
       line = piece.text;

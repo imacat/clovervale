@@ -66,7 +66,9 @@ describe('findSpawnPoint', () => {
 
   it('starts by the middle of the plaza', () => {
     const [first, second] = points;
-    expect(Math.abs((first?.x ?? NaN) - PLAZA_CENTER.x)).toBeLessThan(1);
-    expect(Math.abs((second?.x ?? NaN) - PLAZA_CENTER.x)).toBeLessThan(1);
+    expect(Math.abs((first?.x ?? Number.NaN) - PLAZA_CENTER.x)).toBeLessThan(1);
+    expect(
+      Math.abs((second?.x ?? Number.NaN) - PLAZA_CENTER.x),
+    ).toBeLessThan(1);
   });
 });

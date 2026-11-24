@@ -37,7 +37,7 @@ const EMBER_COLORS: ReadonlyMap<string, string> = new Map<string, string>([
  * The names of the materials of the flames in the model, which glow in the
  * colors the model gives them.
  */
-const FLAME_MATERIALS: readonly string[] = ['fire', 'glow'];
+const FLAME_MATERIALS: ReadonlySet<string> = new Set(['fire', 'glow']);
 /** The least strength of the glow of the coals and of the hot iron. */
 const EMBER_LEAST = 0.7;
 /** The greatest strength of the glow of the coals and of the hot iron. */
@@ -112,7 +112,7 @@ export class ForgeGlow {
           // The iron glows a little out of step with the coals.
           this.#embers.push({ material, phase: this.#embers.length * 0.3 });
         } else if (
-          FLAME_MATERIALS.includes(material.name) &&
+          FLAME_MATERIALS.has(material.name) &&
           !this.#flames.includes(material)
         ) {
           this.#flames.push(material);

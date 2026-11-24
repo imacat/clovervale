@@ -22,6 +22,7 @@
  */
 
 export type { ActionState, MonsterAction } from './actions.ts';
+export { assertNever } from './assert.ts';
 export {
   AuthoritativePlayer,
   INPUT_WAIT_LIMIT,
@@ -53,6 +54,7 @@ export type {
   MonsterState,
   MonsterWander,
 } from './combat.ts';
+export { compareCodeUnits } from './compare.ts';
 export {
   DEFAULT_DAY_LENGTH,
   DEFAULT_DAY_ORIGIN,

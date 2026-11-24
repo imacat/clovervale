@@ -30,6 +30,7 @@ import {
   VILLAGERS,
   WORLD_MAPS,
   areMonstersPaused,
+  assertNever,
   canInteract,
   canUseItem,
   cleanSayText,
@@ -592,7 +593,7 @@ export class World extends EventTarget implements QuestWorld {
    * @returns {boolean} Whether it is.
    */
   hasPlayer(id: number): boolean {
-    return this.#roster.find(id) !== undefined;
+    return this.#roster.has(id);
   }
 
   /**
@@ -684,30 +685,61 @@ export class World extends EventTarget implements QuestWorld {
    *   it does not travel.
    */
   #applyInputs(
-    { player, applied, before, after, isHeld }: MovedPlayer,
+    moved: MovedPlayer,
     monsters: readonly MonsterState[],
   ): Departure | null {
-    const isFree: boolean = canInteract(before) && !isHeld;
-    const isAlive: boolean = before.action !== 'Die';
     let departure: Departure | null = null;
-    for (const input of applied) {
-      if (input.type === 'pick' && isFree) {
-        this.#use(player, after, monsters, 'pick');
-      }
-      if (input.type === 'drop' && isAlive) {
-        this.#items.drop(player, input.slot);
-      }
-      if (input.type === 'use' && isAlive) {
-        this.#useItem(player, input.slot);
-      }
-      if (input.type === 'reply') {
-        this.#talks.answer(player, input.choice);
-      }
-      if (input.type === 'travel' && isFree && departure === null) {
-        departure = this.#use(player, after, monsters, 'travel');
+    for (const input of moved.applied) {
+      const leaving: Departure | null = this.#applyInput(
+        moved,
+        input,
+        monsters,
+        departure === null,
+      );
+      if (leaving !== null) {
+        departure = leaving;
       }
     }
     return departure;
+  }
+
+  /**
+   * Has a player pick, put down, use, reply or travel, as one input that
+   * came into effect at the step tells.
+   *
+   * @param {MovedPlayer} moved - The player, as it has moved at the step.
+   * @param {StampedInput} input - The input.
+   * @param {readonly MonsterState[]} monsters - The monsters as they were
+   *   before the step.
+   * @param {boolean} canTravel - Whether the player may still travel at
+   *   the step.
+   * @returns {Departure | null} Where the player leaves for, or `null` if
+   *   it does not travel.
+   */
+  #applyInput(
+    { player, before, after, isHeld }: MovedPlayer,
+    input: StampedInput,
+    monsters: readonly MonsterState[],
+    canTravel: boolean,
+  ): Departure | null {
+    const isFree: boolean = canInteract(before) && !isHeld;
+    const isAlive: boolean = before.action !== 'Die';
+    if (input.type === 'pick' && isFree) {
+      this.#use(player, after, monsters, 'pick');
+    }
+    if (input.type === 'drop' && isAlive) {
+      this.#items.drop(player, input.slot);
+    }
+    if (input.type === 'use' && isAlive) {
+      this.#useItem(player, input.slot);
+    }
+    if (input.type === 'reply') {
+      this.#talks.answer(player, input.choice);
+    }
+    if (input.type === 'travel' && isFree && canTravel) {
+      return this.#use(player, after, monsters, 'travel');
+    }
+    return null;
   }
 
   /**
@@ -788,6 +820,8 @@ export class World extends EventTarget implements QuestWorld {
       case 'container':
         this.#items.pick(player, target);
         return null;
+      default:
+        return assertNever(target);
     }
   }
 

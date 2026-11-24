@@ -76,10 +76,10 @@ export const DEFAULT_LANGUAGE = 'en' satisfies LanguageCode;
 const STORAGE_KEY = 'clovervale.language';
 
 /** The regions whose Chinese is written in Traditional characters. */
-const TRADITIONAL_REGIONS: readonly string[] = ['tw', 'hk', 'mo'];
+const TRADITIONAL_REGIONS: ReadonlySet<string> = new Set(['tw', 'hk', 'mo']);
 
 /** The regions whose Chinese is written in Simplified characters. */
-const SIMPLIFIED_REGIONS: readonly string[] = ['cn', 'sg'];
+const SIMPLIFIED_REGIONS: ReadonlySet<string> = new Set(['cn', 'sg']);
 
 /**
  * Finds a language the page speaks.
@@ -127,10 +127,10 @@ export function matchLanguage(tag: string): LanguageCode | null {
     return 'zh-CN';
   }
   const [region = ''] = rest;
-  if (TRADITIONAL_REGIONS.includes(region)) {
+  if (TRADITIONAL_REGIONS.has(region)) {
     return 'zh-TW';
   }
-  if (SIMPLIFIED_REGIONS.includes(region)) {
+  if (SIMPLIFIED_REGIONS.has(region)) {
     return 'zh-CN';
   }
   return null;

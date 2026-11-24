@@ -182,7 +182,7 @@ export interface Leg {
  */
 export function planLeg(from: GroundVector, to: GroundVector): Leg {
   const direction: GroundVector = { x: to.x - from.x, z: to.z - from.z };
-  const distance: number = Math.sqrt(direction.x ** 2 + direction.z ** 2);
+  const distance: number = Math.hypot(direction.x, direction.z);
   return { direction, steps: Math.round(distance / STEP_DISTANCE) };
 }
 

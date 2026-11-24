@@ -43,6 +43,9 @@ import {
 } from './page.ts';
 import type { SilverView } from './page.ts';
 
+/** How a page shows an item on the ground. */
+type ItemLook = Pick<GroundItem, 'id' | 'x' | 'z'>;
+
 /** How a page shows the bag of its player. */
 interface BagLook {
   /** Whether the bag is open. */
@@ -76,7 +79,7 @@ interface InventoryLook {
   /** The patches of clover the page shows with their clover. */
   readonly clovers: readonly number[];
   /** The items the page shows on the ground. */
-  readonly items: readonly Pick<GroundItem, 'id' | 'x' | 'z'>[];
+  readonly items: readonly ItemLook[];
 }
 
 /**
@@ -192,7 +195,7 @@ function describeInventoryLook(look: InventoryLook): string {
         String(bag.menuCursor));
   const items: string = look.items
     .map(
-      (item: Pick<GroundItem, 'id' | 'x' | 'z'>) =>
+      (item: ItemLook) =>
         `${String(item.id)} at x ${item.x.toFixed(2)}, z ${item.z.toFixed(2)}`,
     )
     .join('; ');
@@ -380,9 +383,9 @@ export async function checkInventory(
   const isLyingThere = (look: InventoryLook): boolean =>
     look.items.length === 1 &&
     look.items.every(
-      (item: Pick<GroundItem, 'id' | 'x' | 'z'>) =>
-        Math.abs(item.x - (byClover.own?.x ?? NaN)) <= ITEM_NEARNESS &&
-        Math.abs(item.z - (byClover.own?.z ?? NaN)) <= ITEM_NEARNESS,
+      (item: ItemLook) =>
+        Math.abs(item.x - (byClover.own?.x ?? Number.NaN)) <= ITEM_NEARNESS &&
+        Math.abs(item.z - (byClover.own?.z ?? Number.NaN)) <= ITEM_NEARNESS,
     );
   const dropped: [InventoryLook, InventoryLook] = await waitFor(
     readBoth,

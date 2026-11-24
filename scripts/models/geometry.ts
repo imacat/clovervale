@@ -160,6 +160,19 @@ export function mirrorShape(shape: Shape): Shape {
 }
 
 /**
+ * Computes the normal of a triangle, scaled to twice its area.
+ *
+ * @param {Vector3} a - The first corner.
+ * @param {Vector3} b - The second corner.
+ * @param {Vector3} c - The third corner.
+ * @returns {Vector3} The unnormalized normal, the cross product of
+ *   b - a and c - a.
+ */
+export function computeFaceNormal(a: Vector3, b: Vector3, c: Vector3): Vector3 {
+  return b.clone().sub(a).cross(c.clone().sub(a));
+}
+
+/**
  * Appends a triangle unless it is degenerate, turned to face along the
  * expected direction.
  *
@@ -172,9 +185,7 @@ function pushTriangle(
   tri: Readonly<Triangle>,
   expected: Vector3,
 ): void {
-  const normal: Vector3 = new Vector3()
-    .subVectors(tri[1], tri[0])
-    .cross(new Vector3().subVectors(tri[2], tri[0]));
+  const normal: Vector3 = computeFaceNormal(tri[0], tri[1], tri[2]);
   if (normal.length() < 1e-9) {
     return;
   }

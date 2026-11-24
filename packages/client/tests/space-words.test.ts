@@ -405,7 +405,10 @@ describe('describePrompt by Toby', () => {
 
 describe('describePrompt by a patch of clover', () => {
   /** Where the patch of clover east of the fountain is. */
-  const PATCH: GroundVector = CLOVER_PATCHES[6] ?? { x: NaN, z: NaN };
+  const PATCH: GroundVector = CLOVER_PATCHES[6] ?? {
+    x: Number.NaN,
+    z: Number.NaN,
+  };
 
   /** A player south of that patch, facing it. */
   const BY_PATCH: PlayerMotion = createMotion(
@@ -719,7 +722,9 @@ describe('describePrompt in the cave', () => {
 
   /** Where he stands, behind the bars. */
   const at: GroundVector =
-    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+    edwin === undefined
+      ? { x: Number.NaN, z: Number.NaN }
+      : locateVillager(edwin, 0, []);
 
   /** A player at the bars of his cell, before him, facing him. */
   const AT_BARS: PlayerMotion = createMotion(

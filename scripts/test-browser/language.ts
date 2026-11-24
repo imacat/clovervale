@@ -57,11 +57,11 @@ interface LanguageLook {
 }
 
 /** What Nancy says, either line of hers. */
-const NANCY_LINES: readonly string[] = [
+const NANCY_LINES: ReadonlySet<string> = new Set([
   NANCY_WELCOME,
   'There are wild dogs at the village gate, and no one can go out. What ' +
     'are we going to do?',
-];
+]);
 /**
  * The languages the language control offers, by their own names, in the
  * code point order of those names.
@@ -92,10 +92,10 @@ const ZH_TW_CONNECTED = '已連線';
 /** The name of Nancy in Traditional Chinese. */
 const ZH_TW_NANCY = '南茜';
 /** What Nancy says in Traditional Chinese, either line of hers. */
-const ZH_TW_NANCY_LINES: readonly string[] = [
+const ZH_TW_NANCY_LINES: ReadonlySet<string> = new Set([
   '歡迎來到四葉谷！有事可以找村長，她住在後面最大的那間房子。',
   '村口有野狗，大家都沒辦法出門，怎麼辦？',
-];
+]);
 
 /** Reads what a page shows in words, as JSON. */
 const LANGUAGE_LOOK_EXPRESSION = `(() => {
@@ -254,8 +254,7 @@ export async function checkLanguage(
     seen.panel['Space key'] === TALK_KEY &&
     seen.prompt === TALK_PROMPT &&
     (seen.speech === null ||
-      (seen.speech.name === 'Nancy' &&
-        NANCY_LINES.includes(seen.speech.line)));
+      (seen.speech.name === 'Nancy' && NANCY_LINES.has(seen.speech.line)));
   const before: LanguageLook = await look();
   if (
     !isEnglish(before) ||
@@ -289,7 +288,7 @@ export async function checkLanguage(
     look,
     (seen: LanguageLook) =>
       seen.speech?.name === ZH_TW_NANCY &&
-      ZH_TW_NANCY_LINES.includes(seen.speech.line),
+      ZH_TW_NANCY_LINES.has(seen.speech.line),
     ACTION_TIMEOUT,
     (seen: LanguageLook) =>
       `Standing by Nancy, with the space bar pressed in "${ZH_TW_NAME}", ` +

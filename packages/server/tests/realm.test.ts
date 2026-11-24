@@ -365,7 +365,7 @@ function addDiggers(realm: Realm): [number, number] {
       findMapPath('village', findPlayer(realm, id), BURROW) ?? [],
     ]),
   );
-  const [first = NaN, second = NaN] = ids;
+  const [first = Number.NaN, second = Number.NaN] = ids;
   return [first, second];
 }
 
@@ -617,7 +617,10 @@ describe('the caves of the realm', () => {
   it('are fresh every time a player goes down', () => {
     const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id }: PlayerState = realm.addPlayer();
-    const patch: GroundVector = CLOVER_PATCHES[3] ?? { x: NaN, z: NaN };
+    const patch: GroundVector = CLOVER_PATCHES[3] ?? {
+      x: Number.NaN,
+      z: Number.NaN,
+    };
     walkInVillage(realm, id, { x: patch.x, z: patch.z + 1 });
     turnPlayer(realm, id, patch);
     giveInput(realm, id, { type: 'pick' });
@@ -683,7 +686,10 @@ describe('a player at the rope in the cave', () => {
   it('keeps what it carries, there and back', () => {
     const realm = new Realm(RESIDENT_FACTORIES, createRandom());
     const { id }: PlayerState = realm.addPlayer();
-    const patch: GroundVector = CLOVER_PATCHES[3] ?? { x: NaN, z: NaN };
+    const patch: GroundVector = CLOVER_PATCHES[3] ?? {
+      x: Number.NaN,
+      z: Number.NaN,
+    };
     walkInVillage(realm, id, { x: patch.x, z: patch.z + 1 });
     turnPlayer(realm, id, patch);
     giveInput(realm, id, { type: 'pick' });
@@ -782,7 +788,9 @@ describe('a player who dies in the cave', () => {
       });
     }
     expect(
-      hits.map((hit: GameEvent) => (hit.type === 'hit' ? hit.damage : NaN)),
+      hits.map((hit: GameEvent) =>
+        hit.type === 'hit' ? hit.damage : Number.NaN,
+      ),
     ).toEqual([
       ...new Array<number>(hits.length - 1).fill(
         MONSTER_KINDS['cave-dog'].biteDamage,

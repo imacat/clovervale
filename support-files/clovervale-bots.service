@@ -5,7 +5,7 @@ Description=The headless bots of the Clovervale Project
 After=network.target clovervale.service
 
 [Service]
-ExecStart=/usr/local/bin/node bots.cjs
+ExecStart=/usr/local/bin/node bots.mjs
 Restart=always
 WorkingDirectory=/srv/www/clovervale/bots
 PrivateTmp=true

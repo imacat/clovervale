@@ -11,9 +11,9 @@ Contents
 
 | Path                       | What it is                                  |
 |----------------------------|---------------------------------------------|
-| `server/server.cjs`        | The game server.                            |
+| `server/server.mjs`        | The game server.                            |
 | `client/`                  | The browser client, as static files.        |
-| `bots/bots.cjs`            | The headless bots.                          |
+| `bots/bots.mjs`            | The headless bots.                          |
 | `support-files/`           | Example files for deploying on a web site.  |
 | `LICENSE`                  | The license of Clovervale.                  |
 | `THIRD-PARTY-LICENSES.txt` | The licenses of the bundled dependencies.   |
@@ -28,7 +28,7 @@ as the `--day-length` option tells, and its clock reads 08:00 when it
 starts, unless the `--hold-time` option holds the clock at a fixed time
 of day, as in `--hold-time 12:00`.
 
-    node server/server.cjs
+    node server/server.mjs
 
 Serve the `client/` directory with any static web server, and open it in
 Firefox.  For example:
@@ -45,7 +45,7 @@ Run the bots.  There are 4 of them, or as many as the `--count` option
 tells, and they connect to the game server at `ws://localhost:8080`, or
 at the WebSocket URL of the `--server` option.
 
-    node bots/bots.cjs
+    node bots/bots.mjs
 
 The `BOT_COUNT` and `SERVER_URL` settings tell the same as the two
 options.  A setting is an environment variable, or else a line of the
@@ -54,7 +54,7 @@ one; `support-files/.env.bots` is an example of it.  An option takes
 precedence over an environment variable, and an environment variable
 over the file.
 
-    SERVER_URL=ws://game.example.com:9000 BOT_COUNT=8 node bots/bots.cjs
+    SERVER_URL=ws://game.example.com:9000 BOT_COUNT=8 node bots/bots.mjs
 
 Deploying
 ---------

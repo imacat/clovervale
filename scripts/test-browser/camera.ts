@@ -179,7 +179,8 @@ export async function checkCamera(
     );
   }
   const findX = (view: CameraView): number =>
-    view.figures.find((figure: FigureView) => figure.id === id)?.x ?? NaN;
+    view.figures.find((figure: FigureView) => figure.id === id)?.x ??
+    Number.NaN;
   const startX: number = findX(chosen);
   await sendKey(session, actor, 'keyDown', 'a');
   try {

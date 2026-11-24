@@ -201,7 +201,7 @@ describe('TrailingCamera', () => {
       const first: Walk = walk(camera, 0, { x: 0, z: 0 }, 55, 4, settings);
       const second: Walk = walk(
         camera,
-        first.headings.at(-1) ?? NaN,
+        first.headings.at(-1) ?? Number.NaN,
         first.end,
         0,
         6,
@@ -221,15 +221,15 @@ describe('TrailingCamera', () => {
       (heading: number) => heading !== 0,
     );
     expect(moving).toBeGreaterThanOrEqual(0);
-    const firstTurn: number = Math.abs(headings[moving] ?? NaN) / FRAME;
+    const firstTurn: number = Math.abs(headings[moving] ?? Number.NaN) / FRAME;
     expect(firstTurn).toBeLessThan(SETTINGS.turnRate / 10);
   });
 
   it('eases out of a turn once handled, and waits again after', () => {
     const camera = new TrailingCamera();
     const turning: Walk = walk(camera, 0, { x: 0, z: 0 }, 50, 2.5);
-    const before: number = turning.headings.at(-1) ?? NaN;
-    const previous: number = turning.headings.at(-2) ?? NaN;
+    const before: number = turning.headings.at(-1) ?? Number.NaN;
+    const previous: number = turning.headings.at(-2) ?? Number.NaN;
     expect(before).toBeGreaterThan(previous);
     const handled: Walk = walk(
       camera,
@@ -263,10 +263,10 @@ describe('TrailingCamera', () => {
   it('comes to rest soon after the player stops, and stays', () => {
     const camera = new TrailingCamera();
     const first: Walk = walk(camera, 0, { x: 0, z: 0 }, 50, 2.5);
-    const heading: number = first.headings.at(-1) ?? NaN;
+    const heading: number = first.headings.at(-1) ?? Number.NaN;
     expect(heading).toBeGreaterThan(0);
     const rest: Walk = walk(camera, heading, first.end, null, 5);
-    const settled: number = rest.headings.at(-1) ?? NaN;
+    const settled: number = rest.headings.at(-1) ?? Number.NaN;
     expect(settled).toBeLessThanOrEqual(50);
     const later: number[] = rest.headings.slice(-3 / FRAME);
     expect(later.every((next: number) => next === settled)).toBe(true);

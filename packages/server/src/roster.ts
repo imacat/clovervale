@@ -127,6 +127,16 @@ export class Roster {
   }
 
   /**
+   * Tells whether a player is in the world.
+   *
+   * @param {number} id - The identifier of the player.
+   * @returns {boolean} Whether it is.
+   */
+  has(id: number): boolean {
+    return this.#players.has(id);
+  }
+
+  /**
    * Lists every player.
    *
    * @returns {Player[]} The players, in the order they came in.

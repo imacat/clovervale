@@ -41,12 +41,15 @@ import type { Context, ProjectReflection } from 'typedoc';
  */
 function splitModuleNames(project: ProjectReflection): void {
   for (const module of project.getReflectionsByKind(ReflectionKind.Module)) {
-    const match: RegExpExecArray | null = /^(\S+)\s+(.+)$/s.exec(module.name);
-    if (match === null) {
+    const space: number = module.name.search(/\s/);
+    if (space <= 0) {
       continue;
     }
-    const [, name = '', description = ''] = match;
-    module.name = name;
+    const description: string = module.name.slice(space).trim();
+    if (description === '') {
+      continue;
+    }
+    module.name = module.name.slice(0, space);
     module.comment ??= new Comment();
     module.comment.summary.unshift({ kind: 'text', text: description });
   }

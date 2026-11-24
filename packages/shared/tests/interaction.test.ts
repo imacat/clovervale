@@ -335,9 +335,9 @@ describe('findVillager by Martha, who fights as a monster', () => {
     'finds nobody before her while she is up to %s',
     (mode: MonsterState['mode']) => {
       const martha: MonsterState = placeMartha(MARTHA, mode);
-      expect(findVillager(standBeforeMartha(), 0, 'village', [martha])).toBe(
-        null,
-      );
+      expect(
+        findVillager(standBeforeMartha(), 0, 'village', [martha]),
+      ).toBeNull();
       expect(
         findInteraction(standBeforeMartha(), 0, 'village', [martha]),
       ).toBe('Slash');
@@ -349,9 +349,9 @@ describe('findVillager by Martha, who fights as a monster', () => {
     const martha: MonsterState = placeMartha(away, 'return');
     const facing: Pose = { x: away.x, z: away.z - 1, yaw: 0 };
     expect(findVillager(facing, 0, 'village', [martha])?.id).toBe('martha');
-    expect(findVillager(standBeforeMartha(), 0, 'village', [martha])).toBe(
-      null,
-    );
+    expect(
+      findVillager(standBeforeMartha(), 0, 'village', [martha]),
+    ).toBeNull();
   });
 
   it.each(['chase', 'sit'] as const)(
@@ -425,7 +425,10 @@ describe('findVillager by Toby', () => {
 const PATCH = 6;
 
 /** Where the patch of clover east of the fountain is. */
-const PATCH_CENTER: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
+const PATCH_CENTER: GroundVector = CLOVER_PATCHES[PATCH] ?? {
+  x: Number.NaN,
+  z: Number.NaN,
+};
 
 /**
  * Makes the pose of a player some way south of the patch of clover east of
@@ -701,7 +704,9 @@ describe('the prisoner in the north cell of the cave', () => {
 
   /** Where he stands, behind the bars of his cell. */
   const at: GroundVector =
-    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+    edwin === undefined
+      ? { x: Number.NaN, z: Number.NaN }
+      : locateVillager(edwin, 0, []);
 
   /**
    * Walks a player along the passage up to the bars of his cell, and has it

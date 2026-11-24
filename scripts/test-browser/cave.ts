@@ -569,7 +569,7 @@ async function lootSilverBarrel(
     'up to the barrel by the passage in the north store room',
   );
   const before: CaveLook = await look();
-  const count = Number(before.silver?.count ?? NaN);
+  const count = Number(before.silver?.count ?? Number.NaN);
   const filled = (seen: CaveLook): number =>
     seen.slots.filter((kind: string) => kind !== '').length;
   await tapKey(session, context, ' ');
@@ -828,7 +828,9 @@ async function walkToEdwin(
     (villager: Villager) => villager.map === 'cave',
   );
   const atEdwin: GroundVector =
-    edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+    edwin === undefined
+      ? { x: Number.NaN, z: Number.NaN }
+      : locateVillager(edwin, 0, []);
   await walkInCave(
     session,
     context,
@@ -1247,6 +1249,144 @@ async function checkCaveChambers(
 }
 
 /**
+ * Finds the eighth of a turn that faces from one place on the ground toward
+ * another, as an index into {@link TURN_KEYS} for the first view of the
+ * village.
+ *
+ * @param {GroundVector} from - The place to face from.
+ * @param {GroundVector} to - The place to face toward.
+ * @returns {number} The eighth of a turn, from 0 to 7.
+ */
+function findTurnToward(from: GroundVector, to: GroundVector): number {
+  return (
+    (Math.round((Math.atan2(to.x - from.x, to.z - from.z) * 4) / Math.PI) +
+      8) %
+    8
+  );
+}
+
+/**
+ * Taps keys of a page together: presses them all down, holds them for a
+ * tap, and lets them all up.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {readonly string[]} keys - The keys to tap.
+ * @returns {Promise<void>} A promise settled once the keys are up again.
+ */
+async function tapKeysTogether(
+  session: BidiSession,
+  context: string,
+  keys: readonly string[],
+): Promise<void> {
+  for (const key of keys) {
+    await sendKey(session, context, 'keyDown', key);
+  }
+  await sleep(TAP_DURATION);
+  for (const key of keys) {
+    await sendKey(session, context, 'keyUp', key);
+  }
+}
+
+/**
+ * Counts the hits a page shows of a player on a monster.
+ *
+ * @param {CaveLook} seen - What the page shows.
+ * @param {number} id - The identifier of the player.
+ * @param {number} monsterId - The identifier of the monster.
+ * @returns {number} The number of those hits.
+ */
+function countHitsOn(seen: CaveLook, id: number, monsterId: number): number {
+  return seen.hits.filter(
+    (hit: HitEvent) =>
+      hit.attacker.kind === 'player' &&
+      hit.attacker.id === id &&
+      hit.target.kind === 'monster' &&
+      hit.target.id === monsterId,
+  ).length;
+}
+
+/**
+ * Has the player of a page in its cave slash at a wild dog of the cave if
+ * it is not slashing already and the dog stands within the reach of a
+ * slash, after a tap of the keys that turn it toward the dog if it does not
+ * face it.  Does nothing otherwise.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page, whose camera
+ *   looks west down the passage.
+ * @param {PlayerState} own - The player, as the page shows it.
+ * @param {MonsterState | undefined} dog - The dog, as the page shows it, or
+ *   `undefined` if the page does not show it.
+ * @returns {Promise<void>} A promise settled once the space bar is tapped,
+ *   or at once if the player does not slash.
+ */
+async function slashWithinReach(
+  session: BidiSession,
+  context: string,
+  own: PlayerState,
+  dog: MonsterState | undefined,
+): Promise<void> {
+  if (
+    dog === undefined ||
+    own.action === 'Slash' ||
+    Math.hypot(dog.x - own.x, dog.z - own.z) > SLASH_REACH - 0.1
+  ) {
+    return;
+  }
+  const turn: number = findTurnToward(own, dog);
+  const isFacing: boolean =
+    Math.abs(((own.yaw - turn * 45 + 540) % 360) - 180) <= 45;
+  if (!isFacing) {
+    // The camera looks west, which turns the keys by a quarter turn
+    // from the first view of the village.
+    await tapKeysTogether(session, context, TURN_KEYS[(turn + 6) % 8] ?? []);
+  }
+  await tapKey(session, context, ' ');
+}
+
+/**
+ * Has the player of a page go down the burrow it stands in: presses the
+ * space bar once the page tells it goes down and the player stands idle,
+ * and until then turns the player away from the dog, a tap of a key at a
+ * time, as the space bar slashes while the dog stands where a slash would
+ * hit it.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the page shows the cave.
+ * @throws {Error} If the page does not show the cave in time, or tells a
+ *   prompt other than going down when the space bar goes down.
+ */
+async function goDownBurrow(
+  session: BidiSession,
+  actor: string,
+  id: number,
+): Promise<void> {
+  const deadline: number = Date.now() + LEG_TIMEOUT;
+  let seen: CaveLook = await readCaveLook(session, actor, id);
+  while (seen.map !== 'cave') {
+    const isReady: boolean =
+      seen.spaceKey === ENTER_KEY && seen.own?.action === 'Idle';
+    if (Date.now() > deadline || (isReady && seen.prompt !== ENTER_PROMPT)) {
+      throw new Error(
+        `In the burrow, the first page tells ${describeCaveLook(seen)}.`,
+      );
+    }
+    if (isReady) {
+      await tapKey(session, actor, ' ');
+    } else if (seen.own !== null && seen.monster !== null) {
+      // Turn away from the dog, which stands where a slash would hit it.
+      const turn: number = findTurnToward(seen.monster, seen.own);
+      await tapKeysTogether(session, actor, TURN_KEYS[turn] ?? []);
+    }
+    await sleep(POLL_INTERVAL * 3);
+    seen = await readCaveLook(session, actor, id);
+  }
+}
+
+/**
  * Has the player of a page in its cave fight a wild dog of the cave until
  * the page tells the dog is dead.  The player stands where it is, and
  * presses the space bar for a slash whenever the page tells it is not
@@ -1290,44 +1430,11 @@ async function fightCaveDog(
     if (own === null || own.action === 'Die' || Date.now() > deadline) {
       throw new Error(describeProblem(seen));
     }
-    const hits: number = seen.hits.filter(
-      (hit: HitEvent) =>
-        hit.attacker.kind === 'player' &&
-        hit.attacker.id === id &&
-        hit.target.kind === 'monster' &&
-        hit.target.id === dogId,
-    ).length;
-    if (pendingShot !== null && hits >= 2) {
+    if (pendingShot !== null && countHitsOn(seen, id, dogId) >= 2) {
       await saveView(session, context, pendingShot);
       pendingShot = null;
     }
-    if (
-      dog !== undefined &&
-      own.action !== 'Slash' &&
-      Math.hypot(dog.x - own.x, dog.z - own.z) <= SLASH_REACH - 0.1
-    ) {
-      const turn: number =
-        (Math.round(
-          (Math.atan2(dog.x - own.x, dog.z - own.z) * 4) / Math.PI,
-        ) +
-          8) %
-        8;
-      const isFacing: boolean =
-        Math.abs(((own.yaw - turn * 45 + 540) % 360) - 180) <= 45;
-      if (!isFacing) {
-        // The camera looks west, which turns the keys by a quarter turn
-        // from the first view of the village.
-        const keys: readonly string[] = TURN_KEYS[(turn + 6) % 8] ?? [];
-        for (const key of keys) {
-          await sendKey(session, context, 'keyDown', key);
-        }
-        await sleep(TAP_DURATION);
-        for (const key of keys) {
-          await sendKey(session, context, 'keyUp', key);
-        }
-      }
-      await tapKey(session, context, ' ');
-    }
+    await slashWithinReach(session, context, own, dog);
     await sleep(POLL_INTERVAL);
   }
 }
@@ -1412,38 +1519,7 @@ export async function checkCave(
     (seen: MonsterLook) => (seen.own?.x ?? -Infinity) >= BURROW_X,
     'into the burrow',
   );
-  const deadline: number = Date.now() + LEG_TIMEOUT;
-  let seen: CaveLook = await look();
-  while (seen.map !== 'cave') {
-    if (Date.now() > deadline) {
-      throw new Error(
-        `In the burrow, the first page tells ${describeCaveLook(seen)}.`,
-      );
-    }
-    if (seen.spaceKey === ENTER_KEY && seen.own?.action === 'Idle') {
-      if (seen.prompt !== ENTER_PROMPT) {
-        throw new Error(
-          `In the burrow, the first page tells ${describeCaveLook(seen)}.`,
-        );
-      }
-      await tapKey(session, actor, ' ');
-    } else if (seen.own !== null && seen.monster !== null) {
-      // Turn away from the dog, which stands where a slash would hit it.
-      const dx: number = seen.own.x - seen.monster.x;
-      const dz: number = seen.own.z - seen.monster.z;
-      const turn: number =
-        (Math.round((Math.atan2(dx, dz) * 4) / Math.PI) + 8) % 8;
-      for (const key of TURN_KEYS[turn] ?? []) {
-        await sendKey(session, actor, 'keyDown', key);
-      }
-      await sleep(TAP_DURATION);
-      for (const key of TURN_KEYS[turn] ?? []) {
-        await sendKey(session, actor, 'keyUp', key);
-      }
-    }
-    await sleep(POLL_INTERVAL * 3);
-    seen = await look();
-  }
+  await goDownBurrow(session, actor, id);
 
   const isNear = (
     own: CaveLook['own'],

@@ -94,7 +94,7 @@ function makeModel(): {
  * @returns {number} The time into the clip, in seconds.
  */
 function readClipTime(root: Object3D, name: string): number {
-  return root.getObjectByName(name)?.position.y ?? NaN;
+  return root.getObjectByName(name)?.position.y ?? Number.NaN;
 }
 
 /**

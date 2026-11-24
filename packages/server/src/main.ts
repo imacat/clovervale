@@ -71,7 +71,9 @@ async function runServer(args: string[]): Promise<void> {
   console.log(`Clovervale server listening on ${place}.`);
 }
 
-runServer(process.argv.slice(2)).catch((error: unknown) => {
+try {
+  await runServer(process.argv.slice(2));
+} catch (error: unknown) {
   console.error(error);
   process.exitCode = 1;
-});
+}

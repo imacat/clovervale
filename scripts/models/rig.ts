@@ -23,6 +23,8 @@
 
 import { Matrix4, Quaternion, Vector3 } from 'three';
 
+import { assertNever } from '@clovervale/shared';
+
 import { createRotation } from './geometry.ts';
 import type { Triple } from './geometry.ts';
 import { getItem } from './items.ts';
@@ -131,6 +133,8 @@ export function easeProgress(x: number, ease: Ease = 'smooth'): number {
       return 1 - (1 - t) * (1 - t);
     case 'smooth':
       return t * t * (3 - 2 * t);
+    default:
+      return assertNever(ease);
   }
 }
 
@@ -423,28 +427,75 @@ export class Rig {
     if (settle) {
       pinned.add(getItem(poses, frames));
     }
+    lift = Math.max(lift, this.#liftBetweenFrames(poses, pinned));
+    this.model.addAnimation(name, times, this.#createTracks(poses));
+    this.report.set(name, { lift });
+  }
+
+  /**
+   * Lifts the frames of a clip so that nothing sinks below the ground
+   * between them either, leaving the pinned frames where they are.
+   *
+   * @param {Pose[]} poses - The frames of the clip, in order, lifted in
+   *   place.
+   * @param {Set<Pose>} pinned - The frames that must not be moved.
+   * @returns {number} The most the model was lifted between two frames, or
+   *   zero if it never had to be.
+   */
+  #liftBetweenFrames(poses: Pose[], pinned: Set<Pose>): number {
+    let lift = 0;
     for (let pass = 0; pass < 6; pass++) {
-      for (let f = 0; f < frames; f++) {
+      for (let f = 0; f < poses.length - 1; f++) {
         for (let step = 1; step < 8; step++) {
-          const a: Pose = getItem(poses, f);
-          const b: Pose = getItem(poses, f + 1);
-          const weight: number = step / 8;
-          const gap: number = 0.001 - this.#measureLowest(a.blend(b, weight));
-          if (gap <= 0) {
-            continue;
-          }
-          if (!pinned.has(a) && !pinned.has(b)) {
-            a.offset.y += gap;
-            b.offset.y += gap;
-          } else if (!pinned.has(b)) {
-            b.offset.y += gap / weight;
-          } else if (!pinned.has(a)) {
-            a.offset.y += gap / (1 - weight);
-          }
+          const gap: number = this.#liftBlend(
+            getItem(poses, f),
+            getItem(poses, f + 1),
+            step / 8,
+            pinned,
+          );
           lift = Math.max(lift, gap);
         }
       }
     }
+    return lift;
+  }
+
+  /**
+   * Lifts two neighboring frames so that their blend at a weight does not
+   * sink below the ground, moving only the ones that are not pinned.
+   *
+   * @param {Pose} a - The earlier frame, lifted in place.
+   * @param {Pose} b - The later frame, lifted in place.
+   * @param {number} weight - How far the blend is from the earlier frame
+   *   toward the later one, from 0 to 1.
+   * @param {Set<Pose>} pinned - The frames that must not be moved.
+   * @returns {number} How far the blend was below the lowest it may be, or
+   *   zero if it was not.
+   */
+  #liftBlend(a: Pose, b: Pose, weight: number, pinned: Set<Pose>): number {
+    const gap: number = 0.001 - this.#measureLowest(a.blend(b, weight));
+    if (gap <= 0) {
+      return 0;
+    }
+    if (!pinned.has(a) && !pinned.has(b)) {
+      a.offset.y += gap;
+      b.offset.y += gap;
+    } else if (!pinned.has(b)) {
+      b.offset.y += gap / weight;
+    } else if (!pinned.has(a)) {
+      a.offset.y += gap / (1 - weight);
+    }
+    return gap;
+  }
+
+  /**
+   * Creates the animation tracks of a clip: the rotation of every bone on
+   * every frame, and the translation of every root bone.
+   *
+   * @param {Pose[]} poses - The frames of the clip, in order.
+   * @returns {Track[]} The tracks.
+   */
+  #createTracks(poses: Pose[]): Track[] {
     const tracks: Track[] = [];
     this.#bones.forEach((bone: Bone, i: number) => {
       const values: number[] = [];
@@ -466,8 +517,7 @@ export class Rig {
         tracks.push({ bone: i, path: 'translation', values: translation });
       }
     });
-    this.model.addAnimation(name, times, tracks);
-    this.report.set(name, { lift });
+    return tracks;
   }
 
   /**

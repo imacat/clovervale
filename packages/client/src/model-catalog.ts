@@ -21,7 +21,11 @@
  * @module client/model-catalog Knowing which model files the game uses.
  */
 
-import { APPEARANCE_COUNT, VILLAGERS } from '@clovervale/shared';
+import {
+  APPEARANCE_COUNT,
+  VILLAGERS,
+  compareCodeUnits,
+} from '@clovervale/shared';
 import type {
   ItemKindId,
   ModelId,
@@ -217,7 +221,9 @@ export function isModelUsed(file: string): boolean {
  *   not available.
  */
 export function planModels(available: readonly string[]): ModelPlan {
-  const shown: string[] = [...new Set(available)].filter(isModelUsed).sort();
+  const shown: string[] = [...new Set(available)]
+    .filter(isModelUsed)
+    .sort(compareCodeUnits);
   const missing: string[] = REQUIRED_MODEL_FILES.filter(
     (file: string) => !shown.includes(file),
   );

@@ -1325,7 +1325,9 @@ describe('a prediction that goes into another map', () => {
       (villager: Villager) => villager.id === 'edwin',
     );
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+      edwin === undefined
+        ? { x: Number.NaN, z: Number.NaN }
+        : locateVillager(edwin, 0, []);
     const turned: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       135,

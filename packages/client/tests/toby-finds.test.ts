@@ -101,7 +101,7 @@ describe('findShownItems', () => {
     expect(findShownItems(news, GRAB.step).clovers).toEqual(
       without(GRAB.patch),
     );
-    expect(findShownItems(news, GRAB.step + 3).tobyFind).toBe(null);
+    expect(findShownItems(news, GRAB.step + 3).tobyFind).toBeNull();
   });
 
   it('leaves the clover to the news once it tells of the grab', () => {

@@ -150,25 +150,20 @@ export class NavigationGraph {
         ? measureDistance(from, node.point)
         : Infinity,
     );
-    const previous: number[] = new Array<number>(count).fill(-1);
-    const isDone: boolean[] = new Array<boolean>(count).fill(false);
+    const search: WaypointSearch = {
+      costs,
+      previous: new Array<number>(count).fill(-1),
+      isDone: new Array<boolean>(count).fill(false),
+    };
     let best = Infinity;
     let last = -1;
     for (;;) {
-      let current = -1;
-      for (let index = 0; index < count; index++) {
-        if (
-          !isDone[index] &&
-          (costs[index] ?? Infinity) < (costs[current] ?? Infinity)
-        ) {
-          current = index;
-        }
-      }
+      const current: number = pickNearest(search);
       const cost: number = costs[current] ?? Infinity;
       if (current === -1 || cost >= best) {
         break;
       }
-      isDone[current] = true;
+      search.isDone[current] = true;
       const node: Node | undefined = this.#nodes[current];
       if (node === undefined) {
         break;
@@ -180,16 +175,31 @@ export class NavigationGraph {
           last = current;
         }
       }
-      for (const { index, distance } of node.links) {
-        if (!isDone[index] && cost + distance < (costs[index] ?? Infinity)) {
-          costs[index] = cost + distance;
-          previous[index] = current;
-        }
-      }
+      relaxLinks(search, current, node.links);
     }
     if (last === -1) {
       return null;
     }
+    return this.#tracePath(search.previous, last, to);
+  }
+
+  /**
+   * Traces a way back from the last waypoint of a search to where it
+   * started.
+   *
+   * @param {readonly number[]} previous - The waypoint each is reached from
+   *   on the shortest way to it, or `-1` for one reached straight from the
+   *   start.
+   * @param {number} last - The index of the last waypoint of the way.
+   * @param {GroundVector} to - Where the way is to end.
+   * @returns {GroundVector[]} The points to walk to, one straight walk
+   *   after another, the last of which is the end.
+   */
+  #tracePath(
+    previous: readonly number[],
+    last: number,
+    to: GroundVector,
+  ): GroundVector[] {
     const path: GroundVector[] = [{ x: to.x, z: to.z }];
     for (let index = last; index !== -1; index = previous[index] ?? -1) {
       const node: Node | undefined = this.#nodes[index];
@@ -198,6 +208,61 @@ export class NavigationGraph {
       }
     }
     return path;
+  }
+}
+
+/** A search for the shortest way over the waypoints, as it stands. */
+interface WaypointSearch {
+  /** The length of the shortest way found to each waypoint so far. */
+  readonly costs: number[];
+  /**
+   * The waypoint each is reached from on the shortest way found to it so
+   * far, or `-1` for one reached straight from the start, or not at all.
+   */
+  readonly previous: number[];
+  /** Whether the shortest way to each waypoint is settled. */
+  readonly isDone: boolean[];
+}
+
+/**
+ * Picks the waypoint not yet settled that is the nearest found so far.
+ *
+ * @param {Readonly<WaypointSearch>} search - The search.
+ * @returns {number} The index of the waypoint, or `-1` if no waypoint not
+ *   yet settled has been reached.
+ */
+function pickNearest({ costs, isDone }: Readonly<WaypointSearch>): number {
+  let current = -1;
+  for (let index = 0; index < costs.length; index++) {
+    if (
+      !isDone[index] &&
+      (costs[index] ?? Infinity) < (costs[current] ?? Infinity)
+    ) {
+      current = index;
+    }
+  }
+  return current;
+}
+
+/**
+ * Notes the ways through a settled waypoint to those it links to, where
+ * they are shorter than any found before to those not yet settled.
+ *
+ * @param {WaypointSearch} search - The search, which this updates.
+ * @param {number} current - The index of the settled waypoint.
+ * @param {readonly Link[]} links - The links of the settled waypoint.
+ */
+function relaxLinks(
+  { costs, previous, isDone }: WaypointSearch,
+  current: number,
+  links: readonly Link[],
+): void {
+  const cost: number = costs[current] ?? Infinity;
+  for (const { index, distance } of links) {
+    if (!isDone[index] && cost + distance < (costs[index] ?? Infinity)) {
+      costs[index] = cost + distance;
+      previous[index] = current;
+    }
   }
 }
 

@@ -22,6 +22,7 @@
  *   the page do, and the prompt that tells of it.
  */
 
+import { assertNever } from '@clovervale/shared';
 import type {
   CaveContainer,
   ContainerTarget,
@@ -200,6 +201,8 @@ function wordSpaceAction(
         touchPrompt: prompt,
       };
     }
+    default:
+      return assertNever(action);
   }
 }
 

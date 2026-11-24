@@ -183,62 +183,74 @@ export async function checkToby(
       (toby.clip === 'Find' && toby.activity === 'Pick')
     );
   };
-  for (const [context, name] of pages) {
-    await waitFor(
-      () => readTobyLook(session, context),
-      isShownRightly,
-      ACTION_TIMEOUT,
-      (look: TobyLook) => `The ${name} page ${describeTobyLook(look)}.`,
-    );
-  }
+  await Promise.all(
+    pages.map(([context, name]) =>
+      waitFor(
+        () => readTobyLook(session, context),
+        isShownRightly,
+        ACTION_TIMEOUT,
+        (look: TobyLook) => `The ${name} page ${describeTobyLook(look)}.`,
+      ),
+    ),
+  );
   const readBoth = async (): Promise<[TobyLook, TobyLook]> => [
     await readTobyLook(session, first),
     await readTobyLook(session, second),
   ];
   const [early, late] = await readBoth();
   const carried: number =
-    (early.toby?.step ?? NaN) +
+    (early.toby?.step ?? Number.NaN) +
     (late.moment - early.moment) / STEP_MILLISECONDS;
-  if (!(Math.abs(carried - (late.toby?.step ?? NaN)) <= SAME_TOBY_STEPS)) {
+  // False when either step is missing, as a comparison with NaN is.
+  const isSameStep: boolean =
+    Math.abs(carried - (late.toby?.step ?? Number.NaN)) <= SAME_TOBY_STEPS;
+  if (!isSameStep) {
     throw new Error(
       `The first page ${describeTobyLook(early)}, and the second page, ` +
         `${(late.moment - early.moment).toFixed(1)} ms after, ` +
         `${describeTobyLook(late)}.`,
     );
   }
-  for (const [context, name] of pages) {
-    const before: TobyLook = await readTobyLook(session, context);
-    const moved: TobyLook = await waitFor(
-      () => readTobyLook(session, context),
-      (look: TobyLook) =>
-        isShownRightly(look) &&
-        (look.toby?.x !== before.toby?.x || look.toby?.z !== before.toby?.z),
-      TOBY_MOVE_TIMEOUT,
-      (look: TobyLook) =>
-        `Toby does not move in the ${name} page, which first ` +
-        `${describeTobyLook(before)}, and then ${describeTobyLook(look)}.`,
-    );
-    const later: TobyLook = await waitFor(
-      () => readTobyLook(session, context),
-      (look: TobyLook) =>
-        isShownRightly(look) && look.moment - before.moment >= TOBY_PACE_SPAN,
-      TOBY_PACE_SPAN + TOBY_MOVE_TIMEOUT,
-      (look: TobyLook) =>
-        `In the ${name} page, Toby is not shown rightly ` +
-        `${(look.moment - moved.moment).toFixed(1)} ms after he moves: ` +
-        `the page ${describeTobyLook(look)}.`,
-    );
-    const elapsed: number = later.moment - before.moment;
-    const stepped: number =
-      (later.toby?.step ?? NaN) - (before.toby?.step ?? NaN);
-    const expected: number = elapsed / STEP_MILLISECONDS;
-    if (!(Math.abs(stepped - expected) <= expected * TOBY_PACE_TOLERANCE)) {
-      throw new Error(
-        `In the ${name} page, Toby goes on by ${stepped.toFixed(1)} steps ` +
-          `in ${elapsed.toFixed(1)} ms, instead of ${expected.toFixed(1)}.`,
+  await Promise.all(
+    pages.map(async ([context, name]): Promise<void> => {
+      const before: TobyLook = await readTobyLook(session, context);
+      const moved: TobyLook = await waitFor(
+        () => readTobyLook(session, context),
+        (look: TobyLook) =>
+          isShownRightly(look) &&
+          (look.toby?.x !== before.toby?.x || look.toby?.z !== before.toby?.z),
+        TOBY_MOVE_TIMEOUT,
+        (look: TobyLook) =>
+          `Toby does not move in the ${name} page, which first ` +
+          `${describeTobyLook(before)}, and then ${describeTobyLook(look)}.`,
       );
-    }
-  }
+      const later: TobyLook = await waitFor(
+        () => readTobyLook(session, context),
+        (look: TobyLook) =>
+          isShownRightly(look) &&
+          look.moment - before.moment >= TOBY_PACE_SPAN,
+        TOBY_PACE_SPAN + TOBY_MOVE_TIMEOUT,
+        (look: TobyLook) =>
+          `In the ${name} page, Toby is not shown rightly ` +
+          `${(look.moment - moved.moment).toFixed(1)} ms after he moves: ` +
+          `the page ${describeTobyLook(look)}.`,
+      );
+      const elapsed: number = later.moment - before.moment;
+      const stepped: number =
+        (later.toby?.step ?? Number.NaN) - (before.toby?.step ?? Number.NaN);
+      const expected: number = elapsed / STEP_MILLISECONDS;
+      // False when either step is missing, as a comparison with NaN is.
+      const isOnPace: boolean =
+        Math.abs(stepped - expected) <= expected * TOBY_PACE_TOLERANCE;
+      if (!isOnPace) {
+        throw new Error(
+          `In the ${name} page, Toby goes on by ${stepped.toFixed(1)} ` +
+            `steps in ${elapsed.toFixed(1)} ms, instead of ` +
+            `${expected.toFixed(1)}.`,
+        );
+      }
+    }),
+  );
   const seen = new Set<TobyActivity>();
   const deadline: number = Date.now() + TOBY_MOVE_TIMEOUT;
   while (seen.size < TOBY_ACTIVITIES.length && Date.now() < deadline) {
@@ -328,32 +340,35 @@ export async function checkTobyFind(
         `${mode} never shows Toby holding a clover: it ` +
         `${describeTobyFindLook(look)}.`,
     );
-    const grab: TobyGrab = findTobyGrab(found.toby?.step ?? NaN);
+    const grab: TobyGrab = findTobyGrab(found.toby?.step ?? Number.NaN);
     const isFinding = (look: TobyFindLook): boolean =>
       look.toby !== null &&
       findTobyGrab(look.toby.step).step === grab.step &&
       look.toby.isHolding &&
       look.toby.clip === 'Find' &&
       !look.clovers.includes(grab.patch);
-    for (const [context, name] of [
+    const findPages = [
       [first, 'first'],
       [second, 'second'],
-    ] as const) {
-      await waitFor(
-        () => readTobyFindLook(session, context),
-        isFinding,
-        ACTION_TIMEOUT,
-        (look: TobyFindLook) =>
-          `Toby grabs at patch ${String(grab.patch)} at step ` +
-          `${String(grab.step)}, and the ${name} page ` +
-          `${describeTobyFindLook(look)}.`,
-      );
-    }
+    ] as const;
+    await Promise.all(
+      findPages.map(([context, name]) =>
+        waitFor(
+          () => readTobyFindLook(session, context),
+          isFinding,
+          ACTION_TIMEOUT,
+          (look: TobyFindLook) =>
+            `Toby grabs at patch ${String(grab.patch)} at step ` +
+            `${String(grab.step)}, and the ${name} page ` +
+            `${describeTobyFindLook(look)}.`,
+        ),
+      ),
+    );
     // By the time he puts it away, the first page has heard of the find.
     await waitFor(
       () => readTobyFindLook(session, first),
       (look: TobyFindLook) => {
-        const step: number = look.toby?.step ?? NaN;
+        const step: number = look.toby?.step ?? Number.NaN;
         if (step < grab.step + hold && !isFinding(look)) {
           throw new Error(
             `${mode} takes back the clover Toby grabs at step ` +
@@ -481,11 +496,11 @@ export async function checkTobyExclamation(
         `${away} never shows Toby holding a clover: it ` +
         `${describeTobyFindLook(seen)}.`,
     );
-    const grab: TobyGrab = findTobyGrab(found.toby?.step ?? NaN);
+    const grab: TobyGrab = findTobyGrab(found.toby?.step ?? Number.NaN);
     await waitFor(
       look,
       (seen: TobyFindLook) =>
-        isHushed(seen) && (seen.toby?.step ?? NaN) >= grab.step + hold,
+        isHushed(seen) && (seen.toby?.step ?? Number.NaN) >= grab.step + hold,
       ACTION_TIMEOUT,
       (seen: TobyFindLook) =>
         `${away} never shows Toby putting the clover away: it ` +

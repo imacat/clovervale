@@ -105,7 +105,9 @@ async function runBots(args: string[]): Promise<void> {
   }
 }
 
-runBots(process.argv.slice(2)).catch((error: unknown) => {
+try {
+  await runBots(process.argv.slice(2));
+} catch (error: unknown) {
   console.error(error);
   process.exitCode = 1;
-});
+}

@@ -48,6 +48,7 @@ import {
   placeShape,
 } from '@clovervale/shared';
 import type {
+  Boundary,
   CaveContainer,
   GroundVector,
   ModelId,
@@ -154,6 +155,112 @@ function makeRock(): Terrain {
   );
 }
 
+/** What a point the cave is looked down on at turns out to be. */
+interface CaveSpot {
+  /** Whether the model stands there as the rock or the stonework. */
+  readonly isRock: boolean;
+  /** The requirement not met there, or null if every one is met. */
+  readonly problem: string | null;
+}
+
+/**
+ * Lists the points the ground of the cave is checked at: a grid with
+ * {@link CAVE_SAMPLE_SPACING} between its points across the square around
+ * a boundary, from west to east, and from north to south on each line.
+ *
+ * @param {Boundary} boundary - The boundary of the ground of the cave.
+ * @returns {GroundVector[]} The points, in that order.
+ */
+function listCaveSamples(boundary: Boundary): GroundVector[] {
+  const points: GroundVector[] = [];
+  for (
+    let x = boundary.x - boundary.radius;
+    x <= boundary.x + boundary.radius;
+    x += CAVE_SAMPLE_SPACING
+  ) {
+    for (
+      let z = -boundary.radius;
+      z <= boundary.radius;
+      z += CAVE_SAMPLE_SPACING
+    ) {
+      points.push({ x, z });
+    }
+  }
+  return points;
+}
+
+/**
+ * Finds the top of a model straight above a point, looking down from 20
+ * meters high.
+ *
+ * @param {Raycaster} raycaster - The ray caster to look down with.
+ * @param {GLTF} model - The model to look down on.
+ * @param {GroundVector} point - The point on the ground.
+ * @returns {number | null} The height of its top there, in meters, or null
+ *   if the model has nothing there.
+ */
+function findTopAt(
+  raycaster: Raycaster,
+  model: GLTF,
+  point: GroundVector,
+): number | null {
+  raycaster.set(new Vector3(point.x, 20, point.z), new Vector3(0, -1, 0));
+  const [hit] = raycaster.intersectObject(model.scene, true);
+  return hit === undefined ? null : hit.point.y;
+}
+
+/**
+ * Checks a point of the cave where a player cannot stand: that, well
+ * inside what stands in the way and away from the rope, the model stands
+ * there if the ground it covers takes the point in, and stands taller than
+ * a player, or on the slope from the burrow rises steeply enough.
+ *
+ * @param {Terrain} rock - The ground of the rock and the stonework.
+ * @param {GroundVector} point - The point on the ground.
+ * @param {number | null} top - The height of the top of the model there,
+ *   in meters, or null if it has nothing there.
+ * @returns {CaveSpot} What the point turns out to be.
+ */
+function checkRockSpot(
+  rock: Terrain,
+  point: GroundVector,
+  top: number | null,
+): CaveSpot {
+  const { x, z } = point;
+  const isInside = !rock.isClear(point, -PLAYER_RADIUS - CAVE_INSIDE);
+  const isRope: boolean =
+    Math.hypot(x - CAVE_ROPE.x, z - CAVE_ROPE.z) <= PLAYER_RADIUS;
+  if (!isInside || isRope) {
+    return { isRock: false, problem: null };
+  }
+  if (top === null) {
+    // Beyond the ground the model covers, nobody ever comes near.
+    const [halfLength, halfWidth] = CAVE_HALF_SIZE;
+    const isCovered: boolean =
+      Math.abs(x - CAVE_MODEL_CENTER.x) < halfLength &&
+      Math.abs(z - CAVE_MODEL_CENTER.z) < halfWidth;
+    return {
+      isRock: false,
+      problem: isCovered ? `${CAVE_FILE} has nothing` : null,
+    };
+  }
+  const along: number = x - CAVE_PASSAGE.east;
+  const isSlope: boolean =
+    along > 0 && Math.abs(z) < CAVE_PASSAGE_HALF_WIDTH - CAVE_INSIDE;
+  if (isSlope) {
+    const isLow: boolean = top < Math.min(along, 3) * CAVE_SLOPE_RISE;
+    return {
+      isRock: true,
+      problem: isLow ? `the slope of ${CAVE_FILE} is too low` : null,
+    };
+  }
+  return {
+    isRock: true,
+    problem:
+      top < CAVE_WALL_HEIGHT ? `the rock of ${CAVE_FILE} is too low` : null,
+  };
+}
+
 /**
  * Checks, looking straight down on the cave standing in its place, that
  * where a player could stand but for what stands in the side chambers, the
@@ -169,71 +276,32 @@ function makeRock(): Terrain {
 function checkCaveGround(cave: GLTF, failures: string[]): CaveGround {
   const rock: Terrain = makeRock();
   const raycaster = new Raycaster();
-  const down = new Vector3(0, -1, 0);
-  const findTop = (x: number, z: number): number | null => {
-    raycaster.set(new Vector3(x, 20, z), down);
-    const [hit] = raycaster.intersectObject(cave.scene, true);
-    return hit === undefined ? null : hit.point.y;
-  };
-  const { boundary } = rock;
   const start: number = failures.length;
   let floorCount = 0;
   let floorTop = 0;
   let rockCount = 0;
-  const report = (what: string, x: number, z: number): void => {
+  const report = (what: string, { x, z }: GroundVector): void => {
     if (failures.length - start < GROUND_REPORT_LIMIT) {
       failures.push(`${what} at (${x.toFixed(2)}, ${z.toFixed(2)})`);
     }
   };
-  for (
-    let x = boundary.x - boundary.radius;
-    x <= boundary.x + boundary.radius;
-    x += CAVE_SAMPLE_SPACING
-  ) {
-    for (
-      let z = -boundary.radius;
-      z <= boundary.radius;
-      z += CAVE_SAMPLE_SPACING
-    ) {
-      const point: GroundVector = { x, z };
-      const top: number | null = findTop(x, z);
-      if (rock.isClear(point)) {
-        floorCount++;
-        if (top === null || top > CAVE_FLOOR_HEIGHT) {
-          report(`${CAVE_FILE} has no bare floor`, x, z);
-        } else {
-          floorTop = Math.max(floorTop, top);
-        }
-        continue;
+  for (const point of listCaveSamples(rock.boundary)) {
+    const top: number | null = findTopAt(raycaster, cave, point);
+    if (rock.isClear(point)) {
+      floorCount++;
+      if (top === null || top > CAVE_FLOOR_HEIGHT) {
+        report(`${CAVE_FILE} has no bare floor`, point);
+      } else {
+        floorTop = Math.max(floorTop, top);
       }
-      const isInside = !rock.isClear(point, -PLAYER_RADIUS - CAVE_INSIDE);
-      const isRope: boolean =
-        Math.hypot(x - CAVE_ROPE.x, z - CAVE_ROPE.z) <= PLAYER_RADIUS;
-      if (!isInside || isRope) {
-        continue;
-      }
-      if (top === null) {
-        // Beyond the ground the model covers, nobody ever comes near.
-        const [halfLength, halfWidth] = CAVE_HALF_SIZE;
-        if (
-          Math.abs(x - CAVE_MODEL_CENTER.x) < halfLength &&
-          Math.abs(z - CAVE_MODEL_CENTER.z) < halfWidth
-        ) {
-          report(`${CAVE_FILE} has nothing`, x, z);
-        }
-        continue;
-      }
+      continue;
+    }
+    const spot: CaveSpot = checkRockSpot(rock, point, top);
+    if (spot.isRock) {
       rockCount++;
-      const along: number = x - CAVE_PASSAGE.east;
-      const isSlope: boolean =
-        along > 0 && Math.abs(z) < CAVE_PASSAGE_HALF_WIDTH - CAVE_INSIDE;
-      if (isSlope) {
-        if (top < Math.min(along, 3) * CAVE_SLOPE_RISE) {
-          report(`the slope of ${CAVE_FILE} is too low`, x, z);
-        }
-      } else if (top < CAVE_WALL_HEIGHT) {
-        report(`the rock of ${CAVE_FILE} is too low`, x, z);
-      }
+    }
+    if (spot.problem !== null) {
+      report(spot.problem, point);
     }
   }
   return { floorCount, rockCount, floorTop };
@@ -285,11 +353,19 @@ async function checkLyingItems(
   floorTop: number,
   failures: string[],
 ): Promise<void> {
-  for (const file of files.filter((name: string) =>
-    LYING_ITEM_PATTERN.test(name),
-  )) {
-    const glb: Buffer = readFileSync(path.join(modelsDir, file));
-    const item: GLTF = await loader.parseAsync(new Uint8Array(glb).buffer, '');
+  const items: (readonly [string, GLTF])[] = await Promise.all(
+    files
+      .filter((name: string) => LYING_ITEM_PATTERN.test(name))
+      .map(async (file: string) => {
+        const glb: Buffer = readFileSync(path.join(modelsDir, file));
+        const item: GLTF = await loader.parseAsync(
+          new Uint8Array(glb).buffer,
+          '',
+        );
+        return [file, item] as const;
+      }),
+  );
+  for (const [file, item] of items) {
     const height: number = new Box3().setFromObject(item.scene).max.y;
     if (height <= floorTop) {
       failures.push(

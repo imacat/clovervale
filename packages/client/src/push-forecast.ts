@@ -588,29 +588,15 @@ export class PushForecast {
       map,
       shownStep,
     );
-    let foreseen: PlayerMotion | null = null;
-    if (this.#course !== null && shownStep !== null) {
-      const place: GroundVector = this.#course.advance(shownStep, time);
-      const { motion } = prediction;
-      foreseen = isSamePlace(place, motion)
-        ? truth
-        : {
-            ...truth,
-            x: place.x + (truth.x - motion.x),
-            z: place.z + (truth.z - motion.z),
-          };
-    }
+    const foreseen: PlayerMotion | null = this.#foresee(
+      prediction,
+      truth,
+      time,
+      shownStep,
+    );
     const lastSmoothed: PlayerMotion | null = this.#lastSmoothed;
     const lastForeseen: PlayerMotion | null = this.#lastForeseen;
-    let isDrawing = false;
-    if (foreseen !== null) {
-      isDrawing = this.#isDrawing
-        ? lastForeseen === null ||
-          lastSmoothed === null ||
-          !isSamePlace(lastForeseen, lastSmoothed) ||
-          !isSamePlace(foreseen, smoothed)
-        : foreseen !== truth;
-    }
+    const isDrawing: boolean = this.#decideDrawing(foreseen, smoothed, truth);
     // A change of what draws the player is measured at the frame before,
     // where both were drawn, and glided over from this one on, unless the
     // frame comes long after that one.
@@ -639,6 +625,73 @@ export class PushForecast {
     const target: PlayerMotion =
       isDrawing && foreseen !== null ? foreseen : smoothed;
     return this.#handover.readDrawn(target, time);
+  }
+
+  /**
+   * Tells where the course of the pushes has the player at a frame.
+   *
+   * @param {PlayerPrediction} prediction - The prediction of the player.
+   * @param {PlayerMotion} truth - The player as the prediction draws it in
+   *   the frame.
+   * @param {number} time - The time of the frame on the clock of the page,
+   *   in milliseconds.
+   * @param {number | null} shownStep - The step of the server the villagers
+   *   are drawn at in the frame, or `null` if they are not drawn.
+   * @returns {PlayerMotion | null} The player as the course has it, which is
+   *   the truth itself where the course puts it where the prediction does,
+   *   or `null` if there is no course to follow or no villager drawn.
+   */
+  #foresee(
+    prediction: PlayerPrediction,
+    truth: PlayerMotion,
+    time: number,
+    shownStep: number | null,
+  ): PlayerMotion | null {
+    if (this.#course === null || shownStep === null) {
+      return null;
+    }
+    const place: GroundVector = this.#course.advance(shownStep, time);
+    const { motion } = prediction;
+    return isSamePlace(place, motion)
+      ? truth
+      : {
+          ...truth,
+          x: place.x + (truth.x - motion.x),
+          z: place.z + (truth.z - motion.z),
+        };
+  }
+
+  /**
+   * Tells whether the forecast, rather than the smoothing, draws the player
+   * in a frame.  Once drawing, it keeps drawing until both draw the player
+   * at the same place at the frame before and this one; until then, it
+   * draws only where the course has the player elsewhere than the truth.
+   *
+   * @param {PlayerMotion | null} foreseen - The player as the course has it
+   *   in the frame, or `null` if there is none.
+   * @param {PlayerMotion} smoothed - The player as the smoothing draws it in
+   *   the frame.
+   * @param {PlayerMotion} truth - The player as the prediction draws it in
+   *   the frame.
+   * @returns {boolean} Whether the forecast draws the player.
+   */
+  #decideDrawing(
+    foreseen: PlayerMotion | null,
+    smoothed: PlayerMotion,
+    truth: PlayerMotion,
+  ): boolean {
+    if (foreseen === null) {
+      return false;
+    }
+    if (!this.#isDrawing) {
+      return foreseen !== truth;
+    }
+    return (
+      this.#lastForeseen === null ||
+      this.#lastSmoothed === null ||
+      !isSamePlace(this.#lastForeseen, this.#lastSmoothed) ||
+      !isSamePlace(foreseen, smoothed)
+    );
   }
 
   /**

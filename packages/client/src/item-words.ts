@@ -22,7 +22,7 @@
  *   the page.
  */
 
-import { findItemKind } from '@clovervale/shared';
+import { assertNever, findItemKind } from '@clovervale/shared';
 import type { ItemKindId } from '@clovervale/shared';
 
 import type { Translator } from './translator.ts';
@@ -55,5 +55,7 @@ export function nameItem(
       return translator.translate(found.specificNameKey);
     case 'received':
       return translator.translate(found.receivedNameKey);
+    default:
+      return assertNever(wording);
   }
 }

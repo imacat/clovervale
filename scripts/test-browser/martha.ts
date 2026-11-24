@@ -234,6 +234,59 @@ export async function checkMartha(
   watcher: string,
   id: number,
 ): Promise<void> {
+  const readBoth = (): Promise<[MarthaLook, MarthaLook]> =>
+    Promise.all([
+      readMarthaLook(session, actor, id),
+      readMarthaLook(session, watcher, id),
+    ]);
+  await talkWithMartha(session, actor, watcher, id);
+  await fightMartha(session, actor, id);
+  await waitFor(
+    readBoth,
+    ([own, other]: [MarthaLook, MarthaLook]) =>
+      own.shown?.clip === 'Sit' &&
+      !own.shown.isBarShown &&
+      !own.shown.isWeaponShown &&
+      own.pitchfork.isOnGround === true &&
+      own.pitchfork.isOnWall === false &&
+      other.pitchfork.isOnGround === true &&
+      own.slots.includes('spy-token') &&
+      own.notices.includes(TOKEN_NOTICE) &&
+      other.martha?.mode === 'sit' &&
+      other.shown?.clip === 'Sit',
+    ACTION_TIMEOUT,
+    ([own, other]: [MarthaLook, MarthaLook]) =>
+      `With Martha beaten, the first page tells ${describeMarthaLook(own)}, ` +
+      `and the second page ${describeMarthaLook(other)}.`,
+  );
+  // The player now holds Edwin's message and her token in the village.
+  await checkEnding(session, actor, id);
+  await sleep(SIT_SETTLE_DURATION);
+  await saveView(session, actor, 'martha-sitting.png');
+  await zoomCamera(session, actor, -MARTHA_CAMERA_ZOOM);
+  await turnCamera(session, actor, -MARTHA_CAMERA_TURN);
+}
+
+/**
+ * Checks that Martha comes over to a player that has climbed out of her
+ * well and talks with it, until she starts to fight it, as
+ * {@link checkMartha} tells.  The camera of the page of the player is left
+ * turned to look at the two of them from the side, and zoomed in.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player,
+ *   which stands beside the well, the camera behind it.
+ * @param {string} watcher - The browsing context of the other page.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once Martha fights the player.
+ * @throws {Error} If either page does not show it so.
+ */
+async function talkWithMartha(
+  session: BidiSession,
+  actor: string,
+  watcher: string,
+  id: number,
+): Promise<void> {
   const look = (): Promise<MarthaLook> => readMarthaLook(session, actor, id);
   const readBoth = (): Promise<[MarthaLook, MarthaLook]> =>
     Promise.all([look(), readMarthaLook(session, watcher, id)]);
@@ -323,15 +376,111 @@ export async function checkMartha(
       `With Martha's confession ended, the first page tells ` +
       `${describeMarthaLook(seen)}.`,
   );
+}
 
+/**
+ * Saves the views of a thrust of Martha's pitchfork, frame by frame, each
+ * named after its frame and how long after the first it is saved.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page to save.
+ * @returns {Promise<void>} A promise settled once the views are saved.
+ */
+async function saveThrustViews(
+  session: BidiSession,
+  actor: string,
+): Promise<void> {
+  const start: number = Date.now();
+  for (let frame = 1; frame <= THRUST_VIEW_COUNT; frame++) {
+    const at = String(Date.now() - start).padStart(3, '0');
+    await saveView(
+      session,
+      actor,
+      `martha-thrust-${String(frame).padStart(2, '0')}-${at}ms.png`,
+    );
+    await sleep(THRUST_VIEW_INTERVAL);
+  }
+}
+
+/**
+ * Has a player close in on Martha and slash at her, unless it is slashing
+ * already or the page does not show her: taps the keys that step it
+ * toward her while she is out of its reach, or turn it to face her where
+ * it does not face her, and the space bar once she is within its reach.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {MarthaLook} seen - How the page shows Martha and the player.
+ * @param {PlayerState} own - The player, as the page shows it.
+ * @returns {Promise<void>} A promise settled once the keys are tapped.
+ */
+async function closeInOnMartha(
+  session: BidiSession,
+  actor: string,
+  seen: MarthaLook,
+  own: PlayerState,
+): Promise<void> {
+  const { martha } = seen;
+  if (martha === null || own.action === 'Slash') {
+    return;
+  }
+  const apart: number = Math.hypot(martha.x - own.x, martha.z - own.z);
+  const turn: number =
+    (Math.round(
+      (Math.atan2(martha.x - own.x, martha.z - own.z) * 4) / Math.PI,
+    ) +
+      8) %
+    8;
+  const isFacing: boolean =
+    Math.abs(((own.yaw - turn * 45 + 540) % 360) - 180) <= 45;
+  const isNear: boolean = apart <= SLASH_REACH - 0.1;
+  // The player steps toward her while she is out of its reach, and
+  // turns to face her where it is not facing her.
+  if (!isNear || !isFacing) {
+    // The keys walk the way they do as the camera looks, which a key
+    // walking down the view from the first view of the village, north,
+    // as the player faced as it climbed out.
+    const shift: number = Math.round((seen.heading - 180) / 45);
+    const keys: readonly string[] =
+      TURN_KEYS[(((turn - shift) % 8) + 8) % 8] ?? [];
+    for (const key of keys) {
+      await sendKey(session, actor, 'keyDown', key);
+    }
+    await sleep(TAP_DURATION);
+    for (const key of keys) {
+      await sendKey(session, actor, 'keyUp', key);
+    }
+  }
+  if (isNear) {
+    await tapKey(session, actor, ' ');
+  }
+}
+
+/**
+ * Has a player fight Martha, as {@link checkMartha} tells, until its page
+ * shows her sitting, and saves the views of a thrust of her pitchfork and
+ * of the fight if the environment names a directory for them.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} actor - The browsing context of the page of the player.
+ * @param {number} id - The identifier of the player.
+ * @returns {Promise<void>} A promise settled once the page shows Martha
+ *   sitting.
+ * @throws {Error} If she does not sit in time, or the player dies.
+ */
+async function fightMartha(
+  session: BidiSession,
+  actor: string,
+  id: number,
+): Promise<void> {
   const deadline: number = Date.now() + MONSTER_TIMEOUT * 2;
   let isThrustSaved = SCREENSHOT_DIR === undefined;
   let isFightSaved = SCREENSHOT_DIR === undefined;
   for (;;) {
-    const seen: MarthaLook = await look();
+    const seen: MarthaLook = await readMarthaLook(session, actor, id);
     const { own, martha } = seen;
     if (martha?.mode === 'sit') {
-      break;
+      return;
     }
     if (own === null || own.action === 'Die' || Date.now() > deadline) {
       throw new Error(
@@ -339,16 +488,7 @@ export async function checkMartha(
       );
     }
     if (!isThrustSaved && seen.shown?.clip === 'Attack') {
-      const start: number = Date.now();
-      for (let frame = 1; frame <= THRUST_VIEW_COUNT; frame++) {
-        const at = String(Date.now() - start).padStart(3, '0');
-        await saveView(
-          session,
-          actor,
-          `martha-thrust-${String(frame).padStart(2, '0')}-${at}ms.png`,
-        );
-        await sleep(THRUST_VIEW_INTERVAL);
-      }
+      await saveThrustViews(session, actor);
       isThrustSaved = true;
       continue;
     }
@@ -356,62 +496,7 @@ export async function checkMartha(
       await saveView(session, actor, 'martha-fight.png');
       isFightSaved = true;
     }
-    if (martha !== null && own.action !== 'Slash') {
-      const apart: number = Math.hypot(martha.x - own.x, martha.z - own.z);
-      const turn: number =
-        (Math.round(
-          (Math.atan2(martha.x - own.x, martha.z - own.z) * 4) / Math.PI,
-        ) +
-          8) %
-        8;
-      const isFacing: boolean =
-        Math.abs(((own.yaw - turn * 45 + 540) % 360) - 180) <= 45;
-      const isNear: boolean = apart <= SLASH_REACH - 0.1;
-      // The player steps toward her while she is out of its reach, and
-      // turns to face her where it is not facing her.
-      if (!isNear || !isFacing) {
-        // The keys walk the way they do as the camera looks, which a key
-        // walking down the view from the first view of the village, north,
-        // as the player faced as it climbed out.
-        const shift: number = Math.round((seen.heading - 180) / 45);
-        const keys: readonly string[] =
-          TURN_KEYS[(((turn - shift) % 8) + 8) % 8] ?? [];
-        for (const key of keys) {
-          await sendKey(session, actor, 'keyDown', key);
-        }
-        await sleep(TAP_DURATION);
-        for (const key of keys) {
-          await sendKey(session, actor, 'keyUp', key);
-        }
-      }
-      if (isNear) {
-        await press(' ');
-      }
-    }
+    await closeInOnMartha(session, actor, seen, own);
     await sleep(POLL_INTERVAL);
   }
-  await waitFor(
-    readBoth,
-    ([own, other]: [MarthaLook, MarthaLook]) =>
-      own.shown?.clip === 'Sit' &&
-      !own.shown.isBarShown &&
-      !own.shown.isWeaponShown &&
-      own.pitchfork.isOnGround === true &&
-      own.pitchfork.isOnWall === false &&
-      other.pitchfork.isOnGround === true &&
-      own.slots.includes('spy-token') &&
-      own.notices.includes(TOKEN_NOTICE) &&
-      other.martha?.mode === 'sit' &&
-      other.shown?.clip === 'Sit',
-    ACTION_TIMEOUT,
-    ([own, other]: [MarthaLook, MarthaLook]) =>
-      `With Martha beaten, the first page tells ${describeMarthaLook(own)}, ` +
-      `and the second page ${describeMarthaLook(other)}.`,
-  );
-  // The player now holds Edwin's message and her token in the village.
-  await checkEnding(session, actor, id);
-  await sleep(SIT_SETTLE_DURATION);
-  await saveView(session, actor, 'martha-sitting.png');
-  await zoomCamera(session, actor, -MARTHA_CAMERA_ZOOM);
-  await turnCamera(session, actor, -MARTHA_CAMERA_TURN);
 }

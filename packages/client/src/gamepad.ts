@@ -260,42 +260,19 @@ export class Gamepads implements CameraHold {
       if (stick !== null && !isStickHeld) {
         inputs.push(stick);
       }
-      const held = new Set<PadButton>();
-      const heldTimes = new Map<PadButton, number>();
-      for (const button of inputs) {
-        held.add(button);
-        if (last?.held.has(button) !== true) {
-          pressed.push(button);
-          heldTimes.set(button, 0);
-          continue;
-        }
-        if (!REPEATED.has(button)) {
-          continue;
-        }
-        const before: number = last.heldTimes.get(button) ?? 0;
-        const after: number = before + seconds;
-        heldTimes.set(button, after);
-        if (countRepeats(after) > countRepeats(before)) {
-          pressed.push(button);
-        }
-      }
+      const { held, heldTimes, pressed: padPressed }: HeldButtons =
+        holdButtons(inputs, last, seconds);
+      pressed.push(...padPressed);
       const [turnX, turnY] = scaleStick(
         readAxis(state, AXES.rightX),
         readAxis(state, AXES.rightY),
         TURN_DEAD_ZONE,
       );
-      const touched = new Set<number>();
-      state.buttons.forEach((button: PadButtonState, place: number) => {
-        if (button.pressed) {
-          touched.add(place);
-        }
-      });
-      if (Math.hypot(leftX, leftY) > WALK_DEAD_ZONE) {
-        touched.add(-1);
-      }
-      if (turnX !== 0 || turnY !== 0) {
-        touched.add(-2);
-      }
+      const touched: Set<number> = findTouched(
+        state,
+        Math.hypot(leftX, leftY) > WALK_DEAD_ZONE,
+        turnX !== 0 || turnY !== 0,
+      );
       for (const place of touched) {
         if (last?.touched.has(place) !== true) {
           isNudged = true;
@@ -411,8 +388,12 @@ export function findPadKey(
   if (button === 'a') {
     return screen === 'play' ? 'Space' : 'Enter';
   }
-  const keys: Readonly<Partial<Record<PadButton, string>>> =
-    screen === 'choice' ? CHOICE_KEYS : screen === 'help' ? HELP_KEYS : {};
+  let keys: Readonly<Partial<Record<PadButton, string>>> = {};
+  if (screen === 'choice') {
+    keys = CHOICE_KEYS;
+  } else if (screen === 'help') {
+    keys = HELP_KEYS;
+  }
   return keys[button] ?? BUTTON_KEYS[button] ?? null;
 }
 
@@ -446,6 +427,92 @@ function countRepeats(time: number): number {
     return 0;
   }
   return Math.floor((time - CHOICE_REPEAT_DELAY) / CHOICE_REPEAT_INTERVAL) + 1;
+}
+
+/** The buttons of a pad as they are held at a read. */
+interface HeldButtons {
+  /** The buttons held down. */
+  readonly held: Set<PadButton>;
+  /** The time each button that repeats has been held, in seconds. */
+  readonly heldTimes: Map<PadButton, number>;
+  /**
+   * The buttons pressed since the read before, and those held long enough
+   * to repeat since then.
+   */
+  readonly pressed: PadButton[];
+}
+
+/**
+ * Tells how the buttons of a pad are held at a read, against how they were
+ * at the read before.  A button newly held is pressed; one that repeats
+ * and is held on is pressed again each time it repeats.
+ *
+ * @param {readonly PadButton[]} inputs - The buttons held down now, the
+ *   left stick included as the way it tells as.
+ * @param {ReadPad | undefined} last - The pad as it was last read, or
+ *   `undefined` if it was not.
+ * @param {number} seconds - The time since the pad was last read, in
+ *   seconds.
+ * @returns {HeldButtons} The buttons as they are held now.
+ */
+function holdButtons(
+  inputs: readonly PadButton[],
+  last: ReadPad | undefined,
+  seconds: number,
+): HeldButtons {
+  const held = new Set<PadButton>();
+  const heldTimes = new Map<PadButton, number>();
+  const pressed: PadButton[] = [];
+  for (const button of inputs) {
+    held.add(button);
+    if (last?.held.has(button) !== true) {
+      pressed.push(button);
+      heldTimes.set(button, 0);
+      continue;
+    }
+    if (!REPEATED.has(button)) {
+      continue;
+    }
+    const before: number = last.heldTimes.get(button) ?? 0;
+    const after: number = before + seconds;
+    heldTimes.set(button, after);
+    if (countRepeats(after) > countRepeats(before)) {
+      pressed.push(button);
+    }
+  }
+  return { held, heldTimes, pressed };
+}
+
+/**
+ * Finds what is touched on a pad: the places of all the buttons held
+ * down, and `-1` and `-2` for the left and the right sticks pushed beyond
+ * their dead zones.
+ *
+ * @param {PadState} state - The pad.
+ * @param {boolean} isWalkPushed - Whether the left stick is pushed beyond
+ *   its dead zone.
+ * @param {boolean} isTurnPushed - Whether the right stick is pushed beyond
+ *   its dead zone.
+ * @returns {Set<number>} The places touched.
+ */
+function findTouched(
+  state: PadState,
+  isWalkPushed: boolean,
+  isTurnPushed: boolean,
+): Set<number> {
+  const touched = new Set<number>();
+  state.buttons.forEach((button: PadButtonState, place: number) => {
+    if (button.pressed) {
+      touched.add(place);
+    }
+  });
+  if (isWalkPushed) {
+    touched.add(-1);
+  }
+  if (isTurnPushed) {
+    touched.add(-2);
+  }
+  return touched;
 }
 
 /**

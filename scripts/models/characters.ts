@@ -23,6 +23,8 @@
 
 import { Vector3 } from 'three';
 
+import { assertNever } from '@clovervale/shared';
+
 import {
   createBlob,
   createBox,
@@ -31,6 +33,7 @@ import {
   createExtrusion,
   createLathe,
   createTube,
+  computeFaceNormal,
   mirrorShape,
   place,
 } from './geometry.ts';
@@ -389,9 +392,7 @@ function createHairCap(lines: readonly number[], flare: number): Shape {
   };
   const out: Shape = [];
   const pushTriangle = (a: Vector3, b: Vector3, c: Vector3): void => {
-    const normal: Vector3 = new Vector3()
-      .subVectors(b, a)
-      .cross(new Vector3().subVectors(c, a));
+    const normal: Vector3 = computeFaceNormal(a, b, c);
     if (normal.length() < 1e-9) {
       return;
     }
@@ -781,6 +782,8 @@ export function createHair(style: HairStyle): Hair {
         ]),
       };
     }
+    default:
+      return assertNever(style);
   }
 }
 

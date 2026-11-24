@@ -129,9 +129,10 @@ export class HitMarkers {
 
   /** Takes every number away at once, however far it has floated. */
   clear(): void {
-    for (const marker of [...this.#markers]) {
-      this.#removeMarker(marker);
+    for (const marker of this.#markers) {
+      this.#disposeMarker(marker);
     }
+    this.#markers.length = 0;
   }
 
   /**
@@ -140,10 +141,20 @@ export class HitMarkers {
    * @param {Marker} marker - The number.
    */
   #removeMarker(marker: Marker): void {
+    this.#disposeMarker(marker);
+    this.#markers.splice(this.#markers.indexOf(marker), 1);
+  }
+
+  /**
+   * Takes a number out of the scene and frees its picture, leaving it in the
+   * list of numbers.
+   *
+   * @param {Marker} marker - The number.
+   */
+  #disposeMarker(marker: Marker): void {
     const { sprite } = marker;
     this.#parent.remove(sprite);
     sprite.material.map?.dispose();
     sprite.material.dispose();
-    this.#markers.splice(this.#markers.indexOf(marker), 1);
   }
 }

@@ -81,7 +81,7 @@ export interface TobyView {
  * The activities of Toby that go on in a loop for as long as they last;
  * the others are played once over their whole length.
  */
-const LOOPING_ACTIVITIES: readonly TobyActivity[] = ['Pick', 'Run'];
+const LOOPING_ACTIVITIES: ReadonlySet<TobyActivity> = new Set(['Pick', 'Run']);
 
 /** The name of the bone the head of the model goes with. */
 const HEAD_BONE = 'Head';
@@ -262,7 +262,7 @@ export class TobyModel {
     }
     // His finding is played once over the whole of his picking.
     const isLooping: boolean =
-      clip.name !== FIND_CLIP && LOOPING_ACTIVITIES.includes(pose.activity);
+      clip.name !== FIND_CLIP && LOOPING_ACTIVITIES.has(pose.activity);
     action.time = isLooping ? pose.elapsed % clip.duration : pose.elapsed;
     this.#mixer.update(0);
   }

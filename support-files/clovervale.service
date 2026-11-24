@@ -5,7 +5,7 @@ Description=The Clovervale Project
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/node server.cjs --socket /run/clovervale/clovervale.sock
+ExecStart=/usr/local/bin/node server.mjs --socket /run/clovervale/clovervale.sock
 RuntimeDirectory=clovervale
 Restart=always
 WorkingDirectory=/srv/www/clovervale/server

@@ -33,6 +33,7 @@ import {
   createLathe,
   createRandom,
   createTube,
+  computeFaceNormal,
   place,
 } from './geometry.ts';
 import type {
@@ -207,7 +208,7 @@ export function buildBush(): BuiltModel {
       }),
     );
   });
-  for (const [material, faces] of [...model.faces]) {
+  for (const [material, faces] of model.faces) {
     model.faces.set(
       material,
       faces.filter(({ tri }: Face) => tri.some((p: Vector3) => p.y > 0)),
@@ -807,66 +808,78 @@ export function buildSpawnStones(): BuiltModel {
     model.add('carving', createGroundArc(angles, 0.97, 1.03, 0.064));
   }
   for (let i = 0; i < 5; i++) {
-    const angle: number = ((i * 72 + 36) * Math.PI) / 180;
-    // One stone has broken off low, and the stone the burrow goes under
-    // leans over it.
-    const isBroken: boolean = i === 0;
-    const height: number = isBroken ? 0.9 : 1.5 + (i % 3) * 0.35;
-    const taper: Pair = isBroken ? [0.73, 0.76] : [0.55, 0.6];
-    const lean: number = i === 1 ? -18 : -6;
-    const spot: Placement = {
-      pos: [1.75 * Math.sin(angle), 0, 1.75 * Math.cos(angle)],
-      rot: [0, i * 72 + 36, 0],
-    };
-    const stand = (shape: Shape): Shape =>
-      place(
-        place(shape, {
-          pos: [0, i === 1 ? -0.06 : 0, 0],
-          rot: [lean, 0, i % 2 ? 5 : -4],
-        }),
-        spot,
-      );
-    const material: string = i % 2 ? 'rock' : 'rockDark';
-    model.add(material, stand(createBlock(0.55, height, 0.42, taper)));
-    if (isBroken) {
-      model.add(
-        material,
-        stand(
-          place(createBlock(0.36, 0.22, 0.3, [0.4, 0.6]), {
-            pos: [0.08, height - 0.06, 0],
-            rot: [0, 0, -16],
-          }),
-        ),
-      );
-    }
-    if (i !== 1 && i !== 4) {
-      model.add(
-        'carving',
-        place(
-          place(createBox(0.12, 0.3, 0.03), {
-            pos: [0, height * 0.55, -0.19],
-            rot: [lean, 0, 0],
-          }),
-          spot,
-        ),
-      );
-    }
-    if (i === 0 || i === 3) {
-      model.add(
-        'moss',
-        place(
-          place(createBlob(1, 410 + i, 0.2), {
-            pos: [0, 0, -0.26],
-            scale: [0.26, 0.12, 0.12],
-          }),
-          spot,
-        ),
-      );
-    }
+    addStandingStone(model, i);
   }
   flattenUnderside(model);
   model.centerFootprint();
   return { model };
+}
+
+/**
+ * Adds one of the five weathered stones standing in a ring around the mouth
+ * of the burrow, with its worn carving and its moss if it has them.  The
+ * first stone has broken off low, and the second, the one the burrow goes
+ * under, leans over it.
+ *
+ * @param {Model} model - The model of the standing stones, with their
+ *   materials defined.
+ * @param {number} i - Which stone it is, from 0 to 4.
+ */
+function addStandingStone(model: Model, i: number): void {
+  const angle: number = ((i * 72 + 36) * Math.PI) / 180;
+  const isBroken: boolean = i === 0;
+  const height: number = isBroken ? 0.9 : 1.5 + (i % 3) * 0.35;
+  const taper: Pair = isBroken ? [0.73, 0.76] : [0.55, 0.6];
+  const lean: number = i === 1 ? -18 : -6;
+  const spot: Placement = {
+    pos: [1.75 * Math.sin(angle), 0, 1.75 * Math.cos(angle)],
+    rot: [0, i * 72 + 36, 0],
+  };
+  const stand = (shape: Shape): Shape =>
+    place(
+      place(shape, {
+        pos: [0, i === 1 ? -0.06 : 0, 0],
+        rot: [lean, 0, i % 2 ? 5 : -4],
+      }),
+      spot,
+    );
+  const material: string = i % 2 ? 'rock' : 'rockDark';
+  model.add(material, stand(createBlock(0.55, height, 0.42, taper)));
+  if (isBroken) {
+    model.add(
+      material,
+      stand(
+        place(createBlock(0.36, 0.22, 0.3, [0.4, 0.6]), {
+          pos: [0.08, height - 0.06, 0],
+          rot: [0, 0, -16],
+        }),
+      ),
+    );
+  }
+  if (i !== 1 && i !== 4) {
+    model.add(
+      'carving',
+      place(
+        place(createBox(0.12, 0.3, 0.03), {
+          pos: [0, height * 0.55, -0.19],
+          rot: [lean, 0, 0],
+        }),
+        spot,
+      ),
+    );
+  }
+  if (i === 0 || i === 3) {
+    model.add(
+      'moss',
+      place(
+        place(createBlob(1, 410 + i, 0.2), {
+          pos: [0, 0, -0.26],
+          scale: [0.26, 0.12, 0.12],
+        }),
+        spot,
+      ),
+    );
+  }
 }
 
 /**
@@ -994,11 +1007,7 @@ export function buildHealingStele(): BuiltModel {
   let area = 0;
   for (const [a, b, c] of boulder) {
     if ([a, b, c].every((p: Vector3) => struck.has(p))) {
-      const share: number =
-        new Vector3()
-          .subVectors(b, a)
-          .cross(new Vector3().subVectors(c, a))
-          .length() / 2;
+      const share: number = computeFaceNormal(a, b, c).length() / 2;
       middle.addScaledVector(a.clone().add(b).add(c), share / 3);
       area += share;
     }

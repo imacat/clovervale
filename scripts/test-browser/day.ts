@@ -182,22 +182,26 @@ export async function checkNight(
   viewer: string,
   other: string,
 ): Promise<void> {
-  for (const [context, name] of [
+  const heldPages = [
     [viewer, 'The first page'],
     [other, 'The second page'],
-  ] as const) {
-    const told: string = (await readPageState(session, context)).panel[
-      'Time of day'
-    ] ?? '';
-    const time: TimeOfDayView = await readTimeOfDay(session, context);
-    if (told !== HELD_TIME_OF_DAY || time.world !== HELD_DAY_SHARE) {
-      throw new Error(
-        `On a server held at ${HELD_TIME}, ${name.toLowerCase()} tells ` +
-          `the time of day as "${told}" in its panel, and as ` +
-          `${String(time.world)} of a day.`,
-      );
-    }
-  }
+  ] as const;
+  await Promise.all(
+    heldPages.map(async ([context, name]): Promise<void> => {
+      const [state, time]: [PageState, TimeOfDayView] = await Promise.all([
+        readPageState(session, context),
+        readTimeOfDay(session, context),
+      ]);
+      const told: string = state.panel['Time of day'] ?? '';
+      if (told !== HELD_TIME_OF_DAY || time.world !== HELD_DAY_SHARE) {
+        throw new Error(
+          `On a server held at ${HELD_TIME}, ${name.toLowerCase()} tells ` +
+            `the time of day as "${told}" in its panel, and as ` +
+            `${String(time.world)} of a day.`,
+        );
+      }
+    }),
+  );
   const noon: number = await measureShownTime(
     session,
     viewer,
@@ -300,19 +304,22 @@ export async function checkDayAgreement(
   await loadClient(session, second, url, 'The second page on a running day');
   // A page knows the time of day of the world only from its first snapshot,
   // which may come some time after it is welcomed.
-  for (const [context, name] of [
+  const runningPages = [
     [first, 'first'],
     [second, 'second'],
-  ] as const) {
-    await waitFor(
-      () => readTimeOfDay(session, context),
-      (seen: TimeOfDayView) => seen.world !== null,
-      ACTION_TIMEOUT,
-      () =>
-        `On a running day, the ${name} page does not tell the time of day ` +
-        'of the world.',
-    );
-  }
+  ] as const;
+  await Promise.all(
+    runningPages.map(([context, name]) =>
+      waitFor(
+        () => readTimeOfDay(session, context),
+        (seen: TimeOfDayView) => seen.world !== null,
+        ACTION_TIMEOUT,
+        () =>
+          `On a running day, the ${name} page does not tell the time of ` +
+          'day of the world.',
+      ),
+    ),
+  );
   const readBoth = async (): Promise<[TimeOfDayView, TimeOfDayView]> => [
     await readTimeOfDay(session, first),
     await readTimeOfDay(session, second),
@@ -329,8 +336,11 @@ export async function checkDayAgreement(
     // server to the moment the second page was read.
     const between: number = late.moment - early.moment;
     const carried: number =
-      (early.world ?? NaN) + between / RUNNING_DAY_DURATION;
-    if (!(measureGap(carried, late.world ?? NaN) <= SAME_TIME_OF_DAY)) {
+      (early.world ?? Number.NaN) + between / RUNNING_DAY_DURATION;
+    // False when either time is missing, as a comparison with NaN is.
+    const isSameTime: boolean =
+      measureGap(carried, late.world ?? Number.NaN) <= SAME_TIME_OF_DAY;
+    if (!isSameTime) {
       throw new Error(
         `On a running day, the first page tells the time of day as ` +
           `${String(early.world)} of a day, and the second page, which ` +
@@ -341,11 +351,14 @@ export async function checkDayAgreement(
   }
   for (const index of [0, 1] as const) {
     const change: number =
-      (after[index].world ?? NaN) - (before[index].world ?? NaN);
+      (after[index].world ?? Number.NaN) - (before[index].world ?? Number.NaN);
     const passed: number = ((change % 1) + 1) % 1;
     const elapsed: number = after[index].moment - before[index].moment;
     const expected: number = elapsed / RUNNING_DAY_DURATION;
-    if (!(Math.abs(passed - expected) <= expected * DAY_PACE_TOLERANCE)) {
+    // False when either time is missing, as a comparison with NaN is.
+    const isOnPace: boolean =
+      Math.abs(passed - expected) <= expected * DAY_PACE_TOLERANCE;
+    if (!isOnPace) {
       throw new Error(
         `On a running day, the time of day of the ` +
           `${index === 0 ? 'first' : 'second'} page goes on by ` +

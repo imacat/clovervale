@@ -281,7 +281,7 @@ export async function checkApothecary(
   );
   let silver = Number(before.silver);
   let potions: number = countPotions(before);
-  if (!(silver >= HEALING_POTION_PRICE)) {
+  if (Number.isNaN(silver) || silver < HEALING_POTION_PRICE) {
     throw new Error(
       `Before Basil, the first page tells ${describeQuestLook(before)}, ` +
         `too few silver coins to buy a potion.`,

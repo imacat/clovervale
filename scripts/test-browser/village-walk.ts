@@ -309,8 +309,8 @@ export async function faceInVillage(
   let seen: QuestLook = await look();
   for (let tries = 1; ; tries++) {
     const keys: readonly string[] = findWalkKeys(seen.heading, {
-      x: point.x - (seen.drawn?.x ?? NaN),
-      z: point.z - (seen.drawn?.z ?? NaN),
+      x: point.x - (seen.drawn?.x ?? Number.NaN),
+      z: point.z - (seen.drawn?.z ?? Number.NaN),
     });
     // The way the keys walk the player, under the camera as it looks.
     const yaw: number = TURN_KEYS.indexOf(keys) * 45 + seen.heading - 180;
@@ -330,7 +330,7 @@ export async function faceInVillage(
         `Turned to ${JSON.stringify(point)}, the first page tells ` +
         `${describeQuestLook(shown)}.`,
     );
-    const turn: number = findTurnBetween(yaw, seen.own?.yaw ?? NaN);
+    const turn: number = findTurnBetween(yaw, seen.own?.yaw ?? Number.NaN);
     if (Math.abs(turn) <= FACE_TOLERANCE) {
       return seen;
     }

@@ -123,7 +123,10 @@ describe('findKeyCommand', () => {
 
 describe('chooseSpaceInput', () => {
   /** Where the patch of clover east of the fountain is. */
-  const PATCH: GroundVector = CLOVER_PATCHES[6] ?? { x: NaN, z: NaN };
+  const PATCH: GroundVector = CLOVER_PATCHES[6] ?? {
+    x: Number.NaN,
+    z: Number.NaN,
+  };
 
   /** A player south of that patch, facing it. */
   const BY_PATCH: PlayerMotion = createMotion(
@@ -335,7 +338,9 @@ describe('chooseSpaceInput in the cave', () => {
   it('interacts before the prisoner, to talk to him through his bars', () => {
     const edwin = VILLAGERS.find(({ id }) => id === 'edwin');
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+      edwin === undefined
+        ? { x: Number.NaN, z: Number.NaN }
+        : locateVillager(edwin, 0, []);
     const before: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       180,

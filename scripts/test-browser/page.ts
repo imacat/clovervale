@@ -200,7 +200,7 @@ export async function evaluateInPage(
     awaitPromise: true,
   })) as { result?: { value?: unknown } };
   if (typeof evaluated.result?.value !== 'string') {
-    throw new Error('The page could not be inspected.');
+    throw new TypeError('The page could not be inspected.');
   }
   return evaluated.result.value;
 }

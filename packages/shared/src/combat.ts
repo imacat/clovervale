@@ -213,7 +213,8 @@ export const MONSTER_KINDS: Readonly<Record<MonsterKindId, MonsterKind>> = {
  * @returns {boolean} Whether it does.
  */
 export function isMonsterKindId(value: unknown): value is MonsterKindId {
-  return MONSTER_KIND_IDS.some((kind: MonsterKindId) => kind === value);
+  const ids: readonly unknown[] = MONSTER_KIND_IDS;
+  return ids.includes(value);
 }
 
 /** A monster, as the server knows it at one moment. */

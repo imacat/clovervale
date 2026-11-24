@@ -151,7 +151,7 @@ export class TrailingCamera {
     }
     const last: GroundVector | null = this.#focus;
     this.#focus = focus;
-    if (last === null || !(seconds > 0)) {
+    if (last === null || Number.isNaN(seconds) || seconds <= 0) {
       return heading;
     }
     this.#trackTravel(last, focus, seconds);
@@ -163,15 +163,7 @@ export class TrailingCamera {
     const distance: number = Math.abs(offset);
     const isQualified: boolean =
       isMoving && !isTouched && distance < settings.angleLimit;
-    if (!isQualified) {
-      this.#waited = 0;
-      this.#isChasing = false;
-    } else {
-      this.#waited += seconds;
-      if (this.#waited >= settings.delay && distance > settings.deadZone) {
-        this.#isChasing = true;
-      }
-    }
+    this.#updateChasing(isQualified, distance, seconds, settings);
     const fastest: number = settings.turnRate;
     const acceleration: number =
       settings.easeTime > 0 ? fastest / settings.easeTime : Infinity;
@@ -215,6 +207,37 @@ export class TrailingCamera {
     this.#rate = 0;
     this.#isChasing = false;
     this.#waited = 0;
+  }
+
+  /**
+   * Notes whether the player goes a way the camera may turn after, over one
+   * frame.  Once it has for the delay, and the way it goes is beyond the
+   * dead zone, the camera starts to turn after it; once it does not, the
+   * camera stops turning after it, and the delay starts again.
+   *
+   * @param {boolean} isQualified - Whether the player goes a way the camera
+   *   may turn after, with the camera left alone.
+   * @param {number} distance - How far the way the player goes is from the
+   *   way the camera looks, in degrees.
+   * @param {number} seconds - The time since the last frame, in seconds.
+   * @param {Readonly<TrailingCameraSettings>} settings - How the owner has
+   *   the camera turn.
+   */
+  #updateChasing(
+    isQualified: boolean,
+    distance: number,
+    seconds: number,
+    settings: Readonly<TrailingCameraSettings>,
+  ): void {
+    if (!isQualified) {
+      this.#waited = 0;
+      this.#isChasing = false;
+      return;
+    }
+    this.#waited += seconds;
+    if (this.#waited >= settings.delay && distance > settings.deadZone) {
+      this.#isChasing = true;
+    }
   }
 
   /**

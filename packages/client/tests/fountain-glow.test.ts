@@ -111,7 +111,7 @@ describe('FountainGlow', () => {
         expect(across).toBeGreaterThan(MOTE_LEAST_RADIUS - 0.1);
         expect(across).toBeLessThan(MOTE_MOST_RADIUS + 0.1);
         expect(y).toBeGreaterThanOrEqual(WATER_HEIGHT);
-        const rise: number = y - (previous[index] ?? NaN);
+        const rise: number = y - (previous[index] ?? Number.NaN);
         // A mote rises slowly, or starts again from the water faded out.
         if (rise < 0) {
           expect(mote.material.opacity).toBeLessThan(0.1);

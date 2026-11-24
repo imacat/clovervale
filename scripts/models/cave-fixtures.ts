@@ -231,10 +231,29 @@ export function buildCaveSkeleton(): BuiltModel {
   model.setMaterial('glass', '#8a6a2e', { roughness: 0.3 });
   model.setMaterial('web', '#d8d8d4', { roughness: 1 });
   const wall = -0.4;
+  addSkeletonTrunk(model);
+  addSkeletonSkull(model);
+  addSkeletonArms(model);
+  addSkeletonLegs(model);
+  addShackles(model, wall);
+  addFallenLantern(model);
+  addCobweb(model, wall);
+  for (const { point } of model.listCorners()) {
+    point.y = Math.max(point.y, 0);
+    point.z = Math.max(point.z, wall);
+  }
+  model.centerFootprint();
+  return { model };
+}
 
-  // The pelvis, sitting on the floor, the short spine leaning back against
-  // the wall, and the small ribcage, its ribs curving forward from the
-  // spine to the breastbone.
+/**
+ * Adds the trunk of the dead prisoner: the pelvis, sitting on the floor,
+ * the short spine leaning back against the wall, and the small ribcage, its
+ * ribs curving forward from the spine to the breastbone.
+ *
+ * @param {Model} model - The model of the skeleton.
+ */
+function addSkeletonTrunk(model: Model): void {
   model.add(
     'bone',
     place(createEllipsoid([0.12, 0.065, 0.085], 1), {
@@ -275,9 +294,16 @@ export function buildCaveSkeleton(): BuiltModel {
       rot: [-14, 0, 0],
     }),
   );
+}
 
-  // The big round skull, tilted to one side and drooped a little, with its
-  // dark eyes and nose, and a grin of teeth over its jaw.
+/**
+ * Adds the big round skull of the dead prisoner, tilted to one side and
+ * drooped a little, with its dark eyes and nose, and a grin of teeth over
+ * its jaw.
+ *
+ * @param {Model} model - The model of the skeleton.
+ */
+function addSkeletonSkull(model: Model): void {
   const skull: [string, Shape][] = [
     ['bone', createEllipsoid([0.24, 0.23, 0.235], 1)],
     [
@@ -312,9 +338,15 @@ export function buildCaveSkeleton(): BuiltModel {
       place(shape, { pos: [0.03, 0.69, -0.17], rot: [10, 14, 16] }),
     );
   }
+}
 
-  // The stout arms, hanging from the shoulders down to the floor, the
-  // bones of the hands spread on it.
+/**
+ * Adds the stout arms of the dead prisoner, hanging from the shoulders down
+ * to the floor, the bones of the hands spread on it.
+ *
+ * @param {Model} model - The model of the skeleton.
+ */
+function addSkeletonArms(model: Model): void {
   for (const side of [-1, 1]) {
     const elbow: Triple = [0.21 * side, 0.2, -0.17];
     const wrist: Triple = [0.24 * side, 0.04, -0.03];
@@ -344,9 +376,15 @@ export function buildCaveSkeleton(): BuiltModel {
       }),
     );
   }
+}
 
-  // The stout short legs stretched out along the floor, and the bones of
-  // the feet, the toes up and fallen a little apart.
+/**
+ * Adds the stout short legs of the dead prisoner, stretched out along the
+ * floor, and the bones of the feet, the toes up and fallen a little apart.
+ *
+ * @param {Model} model - The model of the skeleton.
+ */
+function addSkeletonLegs(model: Model): void {
   for (const side of [-1, 1]) {
     const knee: Triple = [0.09 * side, 0.08, 0.07];
     const ankle: Triple = [0.12 * side, 0.08, 0.3];
@@ -377,8 +415,16 @@ export function buildCaveSkeleton(): BuiltModel {
       );
     }
   }
+}
 
-  // The shackles, on short chains from an iron bar on the wall above him.
+/**
+ * Adds the shackles above the dead prisoner, on short chains from an iron
+ * bar on the wall.
+ *
+ * @param {Model} model - The model of the skeleton.
+ * @param {number} wall - The Z of the face of the back wall.
+ */
+function addShackles(model: Model, wall: number): void {
   model.add(
     'iron',
     place(createBox(0.36, 0.05, 0.03), { pos: [0.33, 0.98, wall + 0.015] }),
@@ -393,15 +439,24 @@ export function buildCaveSkeleton(): BuiltModel {
     }
     addRing(model, [x, 0.68, wall + 0.05], 0.045, [90, 0, 0]);
   }
+}
 
-  // The lantern, fallen over on the floor beside him: its iron frame, its
-  // dark glass, and its ring.
+/**
+ * Adds the lantern fallen over on the floor beside the dead prisoner: its
+ * iron frame, its dark glass, and its ring.
+ *
+ * @param {Model} model - The model of the skeleton.
+ */
+function addFallenLantern(model: Model): void {
   const lantern: Triple = [-0.42, 0.075, 0.05];
   const putLantern = (shape: Shape): Shape =>
     place(shape, { pos: lantern, rot: [0, 30, 90] });
   model.add('glass', putLantern(createBox(0.1, 0.14, 0.1)));
   for (const y of [-0.08, 0.08]) {
-    model.add('iron', putLantern(place(createBox(0.13, 0.02, 0.13), { pos: [0, y, 0] })));
+    model.add(
+      'iron',
+      putLantern(place(createBox(0.13, 0.02, 0.13), { pos: [0, y, 0] })),
+    );
   }
   for (const [x, z] of [
     [-1, -1],
@@ -412,13 +467,22 @@ export function buildCaveSkeleton(): BuiltModel {
     model.add(
       'iron',
       putLantern(
-        place(createBox(0.015, 0.16, 0.015), { pos: [x * 0.055, 0, z * 0.055] }),
+        place(createBox(0.015, 0.16, 0.015), {
+          pos: [x * 0.055, 0, z * 0.055],
+        }),
       ),
     );
   }
   addRing(model, [-0.58, 0.012, 0.06], 0.035, [0, 0, 0]);
+}
 
-  // A cobweb across the foot of the wall, beyond the lantern.
+/**
+ * Adds a cobweb across the foot of the back wall, beyond the lantern.
+ *
+ * @param {Model} model - The model of the skeleton.
+ * @param {number} wall - The Z of the face of the back wall.
+ */
+function addCobweb(model: Model, wall: number): void {
   const corner: Triple = [-0.62, 0, wall];
   for (const [reach, rise] of [
     [0.26, 0],
@@ -452,12 +516,6 @@ export function buildCaveSkeleton(): BuiltModel {
       ),
     );
   }
-  for (const { point } of model.listCorners()) {
-    point.y = Math.max(point.y, 0);
-    point.z = Math.max(point.z, wall);
-  }
-  model.centerFootprint();
-  return { model };
 }
 
 /**

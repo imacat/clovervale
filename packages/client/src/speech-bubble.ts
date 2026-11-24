@@ -396,7 +396,7 @@ export class SpeechBubble {
     if (shown !== null && !this.#age(shown, seconds)) {
       this.#hide();
     }
-    for (const [player, said] of [...this.#said]) {
+    for (const [player, said] of this.#said) {
       if (!this.#age(said, seconds)) {
         this.hushPlayer(player);
       }

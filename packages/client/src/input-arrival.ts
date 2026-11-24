@@ -141,12 +141,12 @@ export class InputArrival {
     }
     const offset: number = effect - sent.time / STEP_MILLISECONDS;
     this.#bindAbove(offset);
-    const allowed: number | null =
-      sequence === 1
-        ? Number.NEGATIVE_INFINITY
-        : previous?.sequence === sequence - 1
-          ? previous.step + sent.after
-          : null;
+    let allowed: number | null = null;
+    if (sequence === 1) {
+      allowed = Number.NEGATIVE_INFINITY;
+    } else if (previous?.sequence === sequence - 1) {
+      allowed = previous.step + sent.after;
+    }
     if (allowed !== null && effect > allowed) {
       this.#bindBelow(offset - 1);
     }

@@ -55,6 +55,22 @@ export function decodePng(png: Buffer): Pixels {
   if (png[24] !== 8 || (png[25] !== 2 && png[25] !== 6) || png[28] !== 0) {
     throw new Error('The screenshot is in an unsupported PNG format.');
   }
+  const filtered: Buffer = inflateSync(collectImageData(png));
+  const stride: number = width * channels;
+  const data = new Uint8Array(stride * height);
+  for (let y = 0; y < height; y++) {
+    unfilterRow(filtered, data, y, stride, channels);
+  }
+  return { width, height, channels, data };
+}
+
+/**
+ * Collects the compressed image data of a PNG image.
+ *
+ * @param {Buffer} png - The image.
+ * @returns {Buffer} The data of all its IDAT chunks, in order, joined.
+ */
+function collectImageData(png: Buffer): Buffer {
   const parts: Buffer[] = [];
   for (let offset = 8; offset < png.length; ) {
     const length: number = png.readUInt32BE(offset);
@@ -63,38 +79,75 @@ export function decodePng(png: Buffer): Pixels {
     }
     offset += length + 12;
   }
-  const filtered: Buffer = inflateSync(Buffer.concat(parts));
-  const stride: number = width * channels;
-  const data = new Uint8Array(stride * height);
-  for (let y = 0; y < height; y++) {
-    const start: number = y * (stride + 1);
-    const filter: number = filtered[start] ?? 0;
-    const row: number = y * stride;
-    for (let x = 0; x < stride; x++) {
-      const left: number = x < channels ? 0 : (data[row + x - channels] ?? 0);
-      const up: number = y === 0 ? 0 : (data[row + x - stride] ?? 0);
-      const upLeft: number =
-        x < channels || y === 0
-          ? 0
-          : (data[row + x - stride - channels] ?? 0);
-      let predicted = 0;
-      if (filter === 1) {
-        predicted = left;
-      } else if (filter === 2) {
-        predicted = up;
-      } else if (filter === 3) {
-        predicted = (left + up) >> 1;
-      } else if (filter === 4) {
-        const distances: number[] = [left, up, upLeft].map((value) =>
-          Math.abs(left + up - upLeft - value),
-        );
-        const nearest: number = distances.indexOf(Math.min(...distances));
-        predicted = [left, up, upLeft][nearest] ?? 0;
-      }
-      data[row + x] = (filtered[start + 1 + x] ?? 0) + predicted;
-    }
+  return Buffer.concat(parts);
+}
+
+/**
+ * Predicts a byte of a PNG scanline from its neighbors, as a PNG filter
+ * does.
+ *
+ * @param {number} filter - The filter type of the scanline, from 0 to 4.
+ * @param {number} left - The byte of the pixel to the left, or 0.
+ * @param {number} up - The byte of the pixel above, or 0.
+ * @param {number} upLeft - The byte of the pixel above to the left, or 0.
+ * @returns {number} The predicted byte, or 0 for no filter or an unknown
+ *   one.
+ */
+function predictByte(
+  filter: number,
+  left: number,
+  up: number,
+  upLeft: number,
+): number {
+  if (filter === 1) {
+    return left;
   }
-  return { width, height, channels, data };
+  if (filter === 2) {
+    return up;
+  }
+  if (filter === 3) {
+    return (left + up) >> 1;
+  }
+  if (filter === 4) {
+    const distances: number[] = [left, up, upLeft].map((value) =>
+      Math.abs(left + up - upLeft - value),
+    );
+    const nearest: number = distances.indexOf(Math.min(...distances));
+    return [left, up, upLeft][nearest] ?? 0;
+  }
+  return 0;
+}
+
+/**
+ * Reverses the PNG filter of a scanline into the pixels of an image, given
+ * the rows above it already in place.
+ *
+ * @param {Buffer} filtered - The decompressed image data, every scanline
+ *   led by its filter type.
+ * @param {Uint8Array} data - The channels of the pixels, row by row from
+ *   the top, into which the row is written.
+ * @param {number} y - The row, from 0 at the top.
+ * @param {number} stride - The number of bytes of a row of pixels.
+ * @param {number} channels - The number of color channels of every pixel.
+ */
+function unfilterRow(
+  filtered: Buffer,
+  data: Uint8Array,
+  y: number,
+  stride: number,
+  channels: number,
+): void {
+  const start: number = y * (stride + 1);
+  const filter: number = filtered[start] ?? 0;
+  const row: number = y * stride;
+  for (let x = 0; x < stride; x++) {
+    const left: number = x < channels ? 0 : (data[row + x - channels] ?? 0);
+    const up: number = y === 0 ? 0 : (data[row + x - stride] ?? 0);
+    const upLeft: number =
+      x < channels || y === 0 ? 0 : (data[row + x - stride - channels] ?? 0);
+    data[row + x] =
+      (filtered[start + 1 + x] ?? 0) + predictByte(filter, left, up, upLeft);
+  }
 }
 
 /**

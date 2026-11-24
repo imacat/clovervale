@@ -124,7 +124,7 @@ function createFigure(appearance: number): Figure {
  * @returns {number} The height of the arm.
  */
 function measureArm(scene: Object3D, index = 0): number {
-  return scene.children[index]?.children[0]?.position.y ?? NaN;
+  return scene.children[index]?.children[0]?.position.y ?? Number.NaN;
 }
 
 /**

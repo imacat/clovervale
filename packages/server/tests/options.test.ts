@@ -95,7 +95,10 @@ describe('parseDayCycle', () => {
       origin: DEFAULT_DAY_ORIGIN,
       length: 30 * 60_000,
     });
-    expect(parseDayCycle(['--day-length=0.5']).length).toBe(30_000);
+    expect(parseDayCycle(['--day-length=0.5'])).toHaveProperty(
+      'length',
+      30_000,
+    );
   });
 
   it('holds the clock at the time of --hold-time', () => {
@@ -113,8 +116,8 @@ describe('parseDayCycle', () => {
 
   it('runs the day wherever the server listens', () => {
     expect(
-      parseDayCycle(['--socket', 'game.sock', '--day-length', '2']).length,
-    ).toBe(120_000);
+      parseDayCycle(['--socket', 'game.sock', '--day-length', '2']),
+    ).toHaveProperty('length', 120_000);
   });
 
   it('refuses --day-length and --hold-time together', () => {

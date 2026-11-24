@@ -77,7 +77,7 @@ function feedSnapshots(
     const arrival: number = arrive(step * STEP, index);
     clock.observe(step, arrival);
     if (isRead) {
-      readings.push(clock.read(arrival) ?? NaN);
+      readings.push(clock.read(arrival) ?? Number.NaN);
     }
   }
   return readings;
@@ -158,7 +158,10 @@ describe('DayClock', () => {
     expect(earlyTime).toBeCloseTo(0.4 + 100_000 / 1_200_000, 4);
     // They differ by no more than their snapshots take to arrive, here
     // under a twentieth of a second.
-    const gap: number = measureGap(earlyTime ?? NaN, lateTime ?? NaN);
+    const gap: number = measureGap(
+      earlyTime ?? Number.NaN,
+      lateTime ?? Number.NaN,
+    );
     expect(gap * 1_200_000).toBeLessThan(50);
   });
 
@@ -170,7 +173,7 @@ describe('DayClock', () => {
     const link: Arrive = (time, i) => (time + 20 + findDelay(i)) * 1.005;
     const hours = 2;
     const readings: number[] = feedSnapshots(clock, link, 0, hours * 3.6e6);
-    const last: number = readings.at(-1) ?? NaN;
+    const last: number = readings.at(-1) ?? Number.NaN;
     const truth: number = (0.1 + (hours * 3.6e6) / 1_200_000) % 1;
     expect(measureGap(last, truth)).toBeLessThan(1e-4);
     // It never turns back either, which would move the sun backward.
@@ -190,7 +193,10 @@ describe('DayClock', () => {
     feedSnapshots(clock, link, 10_000, 610_000, false);
     const shown: number = link(610_000, 0);
     expect(
-      measureGap(clock.read(shown) ?? NaN, (0.25 + 610_000 / 60_000) % 1),
+      measureGap(
+        clock.read(shown) ?? Number.NaN,
+        (0.25 + 610_000 / 60_000) % 1,
+      ),
     ).toBeLessThan(1e-3);
   });
 

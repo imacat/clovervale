@@ -23,6 +23,7 @@
  *   waits for to move on, and how each is told on the wire.
  */
 
+import { assertNever } from './assert.ts';
 import {
   parseList,
   parseMember,
@@ -302,6 +303,8 @@ export class TobyQuest implements Quest {
         return [OINTMENT_RECEIVED];
       case 'done':
         return [];
+      default:
+        return assertNever(this.#stage);
     }
   }
 
@@ -404,6 +407,8 @@ export class ClovervaleQuest implements Quest {
         return [MESSAGE_GIVEN];
       case 'done':
         return [];
+      default:
+        return assertNever(this.#stage);
     }
   }
 
@@ -424,6 +429,8 @@ export class ClovervaleQuest implements Quest {
       case 'token':
       case 'done':
         return null;
+      default:
+        return assertNever(this.#stage);
     }
   }
 

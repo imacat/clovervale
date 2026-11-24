@@ -37,8 +37,31 @@ export type FileFetcher = (url: string, init: RequestInit) => Promise<Response>;
 /** The settings of a site that sets nothing. */
 const NO_CONFIG: ClientConfig = { serverUrl: null };
 
-/** A line that sets a setting: its name and its value. */
-const SETTING_PATTERN = /^([A-Z][A-Z0-9_]*)\s*=\s*(.*)$/;
+/** The name of a setting. */
+const NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+
+/** A value that holds no line break. */
+const VALUE_PATTERN = /^.*$/;
+
+/**
+ * Splits a line that sets a setting into its name and its value.
+ *
+ * @param {string} line - The line, trimmed.
+ * @returns {[string, string] | null} The name and the value, or `null` if
+ *   the line does not set a setting.
+ */
+function splitSetting(line: string): [string, string] | null {
+  const equals: number = line.indexOf('=');
+  if (equals < 0) {
+    return null;
+  }
+  const name: string = line.slice(0, equals).trimEnd();
+  const value: string = line.slice(equals + 1).trimStart();
+  if (!NAME_PATTERN.test(name) || !VALUE_PATTERN.test(value)) {
+    return null;
+  }
+  return [name, value];
+}
 
 /**
  * Reads the value of a setting as it is written in a settings file.
@@ -53,7 +76,11 @@ function readValue(written: string): string {
   if (quoted !== null) {
     return quoted[2] ?? '';
   }
-  return written.replace(/(^|\s+)#.*$/, '');
+  const comment: RegExpExecArray | null = /(^|\s)#/.exec(written);
+  if (comment === null) {
+    return written;
+  }
+  return written.slice(0, comment.index).trimEnd();
 }
 
 /**
@@ -76,14 +103,14 @@ export function parseClientConfig(text: string): ClientConfig {
     if (line === '' || line.startsWith('#')) {
       continue;
     }
-    const setting: RegExpExecArray | null = SETTING_PATTERN.exec(line);
+    const setting: [string, string] | null = splitSetting(line);
     if (setting === null) {
       throw new Error(`line ${String(index + 1)} is not a setting`);
     }
-    if (setting[1] !== 'SERVER_URL') {
+    if (setting[0] !== 'SERVER_URL') {
       continue;
     }
-    const value: string = readValue(setting[2] ?? '');
+    const value: string = readValue(setting[1]);
     if (value !== '' && !/^wss?:\/\/\S+$/.test(value)) {
       throw new Error('SERVER_URL is not a ws: or wss: URL');
     }

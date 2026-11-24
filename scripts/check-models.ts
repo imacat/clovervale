@@ -23,7 +23,11 @@
 
 import { readdirSync } from 'node:fs';
 
-import { CAVE_CONTAINER_MODELS, CAVE_PLACEMENTS } from '@clovervale/shared';
+import {
+  CAVE_CONTAINER_MODELS,
+  CAVE_PLACEMENTS,
+  compareCodeUnits,
+} from '@clovervale/shared';
 import type { ModelId, Placement } from '@clovervale/shared';
 
 import {
@@ -48,12 +52,14 @@ import type { ModelResult } from './check-models/model.ts';
 import { checkStrike } from './check-models/strike.ts';
 
 /**
- * Checks the models of the client.
+ * Lists what is wrong with the files in the directory of the models: that
+ * it holds something other than models, that a required model is missing,
+ * or that a file has a name the game does not use.
  *
- * @returns {Promise<boolean>} Whether every model meets every requirement.
+ * @param {readonly string[]} files - The file names in the directory.
+ * @returns {string[]} The problems.
  */
-async function checkModels(): Promise<boolean> {
-  const files: string[] = readdirSync(modelsDir).sort();
+function listFileProblems(files: readonly string[]): string[] {
   const problems: string[] = [];
   if (!files.every((file: string) => file.endsWith('.glb'))) {
     problems.push('the directory holds something other than .glb files');
@@ -68,12 +74,20 @@ async function checkModels(): Promise<boolean> {
       problems.push(`${file} is not a name the game uses`);
     }
   }
-  const results: ModelResult[] = [];
-  for (const file of files) {
-    if (file.endsWith('.glb')) {
-      results.push(await checkModel(file));
-    }
-  }
+  return problems;
+}
+
+/**
+ * Checks how the models meet one another in the world: the strike of the
+ * smith, the face of the chief, the cave, the side chambers of the cave,
+ * and the apothecary shop.  A check whose required models are missing
+ * fails as not checked; one whose optional props are missing is skipped
+ * with an empty outcome.
+ *
+ * @param {string[]} files - The file names of the models there are.
+ * @returns {Promise<StrikeResult[]>} The outcomes, in that order.
+ */
+async function checkMeetings(files: string[]): Promise<StrikeResult[]> {
   // Both models are required, so a missing one is already reported; the
   // strike is reported as not checked as well.
   const strike: StrikeResult =
@@ -86,7 +100,6 @@ async function checkModels(): Promise<boolean> {
               `iron on ${ANVIL_FILE}`,
           ],
         };
-  problems.push(...strike.failures);
   // The chief is required, so a missing one is already reported; her face
   // is reported as not checked as well.
   const sight: StrikeResult = files.includes(CHIEF_FILE)
@@ -95,7 +108,6 @@ async function checkModels(): Promise<boolean> {
         summary: '',
         failures: [`the face of ${CHIEF_FILE} cannot be checked`],
       };
-  problems.push(...sight.failures);
   // The models of the cave are optional props; without them, the cave is
   // not checked.
   const cave: StrikeResult =
@@ -103,7 +115,6 @@ async function checkModels(): Promise<boolean> {
     files.includes(MODEL_FILES['cave-torch'])
       ? await checkCave(files)
       : { summary: '', failures: [] };
-  problems.push(...cave.failures);
   // The models of the side chambers are required with the prisoner, and
   // optional props otherwise; without all of them, they are not checked.
   const fixtures: StrikeResult = [
@@ -114,7 +125,6 @@ async function checkModels(): Promise<boolean> {
   ].every((model: ModelId) => files.includes(MODEL_FILES[model]))
     ? await checkCaveFixtures()
     : { summary: '', failures: [] };
-  problems.push(...fixtures.failures);
   // Basil is required, so a missing one is already reported; the shop is
   // reported as not checked as well.
   const apothecary: StrikeResult = files.includes(BASIL_FILE)
@@ -123,7 +133,18 @@ async function checkModels(): Promise<boolean> {
         summary: '',
         failures: [`the apothecary shop cannot be checked`],
       };
-  problems.push(...apothecary.failures);
+  return [strike, sight, cave, fixtures, apothecary];
+}
+
+/**
+ * Lists what keeps the characters from sharing one rig: that they do not
+ * share one skeleton, or the same clips.
+ *
+ * @param {readonly ModelResult[]} results - The outcomes of the models.
+ * @returns {string[]} The problems.
+ */
+function listRigProblems(results: readonly ModelResult[]): string[] {
+  const problems: string[] = [];
   const characters: ModelResult[] = results.filter(
     (result: ModelResult) => result.kind === 'character',
   );
@@ -134,6 +155,24 @@ async function checkModels(): Promise<boolean> {
   if (countDistinct(characters.map((result) => result.clipsHash)) > 1) {
     problems.push('the characters do not share the same clips');
   }
+  return problems;
+}
+
+/**
+ * Prints the outcomes of the check: each model with what it does not
+ * meet, each check of how the models meet that is not skipped, and then
+ * every other problem.
+ *
+ * @param {readonly ModelResult[]} results - The outcomes of the models.
+ * @param {readonly StrikeResult[]} meetings - The outcomes of how the
+ *   models meet one another.
+ * @param {readonly string[]} problems - The other problems.
+ */
+function printOutcomes(
+  results: readonly ModelResult[],
+  meetings: readonly StrikeResult[],
+  problems: readonly string[],
+): void {
   for (const result of results) {
     const mark: string = result.failures.length > 0 ? 'FAIL' : 'ok  ';
     console.log(`${mark} ${result.file}: ${result.summary}`);
@@ -141,7 +180,7 @@ async function checkModels(): Promise<boolean> {
       console.log(`     - ${failure}`);
     }
   }
-  for (const meeting of [strike, sight, cave, fixtures, apothecary]) {
+  for (const meeting of meetings) {
     if (meeting.summary !== '') {
       const mark: string = meeting.failures.length > 0 ? 'FAIL' : 'ok  ';
       console.log(`${mark} ${meeting.summary}`);
@@ -150,6 +189,27 @@ async function checkModels(): Promise<boolean> {
   for (const problem of problems) {
     console.log(`FAIL ${problem}`);
   }
+}
+
+/**
+ * Checks the models of the client.
+ *
+ * @returns {Promise<boolean>} Whether every model meets every requirement.
+ */
+async function checkModels(): Promise<boolean> {
+  const files: string[] = readdirSync(modelsDir).sort(compareCodeUnits);
+  const problems: string[] = listFileProblems(files);
+  const results: ModelResult[] = await Promise.all(
+    files
+      .filter((file: string) => file.endsWith('.glb'))
+      .map((file: string) => checkModel(file)),
+  );
+  const meetings: StrikeResult[] = await checkMeetings(files);
+  problems.push(
+    ...meetings.flatMap((meeting: StrikeResult) => meeting.failures),
+    ...listRigProblems(results),
+  );
+  printOutcomes(results, meetings, problems);
   return (
     problems.length === 0 &&
     results.every((result: ModelResult) => result.failures.length === 0)

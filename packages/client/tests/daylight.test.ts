@@ -154,7 +154,7 @@ describe('findDaylight', () => {
       );
       const jump: number = Math.max(
         ...numbers.map((value: number, index: number) =>
-          Math.abs(value - (previous[index] ?? NaN)),
+          Math.abs(value - (previous[index] ?? Number.NaN)),
         ),
       );
       expect([sample / SAMPLES, jump]).toEqual([

@@ -433,9 +433,10 @@ export class Monster implements Target, Striker {
   /** Walks back home, and idles once there, or once it finds no way. */
   #goHome(): void {
     const outcome: WalkOutcome = this.#body.walk(this.#kind.chaseSpeed);
-    if (outcome === 'arrived') {
-      this.#settle();
-    } else if (outcome === 'stopped' && !this.#body.findWay(this.#home)) {
+    if (
+      outcome === 'arrived' ||
+      (outcome === 'stopped' && !this.#body.findWay(this.#home))
+    ) {
       this.#settle();
     }
   }

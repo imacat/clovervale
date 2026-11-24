@@ -22,6 +22,8 @@
  *   the apothecary shop and the house of the village chief.
  */
 
+import { assertNever } from '@clovervale/shared';
+
 import {
   createBlob,
   createBlock,
@@ -124,23 +126,16 @@ function setHouseMaterials(
 }
 
 /**
- * Adds a timber-framed house whose front gable faces +Z.
+ * Creates the function that moves a shape built facing +Z onto a wall of a
+ * house.
  *
- * @param {Model} model - The model, with the house materials defined.
  * @param {HousePlan} plan - The plan of the house.
  * @returns {PutOnWall} A function that moves a shape built facing +Z onto a
  *   wall of the house.
  */
-function addHouse(model: Model, plan: HousePlan): PutOnWall {
-  const { x, width: w, depth: d, base, wall, rise } = plan;
-  const eaves: number = base + wall;
-  const stories: number = plan.stories ?? 1;
-  const story: number = wall / stories;
-  const floors: number[] = Array.from(
-    { length: stories - 1 },
-    (_, i: number) => base + (i + 1) * story,
-  );
-  const putOnWall: PutOnWall = (
+function createWallPlacer(plan: HousePlan): PutOnWall {
+  const { x, width: w, depth: d } = plan;
+  return (
     shape: Shape,
     side: Wall,
     u: number,
@@ -165,60 +160,37 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
           pos: [x - w / 2 - out, y, u],
           rot: [0, -90, 0],
         });
+      default:
+        return assertNever(side);
     }
   };
-  model.add(
-    'stone',
-    place(createBlock(w + 0.3, base, d + 0.3), { pos: [x, 0, 0] }),
-  );
-  model.add('plaster', place(createBlock(w, wall, d), { pos: [x, base, 0] }));
-  model.add(
-    'plaster',
-    place(
-      createExtrusion(
-        [
-          [-w / 2, 0],
-          [w / 2, 0],
-          [0, rise],
-        ],
-        d,
-      ),
-      { pos: [x, eaves, 0] },
-    ),
-  );
+}
 
-  const slope: number = rise / (w / 2);
-  const reach: number = w / 2 + 0.45;
-  const rows = 4;
-  for (let i = 0; i < rows; i++) {
-    const far: number = (reach * (rows - i)) / rows;
-    const thick: number = 0.16 + 0.07 * i;
-    model.add(
-      i % 2 ? 'roofShade' : 'roof',
-      place(
-        createExtrusion(
-          [
-            [-far, rise - slope * far],
-            [0, rise],
-            [far, rise - slope * far],
-            [far, rise - slope * far + thick],
-            [0, rise + thick],
-            [-far, rise - slope * far + thick],
-          ],
-          d + 0.9 - 0.04 * i,
-        ),
-        { pos: [x, eaves + 0.02, 0] },
-      ),
-    );
-  }
-  model.add(
-    'timber',
-    place(createBox(0.22, 0.2, d + 1), {
-      pos: [x, eaves + rise + 0.16 + 0.07 * rows, 0],
-    }),
+/**
+ * Adds the timber frame over the walls and the gables of a house: the
+ * beams along the foot and the top of each wall and between its stories,
+ * the corner posts, the rafters and the struts of the gables, and the
+ * diagonal braces of each story.
+ *
+ * @param {Model} model - The model, with the house materials defined.
+ * @param {HousePlan} plan - The plan of the house.
+ * @param {PutOnWall} putOnWall - Moves a shape built facing +Z onto a wall
+ *   of the house.
+ */
+function addTimberFrame(
+  model: Model,
+  plan: HousePlan,
+  putOnWall: PutOnWall,
+): void {
+  const { width: w, depth: d, base, wall, rise } = plan;
+  const eaves: number = base + wall;
+  const stories: number = plan.stories ?? 1;
+  const story: number = wall / stories;
+  const floors: number[] = Array.from(
+    { length: stories - 1 },
+    (_, i: number) => base + (i + 1) * story,
   );
-
-  const angle: number = Math.atan(slope) / DEG;
+  const angle: number = Math.atan(rise / (w / 2)) / DEG;
   const rafter: number = Math.hypot(w / 2, rise);
   const gables: Wall[] = ['front', 'back'];
   const sides: Wall[] = ['left', 'right'];
@@ -311,6 +283,71 @@ function addHouse(model: Model, plan: HousePlan): PutOnWall {
     addBrace(side, -d / 2 + 0.6, -1);
     addBrace(side, d / 2 - 0.6, 1);
   }
+}
+
+/**
+ * Adds a timber-framed house whose front gable faces +Z.
+ *
+ * @param {Model} model - The model, with the house materials defined.
+ * @param {HousePlan} plan - The plan of the house.
+ * @returns {PutOnWall} A function that moves a shape built facing +Z onto a
+ *   wall of the house.
+ */
+function addHouse(model: Model, plan: HousePlan): PutOnWall {
+  const { x, width: w, depth: d, base, wall, rise } = plan;
+  const eaves: number = base + wall;
+  const putOnWall: PutOnWall = createWallPlacer(plan);
+  model.add(
+    'stone',
+    place(createBlock(w + 0.3, base, d + 0.3), { pos: [x, 0, 0] }),
+  );
+  model.add('plaster', place(createBlock(w, wall, d), { pos: [x, base, 0] }));
+  model.add(
+    'plaster',
+    place(
+      createExtrusion(
+        [
+          [-w / 2, 0],
+          [w / 2, 0],
+          [0, rise],
+        ],
+        d,
+      ),
+      { pos: [x, eaves, 0] },
+    ),
+  );
+
+  const slope: number = rise / (w / 2);
+  const reach: number = w / 2 + 0.45;
+  const rows = 4;
+  for (let i = 0; i < rows; i++) {
+    const far: number = (reach * (rows - i)) / rows;
+    const thick: number = 0.16 + 0.07 * i;
+    model.add(
+      i % 2 ? 'roofShade' : 'roof',
+      place(
+        createExtrusion(
+          [
+            [-far, rise - slope * far],
+            [0, rise],
+            [far, rise - slope * far],
+            [far, rise - slope * far + thick],
+            [0, rise + thick],
+            [-far, rise - slope * far + thick],
+          ],
+          d + 0.9 - 0.04 * i,
+        ),
+        { pos: [x, eaves + 0.02, 0] },
+      ),
+    );
+  }
+  model.add(
+    'timber',
+    place(createBox(0.22, 0.2, d + 1), {
+      pos: [x, eaves + rise + 0.16 + 0.07 * rows, 0],
+    }),
+  );
+  addTimberFrame(model, plan, putOnWall);
 
   const u: number = plan.door;
   model.add(
@@ -453,8 +490,27 @@ export function buildWeaponShop(): BuiltModel {
     ],
   };
   const putOnWall: PutOnWall = addHouse(model, plan);
+  addShopEmblem(model, putOnWall);
+  addWeaponStall(model, putOnWall);
+  addHangingSign(model, putOnWall, plan.door - 0.95);
+  const fx: number = hx + 2.5 + 1.15;
+  addForge(model, fx);
+  addAnvil(model, fx + 0.46, 1.41);
+  addSwordBarrel(model, hx + 2.55, 2.97);
+  addCoalBox(model, fx + 1.17, 0.3);
+  model.centerFootprint();
+  return { model };
+}
 
-  // The emblem under the gable: a shield over two crossed swords.
+/**
+ * Adds the emblem of the weapon shop under its front gable: a shield over
+ * two crossed swords.
+ *
+ * @param {Model} model - The model of the weapon shop.
+ * @param {PutOnWall} putOnWall - Moves a shape built facing +Z onto a wall
+ *   of the shop.
+ */
+function addShopEmblem(model: Model, putOnWall: PutOnWall): void {
   const emblemY = 4.05;
   const faceFront: Placement = { rot: [90, 0, 0] };
   model.add(
@@ -544,8 +600,17 @@ export function buildWeaponShop(): BuiltModel {
       0.24,
     ),
   );
+}
 
-  // The weapon stall: an open counter under a striped awning.
+/**
+ * Adds the weapon stall on the front of the weapon shop: an open counter
+ * under a striped awning, with swords, a shield and an axe on display.
+ *
+ * @param {Model} model - The model of the weapon shop.
+ * @param {PutOnWall} putOnWall - Moves a shape built facing +Z onto a wall
+ *   of the shop.
+ */
+function addWeaponStall(model: Model, putOnWall: PutOnWall): void {
   const stall = 0.95;
   model.add(
     'timber',
@@ -673,9 +738,22 @@ export function buildWeaponShop(): BuiltModel {
       0.13,
     ),
   );
+}
 
-  // The hanging sign by the door.
-  const sign: number = plan.door - 0.95;
+/**
+ * Adds the hanging sign of the weapon shop by its door.
+ *
+ * @param {Model} model - The model of the weapon shop.
+ * @param {PutOnWall} putOnWall - Moves a shape built facing +Z onto a wall
+ *   of the shop.
+ * @param {number} sign - Where the sign hangs along the front wall, from
+ *   its center.
+ */
+function addHangingSign(
+  model: Model,
+  putOnWall: PutOnWall,
+  sign: number,
+): void {
   model.add(
     'timber',
     putOnWall(createBox(0.1, 0.1, 1.0), 'front', sign, 2.75, 0.5),
@@ -700,9 +778,16 @@ export function buildWeaponShop(): BuiltModel {
       );
     }
   }
+}
 
-  // The forge beside the house.
-  const fx: number = hx + 2.5 + 1.15;
+/**
+ * Adds the forge beside the weapon shop: its stone hearth and chimney, its
+ * dark mouth, and the bed of coals and the flames in the mouth.
+ *
+ * @param {Model} model - The model of the weapon shop.
+ * @param {number} fx - The center of the forge along X.
+ */
+function addForge(model: Model, fx: number): void {
   model.add(
     'stoneDark',
     place(createBlock(1.9, 0.25, 1.9), { pos: [fx, 0, -0.3] }),
@@ -769,14 +854,20 @@ export function buildWeaponShop(): BuiltModel {
       scale: [1, 1, 0.3],
     }),
   );
+}
 
-  // The anvil on its stump, out in front of the forge on the side away from
-  // the house, low enough for the smith to bring her hammer down on it, with
-  // a bar of hot iron on it.  The smith stands in front of the mouth of the
-  // forge, facing away from the house, with the forge on her left and the
-  // anvil in front of her; its horn points to her left, at the forge.
-  const ax: number = fx + 0.46;
-  const az = 1.41;
+/**
+ * Adds the anvil on its stump, out in front of the forge on the side away
+ * from the house, low enough for the smith to bring her hammer down on it,
+ * with a bar of hot iron on it.  The smith stands in front of the mouth of
+ * the forge, facing away from the house, with the forge on her left and the
+ * anvil in front of her; its horn points to her left, at the forge.
+ *
+ * @param {Model} model - The model of the weapon shop.
+ * @param {number} ax - The center of the anvil along X.
+ * @param {number} az - The center of the anvil along Z.
+ */
+function addAnvil(model: Model, ax: number, az: number): void {
   const stump = 0.32;
   model.add(
     'wood',
@@ -824,9 +915,16 @@ export function buildWeaponShop(): BuiltModel {
       rot: [0, 90, 0],
     }),
   );
-  // The barrel of swords by the end of the counter.
-  const bx: number = hx + 2.55;
-  const bz = 2.97;
+}
+
+/**
+ * Adds the barrel of swords by the end of the counter of the weapon shop.
+ *
+ * @param {Model} model - The model of the weapon shop.
+ * @param {number} bx - The center of the barrel along X.
+ * @param {number} bz - The center of the barrel along Z.
+ */
+function addSwordBarrel(model: Model, bx: number, bz: number): void {
   model.add(
     'wood',
     place(
@@ -878,11 +976,18 @@ export function buildWeaponShop(): BuiltModel {
       );
     }
   }
+}
 
-  // An open box of coal against the side of the forge away from the house,
-  // by its front corner: a wooden box with no lid, heaped with dark lumps.
-  const cx: number = fx + 1.17;
-  const cz = 0.3;
+/**
+ * Adds an open box of coal against the side of the forge away from the
+ * house, by its front corner: a wooden box with no lid, heaped with dark
+ * lumps.
+ *
+ * @param {Model} model - The model of the weapon shop.
+ * @param {number} cx - The center of the box along X.
+ * @param {number} cz - The center of the box along Z.
+ */
+function addCoalBox(model: Model, cx: number, cz: number): void {
   const coalBox: Triple = [0.38, 0.42, 0.6];
   const plank = 0.03;
   for (const side of [-1, 1]) {
@@ -925,8 +1030,6 @@ export function buildWeaponShop(): BuiltModel {
       }),
     );
   }
-  model.centerFootprint();
-  return { model };
 }
 
 /**

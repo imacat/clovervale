@@ -67,7 +67,7 @@ function snapHour(hour: number): number {
   if (snapped < 0) {
     return 0;
   }
-  return snapped > LAST_HOUR ? LAST_HOUR : snapped;
+  return Math.min(snapped, LAST_HOUR);
 }
 
 /**

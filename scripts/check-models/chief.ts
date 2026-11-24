@@ -31,7 +31,7 @@ import {
   findPlacement,
   placePoint,
 } from '@clovervale/shared';
-import type { GroundVector, ModelId } from '@clovervale/shared';
+import type { GroundVector, ModelId, Placement } from '@clovervale/shared';
 import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import type { StrikeResult } from './constants.ts';
@@ -127,17 +127,57 @@ function listChiefViewpoints(): [string, Vector3][] {
 async function loadPorchSurroundings(
   files: readonly string[],
 ): Promise<Object3D[]> {
-  const roots: Object3D[] = [];
-  for (const model of PORCH_SURROUNDINGS.filter((id: ModelId) =>
+  const placements: Placement[] = PORCH_SURROUNDINGS.filter((id: ModelId) =>
     files.includes(MODEL_FILES[id]),
-  )) {
-    for (const placement of VILLAGE_PLACEMENTS) {
-      if (placement.model === model) {
-        roots.push((await loadAt(placement)).scene);
-      }
-    }
+  ).flatMap((model: ModelId) =>
+    VILLAGE_PLACEMENTS.filter(
+      (placement: Placement) => placement.model === model,
+    ),
+  );
+  const models: GLTF[] = await Promise.all(
+    placements.map((placement: Placement) => loadAt(placement)),
+  );
+  return models.map((model: GLTF) => model.scene);
+}
+
+/**
+ * Finds the mean of the vertices of a material of a model, as it stands.
+ *
+ * @param {Object3D} root - The model.
+ * @param {string} material - The name of the material.
+ * @returns {Vector3} The mean, in the world, with every coordinate NaN if
+ *   the model has no vertices of the material.
+ */
+function findMaterialMiddle(root: Object3D, material: string): Vector3 {
+  const points: Vector3[] = listMaterialVertices(root, material);
+  const middle = new Vector3();
+  for (const point of points) {
+    middle.add(point);
   }
-  return roots;
+  return middle.divideScalar(points.length);
+}
+
+/**
+ * Checks whether anything of some models stands between a viewpoint and a
+ * target.
+ *
+ * @param {Raycaster} raycaster - The ray caster to look with.
+ * @param {Object3D[]} blockers - The models that could stand in the way.
+ * @param {Vector3} viewpoint - Where the target is looked at from.
+ * @param {Vector3} target - What is looked at.
+ * @returns {boolean} Whether anything stands in the way.
+ */
+function isHidden(
+  raycaster: Raycaster,
+  blockers: Object3D[],
+  viewpoint: Vector3,
+  target: Vector3,
+): boolean {
+  const way: Vector3 = new Vector3().subVectors(target, viewpoint);
+  const distance: number = way.length();
+  raycaster.set(viewpoint, way.normalize());
+  raycaster.far = distance;
+  return raycaster.intersectObjects(blockers, true).length > 0;
 }
 
 /**
@@ -186,18 +226,9 @@ export async function checkChiefInSight(
       (clip.duration * k) / SIGHT_SAMPLES,
     );
     for (const [material, part] of FACE_PARTS) {
-      const points: Vector3[] = listMaterialVertices(chief.scene, material);
-      const middle = new Vector3();
-      for (const point of points) {
-        middle.add(point);
-      }
-      middle.divideScalar(points.length);
+      const middle: Vector3 = findMaterialMiddle(chief.scene, material);
       for (const [name, viewpoint] of listChiefViewpoints()) {
-        const way: Vector3 = new Vector3().subVectors(middle, viewpoint);
-        const distance: number = way.length();
-        raycaster.set(viewpoint, way.normalize());
-        raycaster.far = distance;
-        if (raycaster.intersectObjects(surroundings, true).length > 0) {
+        if (isHidden(raycaster, surroundings, viewpoint, middle)) {
           hidden.add(`the ${part} of ${CHIEF_FILE} from ${name}`);
         }
       }

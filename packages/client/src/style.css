@@ -25,16 +25,24 @@
  */
 @import 'lil-gui/style';
 
+/*
+ * The page zoomed by a pinch outside the play, but not by a double tap; the
+ * game surface and the touch controls keep every touch for the play.
+ */
 html,
 body {
   margin: 0;
   height: 100%;
   overflow: hidden;
   background: #101810;
+  touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 canvas {
   display: block;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 /*
@@ -454,8 +462,8 @@ canvas {
 }
 
 .bag-action.is-disabled.is-cursor {
-  background: #6a6a6a;
-  color: #b8b8b8;
+  background: #505050;
+  color: #c8c8c8;
 }
 
 /* The name of the item the cursor is on, its line kept for an empty slot. */
@@ -1375,13 +1383,6 @@ canvas {
  * of the safe areas of the screen, and hidden while the bag, the help sheet
  * or a dialogue is open, as they are held then.
  */
-html,
-body,
-canvas {
-  touch-action: none;
-  overscroll-behavior: none;
-}
-
 .touch-controls {
   display: none;
   pointer-events: none;
@@ -1599,7 +1600,9 @@ canvas {
   padding: 8px 14px;
 }
 
+/* The panel narrower on a narrow screen, clear of the buttons at the left. */
 .is-touch .panel {
+  --width: min(245px, calc(100vw - 160px));
   top: env(safe-area-inset-top, 0px);
   right: calc(15px + env(safe-area-inset-right, 0px));
   max-height: calc(100% - 152px - env(safe-area-inset-bottom, 0px));
@@ -1797,9 +1800,4 @@ canvas {
   width: 31px;
   height: 31px;
   padding: 3px;
-}
-
-/* The panel narrower on a narrow screen, clear of the buttons at the left. */
-.is-touch .panel {
-  --width: min(245px, calc(100vw - 160px));
 }

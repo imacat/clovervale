@@ -495,24 +495,7 @@ export class Martha
    */
   #act(players: readonly Suspect[]): MarthaDeed[] {
     const deeds: MarthaDeed[] = [];
-    this.#queue.keep((waiting: Waiting): boolean => {
-      const player: Suspect | undefined = findSuspect(players, waiting.id);
-      return (
-        player !== undefined &&
-        (isInArea(player) || (waiting.isRequested && !player.isHunted))
-      );
-    });
-    for (const player of players) {
-      if (
-        player.isHunted &&
-        player.isAlive &&
-        !this.#isWaitingOrServed(player.id) &&
-        measureDistance(player, this.#body.position) <= KIND.noticeRange &&
-        isInArea(player)
-      ) {
-        this.#queue.enqueue(player.id, 'fight');
-      }
-    }
+    this.#refreshQueue(players);
     if (this.#body.mode === 'sit') {
       if (--this.#sitSteps <= 0) {
         this.#body.restoreHealth();
@@ -556,6 +539,37 @@ export class Martha
         }
     }
     return deeds;
+  }
+
+  /**
+   * Brings Martha's queue up to date with the players of her map: drops
+   * the players that have left it, or her area unless they asked for her
+   * and she does not hunt them, and lines up for a fight every hunted,
+   * living player in her area that comes within her notice and is not
+   * yet waiting or served.
+   *
+   * @param {readonly Suspect[]} players - The players of her map, where
+   *   they stand now.
+   */
+  #refreshQueue(players: readonly Suspect[]): void {
+    this.#queue.keep((waiting: Waiting): boolean => {
+      const player: Suspect | undefined = findSuspect(players, waiting.id);
+      return (
+        player !== undefined &&
+        (isInArea(player) || (waiting.isRequested && !player.isHunted))
+      );
+    });
+    for (const player of players) {
+      if (
+        player.isHunted &&
+        player.isAlive &&
+        !this.#isWaitingOrServed(player.id) &&
+        measureDistance(player, this.#body.position) <= KIND.noticeRange &&
+        isInArea(player)
+      ) {
+        this.#queue.enqueue(player.id, 'fight');
+      }
+    }
   }
 
   /**

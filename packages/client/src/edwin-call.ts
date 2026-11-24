@@ -99,11 +99,13 @@ export class EdwinCall {
    * @returns {boolean} Whether Edwin calls out at this frame.
    */
   update(seconds: number, situation: EdwinSituation): boolean {
-    this.#deadTime = situation.areDogsDead
-      ? this.#deadTime === null
-        ? 0
-        : this.#deadTime + seconds
-      : null;
+    if (!situation.areDogsDead) {
+      this.#deadTime = null;
+    } else if (this.#deadTime === null) {
+      this.#deadTime = 0;
+    } else {
+      this.#deadTime += seconds;
+    }
     const canCall: boolean =
       this.#deadTime !== null &&
       this.#deadTime >= CALL_BREATHER &&

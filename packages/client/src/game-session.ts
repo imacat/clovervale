@@ -415,12 +415,12 @@ export class GameSession {
     const latest: PlayerState | undefined = stage.timeline.latest?.find(isOwn);
     prediction?.advance(now);
     const pusherStep: DrawnPusherStep | null = ownPlayer.pusherStep;
-    const shownStep: number | null =
-      settings.prediction.isEnabled && pusherStep !== null
-        ? pusherStep.read(now)
-        : view.time === null
-          ? null
-          : view.time / STEP_MILLISECONDS;
+    let shownStep: number | null = null;
+    if (settings.prediction.isEnabled && pusherStep !== null) {
+      shownStep = pusherStep.read(now);
+    } else if (view.time !== null) {
+      shownStep = view.time / STEP_MILLISECONDS;
+    }
     // The smoothing and the forecast are told of every frame, so that a glide
     // or a push ends as soon as prediction is switched off.
     const drawn: PlayerMotion | null = ownPlayer.readDrawn(

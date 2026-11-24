@@ -63,7 +63,7 @@ export async function fetchModelIndex(baseUrl: string): Promise<string[]> {
   }
   const files: unknown = await response.json();
   if (!Array.isArray(files)) {
-    throw new Error('it is not a list');
+    throw new TypeError('it is not a list');
   }
   return files.filter((file: unknown) => typeof file === 'string');
 }
@@ -97,7 +97,7 @@ export async function loadModels(
   const compareByFile = (a: { file: string }, b: { file: string }): number =>
     a.file.localeCompare(b.file);
   return {
-    models: models.sort(compareByFile),
-    problems: problems.sort(compareByFile),
+    models: models.toSorted(compareByFile),
+    problems: problems.toSorted(compareByFile),
   };
 }

@@ -22,6 +22,8 @@
  *   it speaks.
  */
 
+import { assertNever } from '@clovervale/shared';
+
 import { DEFAULT_LANGUAGE } from './language.ts';
 import type { LanguageCode } from './language.ts';
 import { EN_MESSAGES, EN_OPTIONAL_MESSAGES } from './messages/en.ts';
@@ -65,6 +67,8 @@ export async function loadMessages(
       return (await import('./messages/ja.ts')).JA_MESSAGES;
     case 'es':
       return (await import('./messages/es.ts')).ES_MESSAGES;
+    default:
+      return assertNever(code);
   }
 }
 

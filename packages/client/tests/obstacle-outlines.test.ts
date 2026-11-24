@@ -79,7 +79,7 @@ describe('createObstacleOutlines', () => {
     for (const [x, z] of expected) {
       expect(
         corners.some(
-          ([cx = NaN, cz = NaN]) =>
+          ([cx = Number.NaN, cz = Number.NaN]) =>
             Math.abs(cx - x) < 1e-6 && Math.abs(cz - z) < 1e-6,
         ),
       ).toBe(true);

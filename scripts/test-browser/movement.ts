@@ -215,7 +215,7 @@ export async function checkWalk(
 ): Promise<void> {
   const viewBefore: Pixels = await captureView(session, watcher);
   const before: PageState = await readPageState(session, watcher);
-  const startX: number = findFigure(before, id)?.x ?? NaN;
+  const startX: number = findFigure(before, id)?.x ?? Number.NaN;
 
   // Both views look the same way, so left is the same for both.
   await sendKey(session, actor, 'keyDown', 'a');
@@ -347,8 +347,8 @@ export async function checkMotion(
   if (!isSmooth && between > 0) {
     throw new Error(`${mode}, ${seen}, not as the latest snapshot tells.`);
   }
-  const start: number = frames[0]?.drawn ?? NaN;
-  const end: number = frames.at(-1)?.drawn ?? NaN;
+  const start: number = frames[0]?.drawn ?? Number.NaN;
+  const end: number = frames.at(-1)?.drawn ?? Number.NaN;
   const isBackward: boolean = frames.some(
     (sample: WalkSample, index: number) =>
       (sample.drawn - (frames[index - 1]?.drawn ?? start)) * (end - start) <
@@ -506,6 +506,21 @@ async function readOwnView(
 }
 
 /**
+ * Describes where a page draws a player and what the server tells of it.
+ *
+ * @param {OwnView} view - How the page shows the player.
+ * @returns {string} The description, to follow the subject of a sentence.
+ */
+function describeView(view: OwnView): string {
+  return (
+    `draws its player at x ${String(view.drawn?.x)}, z ` +
+    `${String(view.drawn?.z)}, and the server tells x ` +
+    `${String(view.told?.x)}, z ${String(view.told?.z)}, doing ` +
+    `"${view.told?.action ?? ''}"`
+  );
+}
+
+/**
  * Checks how a page shows its own player behind a slow connection, with the
  * prediction switched on or off: moving at once when a key goes down, or
  * only once the server has answered, and in the end where the server tells,
@@ -556,10 +571,13 @@ export async function checkPrediction(
     response === 'never'
       ? 'never drew its player moving'
       : `drew its player moving after ${elapsed.toFixed(0)} milliseconds`;
-  if (isPredicting && !(elapsed < NETWORK_DELAY)) {
+  if (isPredicting && (Number.isNaN(elapsed) || elapsed >= NETWORK_DELAY)) {
     throw new Error(`${mode} ${took}, which is not at once.`);
   }
-  if (!isPredicting && !(elapsed >= NETWORK_DELAY * 2)) {
+  if (
+    !isPredicting &&
+    (Number.isNaN(elapsed) || elapsed < NETWORK_DELAY * 2)
+  ) {
     throw new Error(
       `${mode} ${took}, which is not after the server has answered.`,
     );
@@ -567,11 +585,6 @@ export async function checkPrediction(
 
   const isAt = (view: OwnView, x: number, z: number): boolean =>
     view.drawn?.x === x && view.drawn.z === z;
-  const describeView = (view: OwnView): string =>
-    `draws its player at x ${String(view.drawn?.x)}, z ` +
-    `${String(view.drawn?.z)}, and the server tells x ` +
-    `${String(view.told?.x)}, z ${String(view.told?.z)}, doing ` +
-    `"${view.told?.action ?? ''}"`;
   const own: OwnView = await waitFor(
     () => readOwnView(session, actor, id),
     (view: OwnView) =>
@@ -583,7 +596,7 @@ export async function checkPrediction(
   );
   await sleep(POLL_INTERVAL * 5 + NETWORK_DELAY * 2);
   const later: OwnView = await readOwnView(session, actor, id);
-  if (!isAt(later, own.told?.x ?? NaN, own.told?.z ?? NaN)) {
+  if (!isAt(later, own.told?.x ?? Number.NaN, own.told?.z ?? Number.NaN)) {
     throw new Error(`${mode} ${describeView(later)}, still moving.`);
   }
   if (later.corrections !== before.corrections) {
@@ -594,7 +607,8 @@ export async function checkPrediction(
   }
   await waitFor(
     () => readOwnView(session, watcher, id),
-    (view: OwnView) => isAt(view, own.told?.x ?? NaN, own.told?.z ?? NaN),
+    (view: OwnView) =>
+      isAt(view, own.told?.x ?? Number.NaN, own.told?.z ?? Number.NaN),
     ACTION_TIMEOUT,
     (view: OwnView) =>
       `${mode} ${describeView(later)}, and the second page ` +
@@ -632,17 +646,12 @@ export async function checkObstacle(
     'milliseconds each way, the first page';
   await setControl(session, actor, 'Show obstacles', true);
   await setControl(session, actor, 'Net delay (ms)', NETWORK_DELAY);
-  const describeView = (view: OwnView): string =>
-    `draws its player at x ${String(view.drawn?.x)}, z ` +
-    `${String(view.drawn?.z)}, and the server tells x ` +
-    `${String(view.told?.x)}, z ${String(view.told?.z)}, doing ` +
-    `"${view.told?.action ?? ''}"`;
   const before: OwnView = await readOwnView(session, actor, id);
   let blocked: OwnView;
   let slid: OwnView;
   try {
     await sendKey(session, actor, 'keyDown', 'a');
-    let lastX = NaN;
+    let lastX = Number.NaN;
     let stillLooks = 0;
     blocked = await waitFor(
       () => readOwnView(session, actor, id),
@@ -650,7 +659,7 @@ export async function checkObstacle(
         const isStill =
           view.told?.action === 'Walk' && view.told.x === lastX;
         stillLooks = isStill ? stillLooks + 1 : 0;
-        lastX = view.told?.x ?? NaN;
+        lastX = view.told?.x ?? Number.NaN;
         return stillLooks >= BLOCKED_LOOKS;
       },
       BLOCKED_TIMEOUT,
@@ -658,7 +667,10 @@ export async function checkObstacle(
         `${mode}, with the A key held down, ${describeView(view)}, never ` +
         'stopped by the cottage.',
     );
-    if (!((blocked.told?.x ?? NaN) < (before.told?.x ?? NaN))) {
+    // False when either position is missing, as a comparison with NaN is.
+    const isMovedLeft: boolean =
+      (blocked.told?.x ?? Number.NaN) < (before.told?.x ?? Number.NaN);
+    if (!isMovedLeft) {
       throw new Error(
         `${mode}, with the A key held down, ${describeView(blocked)}, ` +
           `after x ${String(before.told?.x)} before.`,
@@ -671,11 +683,11 @@ export async function checkObstacle(
     await sendKey(session, actor, 'keyUp', 'w');
     await sendKey(session, actor, 'keyUp', 'a');
   }
-  const blockedX: number = blocked.told?.x ?? NaN;
-  const blockedZ: number = blocked.told?.z ?? NaN;
+  const blockedX: number = blocked.told?.x ?? Number.NaN;
+  const blockedZ: number = blocked.told?.z ?? Number.NaN;
   const isAlong: boolean =
-    Math.abs((slid.told?.x ?? NaN) - blockedX) < SAME_POSITION &&
-    (slid.told?.z ?? NaN) < blockedZ - 0.1;
+    Math.abs((slid.told?.x ?? Number.NaN) - blockedX) < SAME_POSITION &&
+    (slid.told?.z ?? Number.NaN) < blockedZ - 0.1;
   if (!isAlong) {
     throw new Error(
       `${mode}, with the W key held down as well against the cottage at ` +
@@ -695,7 +707,7 @@ export async function checkObstacle(
   );
   await sleep(POLL_INTERVAL * 5 + NETWORK_DELAY * 2);
   const later: OwnView = await readOwnView(session, actor, id);
-  if (!isAt(later, own.told?.x ?? NaN, own.told?.z ?? NaN)) {
+  if (!isAt(later, own.told?.x ?? Number.NaN, own.told?.z ?? Number.NaN)) {
     throw new Error(`${mode} ${describeView(later)}, still moving.`);
   }
   if (later.corrections !== before.corrections) {
@@ -706,7 +718,8 @@ export async function checkObstacle(
   }
   await waitFor(
     () => readOwnView(session, watcher, id),
-    (view: OwnView) => isAt(view, own.told?.x ?? NaN, own.told?.z ?? NaN),
+    (view: OwnView) =>
+      isAt(view, own.told?.x ?? Number.NaN, own.told?.z ?? Number.NaN),
     ACTION_TIMEOUT,
     (view: OwnView) =>
       `${mode} ${describeView(later)}, and the second page ` +

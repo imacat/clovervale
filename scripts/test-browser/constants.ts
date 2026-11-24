@@ -35,7 +35,7 @@ export const clientDir: string = path.join(rootDir, 'packages/client/dist');
 /** The built game server. */
 export const serverFile: string = path.join(
   rootDir,
-  'packages/server/dist/server.cjs',
+  'packages/server/dist/server.mjs',
 );
 /** How long the page may take to draw and connect, in milliseconds. */
 export const PAGE_TIMEOUT = 20_000;

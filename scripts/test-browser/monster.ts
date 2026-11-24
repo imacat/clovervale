@@ -205,7 +205,7 @@ export async function stepWithin(
     describeProblem,
   );
   for (;;) {
-    const z: number = seen.own?.z ?? NaN;
+    const z: number = seen.own?.z ?? Number.NaN;
     if (z >= least && z <= most) {
       return;
     }
@@ -343,11 +343,13 @@ export async function checkMonster(
       readMonsterLook(session, watcher, id),
     ]);
   const [ownBefore, otherBefore] = await readBoth();
-  const healthBefore: number = ownBefore.monster?.health ?? NaN;
+  const healthBefore: number = ownBefore.monster?.health ?? Number.NaN;
   const isLowered = (look: MonsterLook): boolean =>
     (look.monster?.health ?? Infinity) < healthBefore;
-  const dx: number = (ownBefore.monster?.x ?? NaN) - (ownBefore.own?.x ?? NaN);
-  const dz: number = (ownBefore.monster?.z ?? NaN) - (ownBefore.own?.z ?? NaN);
+  const dx: number =
+    (ownBefore.monster?.x ?? Number.NaN) - (ownBefore.own?.x ?? Number.NaN);
+  const dz: number =
+    (ownBefore.monster?.z ?? Number.NaN) - (ownBefore.own?.z ?? Number.NaN);
   const turn: number = (Math.round((Math.atan2(dx, dz) * 4) / Math.PI) + 8) % 8;
   const keys: readonly string[] = TURN_KEYS[turn] ?? [];
   const isFacing = (look: MonsterLook): boolean =>
@@ -421,7 +423,8 @@ export async function checkMonster(
   const isShown = (look: MonsterLook, before: MonsterLook): boolean =>
     (look.bar ?? 1) < 1 &&
     sumMonsterDamage(look) - sumMonsterDamage(before) ===
-      (before.monster?.health ?? NaN) - (look.monster?.health ?? NaN);
+      (before.monster?.health ?? Number.NaN) -
+        (look.monster?.health ?? Number.NaN);
   const isAllShown = ([own, other]: [MonsterLook, MonsterLook]): boolean =>
     isShown(own, ownBefore) && isShown(other, otherBefore);
   const describeBoth = ([own, other]: [MonsterLook, MonsterLook]): string =>

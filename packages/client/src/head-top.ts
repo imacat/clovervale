@@ -54,7 +54,7 @@ export function findHeadTop(
 ): Vector3 {
   const { x, z } = locateVillager(villager, step, monsters);
   const top: number =
-    root === null ? NaN : new Box3().setFromObject(root).max.y;
+    root === null ? Number.NaN : new Box3().setFromObject(root).max.y;
   return new Vector3(x, Number.isFinite(top) ? top : DEFAULT_HEAD_TOP, z);
 }
 

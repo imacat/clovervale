@@ -149,7 +149,9 @@ describe('TalkWatch', () => {
       (villager: Villager) => villager.id === 'edwin',
     );
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+      edwin === undefined
+        ? { x: Number.NaN, z: Number.NaN }
+        : locateVillager(edwin, 0, []);
     const before: PlayerMotion = createMotion(
       { x: at.x, z: CAVE_PASSAGE.north + PLAYER_RADIUS + 0.1 },
       180,

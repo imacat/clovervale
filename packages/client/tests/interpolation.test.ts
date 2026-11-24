@@ -186,7 +186,7 @@ describe('ServerClock', () => {
   it('gives way little by little when every time arrives later', () => {
     const clock = new ServerClock();
     clock.observe(5000, 300);
-    let last: number = clock.read(400) ?? NaN;
+    let last: number = clock.read(400) ?? Number.NaN;
     expect(last).toBe(5100);
     // From now on everything takes 40 milliseconds longer to arrive.
     for (let time = 100; time <= 6000; time += 100) {
@@ -194,9 +194,9 @@ describe('ServerClock', () => {
       for (const frame of [350, 400]) {
         const now: number | null = clock.read(frame + time);
         expect(now).not.toBeNull();
-        expect((now ?? NaN) - last).toBeGreaterThan(0);
-        expect((now ?? NaN) - last).toBeLessThanOrEqual(50);
-        last = now ?? NaN;
+        expect((now ?? Number.NaN) - last).toBeGreaterThan(0);
+        expect((now ?? Number.NaN) - last).toBeLessThanOrEqual(50);
+        last = now ?? Number.NaN;
       }
     }
     expect(clock.read(6500)).toBeCloseTo(5000 + 6500 - 340);

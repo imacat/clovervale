@@ -239,7 +239,9 @@ export async function checkFountain(
   if (ownBefore.prompt !== DRINK_PROMPT) {
     throw new Error(`By the fountain, ${describeBoth(before)}.`);
   }
-  if (!((ownBefore.own?.health ?? FULL_HEALTH) < FULL_HEALTH)) {
+  // False when the health is missing, as it then counts as full.
+  const isHurt: boolean = (ownBefore.own?.health ?? FULL_HEALTH) < FULL_HEALTH;
+  if (!isHurt) {
     throw new Error(
       `By the fountain, ${describeBoth(before)}, the player not hurt.`,
     );
@@ -268,7 +270,7 @@ export async function checkFountain(
   }
   const isHealed = (after: FountainLook, earlier: FountainLook): boolean => {
     const gained: number =
-      (after.own?.health ?? NaN) - (earlier.own?.health ?? NaN);
+      (after.own?.health ?? Number.NaN) - (earlier.own?.health ?? Number.NaN);
     return (
       gained > 0 &&
       (after.bar ?? 0) > (earlier.bar ?? 1) &&

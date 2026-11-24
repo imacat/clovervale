@@ -1216,7 +1216,7 @@ describe('the attack of the monster', () => {
         break;
       }
     }
-    expect(hits.length).toBe(Math.ceil(health / VILLAGE_DOG.biteDamage));
+    expect(hits).toHaveLength(Math.ceil(health / VILLAGE_DOG.biteDamage));
     for (const hit of hits) {
       expect(hit).toMatchObject({
         attacker: { kind: 'monster', id: VILLAGE_DOG_ID },
@@ -1382,7 +1382,10 @@ const GROUND_ITEM_STEPS: number = GROUND_ITEM_DURATION * SIMULATION_RATE;
 const PATCH = 6;
 
 /** Where the patch of clover east of the fountain is. */
-const PATCH_CENTER: GroundVector = CLOVER_PATCHES[PATCH] ?? { x: NaN, z: NaN };
+const PATCH_CENTER: GroundVector = CLOVER_PATCHES[PATCH] ?? {
+  x: Number.NaN,
+  z: Number.NaN,
+};
 
 /** Where a player stands by that patch, within reach of its clover. */
 const BY_PATCH: GroundVector = { x: PATCH_CENTER.x, z: PATCH_CENTER.z + 1 };
@@ -2915,7 +2918,7 @@ describe('a world of the cave', () => {
     for (let tries = 0; tries < 20; tries++) {
       interactPlayer(world, id);
       world.step();
-      const health: number = findDog(world, dogId)?.health ?? NaN;
+      const health: number = findDog(world, dogId)?.health ?? Number.NaN;
       healths.push(health);
       if (health === 0) {
         break;
@@ -2953,7 +2956,10 @@ describe('a world of the cave', () => {
       world.step();
       world.listMonsters().forEach((dog: MonsterState, index: number) => {
         modes.add(dog.mode);
-        const home: GroundVector = CAVE_DOG_HOMES[index] ?? { x: NaN, z: NaN };
+        const home: GroundVector = CAVE_DOG_HOMES[index] ?? {
+          x: Number.NaN,
+          z: Number.NaN,
+        };
         expect(measureDistance(dog, home)).toBeLessThanOrEqual(
           CAVE_DOG_WANDER_RADIUS,
         );
@@ -2985,9 +2991,12 @@ describe('a world of the cave', () => {
     expect(modes).toContain('return');
     const dog: MonsterState | undefined = findDog(world, 1);
     expect(['idle', 'wander']).toContain(dog?.mode);
-    const home: GroundVector = CAVE_DOG_HOMES[0] ?? { x: NaN, z: NaN };
+    const home: GroundVector = CAVE_DOG_HOMES[0] ?? {
+      x: Number.NaN,
+      z: Number.NaN,
+    };
     expect(
-      measureDistance(dog ?? { x: NaN, z: NaN }, home),
+      measureDistance(dog ?? { x: Number.NaN, z: Number.NaN }, home),
     ).toBeLessThanOrEqual(CAVE_DOG_WANDER_RADIUS);
   });
 
@@ -3037,7 +3046,11 @@ describe('a world of the cave', () => {
     stepTimes(world, CAVE_DOG.respawnDelay * SIMULATION_RATE - 1);
     expect(findDog(world, 1)).toBeUndefined();
     world.step();
-    const home: Pose = CAVE_DOG_HOMES[0] ?? { x: NaN, z: NaN, yaw: NaN };
+    const home: Pose = CAVE_DOG_HOMES[0] ?? {
+      x: Number.NaN,
+      z: Number.NaN,
+      yaw: Number.NaN,
+    };
     expect(findDog(world, 1)).toMatchObject({
       kind: 'cave-dog',
       x: home.x,
@@ -3093,7 +3106,9 @@ describe('a world of the cave', () => {
    */
   function faceEdwin(world: World, id: number): void {
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+      edwin === undefined
+        ? { x: Number.NaN, z: Number.NaN }
+        : locateVillager(edwin, 0, []);
     walkInCave(world, id, { x: at.x, z: 0 });
     steerPlayer(world, id, { x: 0, z: -1 });
     stepTimes(world, 2 * SIMULATION_RATE);
@@ -3132,7 +3147,9 @@ describe('a world of the cave', () => {
   it('has the prisoner talked to through his bars, unhurt', () => {
     const [world, id] = enterCave();
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+      edwin === undefined
+        ? { x: Number.NaN, z: Number.NaN }
+        : locateVillager(edwin, 0, []);
     faceEdwin(world, id);
     const before: PlayerState = findPlayer(world, id);
     expect(before.z).toBeGreaterThan(at.z);
@@ -3149,7 +3166,9 @@ describe('a world of the cave', () => {
 
   it('has a player slash at a dog in front of it, rather than talk', () => {
     const at: GroundVector =
-      edwin === undefined ? { x: NaN, z: NaN } : locateVillager(edwin, 0, []);
+      edwin === undefined
+        ? { x: Number.NaN, z: Number.NaN }
+        : locateVillager(edwin, 0, []);
     const [world, id] = enterCave([], true, [
       { kind: 'cave-dog', home: { x: at.x + 3, z: 0, yaw: -90 } },
     ]);
@@ -3161,8 +3180,8 @@ describe('a world of the cave', () => {
     awaitDog(world, id, 1);
     const near: MonsterState | undefined = findDog(world, 1);
     turnPlayer(world, id, {
-      x: (at.x + (near?.x ?? NaN)) / 2,
-      z: (at.z + (near?.z ?? NaN)) / 2,
+      x: (at.x + (near?.x ?? Number.NaN)) / 2,
+      z: (at.z + (near?.z ?? Number.NaN)) / 2,
     });
     const player: PlayerState = findPlayer(world, id);
     const dog: MonsterState | undefined = findDog(world, 1);
@@ -3316,9 +3335,9 @@ describe('a world of the cave', () => {
       expect.objectContaining({ kind: 'clovervale-message' }),
     ]);
     const [item] = world.describeItems().items;
-    expect(Math.hypot((item?.x ?? NaN) - x, (item?.z ?? NaN) - z)).toBeLessThan(
-      0.01,
-    );
+    expect(
+      Math.hypot((item?.x ?? Number.NaN) - x, (item?.z ?? Number.NaN) - z),
+    ).toBeLessThan(0.01);
   });
 
   it('holds the player and pauses the dogs while it is in a dialogue', () => {

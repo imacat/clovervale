@@ -27,6 +27,7 @@
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
+import { compareCodeUnits } from '@clovervale/shared';
 import type { Plugin } from 'vite';
 
 /** The directory of the models, in the directory of public files. */
@@ -46,7 +47,7 @@ export function listModelFiles(directory: string): string[] {
     return readdirSync(directory, { withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith('.glb'))
       .map((entry) => entry.name)
-      .sort();
+      .sort(compareCodeUnits);
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return [];

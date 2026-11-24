@@ -253,7 +253,9 @@ async function showModels(): Promise<void> {
   readouts.showModels(models.models.length, problems);
 }
 
-void showModels();
+// The page goes on setting up while the models load, and waits for them
+// only at the end.
+const modelsShown: Promise<void> = showModels();
 
 /**
  * Has the page speak a language the owner chooses, and remembers the
@@ -306,7 +308,9 @@ async function connectToServer(): Promise<void> {
   }
 }
 
-void connectToServer();
+// The page goes on setting up while it connects, and waits for that only
+// at the end.
+const serverConnected: Promise<void> = connectToServer();
 
 session.relabel();
 translator.addListener(() => {
@@ -321,3 +325,5 @@ listenForSoundGestures(window, () => {
 });
 followPageVisibility();
 document.addEventListener('visibilitychange', followPageVisibility);
+
+await Promise.all([modelsShown, serverConnected]);

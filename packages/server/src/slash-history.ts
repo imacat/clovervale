@@ -57,7 +57,7 @@ export interface RecalledMonsters {
  * long as a slash may still be judged on any of them.
  */
 export class SlashHistory {
-  #records: MonstersRecord[] = [];
+  readonly #records: MonstersRecord[] = [];
 
   /**
    * Records the monsters as a snapshot taken at a step tells them.

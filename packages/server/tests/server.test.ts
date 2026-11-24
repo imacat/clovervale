@@ -977,7 +977,7 @@ describe('the game server on a Unix socket file', () => {
       for (let count = 0; count < 100; count++) {
         (await openRawPeer(socketPath)).pause();
       }
-      await left;
+      await expect(left).resolves.toBeUndefined();
     },
     STALL_TIMEOUT + MESSAGE_TIMEOUT,
   );

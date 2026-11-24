@@ -23,6 +23,7 @@
 
 import { Vector3 } from 'three';
 
+import { computeFaceNormal } from './geometry.ts';
 import type { Shape, Triangle, Triple } from './geometry.ts';
 import { getItem } from './items.ts';
 
@@ -301,7 +302,7 @@ const ELEMENT_SIZES: Readonly<Record<AccessorType, number>> = {
  */
 function convertHexToLinear(hex: string): number[] {
   return [1, 3, 5].map((i: number) => {
-    const c: number = parseInt(hex.slice(i, i + 2), 16) / 255;
+    const c: number = Number.parseInt(hex.slice(i, i + 2), 16) / 255;
     const linear: number =
       c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
     return Math.round(linear * 1e5) / 1e5;
@@ -337,11 +338,8 @@ function namePoint(p: Vector3): string {
  * @param {Readonly<Triangle>} tri - The triangle.
  * @returns {Vector3} The unit normal.
  */
-function computeFaceNormal(tri: Readonly<Triangle>): Vector3 {
-  return new Vector3()
-    .subVectors(tri[1], tri[0])
-    .cross(new Vector3().subVectors(tri[2], tri[0]))
-    .normalize();
+function computeUnitNormal(tri: Readonly<Triangle>): Vector3 {
+  return computeFaceNormal(tri[0], tri[1], tri[2]).normalize();
 }
 
 /**
@@ -353,7 +351,7 @@ function computeFaceNormal(tri: Readonly<Triangle>): Vector3 {
 function computeSmoothNormals(shape: Shape): Triangle[] {
   const sums = new Map<string, Vector3>();
   for (const tri of shape) {
-    const normal: Vector3 = computeFaceNormal(tri);
+    const normal: Vector3 = computeUnitNormal(tri);
     tri.forEach((p: Vector3, i: number) => {
       const next: Vector3 = getItem(tri, (i + 1) % 3);
       const prev: Vector3 = getItem(tri, (i + 2) % 3);
@@ -401,7 +399,7 @@ function buildVertices(faces: readonly Face[]): VertexData {
   };
   const lookup = new Map<string, number>();
   for (const { tri, bone, normals } of faces) {
-    const flat: Vector3 = computeFaceNormal(tri);
+    const flat: Vector3 = computeUnitNormal(tri);
     for (const [corner, p] of tri.entries()) {
       const unit: number[] = (
         normals === undefined ? flat : getItem(normals, corner)

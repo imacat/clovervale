@@ -57,13 +57,13 @@ import { listWorldVertices, loadAt, poseModel, resetModel } from './pose.ts';
  * The models that stand around the front of the apothecary: the herb
  * rack, the crates, the potted plant and the barrels.
  */
-const APOTHECARY_PROPS: readonly ModelId[] = [
+const APOTHECARY_PROPS: ReadonlySet<ModelId> = new Set<ModelId>([
   'herb-rack',
   'potion-crate',
   'herb-crate',
   'potted-plant',
   'barrel',
-];
+]);
 /**
  * Where a player stands in front of the door of the apothecary, a step
  * out from its doorstep, as the model of the shop has it.
@@ -151,12 +151,17 @@ async function checkShopOverhangs(
   failures: string[],
 ): Promise<number> {
   let widest = 0;
-  for (const placement of VILLAGE_PLACEMENTS.filter(
-    ({ model }: Placement) =>
-      (model === 'apothecary' || APOTHECARY_PROPS.includes(model)) &&
-      files.includes(MODEL_FILES[model]),
-  )) {
-    const model: GLTF = await loadAt(placement);
+  const loaded: (readonly [Placement, GLTF])[] = await Promise.all(
+    VILLAGE_PLACEMENTS.filter(
+      ({ model }: Placement) =>
+        (model === 'apothecary' || APOTHECARY_PROPS.has(model)) &&
+        files.includes(MODEL_FILES[model]),
+    ).map(
+      async (placement: Placement) =>
+        [placement, await loadAt(placement)] as const,
+    ),
+  );
+  for (const [placement, model] of loaded) {
     const overhang: number = measureOverhang(model.scene, placement);
     widest = Math.max(widest, overhang);
     if (overhang > FOOTPRINT_TOLERANCE) {
@@ -220,7 +225,7 @@ function checkPropClearance(failures: string[]): void {
   const props: Shape[] = VILLAGE_TERRAIN.shapes.filter((shape: Shape) =>
     VILLAGE_PLACEMENTS.some(
       (placement: Placement) =>
-        APOTHECARY_PROPS.includes(placement.model) &&
+        APOTHECARY_PROPS.has(placement.model) &&
         Math.hypot(shape.x - placement.x, shape.z - placement.z) < 1e-9,
     ),
   );

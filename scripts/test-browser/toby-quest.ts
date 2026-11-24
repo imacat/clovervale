@@ -148,13 +148,13 @@ const TOBY_THANKS: DialogueShown = {
   cursor: 0,
 };
 /** What Toby says in passing to a player who has done the quest. */
-const TOBY_ORDINARY_LINES: readonly string[] = [
+const TOBY_ORDINARY_LINES: ReadonlySet<string> = new Set([
   "Mommy says I can't go outside. There are wild dogs out there.",
   'If you want something, go see the village chief. She lives in the ' +
     'biggest house!',
   "I'm looking for a four-leaf one! If you find one, you'll have good luck.",
   "Here, this one's for you! It brings good luck.",
-];
+]);
 /** The name of the ointment. */
 const OINTMENT_NAME = "jar of Martha's ointment";
 /** The notice of the ointment received from Martha. */
@@ -446,8 +446,8 @@ export async function checkTobyQuest(
         seen.items.some(
           (item) =>
             item.kind === 'martha-ointment' &&
-            Math.abs(item.x - (menu.own?.x ?? NaN)) <= ITEM_NEARNESS &&
-            Math.abs(item.z - (menu.own?.z ?? NaN)) <= ITEM_NEARNESS,
+            Math.abs(item.x - (menu.own?.x ?? Number.NaN)) <= ITEM_NEARNESS &&
+            Math.abs(item.z - (menu.own?.z ?? Number.NaN)) <= ITEM_NEARNESS,
         ),
       ACTION_TIMEOUT,
       (seen: QuestLook) =>
@@ -557,7 +557,7 @@ export async function checkTobyQuest(
     (seen: QuestLook) =>
       seen.dialogue === null &&
       seen.speech?.name === 'Toby' &&
-      TOBY_ORDINARY_LINES.includes(seen.speech.line),
+      TOBY_ORDINARY_LINES.has(seen.speech.line),
     'one of the ordinary lines of Toby',
   );
 }

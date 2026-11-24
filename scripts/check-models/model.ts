@@ -114,50 +114,54 @@ function checkStaticSize(
     Math.abs(min.x + max.x) < 2e-3 && Math.abs(min.z + max.z) < 2e-3,
     'origin is not the center of the footprint',
   );
-  if (file === MODEL_FILES['weapon-shop']) {
-    check(
-      size.x <= 8 && size.z <= 8 && height <= 6,
-      'weapon shop too large',
-    );
-  }
-  if (file === MODEL_FILES.fountain) {
-    check(size.x <= 4 && size.z <= 4, 'fountain too wide');
-  }
-  if (file === MODEL_FILES['village-sign']) {
-    // The whole sign, to the top of the stake above its board, stands
-    // about as tall as a person: no shorter than a character, and at
-    // most a little taller, so that it does not tower over the players.
-    check(height >= 1.5 && height <= 1.9, `height ${String(height)}`);
-  }
-  if (file === MODEL_FILES['chief-house']) {
-    // The largest house of the village: much wider than a cottage, which
-    // is 5.5 m across under its roof and 5.4 m tall, and with its two
-    // stories well above it, yet under a roof of a gentle pitch that does
-    // not tower, and not so large as to crowd its corner.
-    check(height >= 7 && height <= 8.2, `height ${String(height)}`);
-    check(size.x >= 7.5 && size.x <= 9, `width ${String(size.x)}`);
-    check(size.z <= 8, `depth ${String(size.z)}`);
-  }
-  if (file === MODEL_FILES['yard-wall']) {
-    // A two-meter stretch that reaches a little past each end, about
-    // thigh-high on a player, low enough to see the porch over.
-    check(size.x >= 2 && size.x <= 2.4, `length ${String(size.x)}`);
-    check(height >= 0.6 && height <= 0.8, `height ${String(height)}`);
-  }
-  if (file === MODEL_FILES['yard-wall-end']) {
-    // A ragged end shorter than a whole stretch, from its tall end, no
-    // taller than a whole stretch, to its low stones, with the stones
-    // fallen from it lying close by on either side.
-    check(size.x >= 1.3 && size.x <= 1.7, `length ${String(size.x)}`);
-    check(size.z <= 1.5, `depth ${String(size.z)}`);
-    check(height >= 0.5 && height <= 0.7, `height ${String(height)}`);
-  }
-  if (file === MODEL_FILES['old-well']) {
-    // No more than 1.5 m across, its stonework being 1.4 m across and the
-    // little roof over it only a little wider; and no more than 2 m tall
-    // with its roof, a little taller than a player.
-    check(size.x <= 1.5 && size.z <= 1.5, 'old well too wide');
-    check(height <= 2, `height ${String(height)}`);
+  switch (file) {
+    case MODEL_FILES['weapon-shop']:
+      check(
+        size.x <= 8 && size.z <= 8 && height <= 6,
+        'weapon shop too large',
+      );
+      break;
+    case MODEL_FILES.fountain:
+      check(size.x <= 4 && size.z <= 4, 'fountain too wide');
+      break;
+    case MODEL_FILES['village-sign']:
+      // The whole sign, to the top of the stake above its board, stands
+      // about as tall as a person: no shorter than a character, and at
+      // most a little taller, so that it does not tower over the players.
+      check(height >= 1.5 && height <= 1.9, `height ${String(height)}`);
+      break;
+    case MODEL_FILES['chief-house']:
+      // The largest house of the village: much wider than a cottage, which
+      // is 5.5 m across under its roof and 5.4 m tall, and with its two
+      // stories well above it, yet under a roof of a gentle pitch that does
+      // not tower, and not so large as to crowd its corner.
+      check(height >= 7 && height <= 8.2, `height ${String(height)}`);
+      check(size.x >= 7.5 && size.x <= 9, `width ${String(size.x)}`);
+      check(size.z <= 8, `depth ${String(size.z)}`);
+      break;
+    case MODEL_FILES['yard-wall']:
+      // A two-meter stretch that reaches a little past each end, about
+      // thigh-high on a player, low enough to see the porch over.
+      check(size.x >= 2 && size.x <= 2.4, `length ${String(size.x)}`);
+      check(height >= 0.6 && height <= 0.8, `height ${String(height)}`);
+      break;
+    case MODEL_FILES['yard-wall-end']:
+      // A ragged end shorter than a whole stretch, from its tall end, no
+      // taller than a whole stretch, to its low stones, with the stones
+      // fallen from it lying close by on either side.
+      check(size.x >= 1.3 && size.x <= 1.7, `length ${String(size.x)}`);
+      check(size.z <= 1.5, `depth ${String(size.z)}`);
+      check(height >= 0.5 && height <= 0.7, `height ${String(height)}`);
+      break;
+    case MODEL_FILES['old-well']:
+      // No more than 1.5 m across, its stonework being 1.4 m across and the
+      // little roof over it only a little wider; and no more than 2 m tall
+      // with its roof, a little taller than a player.
+      check(size.x <= 1.5 && size.z <= 1.5, 'old well too wide');
+      check(height <= 2, `height ${String(height)}`);
+      break;
+    default:
+      break;
   }
 }
 

@@ -235,9 +235,11 @@ describe('startBot', () => {
     const watcher: Watcher = watchServer(url);
     cleanups.push(watcher.close);
     const bot: RunningBot = await startTestBot();
-    await waitUntil(
-      () => findPlayer(watcher.snapshots.at(-1), bot.playerId) !== undefined,
-    );
+    await expect(
+      waitUntil(
+        () => findPlayer(watcher.snapshots.at(-1), bot.playerId) !== undefined,
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it(

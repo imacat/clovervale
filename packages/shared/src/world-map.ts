@@ -217,5 +217,6 @@ export function areMonstersPaused(map: MapId, isInDialogue: boolean): boolean {
  * @returns {boolean} Whether it does.
  */
 export function isMapId(value: unknown): value is MapId {
-  return MAP_IDS.some((map: MapId) => map === value);
+  const ids: readonly unknown[] = MAP_IDS;
+  return ids.includes(value);
 }
