@@ -21,6 +21,10 @@
  * @module bots/tests/bot Tests for the bot.
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { startServer } from '@clovervale/server';
@@ -428,5 +432,38 @@ describe('startBot', () => {
     await server?.stop();
     server = null;
     await expect(startBot(url)).rejects.toThrow();
+  });
+});
+
+describe('startBot on a Unix socket file', () => {
+  let dir: string;
+  let socketPath: string;
+  let server: RunningServer | null;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(path.join(tmpdir(), 'clovervale-bots-'));
+    socketPath = path.join(dir, 'clovervale.sock');
+    server = await startServer(socketPath, {
+      origin: DEFAULT_DAY_ORIGIN,
+      length: DEFAULT_DAY_LENGTH,
+    });
+  });
+
+  afterEach(async () => {
+    await server?.stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('enters the village through the socket file', async () => {
+    const bot: RunningBot = await startBot(`ws+unix:${socketPath}`, PATROL);
+    expect(Number.isInteger(bot.playerId)).toBe(true);
+    bot.stop();
+    await expect(bot.finished).resolves.toBeUndefined();
+  });
+
+  it('fails when no server is listening on the socket file', async () => {
+    await server?.stop();
+    server = null;
+    await expect(startBot(`ws+unix:${socketPath}`)).rejects.toThrow();
   });
 });

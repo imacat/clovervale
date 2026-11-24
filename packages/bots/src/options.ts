@@ -30,7 +30,10 @@ import { DEFAULT_SERVER_PORT } from '@clovervale/shared';
 /** The setting that tells the number of bots. */
 const COUNT_SETTING = 'BOT_COUNT';
 
-/** The setting that tells the WebSocket URL of the game server. */
+/**
+ * The setting that tells the WebSocket URL of the game server, or its
+ * Unix socket file as a ws+unix: URL.
+ */
 const SERVER_SETTING = 'SERVER_URL';
 
 /** The settings file of the bots program, in its working directory. */
@@ -45,14 +48,17 @@ export const USAGE =
 /** The number of bots unless told otherwise. */
 export const DEFAULT_BOT_COUNT = 4;
 
-/** The WebSocket URL of the game server unless told otherwise. */
+/** The URL of the game server unless told otherwise. */
 const DEFAULT_SERVER_URL = `ws://localhost:${String(DEFAULT_SERVER_PORT)}`;
 
 /** What the options and the settings tell the bots program to do. */
 export interface BotsOptions {
   /** The number of bots. */
   readonly count: number;
-  /** The WebSocket URL of the game server. */
+  /**
+   * The WebSocket URL of the game server, or its Unix socket file as a
+   * ws+unix: URL.
+   */
   readonly serverUrl: string;
 }
 
@@ -60,7 +66,10 @@ export interface BotsOptions {
 export interface BotsSettings {
   /** The number of bots. */
   readonly [COUNT_SETTING]?: string;
-  /** The WebSocket URL of the game server. */
+  /**
+   * The WebSocket URL of the game server, or its Unix socket file as a
+   * ws+unix: URL.
+   */
   readonly [SERVER_SETTING]?: string;
 }
 
@@ -146,7 +155,9 @@ export function parseBotsOptions(
       values.server === undefined
         ? `Setting ${SERVER_SETTING}`
         : 'Option --server';
-    throw new Error(`${source} needs a ws: or wss: URL, not '${server}'.`);
+    throw new Error(
+      `${source} needs a ws:, wss: or ws+unix: URL, not '${server}'.`,
+    );
   }
   return {
     count: count === undefined ? DEFAULT_BOT_COUNT : Number(count),
@@ -172,9 +183,16 @@ function isCount(text: string): boolean {
  * Tells whether a text is a WebSocket URL.
  *
  * @param {string} text - The text.
- * @returns {boolean} Whether it is an absolute ws: or wss: URL.
+ * @returns {boolean} Whether it is an absolute ws: or wss: URL, or a
+ *   ws+unix: URL that names a socket file.
  */
 function isWebSocketUrl(text: string): boolean {
   const url: URL | null = URL.parse(text);
-  return url !== null && (url.protocol === 'ws:' || url.protocol === 'wss:');
+  if (url === null) {
+    return false;
+  }
+  if (url.protocol === 'ws+unix:') {
+    return url.pathname !== '';
+  }
+  return url.protocol === 'ws:' || url.protocol === 'wss:';
 }

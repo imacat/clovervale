@@ -22,6 +22,8 @@
  *   patrols the village, and says something there now and then.
  */
 
+import { WebSocket } from 'ws';
+
 import {
   PLAYER_HEALTH,
   PROTOCOL_VERSION,
@@ -54,7 +56,8 @@ export interface RunningBot {
  * Starts a bot that connects to a game server as a player, and patrols
  * forever, as a {@link Patroller} has it.
  *
- * @param {string} url - The WebSocket URL of the server.
+ * @param {string} url - The WebSocket URL of the server, or its Unix
+ *   socket file as a ws+unix: URL, as in `ws+unix:/run/game.sock`.
  * @param {PatrolSettings} [patrol] - How the bot patrols, or between the
  *   points of interest of the village by default.
  * @returns {Promise<RunningBot>} The bot, once the server has welcomed it.
@@ -85,7 +88,11 @@ export function startBot(
     socket.addEventListener('message', (event) => {
       let message: ServerMessage;
       try {
-        message = decodeServerMessage(String(event.data));
+        // The server speaks in text, never in binary messages.
+        if (typeof event.data !== 'string') {
+          throw new TypeError('The message is not text.');
+        }
+        message = decodeServerMessage(event.data);
       } catch (error: unknown) {
         fail(new Error(`The server at ${url} misbehaved.`, { cause: error }));
         socket.close();

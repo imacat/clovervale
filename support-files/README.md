@@ -46,6 +46,8 @@ village by themselves, so that the village does not feel empty; the game
 works the same without them.  There are 4 of them, or as many as the
 `--count` option tells, and they connect to the game server at
 `ws://localhost:8080`, or at the WebSocket URL of the `--server` option.
+A game server on a Unix socket file is named with a `ws+unix:` URL, as
+in `--server ws+unix:/run/clovervale/clovervale.sock`.
 
     node bots/bots.mjs
 
@@ -124,8 +126,10 @@ Deploying the Bots (Optional)
 -----------------------------
 
 Set up the bots after the site.  Here systemd runs the bots, and they
-connect through Apache, as the players do.  As root, in the directory
-of the unpacked release (see step 2 of [Deploying](#deploying)):
+connect through Apache, as the players do.  They may instead connect
+straight to the Unix socket file of the game server, if their user can;
+`support-files/.env.bots` shows how.  As root, in the directory of the
+unpacked release (see step 2 of [Deploying](#deploying)):
 
  1. Copy the bots to `/srv/www/clovervale`.
 

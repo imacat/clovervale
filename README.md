@@ -100,7 +100,9 @@ serves its page, or to the server named in the `server` query parameter
 of the page address, as in `?server=ws://game.example.com:9000`.  There
 are four bots, or as many as the `--count` option tells, and they
 connect to `ws://localhost:8080`, or to the server URL of the `--server`
-option, as in `--server ws://game.example.com:9000`.  The `BOT_COUNT`
+option, as in `--server ws://game.example.com:9000`, or to the server on
+a Unix socket file, named with a `ws+unix:` URL, as in
+`--server ws+unix:/run/clovervale/clovervale.sock`.  The `BOT_COUNT`
 and `SERVER_URL` settings tell the same as the two options, which take
 precedence over them.  A setting is an environment variable, or else a
 line of the `.env` file in the directory that the bots are run in,

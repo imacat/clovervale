@@ -59,6 +59,15 @@ describe('parseBotsOptions', () => {
     );
   });
 
+  it('connects to the server on the Unix socket file of --server', () => {
+    expect(
+      parseBotsOptions(
+        ['--server', 'ws+unix:/run/clovervale/clovervale.sock'],
+        {},
+      ).serverUrl,
+    ).toBe('ws+unix:/run/clovervale/clovervale.sock');
+  });
+
   it('takes both options together', () => {
     expect(
       parseBotsOptions(
@@ -85,6 +94,8 @@ describe('parseBotsOptions', () => {
     [['--server', 'localhost:8080']],
     [['--server', 'http://localhost:8080']],
     [['--server', 'game.sock']],
+    [['--server', 'ws+unix:']],
+    [['--server', 'unix:/run/clovervale/clovervale.sock']],
   ])('refuses %j', (args: string[]) => {
     expect(() => parseBotsOptions(args, {})).toThrow();
   });
@@ -103,6 +114,11 @@ describe('parseBotsOptions', () => {
       count: DEFAULT_BOT_COUNT,
       serverUrl: 'wss://game.example.com/ws',
     });
+    expect(
+      parseBotsOptions([], {
+        SERVER_URL: 'ws+unix:/run/clovervale/clovervale.sock',
+      }).serverUrl,
+    ).toBe('ws+unix:/run/clovervale/clovervale.sock');
   });
 
   it('puts the options before the settings', () => {
@@ -129,6 +145,7 @@ describe('parseBotsOptions', () => {
     ['SERVER_URL', ''],
     ['SERVER_URL', 'localhost:8080'],
     ['SERVER_URL', 'https://game.example.com/ws'],
+    ['SERVER_URL', 'ws+unix:'],
   ])('refuses the setting %s=%s, and names it', (name: string, value: string) => {
     expect(() => parseBotsOptions([], { [name]: value })).toThrow(name);
   });
