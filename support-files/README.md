@@ -60,7 +60,7 @@ Deploying
 ---------
 
 The files in `support-files/` are an example of a deployment at
-`https://clovervale.imacat.idv.tw/`, with Apache serving the client and
+`https://clovervale.example.com/`, with Apache serving the client and
 passing the WebSocket connections at `/ws` on to the game server
 through a Unix socket file, and with systemd running the game server
 and the bots.  The bots connect through Apache, as the players do.
@@ -107,13 +107,13 @@ Change the site name and the paths in them to your own.  As root, with
         systemctl enable --now clovervale
 
  7. Obtain a TLS certificate for the site.  Copy
-    `support-files/clovervale.imacat.idv.tw-apache2.conf` to
-    `/etc/apache2/sites-available/clovervale.imacat.idv.tw.conf`, edit
+    `support-files/clovervale-apache2.conf` to
+    `/etc/apache2/sites-available/clovervale.example.com.conf`, edit
     it, and enable the site.
 
         mkdir -p /var/log/apache2/clovervale
         a2enmod ssl headers proxy proxy_http
-        a2ensite clovervale.imacat.idv.tw
+        a2ensite clovervale.example.com
         systemctl restart apache2
 
  8. Copy the example settings file of the bots to `/etc/node/`, and
