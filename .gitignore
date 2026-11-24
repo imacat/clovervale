@@ -67,3 +67,6 @@ Desktop.ini
 .dropbox.attr
 
 excludes
+.claude
+.scannerwork
+sonar-project.properties
