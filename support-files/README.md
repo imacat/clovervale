@@ -41,9 +41,11 @@ use another game server, name it in the page address, for example
 `client/` directory may also hold a `client.conf` naming the game
 server; `support-files/.env.client` is an example of it.
 
-Run the bots.  There are 4 of them, or as many as the `--count` option
-tells, and they connect to the game server at `ws://localhost:8080`, or
-at the WebSocket URL of the `--server` option.
+Running the bots is optional.  The bots are players that walk around the
+village by themselves, so that the village does not feel empty; the game
+works the same without them.  There are 4 of them, or as many as the
+`--count` option tells, and they connect to the game server at
+`ws://localhost:8080`, or at the WebSocket URL of the `--server` option.
 
     node bots/bots.mjs
 
@@ -62,9 +64,10 @@ Deploying
 The files in `support-files/` are an example of a deployment at
 `https://clovervale.example.com/`, with Apache serving the client and
 passing the WebSocket connections at `/ws` on to the game server
-through a Unix socket file, and with systemd running the game server
-and the bots.  The bots connect through Apache, as the players do.
-Change the site name and the paths in them to your own.  As root, with
+through a Unix socket file, and with systemd running the game server.
+The bots are covered separately, in
+[Deploying the Bots](#deploying-the-bots-optional) below.  Change the
+site name and the paths in the files to your own.  As root, with
 `rsync` installed:
 
  1. Create the user and the group of the game server and the bots, and
@@ -79,15 +82,12 @@ Change the site name and the paths in them to your own.  As root, with
         tar -xzf /path/to/clovervale-*-bin.tar.gz --strip-components=1 \
             --no-same-owner
 
- 3. Copy the game server, the client and the bots to
-    `/srv/www/clovervale`.
+ 3. Copy the game server and the client to `/srv/www/clovervale`.
 
         mkdir -p /srv/www/clovervale
         rsync -a --delete server/ /srv/www/clovervale/server/
         rsync -a --delete --exclude=/client.conf \
             client/ /srv/www/clovervale/client/
-        rsync -a --delete --exclude=/.env \
-            bots/ /srv/www/clovervale/bots/
 
  4. Copy the example settings file of the client to `/etc/node/`, and
     edit it.
@@ -116,24 +116,41 @@ Change the site name and the paths in them to your own.  As root, with
         a2ensite clovervale.example.com
         systemctl restart apache2
 
- 8. Copy the example settings file of the bots to `/etc/node/`, and
+To upgrade, repeat steps 2 and 3 with the new release, and run
+`systemctl restart clovervale`.  Step 3 removes the files that the new
+release no longer has, and keeps the link.
+
+Deploying the Bots (Optional)
+-----------------------------
+
+Set up the bots after the site.  Here systemd runs the bots, and they
+connect through Apache, as the players do.  As root, in the directory
+of the unpacked release (see step 2 of [Deploying](#deploying)):
+
+ 1. Copy the bots to `/srv/www/clovervale`.
+
+        rsync -a --delete --exclude=/.env \
+            bots/ /srv/www/clovervale/bots/
+
+ 2. Copy the example settings file of the bots to `/etc/node/`, and
     edit it.  The user of the bots must be able to read it.
 
         cp support-files/.env.bots /etc/node/clovervale.bots.conf
 
- 9. Link the settings file to where the bots look for it.
+ 3. Link the settings file to where the bots look for it.
 
         ln -s /etc/node/clovervale.bots.conf \
             /srv/www/clovervale/bots/.env
 
-10. Copy `support-files/clovervale-bots.service` to
+ 4. Copy `support-files/clovervale-bots.service` to
     `/etc/systemd/system/`, edit it, and start the bots.
 
         systemctl daemon-reload
         systemctl enable --now clovervale-bots
 
-To upgrade, repeat steps 2 and 3 with the new release, and run
-`systemctl restart clovervale clovervale-bots`.  Step 3 removes the
-files that the new release no longer has, and keeps the links.
+To upgrade the bots, upgrade the site first, then repeat step 1 above in
+the directory of the new release, and run
+`systemctl restart clovervale-bots`.  Step 1 removes the files that the
+new release no longer has, and keeps the link.
 
 [Node.js]: https://nodejs.org/
