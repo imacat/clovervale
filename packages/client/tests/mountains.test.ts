@@ -25,6 +25,7 @@ import {
   Color,
   Group,
   Fog,
+  InstancedMesh,
   Mesh,
   MeshStandardMaterial,
   Raycaster,
@@ -38,7 +39,11 @@ import type { Boundary } from '@clovervale/shared';
 
 import { tintMountains } from '../src/mountains.ts';
 import { createVillageScene } from '../src/village-scene.ts';
-import { CAMERA_FAR, CAMERA_MAX_DISTANCE } from '../src/viewport.ts';
+import {
+  CAMERA_FAR,
+  CAMERA_MAX_DISTANCE,
+  VILLAGE_LEAST_ELEVATION,
+} from '../src/viewport.ts';
 
 /** The boundary the players cannot leave. */
 const BOUNDARY: Boundary = VILLAGE_TERRAIN.boundary;
@@ -47,8 +52,30 @@ const BOUNDARY: Boundary = VILLAGE_TERRAIN.boundary;
  * meters.
  */
 const FOCUS_SLACK = 2;
-/** The least room between the camera and the mountains, in meters. */
-const CAMERA_CLEARANCE = 10;
+/** The least room between the boundary and the mountains, in meters. */
+const CLEARANCE = 3;
+/**
+ * The least room between the mountains and the lowest the camera can go
+ * above them, in meters.
+ */
+const CAMERA_HEADROOM = 0.3;
+/** The number of directions the ground is measured in. */
+const GROUND_DIRECTIONS = 120;
+/**
+ * How far from the way out through the gate the hills stand at their full
+ * height, at least, in degrees.
+ */
+const CLOSED_BEYOND = 40;
+/**
+ * The longest stretch of flat ground left between the hills and the
+ * nearest ridge, in meters.
+ */
+const LONGEST_FLAT = 5;
+/**
+ * How far out from the middle of the boundary the ground is followed up
+ * the nearest ridge, in meters: short of its crest.
+ */
+const SLOPE_REACH = 220;
 /** The most fog any part of a mountain may be drawn in, from 0 to 1. */
 const MOST_FOG = 0.9;
 /** The number of directions the skyline is measured in. */
@@ -63,20 +90,17 @@ const LEAST_PEAKS = 5;
 const PEAK_WINDOW = 8;
 
 /**
- * Finds the mountains of a scene: the one group of the village without its
- * models.
+ * Finds the mountains of a scene: the group of the village without its
+ * models named `mountains`.
  *
  * @param {Scene} scene - The scene.
  * @returns {Object3D} The mountains.
- * @throws {Error} If the scene has no one group.
+ * @throws {Error} If the scene has no group for its mountains.
  */
 function findMountains(scene: Scene): Object3D {
-  const groups: Object3D[] = scene.children.filter(
-    (child: Object3D) => child instanceof Group,
-  );
-  const [mountains] = groups;
-  if (mountains === undefined || groups.length !== 1) {
-    throw new Error('The scene has no one group for its mountains.');
+  const mountains: Object3D | undefined = scene.getObjectByName('mountains');
+  if (!(mountains instanceof Group)) {
+    throw new Error('The scene has no group for its mountains.');
   }
   return mountains;
 }
@@ -204,6 +228,33 @@ function measureSkyline(ridge: Mesh, degrees: number): number {
 }
 
 /**
+ * Measures how high some land rises at a point along the ground, out from
+ * the middle of the boundary.
+ *
+ * @param {readonly Object3D[]} land - The land.
+ * @param {number} turn - The direction along the ground, as the turn around
+ *   the Y axis from +Z toward +X, in radians.
+ * @param {number} reach - How far out from the middle of the boundary, in
+ *   meters.
+ * @returns {number} The height of the top of the land there, in meters, or
+ *   -Infinity where there is none.
+ */
+function measureLand(
+  land: readonly Object3D[],
+  turn: number,
+  reach: number,
+): number {
+  const above = new Vector3(
+    BOUNDARY.x + Math.sin(turn) * reach,
+    500,
+    BOUNDARY.z + Math.cos(turn) * reach,
+  );
+  const down = new Vector3(0, -1, 0);
+  const [top] = new Raycaster(above, down).intersectObjects([...land]);
+  return top?.point.y ?? -Infinity;
+}
+
+/**
  * Finds the peaks of a skyline: the points that stand above every other
  * point near them.
  *
@@ -227,14 +278,66 @@ function findPeaks(skyline: readonly number[]): number[] {
 describe('the mountains around the valley', () => {
   const scene: Scene = createVillageScene().scene;
 
-  it('stand beyond the reach of the players and the camera', () => {
+  it('stand beyond the reach of the players', () => {
     const ridges: Mesh[] = findRidges(scene);
-    const reach: number =
-      BOUNDARY.radius + CAMERA_MAX_DISTANCE + CAMERA_CLEARANCE;
     for (const ridge of ridges) {
       for (const corner of listCorners(ridge)) {
-        expect(measureReach(corner)).toBeGreaterThan(reach);
+        expect(measureReach(corner)).toBeGreaterThan(
+          BOUNDARY.radius + CLEARANCE,
+        );
       }
+    }
+  });
+
+  it('stay below wherever the camera can go', () => {
+    const ridges: Mesh[] = findRidges(scene);
+    const slope: number = Math.tan(
+      (VILLAGE_LEAST_ELEVATION * Math.PI) / 180,
+    );
+    for (let index = 0; index < GROUND_DIRECTIONS; index++) {
+      const turn: number = (index * 2 * Math.PI) / GROUND_DIRECTIONS;
+      for (
+        let reach: number = BOUNDARY.radius;
+        reach <= BOUNDARY.radius + CAMERA_MAX_DISTANCE;
+        reach++
+      ) {
+        const lowest: number = (reach - BOUNDARY.radius) * slope;
+        expect(measureLand(ridges, turn, reach)).toBeLessThan(
+          lowest - CAMERA_HEADROOM,
+        );
+      }
+    }
+  });
+
+  it('rise from the back of the hills with no flat ring between', () => {
+    const [nearest] = findRidges(scene);
+    const hills: Object3D | undefined = scene.getObjectByName('hills');
+    const slopes: Object3D | undefined = hills?.children.find(
+      (child: Object3D) =>
+        child instanceof Mesh && !(child instanceof InstancedMesh),
+    );
+    if (nearest === undefined || slopes === undefined) {
+      throw new Error('The scene has no hills or no mountains.');
+    }
+    for (let index = 0; index < GROUND_DIRECTIONS; index++) {
+      const degrees: number = (index * 360) / GROUND_DIRECTIONS;
+      if (Math.min(degrees, 360 - degrees) < CLOSED_BEYOND) {
+        continue;
+      }
+      const turn: number = (degrees * Math.PI) / 180;
+      let risen = false;
+      let flat = 0;
+      let longest = 0;
+      for (let reach: number = BOUNDARY.radius; reach <= SLOPE_REACH; reach++) {
+        if (measureLand([slopes, nearest], turn, reach) > 0) {
+          risen = true;
+          flat = 0;
+        } else if (risen) {
+          flat++;
+          longest = Math.max(longest, flat);
+        }
+      }
+      expect(longest, String(degrees)).toBeLessThanOrEqual(LONGEST_FLAT);
     }
   });
 

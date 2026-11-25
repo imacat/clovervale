@@ -25,20 +25,29 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   Group,
+  MathUtils,
   Mesh,
   MeshStandardMaterial,
 } from 'three';
 import type { Color, Object3D } from 'three';
 
 /** The least and the most of something. */
-type Range = readonly [least: number, most: number];
+export type Range = readonly [least: number, most: number];
 
 /** A ridge of mountains that rings the valley. */
 interface Ridge {
   /** The color of its slopes. */
   readonly color: string;
-  /** How far its foot is from the middle of the valley, in meters. */
+  /**
+   * How far its foot is from the middle of the valley, where its steep
+   * slopes start, in meters.
+   */
   readonly foot: number;
+  /**
+   * Its gentle lower slope, which reaches in from its foot toward the
+   * valley, or `null` if it rises straight from the ground at its foot.
+   */
+  readonly apron: Apron | null;
   /** How far its crest is from the middle of the valley, in meters. */
   readonly crest: number;
   /** How high its saddles rise, in meters. */
@@ -56,23 +65,81 @@ interface Ridge {
    * of the brightness of the sky.
    */
   readonly skyShade: number;
+  /**
+   * How far it sinks in the pass out of the valley beyond the village
+   * gate, as a share of its height.
+   */
+  readonly passDepth: number;
 }
 
-/** A point on a ridge: its distance around, out and up. */
-type RidgePoint = readonly [turn: number, distance: number, height: number];
+/**
+ * A row of the gentle lower slope of a ridge: how far it is from the
+ * middle of the valley, and how high, both in meters.
+ */
+type ApronRow = readonly [distance: number, height: number];
+
+/** The gentle lower slope of a ridge, which reaches in from its foot. */
+interface Apron {
+  /**
+   * Its rows, from where it sinks into the ground under the back of the
+   * hills out toward the foot of the ridge.
+   */
+  readonly rows: readonly ApronRow[];
+  /** How high it rises at the foot of the ridge, in meters. */
+  readonly rise: Range;
+}
+
+/**
+ * A point on a ridge or on a ring of hills: its direction around the
+ * middle, as the turn around the Y axis from +Z toward +X, in radians,
+ * and its distance out from the middle and its height, in meters.
+ */
+export type RidgePoint = readonly [
+  turn: number,
+  distance: number,
+  height: number,
+];
 
 /** A peak: where around it stands, how high, and how wide it spreads. */
 type Peak = readonly [turn: number, height: number, spread: number];
 
 /**
+ * The way out of the valley through the village gate, as the turn around
+ * the Y axis from +Z toward +X, in radians.
+ */
+export const GATE_TURN = 0;
+
+/**
+ * How far to either side of the way out through the village gate the low
+ * land is gone, the hills and the lower slope of the nearest ridge, in
+ * radians.
+ */
+export const LOWLAND_OPENING = 0.26;
+/** How far beyond that the low land rises again to its full height. */
+export const LOWLAND_OPENING_SPREAD = 0.34;
+
+/**
  * The ridges, nearest first: each farther one paler and more blue-gray,
  * and higher, so that it shows above the nearer ones, and closer to the
- * sky in brightness when it takes on the color of the sky.
+ * sky in brightness when it takes on the color of the sky.  Each sinks
+ * into the pass beyond the village gate, the nearer ones deeper, so that
+ * the farther ones show above them there.  The nearest one reaches in
+ * with a gentle lower slope from under the back of the hills, low enough
+ * that the camera stays above it, and gone toward the gate as the hills
+ * are.
  */
 const RIDGES: readonly Ridge[] = [
   {
     color: '#6f9476',
     foot: 170,
+    apron: {
+      rows: [
+        [50, -2],
+        [70, 0],
+        [128, 2],
+      ],
+      rise: [5, 9],
+    },
     crest: 245,
     saddle: [26, 40],
     peak: [55, 90],
@@ -80,10 +147,12 @@ const RIDGES: readonly Ridge[] = [
     columns: 90,
     seed: 0x5eed01,
     skyShade: 0.62,
+    passDepth: 0.6,
   },
   {
     color: '#87a2ae',
     foot: 255,
+    apron: null,
     crest: 330,
     saddle: [45, 70],
     peak: [85, 130],
@@ -91,10 +160,12 @@ const RIDGES: readonly Ridge[] = [
     columns: 108,
     seed: 0x5eed02,
     skyShade: 0.74,
+    passDepth: 0.5,
   },
   {
     color: '#a8bdcb',
     foot: 340,
+    apron: null,
     crest: 415,
     saddle: [70, 100],
     peak: [115, 160],
@@ -102,6 +173,7 @@ const RIDGES: readonly Ridge[] = [
     columns: 126,
     seed: 0x5eed03,
     skyShade: 0.86,
+    passDepth: 0.4,
   },
 ];
 
@@ -115,6 +187,11 @@ const COLUMN_WANDER = 0.3;
 const ROUGHNESS = 0.08;
 /** How wide a peak spreads to either side, at least and at most, in radians. */
 const PEAK_SPREAD: Range = [0.1, 0.24];
+/**
+ * How far to either side of the way out through the village gate the pass
+ * reaches, in radians.
+ */
+const PASS_SPREAD = 0.5;
 
 /**
  * Creates a source of numbers that seem random, the same every time for the
@@ -141,7 +218,7 @@ export function createRandom(seed: number): () => number {
  * @param {number} share - How far into the range, from 0 to 1.
  * @returns {number} The number.
  */
-function pickInRange([least, most]: Range, share: number): number {
+export function pickInRange([least, most]: Range, share: number): number {
   return least + (most - least) * share;
 }
 
@@ -152,18 +229,53 @@ function pickInRange([least, most]: Range, share: number): number {
  * @param {number} b - The other direction, in radians.
  * @returns {number} The smaller angle between them, in radians.
  */
-function measureTurn(a: number, b: number): number {
+export function measureTurn(a: number, b: number): number {
   const difference: number = Math.abs(a - b) % (2 * Math.PI);
   return Math.min(difference, 2 * Math.PI - difference);
 }
 
 /**
- * Finds the points of the foot, the shoulder and the crest of a ridge in
- * each column around it.
+ * Measures how open a direction around the valley is toward the way out
+ * through the village gate.
+ *
+ * @param {number} turn - The direction, around the Y axis from +Z toward
+ *   +X, in radians.
+ * @param {number} open - How far to either side of the way out it is
+ *   wide open, in radians.
+ * @param {number} spread - How far beyond that it closes smoothly, in
+ *   radians.
+ * @returns {number} 1 where it is wide open, falling smoothly to 0 where
+ *   it is not open at all.
+ */
+export function measureGateOpening(
+  turn: number,
+  open: number,
+  spread: number,
+): number {
+  const away: number = measureTurn(turn, GATE_TURN);
+  return 1 - MathUtils.smoothstep(away, open, open + spread);
+}
+
+/**
+ * Measures how open a direction around the valley is toward the way out
+ * through the village gate, where the low land is gone.
+ *
+ * @param {number} turn - The direction, around the Y axis from +Z toward
+ *   +X, in radians.
+ * @returns {number} 1 where the low land is gone, falling smoothly to 0
+ *   where it rises to its full height.
+ */
+export function measureLowlandOpening(turn: number): number {
+  return measureGateOpening(turn, LOWLAND_OPENING, LOWLAND_OPENING_SPREAD);
+}
+
+/**
+ * Finds the points of the lower slope, the foot, the shoulder and the
+ * crest of a ridge in each column around it.
  *
  * @param {Ridge} ridge - The ridge.
- * @returns {RidgePoint[][]} The foot, the shoulder and the crest, each with
- *   a point a column.
+ * @returns {RidgePoint[][]} The rows of its lower slope, if any, then its
+ *   foot, its shoulder and its crest, each with a point a column.
  */
 function findRidgePoints(ridge: Ridge): RidgePoint[][] {
   const random: () => number = createRandom(ridge.seed);
@@ -178,6 +290,7 @@ function findRidgePoints(ridge: Ridge): RidgePoint[][] {
       pickInRange(PEAK_SPREAD, random()),
     ],
   );
+  const aprons: RidgePoint[][] = (ridge.apron?.rows ?? []).map(() => []);
   const feet: RidgePoint[] = [];
   const shoulders: RidgePoint[] = [];
   const crests: RidgePoint[] = [];
@@ -195,18 +308,33 @@ function findRidgePoints(ridge: Ridge): RidgePoint[][] {
       height = Math.max(height, peakHeight * (1 - fall));
     }
     height *= 1 + (random() - 0.5) * ROUGHNESS;
+    height *= 1 - ridge.passDepth * measureGateOpening(turn, 0, PASS_SPREAD);
     const foot: number = ridge.foot + (random() * 2 - 1) * WANDER;
     const crest: number = ridge.crest + (random() * 2 - 1) * WANDER;
     const shoulder: number = pickInRange([foot, crest], 0.45 + random() * 0.2);
-    feet.push([turn, foot, -FOOT_DEPTH]);
     shoulders.push([turn, shoulder, height * (0.4 + random() * 0.25)]);
     crests.push([turn, crest, height]);
+    if (ridge.apron === null) {
+      feet.push([turn, foot, -FOOT_DEPTH]);
+      continue;
+    }
+    const standing: number = 1 - measureLowlandOpening(turn);
+    ridge.apron.rows.forEach(([distance, rise]: ApronRow, row: number) => {
+      aprons[row]?.push([
+        turn,
+        distance,
+        MathUtils.lerp(-FOOT_DEPTH, rise, standing),
+      ]);
+    });
+    const rise: number = pickInRange(ridge.apron.rise, swell);
+    feet.push([turn, foot, MathUtils.lerp(-FOOT_DEPTH, rise, standing)]);
   }
-  return [feet, shoulders, crests];
+  return [...aprons, feet, shoulders, crests];
 }
 
 /**
- * Puts the corners of a triangle of a ridge into a list of positions.
+ * Puts the corners of a triangle of a ring of land into a list of
+ * positions.
  *
  * @param {number[]} positions - The positions, three numbers a corner.
  * @param {readonly RidgePoint[]} corners - The corners.
@@ -225,21 +353,29 @@ function addTriangle(
 }
 
 /**
- * Creates a ridge of mountains that rings the valley, its slopes facing
- * the middle.
+ * Creates a low-poly ring of land around the middle, from rows of points
+ * that each go once around it, the first row its inner edge, each next
+ * row farther out, its top side facing up and toward the middle where it
+ * rises outward.
  *
- * @param {Ridge} ridge - The ridge.
- * @returns {Mesh} The ridge.
+ * @param {readonly (readonly RidgePoint[])[]} rows - The rows, each with
+ *   as many points, one a column, in order around the middle.
+ * @param {string} color - The color of the land.
+ * @returns {Mesh} The ring, with flat facets in the color, around the
+ *   origin.
  */
-function createRidge(ridge: Ridge): Mesh {
-  const rows: RidgePoint[][] = findRidgePoints(ridge);
+export function createRing(
+  rows: readonly (readonly RidgePoint[])[],
+  color: string,
+): Mesh {
+  const columns: number = rows[0]?.length ?? 0;
   const positions: number[] = [];
   for (let band = 0; band + 1 < rows.length; band++) {
-    const lower: RidgePoint[] = rows[band] ?? [];
-    const upper: RidgePoint[] = rows[band + 1] ?? [];
-    for (let column = 0; column < ridge.columns; column++) {
+    const lower: readonly RidgePoint[] = rows[band] ?? [];
+    const upper: readonly RidgePoint[] = rows[band + 1] ?? [];
+    for (let column = 0; column < columns; column++) {
       // The last column joins the first, so that the ring closes.
-      const next: number = (column + 1) % ridge.columns;
+      const next: number = (column + 1) % columns;
       const a: RidgePoint | undefined = lower[column];
       const b: RidgePoint | undefined = lower[next];
       const c: RidgePoint | undefined = upper[column];
@@ -266,7 +402,7 @@ function createRidge(ridge: Ridge): Mesh {
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   geometry.computeVertexNormals();
   const material = new MeshStandardMaterial({
-    color: ridge.color,
+    color,
     roughness: 1,
     flatShading: true,
   });
@@ -274,15 +410,32 @@ function createRidge(ridge: Ridge): Mesh {
 }
 
 /**
- * Creates the mountains around the valley: a few ridges of low-poly peaks
- * and saddles, ringing the village far beyond where the players can walk
- * and the camera can go, each farther one paler, more blue-gray and
- * higher.  They are the same every time.
+ * Creates a ridge of mountains that rings the valley, its slopes facing
+ * the middle.
  *
- * @returns {Group} The mountains, with a ridge a child, nearest first.
+ * @param {Ridge} ridge - The ridge.
+ * @returns {Mesh} The ridge.
+ */
+function createRidge(ridge: Ridge): Mesh {
+  return createRing(findRidgePoints(ridge), ridge.color);
+}
+
+/**
+ * Creates the mountains around the valley: a few ridges of low-poly peaks
+ * and saddles, ringing the village with their crests far beyond where the
+ * players can walk and the camera can go, each farther one paler, more
+ * blue-gray and higher, and all sinking into a pass beyond the village
+ * gate.  The nearest one rises gently from under the back of the hills, so
+ * that the land climbs on from the hills to the mountains, always below
+ * where the camera can go, and is gone toward the gate as the hills are.
+ * They are the same every time.
+ *
+ * @returns {Group} The mountains, named `mountains`, with a ridge a child,
+ *   nearest first.
  */
 export function createMountains(): Group {
   const mountains = new Group();
+  mountains.name = 'mountains';
   for (const ridge of RIDGES) {
     mountains.add(createRidge(ridge));
   }

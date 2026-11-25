@@ -30,16 +30,32 @@ import {
   SRGBColorSpace,
   Vector3,
 } from 'three';
-import type { Fog, Object3D, Scene } from 'three';
+import type { Fog, Scene } from 'three';
 
 import { NOON, findPhaseTime } from '@clovervale/shared';
 import type { DayPhase } from '@clovervale/shared';
 
-import { tintMountains } from './mountains.ts';
 import { Sky } from './sky.ts';
 
 /** Which body lights the village and casts its shadows. */
 export type LightBody = 'sun' | 'moon';
+
+/**
+ * Scenery far out around the village, such as the mountains or the hills,
+ * which takes on the color of the sky instead of its own as the light
+ * fades.
+ */
+export interface SkyTintedScenery {
+  /**
+   * Has the scenery take on the color of the sky instead of its own, as
+   * far as told.
+   *
+   * @param {Color} sky - The color of the sky.
+   * @param {number} share - How far it takes on the color of the sky, from
+   *   0 for its own colors to 1 for the color of the sky alone.
+   */
+  readonly tint: (sky: Color, share: number) => void;
+}
 
 /** How the village looks at a time of day. */
 export interface DaylightLook {
@@ -71,8 +87,9 @@ export interface DaylightLook {
   /** How brightly the windows of the houses glow, from 0 to 1. */
   readonly windows: number;
   /**
-   * How far the mountains take on the color of the sky instead of their
-   * own, from 0 to 1.
+   * How far the mountains, and the rest of the scenery far out around the
+   * village, take on the color of the sky instead of their own, from 0 to
+   * 1.
    */
   readonly mountainTint: number;
 }
@@ -493,7 +510,8 @@ function createBodyLight(): DirectionalLight {
  * The light and the colors of the village through the day: the sky and
  * the fog, the light of the sky and the ground, the light of the sun or of
  * the moon with its shadows, the stars, the sun and the moon in the sky,
- * and the mountains melting into the sky.
+ * and the scenery far out around it, such as the mountains and the hills,
+ * melting into the sky.
  */
 export class Daylight {
   readonly #fog: Fog;
@@ -501,18 +519,24 @@ export class Daylight {
   readonly #ambient: HemisphereLight = new HemisphereLight();
   readonly #light: DirectionalLight = createBodyLight();
   readonly #heavens: Sky;
-  readonly #mountains: Object3D;
+  readonly #scenery: readonly SkyTintedScenery[];
 
   /**
    * Lights a scene, and gives it a sky, as at noon until told the time.
    *
    * @param {Scene} scene - The scene.
    * @param {Fog} fog - The fog of the scene.
-   * @param {Object3D} mountains - The mountains of the scene.
+   * @param {readonly SkyTintedScenery[]} scenery - The scenery far out in
+   *   the scene that melts into the sky, all of it as far as the mountains
+   *   do.
    */
-  constructor(scene: Scene, fog: Fog, mountains: Object3D) {
+  constructor(
+    scene: Scene,
+    fog: Fog,
+    scenery: readonly SkyTintedScenery[],
+  ) {
     this.#fog = fog;
-    this.#mountains = mountains;
+    this.#scenery = scenery;
     scene.background = this.#sky;
     scene.add(this.#ambient, this.#light, this.#light.target);
     this.#heavens = new Sky(scene);
@@ -540,7 +564,9 @@ export class Daylight {
     this.#light.shadow.radius = SHADOW_BLUR[look.body];
     this.#light.shadow.intensity = SHADOW_DARKNESS[look.body];
     this.#heavens.show(look);
-    tintMountains(this.#mountains, look.sky, look.mountainTint);
+    for (const scenery of this.#scenery) {
+      scenery.tint(look.sky, look.mountainTint);
+    }
     return look;
   }
 }

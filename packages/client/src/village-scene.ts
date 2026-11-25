@@ -25,7 +25,7 @@
  */
 
 import { CircleGeometry, Fog, Mesh, MeshStandardMaterial, Scene } from 'three';
-import type { Object3D } from 'three';
+import type { Color, Object3D } from 'three';
 
 import { Actor } from './actor.ts';
 import { Daylight } from './daylight.ts';
@@ -33,13 +33,14 @@ import type { DaylightLook } from './daylight.ts';
 import { prepareModel } from './figure-copies.ts';
 import { ForgeGlow } from './forge-glow.ts';
 import { FountainGlow } from './fountain-glow.ts';
+import { createHills, tintHills } from './hills.ts';
 import type { MapScene } from './map-scene.ts';
 import { MODEL_FILES } from './model-catalog.ts';
 import { findModelRoot } from './model-library.ts';
 import type { LoadedModel } from './model-loader.ts';
 import { createModelPlacer } from './model-placement.ts';
 import type { ModelPlacer } from './model-placement.ts';
-import { createMountains } from './mountains.ts';
+import { createMountains, tintMountains } from './mountains.ts';
 import { layoutVillage } from './village-layout.ts';
 import { WindowGlow } from './window-glow.ts';
 
@@ -142,8 +143,10 @@ function createDisk(color: string, height: number): Mesh {
 }
 
 /**
- * Creates the village without its models: the ground, the mountains around
- * it, and the sky, the fog and the light, as at noon until told the time.
+ * Creates the village without its models: the ground, the low hills with
+ * pine trees just outside it, open toward the way out through its gate,
+ * the mountains far beyond them, and the sky, the fog and the light, as at
+ * noon until told the time.
  *
  * @returns {VillageScene} The village.
  */
@@ -165,8 +168,20 @@ export function createVillageScene(): VillageScene {
     scene.add(patch);
   });
   const mountains: Object3D = createMountains();
-  scene.add(mountains);
-  const daylight = new Daylight(scene, fog, mountains);
+  const hills: Object3D = createHills();
+  scene.add(mountains, hills);
+  const daylight = new Daylight(scene, fog, [
+    {
+      tint: (sky: Color, share: number): void => {
+        tintMountains(mountains, sky, share);
+      },
+    },
+    {
+      tint: (sky: Color, share: number): void => {
+        tintHills(hills, sky, share);
+      },
+    },
+  ]);
   const actors: Actor[] = [];
   let fountainGlow: FountainGlow | null = null;
   let forgeGlow: ForgeGlow | null = null;
