@@ -36,7 +36,7 @@ import {
   mergeGeometries,
 } from 'three/addons/utils/BufferGeometryUtils.js';
 
-import { CLOVER_PATCHES } from '@clovervale/shared';
+import { CLOVER_PATCHES, FIELD_FLOOR_HEIGHT } from '@clovervale/shared';
 import type { GroundItem, WorldItems } from '@clovervale/shared';
 
 import type { FigureFrame, FigureSet } from './figure-set.ts';
@@ -96,6 +96,13 @@ const HELD_SCALE = 0.6;
 
 /** How high above the ground the leaves of a lying clover are, in meters. */
 const LYING_HEIGHT = 0.02;
+
+/**
+ * How high above the ground an item lying on it is drawn, in meters: just
+ * enough for it to lie on top of the bare earth of the lanes of a farm
+ * field rather than in it.
+ */
+const LYING_LIFT: number = 2 * FIELD_FLOOR_HEIGHT;
 
 /** The turn from one item on the ground to the next, in degrees. */
 const LYING_TURN = 137.5;
@@ -353,7 +360,7 @@ export class ItemFigures implements FigureSet {
       });
       figure.add(copy);
     }
-    figure.position.set(item.x, 0, item.z);
+    figure.position.set(item.x, LYING_LIFT, item.z);
     figure.rotation.y = (((item.id * LYING_TURN) % 360) * Math.PI) / 180;
     this.#parent.add(figure);
     return figure;

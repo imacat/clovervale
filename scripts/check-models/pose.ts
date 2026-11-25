@@ -19,7 +19,8 @@
 
 /**
  * @module scripts/check-models/pose Loads the models the way the client
- *   does, stands and poses them, and reads where their vertices are.
+ *   does, stands and poses them, and reads where their vertices are, and
+ *   how far they reach out of the ground they take up.
  */
 
 import { readFileSync } from 'node:fs';
@@ -30,7 +31,8 @@ import type { AnimationAction, AnimationClip, Object3D } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
-import type { Placement } from '@clovervale/shared';
+import { findFootprints, findTurn, turnVector } from '@clovervale/shared';
+import type { GroundVector, Placement, Shape } from '@clovervale/shared';
 
 import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 import { getItem } from '../models/items.ts';
@@ -178,6 +180,62 @@ export function listMaterialVertices(
     }
   });
   return positions;
+}
+
+/**
+ * Measures how far a point on the ground lies outside a shape on it.
+ *
+ * @param {GroundVector} point - The point.
+ * @param {Shape} shape - The shape, in the world.
+ * @returns {number} How far, in meters, or zero if it lies within.
+ */
+export function measureOutside(point: GroundVector, shape: Shape): number {
+  if (shape.shape === 'circle') {
+    return Math.max(
+      Math.hypot(point.x - shape.x, point.z - shape.z) - shape.radius,
+      0,
+    );
+  }
+  const local: GroundVector = turnVector(
+    { x: point.x - shape.x, z: point.z - shape.z },
+    findTurn(-shape.yaw),
+  );
+  return Math.hypot(
+    Math.max(Math.abs(local.x) - shape.halfWidth, 0),
+    Math.max(Math.abs(local.z) - shape.halfDepth, 0),
+  );
+}
+
+/**
+ * Measures how far the solid part of a model of the village, standing in
+ * its place, reaches out of the ground it takes up there: the farthest any
+ * of its vertices between two heights lies outside every footprint of its
+ * own.
+ *
+ * @param {Object3D} root - The model, standing in its place.
+ * @param {Placement} placement - Its place.
+ * @param {readonly [number, number]} heights - The heights between which
+ *   its vertices are measured, in meters.
+ * @returns {number} How far, in meters.
+ */
+export function measureOverhang(
+  root: Object3D,
+  placement: Placement,
+  heights: readonly [number, number],
+): number {
+  const own: Shape[] = findFootprints(placement);
+  const [low, high] = heights;
+  let farthest = 0;
+  for (const point of listWorldVertices(root).positions) {
+    if (point.y < low || point.y > high) {
+      continue;
+    }
+    const outside: number = Math.min(
+      ...own.map((shape: Shape) => measureOutside(point, shape)),
+    );
+    farthest = Math.max(farthest, outside);
+  }
+  return farthest;
 }
 
 /**

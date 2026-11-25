@@ -150,7 +150,12 @@ export type {
   TobyStage,
 } from './quests.ts';
 export { interpolatePlaced, interpolateYaw } from './interpolation.ts';
-export type { CavePropId, ModelId, VillagePropId } from './models.ts';
+export type {
+  CavePropId,
+  FarmFieldId,
+  ModelId,
+  VillagePropId,
+} from './models.ts';
 export {
   SIMULATION_RATE,
   STEP_MILLISECONDS,
@@ -245,6 +250,12 @@ export {
 } from './toby.ts';
 export type { TobyActivity, TobyGrab, TobyPose } from './toby.ts';
 export {
+  FARM_FIELDS,
+  FARM_FIELD_IDS,
+  FIELD_BED_WIDTH,
+  FIELD_FENCE_THICKNESS,
+  FIELD_FLOOR_HEIGHT,
+  FIELD_GATE_WIDTH,
   FOUNTAIN_RIM_RADIUS,
   MARTHA_POST,
   SPAWN_STONES_POSE,
@@ -252,9 +263,14 @@ export {
   VILLAGE_TERRAIN,
   PITCHFORK_STAND,
   WELL_STAND,
+  findFootprints,
   findPlacement,
 } from './village-layout.ts';
-export type { Placement } from './village-layout.ts';
+export type {
+  FarmField,
+  FieldBed,
+  Placement,
+} from './village-layout.ts';
 export {
   PLAZA_CENTER,
   SPAWN_POINT_COUNT,

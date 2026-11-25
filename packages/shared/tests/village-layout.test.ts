@@ -25,39 +25,54 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FARM_FIELDS,
+  FARM_FIELD_IDS,
+  FIELD_BED_WIDTH,
+  FIELD_FENCE_THICKNESS,
+  FIELD_GATE_WIDTH,
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
   PLAYER_RADIUS,
   PLAZA_CENTER,
   SPAWN_POINT_COUNT,
+  TOBY_ENDS,
+  TOBY_RADIUS,
   Terrain,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
+  findFootprints,
   findInteraction,
   findPlacement,
   findSpawnPoint,
   findMapPath,
   findVillager,
   placePoint,
+  placeShape,
 } from '../src/index.ts';
 import type {
+  FarmFieldId,
+  FieldBed,
   GroundVector,
   ModelId,
   Placement,
   Shape,
 } from '../src/index.ts';
+import { NavigationGraph } from '../src/navigation.ts';
 import { findTurn, turnVector } from '../src/terrain.ts';
 import { VILLAGE_BOUNDARY } from '../src/village-layout.ts';
 import type { CircleShape } from '../src/terrain.ts';
 
 /**
- * The models a player can walk over or into the middle of, Martha, who
- * stands in the way of nobody, and her pitchfork, which leans against the
- * wall of her house.
+ * The models a player can walk over or into the middle of, including the
+ * farm fields, Martha, who stands in the way of nobody, and her pitchfork,
+ * which leans against the wall of her house.
  */
 const OPEN_MODELS: readonly ModelId[] = [
   'clover',
   'spawn-stones',
+  'chief-field',
+  'cottage-field',
+  'apothecary-field',
   'martha',
   'pitchfork',
 ];
@@ -1033,6 +1048,313 @@ describe('Basil the apothecary', () => {
     const yaw: number =
       (Math.atan2(basil.x - spot.x, basil.z - spot.z) * 180) / Math.PI;
     expect(findVillager({ ...spot, yaw }, 0, 'village', [])?.id).toBe('basil');
+  });
+});
+
+/**
+ * The houses with a farm field behind them, and their fields: the house of
+ * Martha the village chief, the cottage of Toby and the apothecary shop of
+ * Basil.
+ */
+const FARMED_HOUSES: readonly (readonly [ModelId, FarmFieldId])[] = [
+  ['chief-house', 'chief-field'],
+  ['cottage', 'cottage-field'],
+  ['apothecary', 'apothecary-field'],
+];
+
+/**
+ * How far inside the fence of a farm field a player stands, just inside
+ * its gate or just inside its back, in meters.
+ */
+const INSIDE_FENCE = 0.5;
+
+/**
+ * Tells whether a model is a farm field.
+ *
+ * @param {ModelId} model - The model.
+ * @returns {boolean} Whether it is.
+ */
+function isField(model: ModelId): model is FarmFieldId {
+  return (FARM_FIELD_IDS as readonly ModelId[]).includes(model);
+}
+
+/**
+ * The ways a player walks along the back of each house with a farm field,
+ * between the house and its field, as the model of the house has them: the
+ * house, and where each way starts and ends.
+ */
+const FIELD_WAYS: readonly (readonly [ModelId, GroundVector, GroundVector])[] =
+  [
+    ['chief-house', { x: -2.5, z: -4.51 }, { x: 4.5, z: -4.51 }],
+    ['cottage', { x: -2.5, z: -2.85 }, { x: 2.5, z: -2.85 }],
+    ['apothecary', { x: -4, z: -2.85 }, { x: 2.5, z: -2.85 }],
+  ];
+
+/**
+ * Lists the farm fields behind a house: those within 12 m of it, on the
+ * side of it away from the way it faces.
+ *
+ * @param {Placement} house - Where the house stands.
+ * @returns {ModelId[]} The fields.
+ */
+function listFieldsBehind(house: Placement): ModelId[] {
+  const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(house.yaw));
+  return VILLAGE_PLACEMENTS.filter(
+    (placement: Placement) =>
+      isField(placement.model) &&
+      Math.hypot(placement.x - house.x, placement.z - house.z) < 12 &&
+      measureAlignment(front, findWay(house, placement)) <
+        -Math.cos(Math.PI / 4),
+  ).map((placement: Placement) => placement.model);
+}
+
+/**
+ * Finds where a point of a farm field lies in the world.
+ *
+ * @param {FarmFieldId} id - The field.
+ * @param {GroundVector} local - The point, as the model of the field has
+ *   it before it is placed.
+ * @returns {GroundVector} The point in the world.
+ */
+function placeOnField(id: FarmFieldId, local: GroundVector): GroundVector {
+  return placePoint(findPlacement(id), local);
+}
+
+/**
+ * Finds where a player stands just inside the gate of a farm field, and
+ * just inside its back, at the two ends of the lane from the gate.
+ *
+ * @param {FarmFieldId} id - The field.
+ * @returns {readonly [GroundVector, GroundVector]} The two places.
+ */
+function findMainLane(id: FarmFieldId): readonly [GroundVector, GroundVector] {
+  const inside: number =
+    FARM_FIELDS[id].width / 2 - FIELD_FENCE_THICKNESS - INSIDE_FENCE;
+  return [
+    placeOnField(id, { x: 0, z: inside }),
+    placeOnField(id, { x: 0, z: -inside }),
+  ];
+}
+
+/**
+ * Lists the points of the ground a rectangular footprint takes up, five
+ * centimeters apart.
+ *
+ * @param {Shape} shape - The footprint, a box.
+ * @returns {GroundVector[]} The points.
+ */
+function listPointsWithin(shape: Shape): GroundVector[] {
+  if (shape.shape !== 'box') {
+    return [shape];
+  }
+  const step = 0.05;
+  const points: GroundVector[] = [];
+  for (let u = -shape.halfWidth; u <= shape.halfWidth + 1e-9; u += step) {
+    for (let v = -shape.halfDepth; v <= shape.halfDepth + 1e-9; v += step) {
+      points.push(placePoint(shape, { x: u, z: v }));
+    }
+  }
+  return points;
+}
+
+describe('the farm fields', () => {
+  it('lie behind the houses of Martha, Toby and Basil, not Emma', () => {
+    const fields: Placement[] = VILLAGE_PLACEMENTS.filter(
+      (placement: Placement) => isField(placement.model),
+    );
+    expect(fields).toHaveLength(FARMED_HOUSES.length);
+    for (const [house, field] of FARMED_HOUSES) {
+      expect(listFieldsBehind(findPlacement(house))).toEqual([field]);
+    }
+    expect(listFieldsBehind(findPlacement('weapon-shop'))).toEqual([]);
+  });
+
+  it('fill their depth with rows of beds and lanes of one width', () => {
+    for (const id of FARM_FIELD_IDS) {
+      const { width, beds } = FARM_FIELDS[id];
+      const rows: number[] = [
+        ...new Set(beds.map((bed: FieldBed) => bed.z)),
+      ].sort((a: number, b: number) => b - a);
+      const inside: number = width / 2 - FIELD_FENCE_THICKNESS;
+      const lanes: number[] = [];
+      let front: number = inside;
+      for (const z of rows) {
+        lanes.push(front - (z + FIELD_BED_WIDTH / 2));
+        front = z - FIELD_BED_WIDTH / 2;
+      }
+      lanes.push(front + inside);
+      expect(rows.length, id).toBeGreaterThan(1);
+      const [first] = lanes;
+      for (const lane of lanes) {
+        expect(lane, id).toBeCloseTo(first ?? NaN, 6);
+      }
+    }
+  });
+
+  it('fence and bed their ground, overlapping no other footprint', () => {
+    for (const field of VILLAGE_PLACEMENTS) {
+      if (!isField(field.model)) {
+        continue;
+      }
+      const own: Shape[] = findFootprints(field);
+      expect(own).toHaveLength(5 + FARM_FIELDS[field.model].beds.length);
+      const others = new Terrain(
+        VILLAGE_PLACEMENTS.filter(
+          (placement: Placement) => placement !== field,
+        ).flatMap(findFootprints),
+        VILLAGE_BOUNDARY,
+      );
+      for (const point of own.flatMap(listPointsWithin)) {
+        expect(others.isClear(point, -PLAYER_RADIUS), field.model).toBe(true);
+      }
+    }
+  });
+
+  it('hold nothing inside their fences but their own beds', () => {
+    for (const id of FARM_FIELD_IDS) {
+      const field: Placement = findPlacement(id);
+      const { length, width } = FARM_FIELDS[id];
+      const inside = new Terrain(
+        [
+          {
+            shape: 'box',
+            x: field.x,
+            z: field.z,
+            halfWidth: length / 2,
+            halfDepth: width / 2,
+            yaw: field.yaw,
+          },
+        ],
+        // A boundary far out of the way, as some pine trees stand past
+        // the boundary of the village.
+        { x: field.x, z: field.z, radius: 1000 },
+      );
+      for (const other of VILLAGE_PLACEMENTS) {
+        if (other === field) {
+          continue;
+        }
+        for (const shape of findFootprints(other)) {
+          for (const point of listPointsWithin(shape)) {
+            expect(
+              inside.isClear(point, -PLAYER_RADIUS),
+              `${other.model} in ${id}`,
+            ).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
+  it('lie well within the boundary of the village', () => {
+    const fields: Shape[] = VILLAGE_PLACEMENTS.filter(
+      (placement: Placement) => isField(placement.model),
+    ).flatMap(findFootprints);
+    for (const point of fields.flatMap(listPointsWithin)) {
+      expect(
+        Math.hypot(
+          point.x - VILLAGE_BOUNDARY.x,
+          point.z - VILLAGE_BOUNDARY.z,
+        ),
+      ).toBeLessThan(VILLAGE_BOUNDARY.radius - 1);
+    }
+  });
+
+  it('leave a way open along the back of each house, before its field', () => {
+    for (const [model, from, to] of FIELD_WAYS) {
+      const house: Placement = findPlacement(model);
+      const start: GroundVector = placePoint(house, from);
+      const end: GroundVector = placePoint(house, to);
+      expect(VILLAGE_TERRAIN.isPathClear(start, end), model).toBe(true);
+      expect(
+        findMapPath('village', findSpawnPoint(0), start),
+        model,
+      ).not.toBeNull();
+    }
+  });
+
+  it('let a player in through the gate, and up the lane to the back', () => {
+    for (const id of FARM_FIELD_IDS) {
+      const [gate, back] = findMainLane(id);
+      expect(VILLAGE_TERRAIN.isClear(gate), id).toBe(true);
+      expect(VILLAGE_TERRAIN.isPathClear(gate, back), id).toBe(true);
+      expect(findMapPath('village', findSpawnPoint(0), back), id).not.toBe(
+        null,
+      );
+    }
+  });
+
+  it('let nobody into a field but through its gate', () => {
+    for (const id of FARM_FIELD_IDS) {
+      const field: Placement = findPlacement(id);
+      const across: Shape = placeShape(field, {
+        shape: 'box',
+        x: 0,
+        z: FARM_FIELDS[id].width / 2 - FIELD_FENCE_THICKNESS / 2,
+        halfWidth: FIELD_GATE_WIDTH / 2,
+        halfDepth: FIELD_FENCE_THICKNESS / 2,
+        yaw: 0,
+      });
+      const shut = new Terrain(
+        [...VILLAGE_TERRAIN.shapes, across],
+        VILLAGE_BOUNDARY,
+      );
+      const [, back] = findMainLane(id);
+      expect(
+        new NavigationGraph(shut).findPath(findSpawnPoint(0), back),
+        id,
+      ).toBeNull();
+    }
+  });
+
+  it('keep clear of the clover, the spawn points and the run of Toby', () => {
+    const fields: Shape[] = VILLAGE_PLACEMENTS.filter(
+      (placement: Placement) => isField(placement.model),
+    ).flatMap(findFootprints);
+    const [first, second] = TOBY_ENDS;
+    const run: CircleShape[] = Array.from(
+      { length: 101 },
+      (_, index: number): CircleShape => ({
+        shape: 'circle',
+        x: first.x + ((second.x - first.x) * index) / 100,
+        z: first.z + ((second.z - first.z) * index) / 100,
+        radius: 1 + TOBY_RADIUS,
+      }),
+    );
+    const points: CircleShape[] = [
+      ...VILLAGE_PLACEMENTS.filter(
+        (placement: Placement) => placement.model === 'clover',
+      ).map((patch: Placement): CircleShape => ({
+        shape: 'circle',
+        x: patch.x,
+        z: patch.z,
+        radius: 1,
+      })),
+      ...Array.from(
+        { length: SPAWN_POINT_COUNT },
+        (_, index: number): CircleShape => ({
+          shape: 'circle',
+          ...findSpawnPoint(index),
+          radius: 1 + PLAYER_RADIUS,
+        }),
+      ),
+      ...run,
+    ];
+    for (const point of points) {
+      for (const field of fields) {
+        expect(measureGap(point, field)).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('leave no ground in or around them that cannot be reached', () => {
+    for (const id of FARM_FIELD_IDS) {
+      const { length, width } = FARM_FIELDS[id];
+      const reach: number = Math.ceil(Math.max(length, width) / 2) + 2;
+      const points: GridPoint[] = walkGrid(findPlacement(id), reach, 0.1);
+      expect(
+        points.filter((point: GridPoint) => point.isOpen && !point.isReached),
+      ).toEqual([]);
+    }
   });
 });
 

@@ -22,13 +22,16 @@
  *   patches and the items on the ground.
  */
 
-import { Scene } from 'three';
+import { Box3, BoxGeometry, Mesh, Scene } from 'three';
+import type { Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
+import { FIELD_FLOOR_HEIGHT } from '@clovervale/shared';
 import type { GroundItem, WorldItems } from '@clovervale/shared';
 
 import type { FigureFrame } from '../src/figure-set.ts';
 import { ItemFigures } from '../src/item-figures.ts';
+import { LYING_ITEM_MODELS } from '../src/model-catalog.ts';
 
 /** An item on the ground. */
 const ITEM: GroundItem = { id: 3, kind: 'clover', x: 2.5, z: -9.25 };
@@ -81,6 +84,34 @@ describe('ItemFigures', () => {
     figures.show(makeItemFrame({ clovers: [], items: [ITEM] }));
     figures.show(makeItemFrame({ clovers: [], items: [elsewhere] }));
     expect(figures.describe()).toEqual({ clovers: [], items: [elsewhere] });
+  });
+
+  it('lays an item on top of the earth of a farm field, not in it', () => {
+    const scene = new Scene();
+    const figures = new ItemFigures(scene);
+    // A sword, flat on the ground, as its model rests on it.
+    const sword = new Mesh(
+      new BoxGeometry(0.3, 0.02, 0.9).translate(0, 0.01, 0),
+    );
+    figures.useModels([
+      { file: LYING_ITEM_MODELS.sword, root: sword, clips: [] },
+    ]);
+    const before: Object3D[] = [...scene.children];
+    figures.show(
+      makeItemFrame({
+        clovers: [],
+        items: [ITEM, { ...ITEM, id: 4, kind: 'sword' }],
+      }),
+    );
+    const laid: Object3D[] = scene.children.filter(
+      (child: Object3D) => !before.includes(child),
+    );
+    expect(laid).toHaveLength(2);
+    for (const item of laid) {
+      expect(new Box3().setFromObject(item).min.y).toBeGreaterThan(
+        FIELD_FLOOR_HEIGHT,
+      );
+    }
   });
 
   it('takes what it shows out of the scene once it is gone', () => {

@@ -196,7 +196,10 @@ export function describeQuestLook(look: QuestLook): string {
  * @param {GroundVector} way - The way to walk.
  * @returns {readonly string[]} The keys to hold down together.
  */
-function findWalkKeys(heading: number, way: GroundVector): readonly string[] {
+export function findWalkKeys(
+  heading: number,
+  way: GroundVector,
+): readonly string[] {
   const turn: number =
     (Math.round((Math.atan2(way.x, way.z) * 4) / Math.PI) + 8) % 8;
   // The keys walk the way they do as the camera looks, which a key walking

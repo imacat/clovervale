@@ -21,6 +21,8 @@
  * @module scripts/models/catalog The list of every model to generate.
  */
 
+import { FARM_FIELD_IDS } from '@clovervale/shared';
+import type { FarmFieldId } from '@clovervale/shared';
 import {
   CHARACTER_FILES,
   LYING_ITEM_MODELS,
@@ -52,6 +54,7 @@ import {
 } from './cave-fixtures.ts';
 import { buildCave, buildCaveTorch } from './cave.ts';
 import { VARIANTS, buildCharacter } from './characters.ts';
+import { buildFarmField } from './farm-field.ts';
 import { buildItemLeatherArmor, buildItemSword } from './gear.ts';
 import { buildItemClovervaleMessage } from './message.ts';
 import { buildNpcBasil } from './npc-basil.ts';
@@ -132,6 +135,12 @@ export function listModels(): ModelEntry[] {
     { file: MODEL_FILES['yard-wall'], build: buildYardWall },
     { file: MODEL_FILES['yard-wall-end'], build: buildYardWallEnd },
     { file: MODEL_FILES['old-well'], build: buildOldWell },
+    ...FARM_FIELD_IDS.map(
+      (id: FarmFieldId): ModelEntry => ({
+        file: MODEL_FILES[id],
+        build: (): BuiltModel => buildFarmField(id),
+      }),
+    ),
     { file: MODEL_FILES.pitchfork, build: buildPropPitchfork },
     { file: LYING_PITCHFORK_FILE, build: buildPropPitchforkLying },
     { file: MODEL_FILES.cave, build: buildCave },

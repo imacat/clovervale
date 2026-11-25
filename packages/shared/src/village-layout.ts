@@ -22,7 +22,7 @@
  *   the ground they take up.
  */
 
-import type { ModelId } from './models.ts';
+import type { FarmFieldId, ModelId } from './models.ts';
 import type { GroundVector } from './movement.ts';
 import {
   Terrain,
@@ -153,6 +153,11 @@ const YARD_WALL_ENDS_ON_HOUSE: readonly Spot[] = [
 ];
 
 /**
+ * The spot of the cottage, where Toby lives, west of the plaza, facing it.
+ */
+const COTTAGE_SPOT: Spot = [-11, -4.5, 90];
+
+/**
  * The spot of the apothecary shop, the cottage at the back of the village on
  * the north-west, facing the plaza.
  */
@@ -204,6 +209,71 @@ const BARRELS_ON_SHOP: readonly Spot[] = [
 ];
 
 /**
+ * A farm field behind a house, on the side away from the plaza: the house,
+ * and where the field lies and how large it is, as the model of the house
+ * has it.  The field faces the way the house faces, with the gate in its
+ * fence in the middle of its side toward the back of the house.
+ */
+interface FieldSite {
+  /** The spot of the house. */
+  readonly house: Spot;
+  /** The spot of the middle of the field, as the model of the house has it. */
+  readonly at: Spot;
+  /**
+   * The length of the field along the back of the house, to the outside of
+   * its fence, in meters.
+   */
+  readonly length: number;
+  /**
+   * The width of the field from the house out toward the edge of the
+   * village, to the outside of its fence, in meters: just wide enough for
+   * its rows of beds and the lanes in front of, between and behind them.
+   */
+  readonly width: number;
+}
+
+/**
+ * The farm fields behind the houses, each fenced in a meter or so behind
+ * its house, or behind the low wall at the back of the yard of the chief's
+ * house, leaving room to walk between, and reaching to within a meter of
+ * the boundary of the village.  Behind the chief's house, which stands
+ * near the boundary, the field is long and shallow, running from the
+ * corner of the yard away from the well to the pine tree near the well.
+ * Behind the cottage, the field runs from the pine tree on its far side
+ * from the apothecary shop to the end of the fence near the shop, and
+ * reaches deep toward the boundary.  Behind the apothecary shop, the field
+ * runs from the fence on the side away from the plaza to just short of the
+ * path on the other side.
+ */
+const FIELD_SITES: Readonly<Record<FarmFieldId, FieldSite>> = {
+  'chief-field': {
+    house: CHIEF_HOUSE_SPOT,
+    at: [0.2, -7.92, 0],
+    length: 11.2,
+    width: 5.72,
+  },
+  'cottage-field': {
+    house: COTTAGE_SPOT,
+    at: [-2.1, -9.66, 0],
+    length: 9.8,
+    width: 12.62,
+  },
+  'apothecary-field': {
+    house: APOTHECARY_SPOT,
+    at: [-0.75, -7.36, 0],
+    length: 10.5,
+    width: 8.02,
+  },
+};
+
+/** The farm fields of the village, in the order they are laid out. */
+export const FARM_FIELD_IDS: readonly FarmFieldId[] = [
+  'chief-field',
+  'cottage-field',
+  'apothecary-field',
+];
+
+/**
  * Finds the spot in the world of something placed on a model.
  *
  * @param {Spot} model - The spot of the model.
@@ -218,6 +288,18 @@ function placeSpot(model: Spot, local: Spot): Spot {
     z: local[1],
   });
   return [point.x, point.z, yaw + local[2]];
+}
+
+/**
+ * Finds the spot in the world of a farm field.
+ *
+ * @param {FarmFieldId} id - The field.
+ * @returns {Spot} The spot of the middle of the field, facing the way its
+ *   house faces.
+ */
+function placeFieldSpot(id: FarmFieldId): Spot {
+  const { house, at } = FIELD_SITES[id];
+  return placeSpot(house, at);
 }
 
 /**
@@ -286,7 +368,7 @@ const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
   'great-tree': [[0, -14.5, 20]],
   'healing-stele': [[-2.1, -6.8, 20]],
   'village-sign': [[-3.1, 4.9, 0]],
-  cottage: [[-11, -4.5, 90]],
+  cottage: [COTTAGE_SPOT],
   apothecary: [APOTHECARY_SPOT],
   basil: [makeSpot(BASIL_POST)],
   'herb-rack': [placeSpot(APOTHECARY_SPOT, HERB_RACK_ON_SHOP)],
@@ -306,15 +388,21 @@ const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
   'yard-wall-end': YARD_WALL_ENDS_ON_HOUSE.map((spot: Spot) =>
     placeSpot(CHIEF_HOUSE_SPOT, spot),
   ),
+  'chief-field': [placeFieldSpot('chief-field')],
+  'cottage-field': [placeFieldSpot('cottage-field')],
+  'apothecary-field': [placeFieldSpot('apothecary-field')],
+  // The first, second, fourth and eighth pine trees stand just outside the
+  // boundary of the village, behind the farm fields of the cottage, the
+  // apothecary shop and the chief's house, and clear of the fields.
   'pine-tree': [
-    [-16.5, 0.5, 0],
-    [-18.5, -6, 40],
+    [-28.45, 4.49, 0],
+    [-29.96, -6.62, 40],
     [-18, -13.5, 80],
-    [-14.5, -21.5, 120],
+    [-19.8, -27.53, 120],
     [-10, -24.5, 160],
     [0, -26, 200],
     [10, -24.5, 240],
-    [14.5, -21.5, 280],
+    [19.8, -27.53, 280],
     [18, -14, 320],
     [18.5, -7, 0],
     [17.5, 0, 40],
@@ -323,8 +411,8 @@ const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
     [17, 12, 160],
     [6, 16.5, 200],
     [-24, -18, 240],
-    [24, -22, 280],
-    [-3, -33, 320],
+    [24.82, -22.58, 280],
+    [-3.11, -33.99, 320],
     [23, 5, 0],
     [-22, 9, 40],
   ],
@@ -461,6 +549,146 @@ function makeBox(
  */
 export const FOUNTAIN_RIM_RADIUS = 1.6;
 
+/** The thickness of the fence around a farm field, in meters. */
+export const FIELD_FENCE_THICKNESS = 0.16;
+
+/**
+ * The width of the gate in the fence of a farm field, an opening in the
+ * middle of its front, in meters.
+ */
+export const FIELD_GATE_WIDTH = 1.6;
+
+/**
+ * How high above the ground the bare earth of the lanes of a farm field
+ * lies, in meters: barely above it, below the soles of anyone walking
+ * there and the underside of anything lying there.
+ */
+export const FIELD_FLOOR_HEIGHT = 0.0008;
+
+/**
+ * The width of a bed of a farm field, across its rows of crops, in meters.
+ */
+export const FIELD_BED_WIDTH = 1.5;
+
+/**
+ * The width of the lane inside the front of the fence of a farm field, of
+ * each lane between two of its beds and of the lane inside the back of the
+ * fence, in meters: room for a player to walk along.
+ */
+const FIELD_LANE_WIDTH = 0.8;
+
+/**
+ * The width of the lane of a farm field that runs from its gate straight
+ * to its back, between the two halves of every bed, in meters.
+ */
+const FIELD_MAIN_LANE_WIDTH = 1.4;
+
+/**
+ * A bed of a farm field, of the width of {@link FIELD_BED_WIDTH}, running
+ * along the X axis of the field, as the model of the field has it.
+ */
+export interface FieldBed {
+  /** The middle of the bed along the X axis of the field, in meters. */
+  readonly x: number;
+  /** The middle of the bed along the Z axis of the field, in meters. */
+  readonly z: number;
+  /** The length of the bed along the X axis of the field, in meters. */
+  readonly length: number;
+}
+
+/**
+ * A farm field: a fenced rectangle of ground, with a gate in the middle of
+ * its front, toward +Z, and raised beds of tilled earth inside, with lanes
+ * between them that a player walks along.
+ */
+export interface FarmField {
+  /**
+   * The length along the X axis, to the outside of the fence, in meters.
+   */
+  readonly length: number;
+  /** The width along the Z axis, to the outside of the fence, in meters. */
+  readonly width: number;
+  /**
+   * The beds, in rows across the field from its front to its back, with a
+   * lane inside the front of the fence, between every two rows and inside
+   * the back of the fence behind the last row, filling the field; each
+   * row is split by the lane from the gate to the back, and runs unbroken
+   * from that lane out to the fence on either side.
+   */
+  readonly beds: readonly FieldBed[];
+}
+
+/**
+ * Lays out the beds of a farm field.
+ *
+ * @param {FarmFieldId} id - The field.
+ * @returns {FarmField} The field.
+ */
+function planField(id: FarmFieldId): FarmField {
+  const { length, width } = FIELD_SITES[id];
+  const side: number = length / 2 - FIELD_FENCE_THICKNESS;
+  const back: number = -width / 2 + FIELD_FENCE_THICKNESS;
+  const halfLength: number = (side - FIELD_MAIN_LANE_WIDTH / 2) / 2;
+  const reach: number = FIELD_MAIN_LANE_WIDTH / 2 + halfLength;
+  const beds: FieldBed[] = [];
+  let top: number = width / 2 - FIELD_FENCE_THICKNESS - FIELD_LANE_WIDTH;
+  while (top - FIELD_BED_WIDTH >= back - 1e-9) {
+    const z: number = top - FIELD_BED_WIDTH / 2;
+    for (const x of [-reach, reach]) {
+      beds.push({ x, z, length: 2 * halfLength });
+    }
+    top -= FIELD_BED_WIDTH + FIELD_LANE_WIDTH;
+  }
+  return { length, width, beds };
+}
+
+/** The farm fields of the village, as the model of each has it. */
+export const FARM_FIELDS: Readonly<Record<FarmFieldId, FarmField>> = {
+  'chief-field': planField('chief-field'),
+  'cottage-field': planField('cottage-field'),
+  'apothecary-field': planField('apothecary-field'),
+};
+
+/**
+ * Finds the ground a farm field takes up where nobody can walk, as the
+ * model of the field has it: its fence, on either side of its gate, and
+ * its beds.
+ *
+ * @param {FarmField} field - The field.
+ * @returns {Shape[]} The footprints.
+ */
+function listFieldFootprints(field: FarmField): Shape[] {
+  const halfLength: number = field.length / 2;
+  const halfWidth: number = field.width / 2;
+  const thickness: number = FIELD_FENCE_THICKNESS;
+  const gate: number = FIELD_GATE_WIDTH / 2;
+  return [
+    makeBox(-halfLength, -gate, halfWidth - thickness, halfWidth),
+    makeBox(gate, halfLength, halfWidth - thickness, halfWidth),
+    makeBox(-halfLength, halfLength, -halfWidth, -halfWidth + thickness),
+    makeBox(
+      -halfLength,
+      -halfLength + thickness,
+      -halfWidth + thickness,
+      halfWidth - thickness,
+    ),
+    makeBox(
+      halfLength - thickness,
+      halfLength,
+      -halfWidth + thickness,
+      halfWidth - thickness,
+    ),
+    ...field.beds.map((bed: FieldBed) =>
+      makeBox(
+        bed.x - bed.length / 2,
+        bed.x + bed.length / 2,
+        bed.z - FIELD_BED_WIDTH / 2,
+        bed.z + FIELD_BED_WIDTH / 2,
+      ),
+    ),
+  ];
+}
+
 /**
  * The ground each model takes up where nobody can walk, as the model has it
  * before it is placed.  The clover, which anyone can step over, takes up
@@ -527,6 +755,10 @@ const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
     makeCircle(0.05, 0.42, 0.29),
     makeCircle(0.55, -0.55, 0.16),
   ],
+  // The fence and the beds, but not the lanes between them.
+  'chief-field': listFieldFootprints(FARM_FIELDS['chief-field']),
+  'cottage-field': listFieldFootprints(FARM_FIELDS['cottage-field']),
+  'apothecary-field': listFieldFootprints(FARM_FIELDS['apothecary-field']),
   // The trunk and the lowest branches.
   'pine-tree': [makeCircle(0, 0, 0.6)],
   bush: [makeCircle(0, 0, 0.8)],
@@ -535,20 +767,29 @@ const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
 };
 
 /** The circle on the ground around the village that players cannot leave. */
-export const VILLAGE_BOUNDARY: Boundary = { x: 0, z: -5, radius: 28 };
+export const VILLAGE_BOUNDARY: Boundary = { x: 0, z: -5, radius: 29 };
 
 /**
  * The ground of the village: what stands where it is placed, and the
  * boundary.  Only the models the village has a place for stand in the way.
  */
 export const VILLAGE_TERRAIN: Terrain = new Terrain(
-  VILLAGE_PLACEMENTS.flatMap((placement: Placement) =>
-    (FOOTPRINTS[placement.model] ?? []).map((shape: Shape) =>
-      placeShape(placement, shape),
-    ),
-  ),
+  VILLAGE_PLACEMENTS.flatMap(findFootprints),
   VILLAGE_BOUNDARY,
 );
+
+/**
+ * Finds the ground a model of the village takes up where it stands.
+ *
+ * @param {Placement} placement - Where the model stands.
+ * @returns {Shape[]} The footprints of the model there, in the world, none
+ *   for a model that takes up no ground.
+ */
+export function findFootprints(placement: Placement): Shape[] {
+  return (FOOTPRINTS[placement.model] ?? []).map((shape: Shape) =>
+    placeShape(placement, shape),
+  );
+}
 
 /**
  * Finds where a model of the village stands.

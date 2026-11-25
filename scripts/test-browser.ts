@@ -42,6 +42,7 @@ import {
 } from './test-browser/constants.ts';
 import { checkDayAgreement, checkNight } from './test-browser/day.ts';
 import { checkCreditsByTouch } from './test-browser/ending.ts';
+import { checkFarmFields } from './test-browser/farm-field.ts';
 import { checkFountain } from './test-browser/fountain.ts';
 import { checkGamepad } from './test-browser/gamepad.ts';
 import {
@@ -105,16 +106,18 @@ import { checkTouch } from './test-browser/touch.ts';
  * four-leaf clover sees it in its slots, and that once it puts the clover
  * down, the player of the other page sees it on the ground, picks it up and
  * sees it in its own slots, that a player plays the quest of Toby, hurt,
- * through, taking Martha's ointment to him, that a player that holds
- * Edwin's message and Martha's token in the village sees the ending and
- * the credits, and that the camera of a page follows the player of the
- * other page when its panel is set to, until that player leaves, and that a
- * page whose address names no server it can connect to tells it is
- * disconnected.  The server holds its clock at noon, which both pages tell,
- * and a page that previews midnight in its panel shows the village clearly
- * darker, yet far from black, while the other goes on showing noon.  On
- * another server, whose day runs, two pages, one joining later than the
- * other, tell the same time of day as it goes on.
+ * through, taking Martha's ointment to him, that the farm fields behind
+ * the houses of Martha, Toby and Basil let a player in through their gates
+ * and stop it at their fences, that a player that holds Edwin's message
+ * and Martha's token in the village sees the ending and the credits, and
+ * that the camera of a page follows the player of the other page when its
+ * panel is set to, until that player leaves, and that a page whose address
+ * names no server it can connect to tells it is disconnected.  The server
+ * holds its clock at noon, which both pages tell, and a page that previews
+ * midnight in its panel shows the village clearly darker, yet far from
+ * black, while the other goes on showing noon.  On another server, whose
+ * day runs, two pages, one joining later than the other, tell the same
+ * time of day as it goes on.
  *
  * @returns {Promise<void>} A promise settled once the client has passed.
  * @throws {Error} If the client fails the check, or the check cannot run.
@@ -209,6 +212,7 @@ async function checkClient(): Promise<void> {
     await checkTobyExclamation(session, first, id);
     await checkTobyQuest(session, first, id);
     await checkApothecary(session, first, id);
+    await checkFarmFields(session, first, id);
     await checkCamera(session, first, id, second, otherId);
     await checkCameraKeys(session, first, id);
     await checkGamepad(session, first, id);
@@ -268,7 +272,8 @@ try {
       'healing potion, and climb back up, have Martha come over, talk ' +
       'with her and beat her, reach the ending and see the credits, ' +
       'take her ointment to a hurt Toby, buy ' +
-      'healing potions from Basil until short of silver, have the ' +
+      'healing potions from Basil until short of silver, walk into the ' +
+      'farm fields behind the houses through their gates, have the ' +
       'camera follow another player, turn the camera with the arrow keys, ' +
       'play with a gamepad, play by touch on a phone held either way, ' +
       'darken at night, preview a time of ' +

@@ -26,9 +26,10 @@ import { readdirSync } from 'node:fs';
 import {
   CAVE_CONTAINER_MODELS,
   CAVE_PLACEMENTS,
+  FARM_FIELD_IDS,
   compareCodeUnits,
 } from '@clovervale/shared';
-import type { ModelId, Placement } from '@clovervale/shared';
+import type { FarmFieldId, ModelId, Placement } from '@clovervale/shared';
 
 import {
   MODEL_FILES,
@@ -40,6 +41,7 @@ import { checkCave } from './check-models/cave.ts';
 import { checkChiefInSight } from './check-models/chief.ts';
 import { modelsDir } from './check-models/constants.ts';
 import type { StrikeResult } from './check-models/constants.ts';
+import { checkFarmFields } from './check-models/farm-field.ts';
 import {
   ANVIL_FILE,
   BASIL_FILE,
@@ -80,9 +82,9 @@ function listFileProblems(files: readonly string[]): string[] {
 /**
  * Checks how the models meet one another in the world: the strike of the
  * smith, the face of the chief, the cave, the side chambers of the cave,
- * and the apothecary shop.  A check whose required models are missing
- * fails as not checked; one whose optional props are missing is skipped
- * with an empty outcome.
+ * the apothecary shop, and the farm fields behind the houses.  A check
+ * whose required models are missing fails as not checked; one whose
+ * optional props are missing is skipped with an empty outcome.
  *
  * @param {string[]} files - The file names of the models there are.
  * @returns {Promise<StrikeResult[]>} The outcomes, in that order.
@@ -133,7 +135,13 @@ async function checkMeetings(files: string[]): Promise<StrikeResult[]> {
         summary: '',
         failures: [`the apothecary shop cannot be checked`],
       };
-  return [strike, sight, cave, fixtures, apothecary];
+  // The farm fields are optional props; those missing are not checked.
+  const fields: StrikeResult = FARM_FIELD_IDS.some((id: FarmFieldId) =>
+    files.includes(MODEL_FILES[id]),
+  )
+    ? await checkFarmFields(files)
+    : { summary: '', failures: [] };
+  return [strike, sight, cave, fixtures, apothecary, fields];
 }
 
 /**

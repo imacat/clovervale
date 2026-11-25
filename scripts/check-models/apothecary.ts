@@ -22,7 +22,7 @@
  *   props and Basil, as the village stands them.
  */
 
-import type { AnimationClip, AnimationMixer, Object3D } from 'three';
+import type { AnimationClip, AnimationMixer } from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import {
@@ -35,10 +35,8 @@ import {
   findMapPath,
   findPlacement,
   findSpawnPoint,
-  findTurn,
   findVillager,
   placePoint,
-  turnVector,
 } from '@clovervale/shared';
 import type {
   GroundVector,
@@ -51,7 +49,13 @@ import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 import { FOOTPRINT_TOLERANCE } from './constants.ts';
 import type { StrikeResult } from './constants.ts';
 import { APOTHECARY_FILE, BASIL_FILE } from './files.ts';
-import { listWorldVertices, loadAt, poseModel, resetModel } from './pose.ts';
+import {
+  loadAt,
+  measureOutside,
+  measureOverhang,
+  poseModel,
+  resetModel,
+} from './pose.ts';
 
 /**
  * The models that stand around the front of the apothecary: the herb
@@ -84,59 +88,6 @@ const BASIL_SAMPLES = 40;
 const PATH_CLEARANCE = 1;
 
 /**
- * Measures how far a point on the ground lies outside a shape on it.
- *
- * @param {GroundVector} point - The point.
- * @param {Shape} shape - The shape, in the world.
- * @returns {number} How far, in meters, or zero if it lies within.
- */
-function measureOutside(point: GroundVector, shape: Shape): number {
-  if (shape.shape === 'circle') {
-    return Math.max(
-      Math.hypot(point.x - shape.x, point.z - shape.z) - shape.radius,
-      0,
-    );
-  }
-  const local: GroundVector = turnVector(
-    { x: point.x - shape.x, z: point.z - shape.z },
-    findTurn(-shape.yaw),
-  );
-  return Math.hypot(
-    Math.max(Math.abs(local.x) - shape.halfWidth, 0),
-    Math.max(Math.abs(local.z) - shape.halfDepth, 0),
-  );
-}
-
-/**
- * Measures how far the solid part of a model, standing in its place, reaches
- * out of the ground it takes up in the village: the farthest any of its
- * vertices between the heights of {@link SOLID_HEIGHTS} lies outside every
- * footprint of its own.
- *
- * @param {Object3D} root - The model, standing in its place.
- * @param {Placement} placement - Its place.
- * @returns {number} How far, in meters.
- */
-function measureOverhang(root: Object3D, placement: Placement): number {
-  const own: Shape[] = VILLAGE_TERRAIN.shapes.filter(
-    (shape: Shape) =>
-      Math.hypot(shape.x - placement.x, shape.z - placement.z) < 1e-9,
-  );
-  const [low, high] = SOLID_HEIGHTS;
-  let farthest = 0;
-  for (const point of listWorldVertices(root).positions) {
-    if (point.y < low || point.y > high) {
-      continue;
-    }
-    const outside: number = Math.min(
-      ...own.map((shape: Shape) => measureOutside(point, shape)),
-    );
-    farthest = Math.max(farthest, outside);
-  }
-  return farthest;
-}
-
-/**
  * Checks that the house and the props of the apothecary reach no
  * farther than {@link FOOTPRINT_TOLERANCE} out of the ground they take up.
  *
@@ -162,7 +113,11 @@ async function checkShopOverhangs(
     ),
   );
   for (const [placement, model] of loaded) {
-    const overhang: number = measureOverhang(model.scene, placement);
+    const overhang: number = measureOverhang(
+      model.scene,
+      placement,
+      SOLID_HEIGHTS,
+    );
     widest = Math.max(widest, overhang);
     if (overhang > FOOTPRINT_TOLERANCE) {
       failures.push(
@@ -202,7 +157,10 @@ async function checkBasilOverhang(
       clip,
       (clip.duration * k) / BASIL_SAMPLES,
     );
-    overhang = Math.max(overhang, measureOverhang(basil.scene, placement));
+    overhang = Math.max(
+      overhang,
+      measureOverhang(basil.scene, placement, SOLID_HEIGHTS),
+    );
     resetModel(basil, mixer);
   }
   if (overhang > FOOTPRINT_TOLERANCE) {

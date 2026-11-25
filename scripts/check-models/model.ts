@@ -28,6 +28,12 @@ import path from 'node:path';
 
 import { Vector3 } from 'three';
 
+import {
+  FARM_FIELDS,
+  FARM_FIELD_IDS,
+  FIELD_FLOOR_HEIGHT,
+} from '@clovervale/shared';
+import type { FarmFieldId } from '@clovervale/shared';
 import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
 
 import { checkClips } from './clips.ts';
@@ -161,14 +167,41 @@ function checkStaticSize(
       check(height <= 2, `height ${String(height)}`);
       break;
     default:
+      checkFieldSize(file, size, check);
       break;
   }
 }
 
 /**
+ * Checks the size of a farm field: that it is as long and as wide as the
+ * field the village lays out, to the outside of its fence, and no taller
+ * than the posts of its gate, a little taller than the waist of a player.
+ * Any other model passes.
+ *
+ * @param {string} file - The file name of the model.
+ * @param {Vector3} size - The size of the model.
+ * @param {Check} check - Notes each requirement.
+ */
+function checkFieldSize(file: string, size: Vector3, check: Check): void {
+  const id: FarmFieldId | undefined = FARM_FIELD_IDS.find(
+    (field: FarmFieldId) => MODEL_FILES[field] === file,
+  );
+  if (id === undefined) {
+    return;
+  }
+  const { length, width } = FARM_FIELDS[id];
+  check(
+    Math.abs(size.x - length) < 2e-3 && Math.abs(size.z - width) < 2e-3,
+    `size ${size.x.toFixed(3)} x ${size.z.toFixed(3)}`,
+  );
+  check(size.y <= 1.2, `height ${String(size.y)}`);
+}
+
+/**
  * Checks the origin and the size of a model: that it stands on the ground,
  * is as tall as its kind may be, has its origin in the middle, and faces
- * +Z.
+ * +Z, and, for one that moves, that it stays above the bare earth of the
+ * lanes of the farm fields.
  *
  * @param {string} file - The file name of the model.
  * @param {ModelKind} kind - What the model stands for in the game.
@@ -197,6 +230,20 @@ function checkOriginAndSize(
     check(height >= 1 && height <= 2.5, `height ${String(height)}`);
   } else {
     checkStaticSize(file, measured, check);
+  }
+  if (kind !== 'static') {
+    // Anyone walking along the lanes of a farm field stays on top of their
+    // bare earth in every pose, never sinking into it.
+    check(
+      min.y > FIELD_FLOOR_HEIGHT,
+      'rest pose stands in the earth of the farm fields',
+    );
+    for (const [name, clip] of measured.clips) {
+      check(
+        clip.lowest > FIELD_FLOOR_HEIGHT,
+        `${name} reaches into the earth of the farm fields`,
+      );
+    }
   }
   if (measured.feet !== null) {
     const center: Vector3 = measured.feet.getCenter(new Vector3());

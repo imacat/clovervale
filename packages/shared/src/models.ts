@@ -25,8 +25,16 @@
 
 import type { VillagerId } from './villagers.ts';
 
+/**
+ * The identifier of a farm field of the village, by the house it lies
+ * behind: the house of the village chief, the cottage, or the apothecary
+ * shop.
+ */
+export type FarmFieldId = 'chief-field' | 'cottage-field' | 'apothecary-field';
+
 /** The identifier of a model of the village that is not a villager. */
 export type VillagePropId =
+  | FarmFieldId
   | 'fountain'
   | 'weapon-shop'
   | 'spawn-stones'
