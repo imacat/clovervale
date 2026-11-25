@@ -1,0 +1,127 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="./"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>Clovervale</title><meta name="description" content="Documentation for Clovervale"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script defer src="assets/main.js"></script><script async src="assets/icons.js" id="tsd-icons-script"></script><script async src="assets/search.js" id="tsd-search-script"></script><script async src="assets/navigation.js" id="tsd-nav-script"></script><script async src="assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="index.html" class="title">Clovervale</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<h1>Clovervale</h1></div>
+<div class="tsd-panel tsd-typography"><h1 id="clovervale" class="tsd-anchor-link">Clovervale<a href="#clovervale" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h1>
+<p><img src="media/og-image.jpg" alt="Clovervale concept art"></p>
+<p>Clovervale (四葉谷) is a small MMORPG world to tuck stories into.</p>
+<p>Play it at <a href="https://clovervale.imacat.idv.tw/">https://clovervale.imacat.idv.tw/</a>, and read its
+documentation at <a href="https://clovervale.imacat.idv.tw/docs/">https://clovervale.imacat.idv.tw/docs/</a>.</p>
+<h2 id="requirements" class="tsd-anchor-link">Requirements<a href="#requirements" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<ul>
+<li><a href="https://nodejs.org/">Node.js</a> 24 or later, with npm.</li>
+<li><a href="https://www.mozilla.org/firefox/">Firefox</a>, only for the browser check.</li>
+</ul>
+<h2 id="commands" class="tsd-anchor-link">Commands<a href="#commands" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Run them all at the project root.</p>
+<h3 id="_" class="tsd-anchor-link"><code>npm install</code><a href="#_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Installs the dependencies of all packages.</p>
+<h3 id="_-1" class="tsd-anchor-link"><code>npm run build</code><a href="#_-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Type-checks everything and builds all packages.</p>
+<h3 id="_-2" class="tsd-anchor-link"><code>npm test</code><a href="#_-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Runs the tests of all packages.</p>
+<h3 id="_-3" class="tsd-anchor-link"><code>npm run coverage</code><a href="#_-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Runs the tests and reports coverage in <code>coverage/</code>.</p>
+<h3 id="_-4" class="tsd-anchor-link"><code>npm run lint</code><a href="#_-4" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Lints everything.</p>
+<h3 id="_-5" class="tsd-anchor-link"><code>npm run docs</code><a href="#_-5" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Generates the API documentation in <code>docs/api/</code>.</p>
+<h3 id="_-6" class="tsd-anchor-link"><code>npm run release:stage</code><a href="#_-6" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Builds the release and stages it in <code>release/clovervale-&lt;version&gt;/</code>,
+ready to be packed.</p>
+<h3 id="_-7" class="tsd-anchor-link"><code>npm run clean</code><a href="#_-7" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Removes everything the commands above generate.</p>
+<h3 id="_-8" class="tsd-anchor-link"><code>npm run typecheck</code><a href="#_-8" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Type-checks everything without building.</p>
+<h3 id="_-9" class="tsd-anchor-link"><code>npm run test:watch</code><a href="#_-9" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Runs the tests again whenever a file changes.</p>
+<h3 id="_-10" class="tsd-anchor-link"><code>npm run test:browser</code><a href="#_-10" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Builds everything and checks the client in Firefox.</p>
+<h3 id="_-11" class="tsd-anchor-link"><code>npm run build:models</code><a href="#_-11" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Regenerates the 3D models of the client.</p>
+<h3 id="_-12" class="tsd-anchor-link"><code>npm run test:models</code><a href="#_-12" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Checks that the 3D models are valid glTF and meet the needs of the game.</p>
+<h3 id="for-development" class="tsd-anchor-link">For development<a href="#for-development" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<h4 id="_-13" class="tsd-anchor-link"><code>npm run dev:server</code><a href="#_-13" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Runs the server, restarting it on changes.  Options for the server
+follow a <code>--</code>, as in <code>npm run dev:server -- --port 9000</code>.</p>
+<h4 id="_-14" class="tsd-anchor-link"><code>npm run dev:client</code><a href="#_-14" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Serves the client at <a href="http://localhost:5173/">http://localhost:5173/</a>.</p>
+<h4 id="_-15" class="tsd-anchor-link"><code>npm run dev:bots</code><a href="#_-15" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Runs bots, players that walk around the village by themselves.  Options
+for the bots follow a <code>--</code>, as in <code>npm run dev:bots -- --count 8</code>.</p>
+<h2 id="configuration" class="tsd-anchor-link">Configuration<a href="#configuration" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>The server listens on port 8080, or on the port of its <code>--port</code> option,
+or on the Unix socket file of its <code>--socket</code> option.  Its day lasts 20
+minutes, or as many minutes as its <code>--day-length</code> option tells, and the
+clock of the world reads 08:00 when the server starts; its <code>--hold-time</code>
+option instead holds the clock at a fixed time of day, as in
+<code>--hold-time 12:00</code>.  The client connects to port 8080 of the host that
+serves its page, or to the server named in the <code>server</code> query parameter
+of the page address, as in <code>?server=ws://game.example.com:9000</code>.  There
+are four bots, or as many as the <code>--count</code> option tells, and they
+connect to <code>ws://localhost:8080</code>, or to the server URL of the <code>--server</code>
+option, as in <code>--server ws://game.example.com:9000</code>, or to the server on
+a Unix socket file, named with a <code>ws+unix:</code> URL, as in
+<code>--server ws+unix:/run/clovervale/clovervale.sock</code>.  The <code>BOT_COUNT</code>
+and <code>SERVER_URL</code> settings tell the same as the two options, which take
+precedence over them.  A setting is an environment variable, or else a
+line of the <code>.env</code> file in the directory that the bots are run in,
+which is <code>packages/bots/.env</code> for <code>npm run dev:bots</code>.</p>
+<p>Firefox is run as <code>firefox</code>, or as the command in the <code>FIREFOX</code>
+environment variable.</p>
+<h2 id="license" class="tsd-anchor-link">License<a href="#license" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Copyright 2026 imacat.</p>
+<p>Licensed under the Apache License, Version 2.0.  See <a href="media/LICENSE">LICENSE</a>.</p>
+<p>The exception is the music, &quot;Embers on the Flagstone&quot; by Kaazoom, from
+<a href="https://pixabay.com/">Pixabay</a>, which is under the <a href="https://pixabay.com/service/license-summary/">Pixabay Content License</a>.</p>
+</div></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details"><a href="#clovervale"><span>Clovervale</span></a><a href="#requirements"><span>Requirements</span></a><a href="#commands"><span>Commands</span></a>
+<ul>
+<li>
+<ul>
+<li><a href="#_"><span></span></a></li>
+<li><a href="#_-1"><span></span></a></li>
+<li><a href="#_-2"><span></span></a></li>
+<li><a href="#_-3"><span></span></a></li>
+<li><a href="#_-4"><span></span></a></li>
+<li><a href="#_-5"><span></span></a></li>
+<li><a href="#_-6"><span></span></a></li>
+<li><a href="#_-7"><span></span></a></li>
+<li><a href="#_-8"><span></span></a></li>
+<li><a href="#_-9"><span></span></a></li>
+<li><a href="#_-10"><span></span></a></li>
+<li><a href="#_-11"><span></span></a></li>
+<li><a href="#_-12"><span></span></a></li>
+<li><a href="#for-development"><span>For development</span></a></li>
+<li>
+<ul>
+<li><a href="#_-13"><span></span></a></li>
+<li><a href="#_-14"><span></span></a></li>
+<li><a href="#_-15"><span></span></a></li></ul></li></ul></li></ul><a href="#configuration"><span>Configuration</span></a><a href="#license"><span>License</span></a></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="modules.html">Clovervale</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

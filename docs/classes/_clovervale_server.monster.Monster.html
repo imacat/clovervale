@@ -1,0 +1,289 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>Monster | Clovervale</title><meta name="description" content="Documentation for Clovervale"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">Clovervale</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_clovervale_server.html">@clovervale/server</a></li>
+<li><a href="../modules/_clovervale_server.monster.html">monster</a></li>
+<li><a href="" aria-current="page">Monster</a></li></ul>
+<h1>Class Monster</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>A monster, as the server moves it, in the map of its world, with the
+numbers of its kind, as <code>MONSTER_KINDS</code> tells them.</p>
+<p>It idles at its home, and now and then wanders to a point near it, if
+its kind wanders.  When
+a player comes within its notice, and that player is near enough to its
+home, it chases the player around the obstacles, and attacks it when it
+gets near enough, until the player gets too far from its home, when it
+gives up and walks back home.  It is stopped by the obstacles like the
+players, but does not stand in their way, nor they in its.  Once dead,
+it lies there for a while and is gone, and later comes back to life at
+its home.</p>
+</div></section>
+<section class="tsd-panel">
+<h4>Implements</h4>
+<ul class="tsd-hierarchy">
+<li><a href="../interfaces/_clovervale_server.combatants.Target.html" class="tsd-signature-type tsd-kind-interface">Target</a></li>
+<li><a href="../interfaces/_clovervale_server.combatants.Striker.html" class="tsd-signature-type tsd-kind-interface">Striker</a></li></ul></section>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="constructors">Constructors<a href="#constructors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="accessors">Accessors<a href="#accessors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#bitedamage" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>bite<wbr/>Damage</span></a>
+<a href="#id" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>id</span></a>
+<a href="#isalive" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>is<wbr/>Alive</span></a>
+<a href="#isbeaten" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>is<wbr/>Beaten</span></a>
+<a href="#maxsilver" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>max<wbr/>Silver</span></a>
+<a href="#pose" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>pose</span></a>
+<a href="#spoils" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>spoils</span></a>
+<a href="#state" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>state</span></a>
+<a href="#strikereach" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>strike<wbr/>Reach</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#canbehitby" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>can<wbr/>Be<wbr/>Hit<wbr/>By</span></a>
+<a href="#canstrike" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>can<wbr/>Strike</span></a>
+<a href="#step" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>step</span></a>
+<a href="#takehit" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Hit</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="constructormonster"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">Monster</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">map</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">spawn</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_server.monster.MonsterSpawn.html" class="tsd-signature-type tsd-kind-interface">MonsterSpawn</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">drawRandom</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">Monster</a><a href="#constructormonster" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Brings the monster to life at its home, facing the way it faces there,
+idling, at full health.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the monster, which its state
+tells.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">map</span>: <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span></span>
+<div class="tsd-comment tsd-typography"><p>The map of its world, whose ground it walks on.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">spawn</span>: <a href="../interfaces/_clovervale_server.monster.MonsterSpawn.html" class="tsd-signature-type tsd-kind-interface">MonsterSpawn</a></span>
+<div class="tsd-comment tsd-typography"><p>Its kind, and where it lives.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">drawRandom</span>: <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>Gives a random number from 0 up to
+but not including 1, for how long the monster idles and where it
+wanders to.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">Monster</a></h4></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="accessors-1">Accessors<a href="#accessors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="bitedamage"><span>bite<wbr/>Damage</span><a href="#bitedamage" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="bitedamagebitedamage"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">biteDamage</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The health a bite of the monster that hits takes from a player.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><p>The health.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Striker.html">Striker</a>.<a href="../interfaces/_clovervale_server.combatants.Striker.html#bitedamage">biteDamage</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="id"><span>id</span><a href="#id" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="idid"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">id</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The identifier of the monster.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><p>The identifier.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Striker.html">Striker</a>.<a href="../interfaces/_clovervale_server.combatants.Striker.html#id">id</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="isalive"><span>is<wbr/>Alive</span><a href="#isalive" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="isaliveisalive"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">isAlive</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Whether the monster is alive, and can be hit.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it is.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="isbeaten"><span>is<wbr/>Beaten</span><a href="#isbeaten" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="isbeatenisbeaten"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">isBeaten</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Whether the monster is dead.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it is.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Target.html">Target</a>.<a href="../interfaces/_clovervale_server.combatants.Target.html#isbeaten">isBeaten</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="maxsilver"><span>max<wbr/>Silver</span><a href="#maxsilver" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="maxsilvermaxsilver"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">maxSilver</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The most silver coins the monster gives the player whose strike kills
+it.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><p>The number of coins.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="pose"><span>pose</span><a href="#pose" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="posepose"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">pose</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Where the monster stands, and which way it faces.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a></h4><p>The pose.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Striker.html">Striker</a>.<a href="../interfaces/_clovervale_server.combatants.Striker.html#pose">pose</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="spoils"><span>spoils</span><a href="#spoils" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="spoilsspoils"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">spoils</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_server.combatants.Spoils.html" class="tsd-signature-type tsd-kind-interface">Spoils</a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>What the player whose strike kills the monster gets: as many silver
+coins as <a href="#maxsilver" class="tsd-kind-accessor">Monster.maxSilver</a> at most, and nothing else.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_server.combatants.Spoils.html" class="tsd-signature-type tsd-kind-interface">Spoils</a></h4><p>The spoils.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Target.html">Target</a>.<a href="../interfaces/_clovervale_server.combatants.Target.html#spoils">spoils</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="state"><span>state</span><a href="#state" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="statestate"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">state</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.combat.MonsterState.html" class="tsd-signature-type tsd-kind-interface">MonsterState</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The monster as it is to be seen now.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.combat.MonsterState.html" class="tsd-signature-type tsd-kind-interface">MonsterState</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></h4><p>The state of the monster, or <code>null</code>
+once it has been dead for so long that it is gone.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Target.html">Target</a>.<a href="../interfaces/_clovervale_server.combatants.Target.html#state">state</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="strikereach"><span>strike<wbr/>Reach</span><a href="#strikereach" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="strikereachstrikereach"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">strikeReach</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The farthest a player can be from the monster for its attack to hit,
+<a href="../variables/_clovervale_server.monster.MONSTER_ATTACK_REACH.html" class="tsd-kind-variable">MONSTER_ATTACK_REACH</a>.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><p>The reach, in meters.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Striker.html">Striker</a>.<a href="../interfaces/_clovervale_server.combatants.Striker.html#strikereach">strikeReach</a></p></aside></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="canbehitby"><span>can<wbr/>Be<wbr/>Hit<wbr/>By</span><a href="#canbehitby" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="canbehitby-1"><span class="tsd-kind-call-signature">canBeHitBy</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#canbehitby-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Tells whether a player can hit the monster now: whenever it is alive.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it is alive.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Target.html">Target</a>.<a href="../interfaces/_clovervale_server.combatants.Target.html#canbehitby">canBeHitBy</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="canstrike"><span>can<wbr/>Strike</span><a href="#canstrike" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="canstrike-1"><span class="tsd-kind-call-signature">canStrike</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#canstrike-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Tells whether an attack of the monster can hit a player now: whenever
+it is alive.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it is alive.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Striker.html">Striker</a>.<a href="../interfaces/_clovervale_server.combatants.Striker.html#canstrike">canStrike</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="step"><span>step</span><a href="#step" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="step-1"><span class="tsd-kind-call-signature">step</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">players</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-keyword">readonly</span> <a href="../interfaces/_clovervale_server.monster.Quarry.html" class="tsd-signature-type tsd-kind-interface">Quarry</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#step-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Moves the monster one step of the simulation forward.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">players</span>: <span class="tsd-signature-keyword">readonly</span> <a href="../interfaces/_clovervale_server.monster.Quarry.html" class="tsd-signature-type tsd-kind-interface">Quarry</a><span class="tsd-signature-symbol">[]</span></span>
+<div class="tsd-comment tsd-typography"><p>The players it can chase, where
+they stand now.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether the monster strikes at this step, which it
+does once in every attack, partway through.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="takehit"><span>take<wbr/>Hit</span><a href="#takehit" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="takehit-1"><span class="tsd-kind-call-signature">takeHit</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">damage</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">attackerId</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><a href="#takehit-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Takes a hit, which only a monster that is alive can.  A monster that
+is not chasing anyone already chases the player that hit it, and one
+that has no health left dies.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">damage</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The health the hit takes.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">attackerId</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player that hit it.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><p>The health the monster lost, which is no more than it
+had.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.combatants.Target.html">Target</a>.<a href="../interfaces/_clovervale_server.combatants.Target.html#takehit">takeHit</a></p></aside></div></li></ul></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
+<div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Accessors</summary>
+<div><a href="#bitedamage"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>bite<wbr/>Damage</span></a><a href="#id"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>id</span></a><a href="#isalive"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>is<wbr/>Alive</span></a><a href="#isbeaten"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>is<wbr/>Beaten</span></a><a href="#maxsilver"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>max<wbr/>Silver</span></a><a href="#pose"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>pose</span></a><a href="#spoils"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>spoils</span></a><a href="#state"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>state</span></a><a href="#strikereach"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>strike<wbr/>Reach</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
+<div><a href="#canbehitby"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>can<wbr/>Be<wbr/>Hit<wbr/>By</span></a><a href="#canstrike"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>can<wbr/>Strike</span></a><a href="#step"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>step</span></a><a href="#takehit"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Hit</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="../modules.html">Clovervale</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

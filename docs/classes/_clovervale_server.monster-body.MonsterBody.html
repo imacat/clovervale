@@ -1,0 +1,437 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>MonsterBody | Clovervale</title><meta name="description" content="Documentation for Clovervale"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">Clovervale</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_clovervale_server.html">@clovervale/server</a></li>
+<li><a href="../modules/_clovervale_server.monster-body.html">monster-body</a></li>
+<li><a href="" aria-current="page">MonsterBody</a></li></ul>
+<h1>Class MonsterBody</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>The body of a monster, in the map of its world, with the numbers of its
+kind, as <a href="../variables/_clovervale_shared.combat.MONSTER_KINDS.html" class="tsd-kind-variable">MONSTER_KINDS</a> tells them.  It walks along its way,
+stopped by the obstacles like the players, faces the players, and
+attacks them once in every interval of a bite of its kind.</p>
+</div></section>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="constructors">Constructors<a href="#constructors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="accessors">Accessors<a href="#accessors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#hasway" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>has<wbr/>Way</span></a>
+<a href="#health" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>health</span></a>
+<a href="#kind" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>kind</span></a>
+<a href="#mode" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>mode</span></a>
+<a href="#pose" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>pose</span></a>
+<a href="#position" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>position</span></a>
+<a href="#state" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>state</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#attack" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>attack</span></a>
+<a href="#chase" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>chase</span></a>
+<a href="#dropway" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>drop<wbr/>Way</span></a>
+<a href="#face" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>face</span></a>
+<a href="#findway" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>find<wbr/>Way</span></a>
+<a href="#losehealth" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>lose<wbr/>Health</span></a>
+<a href="#pursue" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>pursue</span></a>
+<a href="#restorehealth" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>restore<wbr/>Health</span></a>
+<a href="#revive" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>revive</span></a>
+<a href="#setout" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>set<wbr/>Out</span></a>
+<a href="#settle" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>settle</span></a>
+<a href="#startaction" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>start<wbr/>Action</span></a>
+<a href="#stepattack" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>step<wbr/>Attack</span></a>
+<a href="#switchmode" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>switch<wbr/>Mode</span></a>
+<a href="#turn" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>turn</span></a>
+<a href="#walk" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>walk</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="constructormonsterbody"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">MonsterBody</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">map</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">kind</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;village-dog&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave-dog&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;martha&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">pose</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">MonsterBody</a><a href="#constructormonsterbody" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Stands the body at a place, idling, at full health, ready to attack.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the monster, which its state
+tells.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">map</span>: <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span></span>
+<div class="tsd-comment tsd-typography"><p>The map of its world, whose ground it walks on.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">kind</span>: <span class="tsd-signature-type">&quot;village-dog&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave-dog&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;martha&quot;</span></span>
+<div class="tsd-comment tsd-typography"><p>The kind of the monster.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">pose</span>: <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a></span>
+<div class="tsd-comment tsd-typography"><p>Where it stands, and which way it faces.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">MonsterBody</a></h4></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="accessors-1">Accessors<a href="#accessors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="hasway"><span>has<wbr/>Way</span><a href="#hasway" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="haswayhasway"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">hasWay</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Whether the monster has a way to walk along.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it has.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="health"><span>health</span><a href="#health" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="healthhealth"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">health</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The health the monster has.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><p>The health, from 0 up to the full health of its kind.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="kind"><span>kind</span><a href="#kind" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="kindkind"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">kind</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.combat.MonsterKind.html" class="tsd-signature-type tsd-kind-interface">MonsterKind</a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The numbers of the kind of the monster.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.combat.MonsterKind.html" class="tsd-signature-type tsd-kind-interface">MonsterKind</a></h4><p>The numbers.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="mode"><span>mode</span><a href="#mode" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="modemode"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">mode</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.combat.MonsterMode.html" class="tsd-signature-type tsd-kind-type-alias">MonsterMode</a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>What the monster is about.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../types/_clovervale_shared.combat.MonsterMode.html" class="tsd-signature-type tsd-kind-type-alias">MonsterMode</a></h4><p>What it is about.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="pose"><span>pose</span><a href="#pose" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="posepose"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">pose</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Where the monster stands, and which way it faces.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a></h4><p>The pose.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="position"><span>position</span><a href="#position" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="positionposition"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">position</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Where the monster stands.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></h4><p>The position.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="state"><span>state</span><a href="#state" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="statestate"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">state</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.combat.MonsterState.html" class="tsd-signature-type tsd-kind-interface">MonsterState</a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The monster as it is to be seen now.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.combat.MonsterState.html" class="tsd-signature-type tsd-kind-interface">MonsterState</a></h4><p>The state of the monster.</p>
+</div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="attack"><span>attack</span><a href="#attack" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="attack-1"><span class="tsd-kind-call-signature">attack</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">target</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#attack-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Stops where it is, facing a player within its reach, and attacks it if
+it can attack again by now, or idles until then.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">target</span>: <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></span>
+<div class="tsd-comment tsd-typography"><p>Where the player stands.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="chase"><span>chase</span><a href="#chase" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="chase-1"><span class="tsd-kind-call-signature">chase</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">target</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">distance</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#chase-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Chases a player at the chase speed of its kind: attacks it, as
+<a href="#attack" class="tsd-kind-method">attack</a> does, once no farther than a distance from it, or else
+walks one step on the way to it, as <a href="#pursue" class="tsd-kind-method">pursue</a> does.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">target</span>: <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></span>
+<div class="tsd-comment tsd-typography"><p>Where the player stands.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">distance</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>How near it comes to the player before it
+attacks, from center to center, in meters.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it attacks or has a way to the player,
+rather than finding no way to it.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="dropway"><span>drop<wbr/>Way</span><a href="#dropway" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="dropway-1"><span class="tsd-kind-call-signature">dropWay</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#dropway-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Leaves the monster with no way to walk along.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="face"><span>face</span><a href="#face" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="face-1"><span class="tsd-kind-call-signature">face</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">target</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#face-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Turns to face a point, unless it stands right there.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">target</span>: <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></span>
+<div class="tsd-comment tsd-typography"><p>The point.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="findway"><span>find<wbr/>Way</span><a href="#findway" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="findway-1"><span class="tsd-kind-call-signature">findWay</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">point</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#findway-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Finds a way to a point, around the obstacles, which the monster walks
+along from then on, in place of any it had.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">point</span>: <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></span>
+<div class="tsd-comment tsd-typography"><p>The point.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it found one; it has no way to walk along
+if not.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="losehealth"><span>lose<wbr/>Health</span><a href="#losehealth" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="losehealth-1"><span class="tsd-kind-call-signature">loseHealth</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">damage</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><a href="#losehealth-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Takes health from the monster, no more than it has.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">damage</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The health to take.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4><p>The health it lost.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="pursue"><span>pursue</span><a href="#pursue" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="pursue-1"><span class="tsd-kind-call-signature">pursue</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">target</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#pursue-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Walks one step on the way to a point that may move, around the
+obstacles, at the chase speed of its kind, finding the way again
+whenever it has none, or once it has followed one for half a second.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">target</span>: <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></span>
+<div class="tsd-comment tsd-typography"><p>The point.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it has a way there, rather than finding no
+way there, when it is left without one.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="restorehealth"><span>restore<wbr/>Health</span><a href="#restorehealth" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="restorehealth-1"><span class="tsd-kind-call-signature">restoreHealth</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#restorehealth-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Brings the monster back to the full health of its kind.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="revive"><span>revive</span><a href="#revive" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="revive-1"><span class="tsd-kind-call-signature">revive</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">pose</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#revive-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Stands the monster at a place, facing a way, at full health, ready to
+attack at once.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">pose</span>: <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a></span>
+<div class="tsd-comment tsd-typography"><p>Where it stands, and which way it faces.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="setout"><span>set<wbr/>Out</span><a href="#setout" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="setout-1"><span class="tsd-kind-call-signature">setOut</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">mode</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.combat.MonsterMode.html" class="tsd-signature-type tsd-kind-type-alias">MonsterMode</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">point</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#setout-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Has the monster set out to a point, around the obstacles, to be about
+something else, if it finds a way there; it changes nothing otherwise.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">mode</span>: <a href="../types/_clovervale_shared.combat.MonsterMode.html" class="tsd-signature-type tsd-kind-type-alias">MonsterMode</a></span>
+<div class="tsd-comment tsd-typography"><p>What it is about from now on.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">point</span>: <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></span>
+<div class="tsd-comment tsd-typography"><p>The point.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it found a way there.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="settle"><span>settle</span><a href="#settle" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="settle-1"><span class="tsd-kind-call-signature">settle</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#settle-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Idles where it is, with no way to walk along.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="startaction"><span>start<wbr/>Action</span><a href="#startaction" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="startaction-1"><span class="tsd-kind-call-signature">startAction</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">action</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;Idle&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Walk&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Die&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Attack&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Sit&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">isAgain</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#startaction-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Makes the monster do something, unless it is doing just that already.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">action</span>: <span class="tsd-signature-type">&quot;Idle&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Walk&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Die&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Attack&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;Sit&quot;</span></span>
+<div class="tsd-comment tsd-typography"><p>What the monster does from now on.</p>
+</div></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">isAgain</span>: <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> = false</span></span>
+<div class="tsd-comment tsd-typography"><p>Whether to start it over even if it is
+doing just that already.  Not by default.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="stepattack"><span>step<wbr/>Attack</span><a href="#stepattack" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="stepattack-1"><span class="tsd-kind-call-signature">stepAttack</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_server.monster-body.AttackStep.html" class="tsd-signature-type tsd-kind-type-alias">AttackStep</a><a href="#stepattack-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Moves the attacks of the monster one step of the simulation forward:
+the wait before it can attack again, and the attack under way, which
+ends in idling.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../types/_clovervale_server.monster-body.AttackStep.html" class="tsd-signature-type tsd-kind-type-alias">AttackStep</a></h4><p>How the step goes for an attack.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="switchmode"><span>switch<wbr/>Mode</span><a href="#switchmode" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="switchmode-1"><span class="tsd-kind-call-signature">switchMode</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">mode</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.combat.MonsterMode.html" class="tsd-signature-type tsd-kind-type-alias">MonsterMode</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#switchmode-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Has the monster be about something else from now on, with no way to
+walk along.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">mode</span>: <a href="../types/_clovervale_shared.combat.MonsterMode.html" class="tsd-signature-type tsd-kind-type-alias">MonsterMode</a></span>
+<div class="tsd-comment tsd-typography"><p>What it is about from now on.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="turn"><span>turn</span><a href="#turn" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="turn-1"><span class="tsd-kind-call-signature">turn</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">yaw</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#turn-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Turns to face a way.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">yaw</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The way, in degrees.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="walk"><span>walk</span><a href="#walk" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="walk-1"><span class="tsd-kind-call-signature">walk</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">speed</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_server.monster-body.WalkOutcome.html" class="tsd-signature-type tsd-kind-type-alias">WalkOutcome</a><a href="#walk-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Walks one step along its way, around the obstacles.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">speed</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The speed, in meters per second.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../types/_clovervale_server.monster-body.WalkOutcome.html" class="tsd-signature-type tsd-kind-type-alias">WalkOutcome</a></h4><p>How the step goes.</p>
+</div></li></ul></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
+<div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Accessors</summary>
+<div><a href="#hasway"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>has<wbr/>Way</span></a><a href="#health"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>health</span></a><a href="#kind"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>kind</span></a><a href="#mode"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>mode</span></a><a href="#pose"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>pose</span></a><a href="#position"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>position</span></a><a href="#state"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>state</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
+<div><a href="#attack"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>attack</span></a><a href="#chase"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>chase</span></a><a href="#dropway"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>drop<wbr/>Way</span></a><a href="#face"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>face</span></a><a href="#findway"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>find<wbr/>Way</span></a><a href="#losehealth"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>lose<wbr/>Health</span></a><a href="#pursue"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>pursue</span></a><a href="#restorehealth"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>restore<wbr/>Health</span></a><a href="#revive"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>revive</span></a><a href="#setout"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>set<wbr/>Out</span></a><a href="#settle"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>settle</span></a><a href="#startaction"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>start<wbr/>Action</span></a><a href="#stepattack"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>step<wbr/>Attack</span></a><a href="#switchmode"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>switch<wbr/>Mode</span></a><a href="#turn"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>turn</span></a><a href="#walk"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>walk</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="../modules.html">Clovervale</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

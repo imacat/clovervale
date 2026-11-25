@@ -1,0 +1,90 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>findInteractable | Clovervale</title><meta name="description" content="Documentation for Clovervale"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">Clovervale</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_clovervale_shared.html">@clovervale/shared</a></li>
+<li><a href="../modules/_clovervale_shared.interaction.html">interaction</a></li>
+<li><a href="" aria-current="page">findInteractable</a></li></ul>
+<h1>Function findInteractable</h1></div>
+<section class="tsd-panel">
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="findinteractable"><span class="tsd-kind-call-signature">findInteractable</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">pose</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">step</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">surroundings</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.interaction.Surroundings.html" class="tsd-signature-type tsd-kind-interface">Surroundings</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">input</span><span class="tsd-signature-symbol">?:</span> <a href="../types/_clovervale_shared.interaction.InteractionInput.html" class="tsd-signature-type tsd-kind-type-alias">InteractionInput</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.interaction.Interactable.html" class="tsd-signature-type tsd-kind-type-alias">Interactable</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span><a href="#findinteractable" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Finds what a player uses when it interacts with the world at a step of
+the simulation, standing as it does in a map, with the monsters and what
+there is to pick there as they are.</p>
+<p>Something is within reach of the player if the player stands within its
+near reach of its center, whichever way the player faces, or within its
+reach of its center, with the center no more than
+<a href="../variables/_clovervale_shared.interaction.INTERACTION_HALF_ANGLE.html" class="tsd-kind-variable">INTERACTION_HALF_ANGLE</a> to either side of the way the player
+faces: a fountain and a way into another map within their reaches, as
+<a href="../interfaces/_clovervale_shared.world-map.WorldMap.html#fountains" class="tsd-kind-property">WorldMap.fountains</a> and <a href="../interfaces/_clovervale_shared.world-map.WorldMap.html#passages" class="tsd-kind-property">WorldMap.passages</a> tell; a villager
+within <a href="../variables/_clovervale_shared.interaction.TALK_REACH.html" class="tsd-kind-variable">TALK_REACH</a> of where the villager is at the step; a
+four-leaf clover in a patch, or an item on the ground, within
+<a href="../variables/_clovervale_shared.interaction.PICK_REACH.html" class="tsd-kind-variable">PICK_REACH</a>, or within <a href="../variables/_clovervale_shared.interaction.FEET_REACH.html" class="tsd-kind-variable">FEET_REACH</a> whichever way the player
+faces; and a chest or a barrel in the cave within <a href="../variables/_clovervale_shared.interaction.LOOT_REACH.html" class="tsd-kind-variable">LOOT_REACH</a>.</p>
+<p>The fountains and the ways of each map are its own, as
+<a href="../interfaces/_clovervale_shared.world-map.WorldMap.html" class="tsd-kind-interface">WorldMap</a> tells, and each villager is in its own map: the
+prisoner, the only one in the cave, is talked to through the bars of his
+cell.  Martha, who fights as a monster, stands where she is among the
+monsters, if she is among them, and cannot be talked to while she is not
+free, as <a href="_clovervale_shared.villagers.isVillagerFree.html" class="tsd-kind-function">isVillagerFree</a> tells.  The patches of clover are in the
+village alone, and the chests and the barrels in the cave alone.</p>
+<p>Of what is within reach, the fountain comes first, then the villagers,
+in the order <a href="../variables/_clovervale_shared.villagers.VILLAGERS.html" class="tsd-kind-variable">VILLAGERS</a> tells them, then the ways into the other
+maps, and last what there is to pick: the nearest of the clovers, the
+items and the containers that hold something, an item or silver coins,
+a clover before an item as near and an item before a container, or else
+the nearest of the containers that hold nothing or have been looted.  A
+villager and a way give way to a slash at a monster in a fight, as
+<a href="_clovervale_shared.combat.isFighting.html" class="tsd-kind-function">isFighting</a> tells, that the slash would hit, as
+<a href="_clovervale_shared.combat.isWithinStrike.html" class="tsd-kind-function">isWithinStrike</a> tells with <a href="../variables/_clovervale_shared.combat.SLASH_REACH.html" class="tsd-kind-variable">SLASH_REACH</a>.  Whether the
+player has room for what it picks is not for this to tell.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">pose</span>: <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a></span>
+<div class="tsd-comment tsd-typography"><p>Where the player stands, and which way it faces.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">step</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The number of the step.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">surroundings</span>: <a href="../interfaces/_clovervale_shared.interaction.Surroundings.html" class="tsd-signature-type tsd-kind-interface">Surroundings</a></span>
+<div class="tsd-comment tsd-typography"><p>The map the player is in, the
+monsters there, and what there is to pick there.</p>
+</div></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">input</span>: <a href="../types/_clovervale_shared.interaction.InteractionInput.html" class="tsd-signature-type tsd-kind-type-alias">InteractionInput</a></span>
+<div class="tsd-comment tsd-typography"><p>The input the player uses it with,
+if only what that input uses is to be found, which an interaction
+still comes before; any input by default, as the space bar uses it.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../types/_clovervale_shared.interaction.Interactable.html" class="tsd-signature-type tsd-kind-type-alias">Interactable</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></h4><p>The first of what is within reach, or
+<code>null</code> if there is none, or if it is used with another input than the
+one asked for.</p>
+</div></li></ul></section></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="../modules.html">Clovervale</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>
