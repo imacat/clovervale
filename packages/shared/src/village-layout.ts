@@ -25,13 +25,14 @@
 import type { FarmFieldId, ModelId } from './models.ts';
 import type { GroundVector } from './movement.ts';
 import {
+  CorridorMouth,
   Terrain,
   findTurn,
   placePoint,
   placeShape,
   turnVector,
 } from './terrain.ts';
-import type { Boundary, Pose, Shape } from './terrain.ts';
+import type { Boundary, Checkpoint, Pose, Shape } from './terrain.ts';
 import { PLAZA_CENTER } from './village.ts';
 
 /** Where a model stands on the ground, and which way it faces. */
@@ -861,6 +862,13 @@ export const VILLAGE_BOUNDARY: Boundary = {
       PALISADE_GATE_POSE.z + 2 * PALISADE_GATE_HALF_DEPTH - BOUNDARY_MIDDLE.z,
   },
 };
+
+/**
+ * The way out of the valley: an invisible line across the mountain road
+ * where it leaves the valley, at the inner foot of the hills on either
+ * side, which the players cross freely either way.
+ */
+export const VALLEY_EXIT: Checkpoint = new CorridorMouth(VILLAGE_BOUNDARY);
 
 /**
  * The ground of the village: what stands where it is placed, and the

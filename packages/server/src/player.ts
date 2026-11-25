@@ -26,6 +26,7 @@ import {
   DEATH_DURATION,
   PLAYER_HEALTH,
   countSteps,
+  findQuest,
   hasRoom,
 } from '@clovervale/shared';
 import type {
@@ -103,13 +104,16 @@ export class Player {
   #silver: number;
   readonly #acquaintances: VillagerId[];
   #dialogue: Dialogue | null = null;
+  /** Whether the player has reached the end of the story. */
+  #isEndingReached = false;
   /** The number of lines said to the player in its dialogues so far. */
   #turnCount = 0;
   #speeches: Speech[] = [];
   #sayings: Saying[] = [];
 
   /**
-   * Starts a player alive, in no dialogue, told and having said nothing.
+   * Starts a player alive, in no dialogue, told and having said nothing,
+   * short of the end of the story.
    *
    * @param {PlayerSetup} setup - Who the player is, and what it has.
    */
@@ -197,6 +201,33 @@ export class Player {
    */
   get quests(): readonly Quest[] {
     return this.book.quests;
+  }
+
+  /**
+   * Whether the player has reached the end of the story, which it never
+   * takes back.
+   *
+   * @returns {boolean} Whether it has.
+   */
+  get isEndingReached(): boolean {
+    return this.#isEndingReached;
+  }
+
+  /**
+   * Has the player reach the end of the story, if it is done with the main
+   * plot and has not reached it yet.
+   *
+   * @returns {boolean} Whether it reached it now.
+   */
+  reachEnding(): boolean {
+    if (
+      this.#isEndingReached ||
+      findQuest(this.quests, 'clovervale')?.isDone !== true
+    ) {
+      return false;
+    }
+    this.#isEndingReached = true;
+    return true;
   }
 
   /**

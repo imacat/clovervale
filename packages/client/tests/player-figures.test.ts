@@ -369,6 +369,7 @@ describe('PlayerFigures', () => {
           dialogue: null,
           acquaintances: [],
           quests: [],
+          isEndingReached: false,
         },
       });
       timeline.addSnapshot(snapshot, step * 50);

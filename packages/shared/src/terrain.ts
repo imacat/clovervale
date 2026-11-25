@@ -384,6 +384,77 @@ export function findCorridorMouth(
 }
 
 /**
+ * An invisible line on the ground that never stands in the way of the
+ * players, which they cross freely either way, and which tells when one
+ * crosses it outward.
+ */
+export interface Checkpoint {
+  /**
+   * Tells whether a step from one point to another crosses the line
+   * outward.
+   *
+   * @param {GroundVector} from - Where the step starts.
+   * @param {GroundVector} to - Where the step ends.
+   * @returns {boolean} Whether it crosses the line outward.
+   */
+  isCrossedOutward(from: GroundVector, to: GroundVector): boolean;
+}
+
+/**
+ * The line across the mouth of the road of a boundary, where the road
+ * leaves the edge of the circle: a step crosses it outward as it goes from
+ * within the circle, its edge included, to the road beyond it.
+ */
+export class CorridorMouth implements Checkpoint {
+  /** The boundary, with a road. */
+  readonly #boundary: Boundary;
+
+  /**
+   * Takes the mouth of the road of a boundary.
+   *
+   * @param {Boundary} boundary - The boundary, with a road.
+   * @throws {Error} If the boundary has no road.
+   */
+  constructor(boundary: Boundary) {
+    if (boundary.corridor === undefined) {
+      throw new Error('The boundary has no road.');
+    }
+    this.#boundary = boundary;
+  }
+
+  /**
+   * Tells whether a point lies beyond the mouth of the road, out of the
+   * circle of the boundary.
+   *
+   * @param {GroundVector} point - The point.
+   * @returns {boolean} Whether it does.
+   */
+  isBeyond(point: GroundVector): boolean {
+    const offset: GroundVector = {
+      x: point.x - this.#boundary.x,
+      z: point.z - this.#boundary.z,
+    };
+    return (
+      Math.hypot(offset.x, offset.z) >
+      measureCircleReach(this.#boundary, offset)
+    );
+  }
+
+  /**
+   * Tells whether a step from one point to another crosses the mouth of
+   * the road outward: from within the circle of the boundary, its edge
+   * included, to beyond it.
+   *
+   * @param {GroundVector} from - Where the step starts.
+   * @param {GroundVector} to - Where the step ends.
+   * @returns {boolean} Whether it crosses the mouth outward.
+   */
+  isCrossedOutward(from: GroundVector, to: GroundVector): boolean {
+    return !this.isBeyond(from) && this.isBeyond(to);
+  }
+}
+
+/**
  * Finds where a point of a model stands in the world.
  *
  * @param {Pose} pose - Where the model stands, and which way it faces.

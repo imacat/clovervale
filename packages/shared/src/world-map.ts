@@ -33,10 +33,11 @@ import type { Fountain, Passage } from './interaction.ts';
 import { CLOVER_PATCHES } from './items.ts';
 import type { GroundVector } from './movement.ts';
 import { PLAYER_RADIUS } from './terrain.ts';
-import type { Terrain } from './terrain.ts';
+import type { Checkpoint, Terrain } from './terrain.ts';
 import {
   FOUNTAIN_RIM_RADIUS,
   SPAWN_STONES_POSE,
+  VALLEY_EXIT,
   VILLAGE_TERRAIN,
   WELL_STAND,
 } from './village-layout.ts';
@@ -113,9 +114,11 @@ export interface WorldMap {
    */
   readonly pausesInDialogue: boolean;
   /**
-   * Whether the story can end there, for a player who holds what ends it.
+   * The line a player who is done with the main plot crosses outward
+   * there to reach the end of the story, or `null` if the story does not
+   * end there.
    */
-  readonly allowsEnding: boolean;
+  readonly endingCheckpoint: Checkpoint | null;
 }
 
 /**
@@ -123,7 +126,8 @@ export interface WorldMap {
  * the way down the burrow of the wild dog, among the spawn stones outside
  * the village gate, whichever way the player faces, to the foot of the
  * slope in the cave, and its patches of clover, in which a player who dies
- * there comes back to life, and in which the story ends.
+ * there comes back to life, and in which the story ends as the player
+ * leaves the valley along the mountain road.
  */
 const VILLAGE: WorldMap = {
   id: 'village',
@@ -156,7 +160,7 @@ const VILLAGE: WorldMap = {
   cloverPatches: CLOVER_PATCHES,
   containers: [],
   pausesInDialogue: false,
-  allowsEnding: true,
+  endingCheckpoint: VALLEY_EXIT,
 };
 
 /**
@@ -187,7 +191,7 @@ const CAVE: WorldMap = {
   cloverPatches: [],
   containers: CAVE_CONTAINERS,
   pausesInDialogue: true,
-  allowsEnding: false,
+  endingCheckpoint: null,
 };
 
 /** Every map, by its identifier. */

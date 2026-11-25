@@ -39,7 +39,8 @@ import type { WorldNews } from './toby-finds.ts';
  * What the server last told the page of its player: who it is, what it
  * carries, its silver coins, how its latest slash was judged, the villagers
  * who have told it who they are, how far it has gotten with the quests,
- * and what there is to pick in the world.
+ * whether it has reached the end of the story, and what there is to pick
+ * in the world.
  */
 export class PlayerRecord {
   /** The identifier of the player of the page, once the server has told it. */
@@ -59,6 +60,8 @@ export class PlayerRecord {
   #acquaintances: readonly VillagerId[] = [];
   /** The quests the player of the page has opened. */
   #quests: readonly Quest[] = [];
+  /** Whether the player of the page has reached the end of the story. */
+  #isEndingReached = false;
 
   /**
    * The identifier of the player of the page, or `null` while the server
@@ -132,6 +135,16 @@ export class PlayerRecord {
   }
 
   /**
+   * Whether the player of the page has reached the end of the story, false
+   * while no snapshot has told it.
+   *
+   * @returns {boolean} Whether it has.
+   */
+  get isEndingReached(): boolean {
+    return this.#isEndingReached;
+  }
+
+  /**
    * Takes note of the player the server says the page has.
    *
    * @param {number} playerId - The identifier of the player.
@@ -161,6 +174,7 @@ export class PlayerRecord {
     this.#silver = message.silver;
     this.#quests = message.quests;
     this.#acquaintances = message.acquaintances;
+    this.#isEndingReached = message.isEndingReached;
   }
 
   /** Forgets everything the server has told, as the page disconnects. */
@@ -172,6 +186,7 @@ export class PlayerRecord {
     this.#silver = null;
     this.#acquaintances = [];
     this.#quests = [];
+    this.#isEndingReached = false;
   }
 
   /**

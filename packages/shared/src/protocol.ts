@@ -71,7 +71,7 @@ import { WORLD_MAPS, isMapId } from './world-map.ts';
 import type { MapId, WorldMap } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 35;
+export const PROTOCOL_VERSION = 36;
 
 /**
  * The most patches of clover any map has, which a snapshot, which does not
@@ -176,8 +176,8 @@ export interface WelcomeMessage {
  * What a snapshot tells the peer of a player alone, of that player: how
  * far it has gotten with the inputs of the peer, how its latest slash was
  * judged, what it carries, its silver coins, the dialogue it is in, the
- * villagers who have told it who they are, and how far it has gotten with
- * the quests.
+ * villagers who have told it who they are, how far it has gotten with the
+ * quests, and whether it has reached the end of the story.
  */
 export interface PrivateView {
   /**
@@ -216,6 +216,12 @@ export interface PrivateView {
    * on.
    */
   readonly quests: readonly Quest[];
+  /**
+   * Whether the player of the peer has reached the end of the story, as
+   * only the server tells: whether it has left the valley along the
+   * mountain road with the main plot done, which it never takes back.
+   */
+  readonly isEndingReached: boolean;
 }
 
 /**
@@ -465,8 +471,16 @@ export function createSnapshotMessage({
   view,
 }: SnapshotContents): SnapshotMessage {
   const { clovers, items, looted = [], tobyFind = null } = world;
-  const { own, slash, inventory, silver, dialogue, acquaintances, quests } =
-    view;
+  const {
+    own,
+    slash,
+    inventory,
+    silver,
+    dialogue,
+    acquaintances,
+    quests,
+    isEndingReached,
+  } = view;
   return {
     type: 'snapshot',
     step,
@@ -483,6 +497,7 @@ export function createSnapshotMessage({
     dialogue,
     acquaintances,
     quests,
+    isEndingReached,
   };
 }
 
@@ -850,6 +865,7 @@ function parseSnapshotMessage(
     dialogue: parseNullable(value.dialogue, parseDialogueView),
     acquaintances: parseAcquaintanceList(value.acquaintances),
     quests: parseQuests(value.quests),
+    isEndingReached: parseBoolean(value.isEndingReached),
   };
 }
 

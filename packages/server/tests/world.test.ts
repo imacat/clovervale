@@ -66,6 +66,7 @@ import {
   createInteractMessage,
   createMotion,
   createMoveMessage,
+  findCorridorMouth,
   findPlacement,
   findSpawnPoint,
   findTobyGrab,
@@ -95,6 +96,7 @@ import type {
 import { SLASH_DURATION } from '../../shared/src/actions.ts';
 import { NavigationGraph } from '../../shared/src/navigation.ts';
 import { DRINK_STEPS } from '../../shared/src/player-motion.ts';
+import { VILLAGE_BOUNDARY } from '../../shared/src/village-layout.ts';
 
 import { MONSTER_APPROACH_DISTANCE } from '../src/monster.ts';
 import type { MonsterSpawn } from '../src/monster.ts';
@@ -4400,5 +4402,124 @@ describe('a player who says a phrase', () => {
     const listener: number = admitListener(world, 1, 0);
     world.sayPhrase(99, 'askInn');
     expect(world.takeSayings(listener)).toEqual([]);
+  });
+});
+
+describe('a player leaving the valley along the mountain road', () => {
+  /**
+   * How far along the mountain road it leaves the valley, in meters: the
+   * farther of the corners where the hills meet the sides of the road.
+   */
+  const MOUTH_Z: number =
+    VILLAGE_BOUNDARY.z +
+    Math.max(
+      findCorridorMouth(VILLAGE_BOUNDARY, 1).z,
+      findCorridorMouth(VILLAGE_BOUNDARY, -1).z,
+    );
+
+  /** A point on the road a little way inside the valley. */
+  const INSIDE: GroundVector = { x: VILLAGE_BOUNDARY.x, z: MOUTH_Z - 2 };
+
+  /** A point on the road a little way out of the valley. */
+  const OUTSIDE: GroundVector = { x: VILLAGE_BOUNDARY.x, z: MOUTH_Z + 2 };
+
+  /**
+   * Makes a village without its wild dog, and brings a player onto the
+   * road inside the valley, facing out along it.
+   *
+   * @param {readonly Quest[]} quests - The quests the player has opened.
+   * @returns {[World, Player]} The village, and the player.
+   */
+  function admitTraveler(quests: readonly Quest[]): [World, Player] {
+    const world = new World(createRandom(), RESIDENT_FACTORIES, {
+      monsters: [],
+    });
+    const player = new Player({
+      id: 1,
+      appearance: 1,
+      mover: new AuthoritativePlayer(createMotion(INSIDE, 0)),
+      quests,
+    });
+    world.admitPlayer(player, { ...INSIDE, yaw: 0 });
+    return [world, player];
+  }
+
+  /**
+   * Walks a player of a world straight along the road to a point, and
+   * stops it there.
+   *
+   * @param {World} world - The world.
+   * @param {number} id - The identifier of the player.
+   * @param {GroundVector} to - The point.
+   */
+  function walkAlongRoad(world: World, id: number, to: GroundVector): void {
+    for (let step = 0; step < 10 * SIMULATION_RATE; step++) {
+      const { x, z }: PlayerState = findPlayer(world, id);
+      if (Math.hypot(to.x - x, to.z - z) <= STEP_DISTANCE) {
+        break;
+      }
+      steerPlayer(world, id, { x: to.x - x, z: to.z - z });
+      world.step();
+    }
+    steerPlayer(world, id, { x: 0, z: 0 });
+    world.step();
+  }
+
+  /**
+   * Tells whether a player of a world has reached the end of the story, as
+   * its peer is told.
+   *
+   * @param {World} world - The world.
+   * @param {number} id - The identifier of the player.
+   * @returns {boolean | undefined} Whether it has, or `undefined` if the
+   *   player is not in the world.
+   */
+  function isEndingReached(world: World, id: number): boolean | undefined {
+    return world.describePrivateView(id)?.isEndingReached;
+  }
+
+  it('reaches the end of the story once out with the main plot done', () => {
+    const [world, { id }] = admitTraveler([new ClovervaleQuest('done')]);
+    expect(isEndingReached(world, id)).toBe(false);
+    walkAlongRoad(world, id, OUTSIDE);
+    expect(isEndingReached(world, id)).toBe(true);
+    expect(findPlayer(world, id).z).toBeCloseTo(OUTSIDE.z, 0);
+  });
+
+  it('does not reach it in the valley with the main plot done', () => {
+    const [world, { id }] = admitTraveler([new ClovervaleQuest('done')]);
+    walkAlongRoad(world, id, { x: INSIDE.x, z: INSIDE.z - 4 });
+    stepTimes(world, 5 * SIMULATION_RATE);
+    expect(isEndingReached(world, id)).toBe(false);
+  });
+
+  it('does not reach it out of the valley before the main plot is done', () => {
+    const [world, { id }] = admitTraveler([new ClovervaleQuest('token')]);
+    walkAlongRoad(world, id, OUTSIDE);
+    expect(isEndingReached(world, id)).toBe(false);
+    expect(findPlayer(world, id).z).toBeCloseTo(OUTSIDE.z, 0);
+  });
+
+  it('lets a player go back and forth out of the valley freely', () => {
+    const [world, { id }] = admitTraveler([new ClovervaleQuest('done')]);
+    walkAlongRoad(world, id, OUTSIDE);
+    walkAlongRoad(world, id, INSIDE);
+    expect(findPlayer(world, id).z).toBeCloseTo(INSIDE.z, 0);
+    expect(isEndingReached(world, id)).toBe(true);
+    walkAlongRoad(world, id, OUTSIDE);
+    expect(findPlayer(world, id).z).toBeCloseTo(OUTSIDE.z, 0);
+    expect(isEndingReached(world, id)).toBe(true);
+  });
+
+  it('carries the end of the story into another world', () => {
+    const [world, player] = admitTraveler([new ClovervaleQuest('done')]);
+    walkAlongRoad(world, player.id, OUTSIDE);
+    world.removePlayer(player.id);
+    const cave = new World(createRandom(), RESIDENT_FACTORIES, {
+      map: 'cave',
+      monsters: [],
+    });
+    cave.admitPlayer(player, CAVE_LANDING);
+    expect(isEndingReached(cave, player.id)).toBe(true);
   });
 });

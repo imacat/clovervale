@@ -224,6 +224,7 @@ export type {
 } from './protocol.ts';
 export type { Pusher } from './pusher.ts';
 export {
+  CorridorMouth,
   PLAYER_RADIUS,
   Terrain,
   findCorridorMouth,
@@ -237,6 +238,7 @@ export type {
   Boundary,
   BoundaryCorridor,
   BoundaryWave,
+  Checkpoint,
   Pose,
   Shape,
 } from './terrain.ts';
@@ -270,6 +272,7 @@ export {
   PALISADE_GATE_HALF_DEPTH,
   PALISADE_GATE_POSE,
   SPAWN_STONES_POSE,
+  VALLEY_EXIT,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,
   PITCHFORK_STAND,

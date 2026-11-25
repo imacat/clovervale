@@ -41,7 +41,10 @@ import {
   serverFile,
 } from './test-browser/constants.ts';
 import { checkDayAgreement, checkNight } from './test-browser/day.ts';
-import { checkCreditsByTouch } from './test-browser/ending.ts';
+import {
+  checkCreditsByTouch,
+  checkEnding,
+} from './test-browser/ending.ts';
 import { checkFarmFields } from './test-browser/farm-field.ts';
 import { checkFountain } from './test-browser/fountain.ts';
 import { checkGamepad } from './test-browser/gamepad.ts';
@@ -109,7 +112,8 @@ import { checkTouch } from './test-browser/touch.ts';
  * through, taking Martha's ointment to him, that the farm fields behind
  * the houses of Martha, Toby and Basil let a player in through their gates
  * and stop it at their fences, that a player that holds Edwin's message
- * and Martha's token in the village sees the ending and the credits, and
+ * and Martha's token sees the ending and the credits once it leaves the
+ * valley along the mountain road, and
  * that the camera of a page follows the player of the other page when its
  * panel is set to, until that player leaves, and that a page whose address
  * names no server it can connect to tells it is disconnected.  The server
@@ -209,6 +213,7 @@ async function checkClient(): Promise<void> {
     await checkInventory(session, first, second, id, otherId);
     await checkCave(session, first, second, id);
     await checkMartha(session, first, second, id);
+    await checkEnding(session, first, id);
     await checkTobyExclamation(session, first, id);
     await checkTobyQuest(session, first, id);
     await checkApothecary(session, first, id);
@@ -270,7 +275,8 @@ try {
       'to the prisoner through his bars, loot the store rooms, count ' +
       'the silver coins of a barrel in the bag, use a ' +
       'healing potion, and climb back up, have Martha come over, talk ' +
-      'with her and beat her, reach the ending and see the credits, ' +
+      'with her and beat her, leave the valley along the mountain road ' +
+      'to reach the ending and see the credits, ' +
       'take her ointment to a hurt Toby, buy ' +
       'healing potions from Basil until short of silver, walk into the ' +
       'farm fields behind the houses through their gates, have the ' +

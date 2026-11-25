@@ -26,7 +26,6 @@
 import type {
   DialogueView,
   ItemKindId,
-  MapId,
   PlayerInput,
   VillagerId,
 } from '@clovervale/shared';
@@ -548,19 +547,16 @@ export class EndingController implements Overlay {
    * and the bag and holding the controls of play.  It unrolls, unless the
    * person at the page asks for little motion.
    *
-   * @param {boolean} isPlotDone - Whether the server has told that the
-   *   player of the page is done with the main plot.
-   * @param {MapId} map - The map the player is in.
+   * @param {boolean} isEndingReached - Whether the server has told that the
+   *   player of the page has reached the end of the story.
    * @param {boolean} isInDialogue - Whether the player is in a dialogue.
    * @returns {boolean} Whether the sheet has opened now.
    */
-  update(isPlotDone: boolean, map: MapId, isInDialogue: boolean): boolean {
+  update(isEndingReached: boolean, isInDialogue: boolean): boolean {
     if (this.#sheet.update(performance.now())) {
       this.#view.render();
     }
-    if (
-      !this.#watch.notice(performance.now(), isPlotDone, map, isInDialogue)
-    ) {
+    if (!this.#watch.notice(isEndingReached, isInDialogue)) {
       return false;
     }
     this.#open();

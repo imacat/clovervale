@@ -98,6 +98,7 @@ function createPlainSnapshot(
       dialogue: null,
       acquaintances: [],
       quests: [],
+      isEndingReached: false,
     },
   });
 }

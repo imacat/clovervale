@@ -27,6 +27,7 @@ import { describe, expect, it } from 'vitest';
 import { PLAYER_RADIUS, Terrain, placePoint } from '../src/index.ts';
 import type { Boundary, GroundVector, Shape } from '../src/index.ts';
 import {
+  CorridorMouth,
   findCorridorMouth,
   findTurn,
   measureBoundaryReach,
@@ -191,6 +192,42 @@ describe('findCorridorMouth', () => {
 
   it('fails for a boundary without a road', () => {
     expect(() => findCorridorMouth(WAVY, 1)).toThrow();
+  });
+});
+
+describe('CorridorMouth', () => {
+  /** The mouth of the road of the round boundary with a road. */
+  const MOUTH = new CorridorMouth(ROADED);
+
+  it('tells a step from the circle onto the road crosses outward', () => {
+    expect(MOUTH.isCrossedOutward({ x: 0, z: 4.9 }, { x: 0, z: 5.1 })).toBe(
+      true,
+    );
+    expect(MOUTH.isCrossedOutward({ x: 0, z: 5 }, { x: 0, z: 5.1 })).toBe(
+      true,
+    );
+  });
+
+  it('tells no other step crosses outward', () => {
+    expect(MOUTH.isCrossedOutward({ x: 0, z: 5.1 }, { x: 0, z: 4.9 })).toBe(
+      false,
+    );
+    expect(MOUTH.isCrossedOutward({ x: 0, z: 6 }, { x: 0, z: 7 })).toBe(
+      false,
+    );
+    expect(MOUTH.isCrossedOutward({ x: 0, z: 3 }, { x: 0.5, z: 4.9 })).toBe(
+      false,
+    );
+  });
+
+  it('tells which points lie beyond the mouth', () => {
+    expect(MOUTH.isBeyond({ x: 0.5, z: 5.5 })).toBe(true);
+    expect(MOUTH.isBeyond({ x: 0.5, z: 4.5 })).toBe(false);
+    expect(MOUTH.isBeyond({ x: 0, z: 0 })).toBe(false);
+  });
+
+  it('fails for a boundary without a road', () => {
+    expect(() => new CorridorMouth(WAVY)).toThrow();
   });
 });
 

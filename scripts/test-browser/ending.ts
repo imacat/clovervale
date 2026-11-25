@@ -23,6 +23,9 @@
 
 import { setTimeout as sleep } from 'node:timers/promises';
 
+import { findCorridorMouth } from '@clovervale/shared';
+import type { GroundVector } from '@clovervale/shared';
+import { VILLAGE_BOUNDARY } from '../../packages/shared/src/village-layout.ts';
 import {
   ROLL_DURATION,
   ROLL_PAUSE,
@@ -64,6 +67,8 @@ import {
   tapKey,
   waitFor,
 } from './page.ts';
+import { findWalkKeys, readQuestLook, walkInVillage } from './village-walk.ts';
+import type { QuestLook } from './village-walk.ts';
 
 /** How a page shows its ending sheet. */
 interface EndingLook {
@@ -190,6 +195,82 @@ const ROLL_WATCH_DURATION = 3000;
  * comfortable pace for reading.
  */
 const LEAST_ROLL = 30;
+/**
+ * How far along the mountain road it leaves the valley, in meters: the
+ * farther of the corners where the hills meet the sides of the road.
+ */
+const MOUTH_Z: number =
+  VILLAGE_BOUNDARY.z +
+  Math.max(
+    findCorridorMouth(VILLAGE_BOUNDARY, 1).z,
+    findCorridorMouth(VILLAGE_BOUNDARY, -1).z,
+  );
+/** A point on the mountain road a little way inside the valley. */
+const INSIDE_MOUTH: GroundVector = { x: VILLAGE_BOUNDARY.x, z: MOUTH_Z - 3 };
+/**
+ * How long a player is walked on out along the mountain road once it is
+ * out of the valley, in milliseconds.
+ */
+const ROAD_WALK_DURATION = 1500;
+
+/**
+ * Tells whether a page shows its ending sheet.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @returns {Promise<boolean>} Whether it is open.
+ */
+export async function isEndingShown(
+  session: BidiSession,
+  context: string,
+): Promise<boolean> {
+  return (await readEndingLook(session, context)).isOpen;
+}
+
+/**
+ * Walks the player of a page out of the valley along the mountain road,
+ * from a little way inside the valley, holding down the keys that walk it
+ * out along the road until a check of the page tells it is done, or for
+ * a while.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page.
+ * @param {number} id - The identifier of the player of the page.
+ * @param {() => Promise<boolean>} isDone - Tells whether the walk is done.
+ * @param {number} duration - The longest the keys are held down for, in
+ *   milliseconds.
+ * @returns {Promise<void>} A promise settled once the keys are let go of.
+ */
+async function walkOutOfValley(
+  session: BidiSession,
+  context: string,
+  id: number,
+  isDone: () => Promise<boolean>,
+  duration: number,
+): Promise<void> {
+  await walkInVillage(
+    session,
+    context,
+    id,
+    INSIDE_MOUTH,
+    'to the mouth of the mountain road',
+  );
+  const { heading } = await readQuestLook(session, context, id);
+  const keys: readonly string[] = findWalkKeys(heading, { x: 0, z: 1 });
+  const deadline: number = Date.now() + duration;
+  for (const key of keys) {
+    await sendKey(session, context, 'keyDown', key);
+  }
+  try {
+    while (Date.now() < deadline && !(await isDone())) {
+      await sleep(POLL_INTERVAL);
+    }
+  } finally {
+    for (const key of keys) {
+      await sendKey(session, context, 'keyUp', key);
+    }
+  }
+}
 
 /**
  * Reads how a page shows its ending sheet.
@@ -428,12 +509,12 @@ async function saveUnrolling(
 
 /**
  * Checks the end of the story on the ending sheet of a page, as
- * {@link checkEnding} tells, from the sheet opening by itself to its views
- * on a phone.
+ * {@link checkEnding} tells, from the sheet opening by itself as the
+ * player leaves the valley to its views on a phone.
  *
  * @param {BidiSession} session - The session with the browser.
  * @param {string} context - The browsing context of the page, whose player
- *   has just come to hold both items in the village.
+ *   holds both items in the village.
  * @param {number} id - The identifier of the player of the page.
  * @returns {Promise<void>} A promise settled once the page has passed,
  *   showing the end of the story in Traditional Chinese on a desktop.
@@ -445,13 +526,20 @@ async function checkEndingStory(
   id: number,
 ): Promise<void> {
   const look = (): Promise<EndingLook> => readEndingLook(session, context);
-  // The view is a desktop's before the scroll unrolls, a second after the
-  // token is received.
+  // The view is a desktop's before the scroll unrolls, as the player
+  // leaves the valley.
   await session.send('browsingContext.setViewport', {
     context,
     viewport: DESKTOP_VIEWPORT,
     devicePixelRatio: null,
   });
+  await walkOutOfValley(
+    session,
+    context,
+    id,
+    () => isEndingShown(session, context),
+    ACTION_TIMEOUT,
+  );
   await saveUnrolling(session, context, 'ending-unrolling.png');
   await watchScroll(session, context, 'scroll-open');
   const opened: EndingLook = await expectEndingLook(
@@ -774,12 +862,13 @@ async function checkHelpCredits(
 }
 
 /**
- * Checks the ending sheet, which a page opens by itself once its player
- * holds both the message from Clovervale and the token of the spy in the
- * village: a scroll whose rollers part from the middle as it unrolls, the
- * parchment between them at every look as {@link watchScroll} tells, which
- * tells the end of the story and "The End" alone, in English and in
- * Traditional Chinese; that while it is open a walking key and an arrow
+ * Checks the ending sheet, which a page opens by itself once its player,
+ * holding both the message from Clovervale and the token of the spy,
+ * walks out of the valley along the mountain road: a scroll whose rollers
+ * part from the middle as it unrolls, the parchment between them at every
+ * look as {@link watchScroll} tells, which tells the end of the story and
+ * "The End" alone, in English and in Traditional Chinese; that while it
+ * is open a walking key and an arrow
  * held down neither walk the player nor turn the camera, H and I open
  * neither the help sheet nor the bag, and the keys of the browser are left
  * to it; that Space rolls it up, a press of Esc meanwhile doing nothing,
@@ -789,19 +878,21 @@ async function checkHelpCredits(
  * and stand still, while on a phone held on its side they do not, and
  * roll up by themselves after a moment, until the wheel scrolls them,
  * which stops them, and a drag of the mouse scrolls them too, neither
- * leaving the sheet; that a click around it rolls it up and closes it; and
- * that once
- * it has been shown, the help sheet, opening at its first page as ever,
- * has a last page of the credits, which the right arrow turns to.
+ * leaving the sheet; that a click around it rolls it up and closes it;
+ * that once it has been shown, the help sheet, opening at its first page
+ * as ever, has a last page of the credits, which the right arrow turns
+ * to; and that the player, left out of the valley, walks back into it and
+ * out again without the ending showing again.
  * The views of the sheet as it unrolls, of the end of the story and of the
  * credits on a desktop, in both languages, and on a phone held on its side
  * and upright, and of the page of the credits of the help sheet are
  * saved if the environment names a directory for them.  The sheets are
- * left closed, the page in English at the size of its window.
+ * left closed, the page in English at the size of its window, and the
+ * player a little way inside the mouth of the road.
  *
  * @param {BidiSession} session - The session with the browser.
  * @param {string} context - The browsing context of the page, whose player
- *   has just come to hold both items in the village.
+ *   holds both items in the village.
  * @param {number} id - The identifier of the player of the page.
  * @returns {Promise<void>} A promise settled once the page has passed.
  * @throws {Error} If the page does not show its ending sheet so.
@@ -816,6 +907,59 @@ export async function checkEnding(
   await checkCreditsRoll(session, context);
   await checkEndingClosed(session, context);
   await checkHelpCredits(session, context);
+  await checkRoadAfterEnding(session, context, id);
+}
+
+/**
+ * Checks that once the ending of a page has been shown and closed, its
+ * player still stands out of the valley, walks back into it and out
+ * again along the mountain road, and the page shows the ending no more.
+ *
+ * @param {BidiSession} session - The session with the browser.
+ * @param {string} context - The browsing context of the page, whose ending
+ *   has been shown and closed.
+ * @param {number} id - The identifier of the player of the page.
+ * @returns {Promise<void>} A promise settled once the player is back in
+ *   the valley, a little way inside the mouth of the road.
+ * @throws {Error} If the player does not walk so, or the page shows the
+ *   ending again.
+ */
+async function checkRoadAfterEnding(
+  session: BidiSession,
+  context: string,
+  id: number,
+): Promise<void> {
+  const { own } = await readQuestLook(session, context, id);
+  if (own === null || own.z <= MOUTH_Z) {
+    throw new Error(
+      'Once the ending is closed, the first page has its player at ' +
+        `${JSON.stringify(own)}, not out of the valley.`,
+    );
+  }
+  await walkOutOfValley(
+    session,
+    context,
+    id,
+    () => isEndingShown(session, context),
+    ROAD_WALK_DURATION,
+  );
+  await sleep(VIEW_SETTLE_DURATION);
+  const out: QuestLook = await readQuestLook(session, context, id);
+  const isShown: boolean = await isEndingShown(session, context);
+  if (isShown || out.own === null || out.own.z <= MOUTH_Z) {
+    throw new Error(
+      'Walked back into the valley and out again after the ending, the ' +
+        `first page has its player at ${JSON.stringify(out.own)}, the ` +
+        `ending sheet ${isShown ? 'open' : 'closed'}.`,
+    );
+  }
+  await walkInVillage(
+    session,
+    context,
+    id,
+    INSIDE_MOUTH,
+    'back into the valley',
+  );
 }
 
 /**

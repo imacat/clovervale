@@ -286,11 +286,11 @@ export class World extends EventTarget implements QuestWorld {
   /**
    * Brings a player from another world into this one, with its health,
    * what it carries, its silver coins, the villagers who have told it who
-   * they are, how far it has gotten with the quests, and the inputs of its
-   * peer still to come.  It stops whatever it was
-   * doing and idles where it arrives, but still wants to move the way it
-   * did, and is told nothing more of what was said within its hearing in the
-   * world it left.
+   * they are, how far it has gotten with the quests, whether it has reached
+   * the end of the story, and the inputs of its peer still to come.  It
+   * stops whatever it was doing and idles where it arrives, but still
+   * wants to move the way it did, and is told nothing more of what was
+   * said within its hearing in the world it left.
    *
    * @param {Player} player - The player, as it left the other world.
    * @param {Pose | null} arrival - Where it is to stand, and which way it
@@ -355,6 +355,12 @@ export class World extends EventTarget implements QuestWorld {
    * the players aside stands in its way as the obstacles do.  Each monster
    * goes about its business, as the numbers of its kind tell, and pays the
    * villagers no heed.
+   *
+   * A player that crosses the line where the story ends in the map of the
+   * world outward at the step, as the map tells by its checkpoint of the
+   * ending, reaches the end of the story, if it is done with the main plot
+   * and has not reached it before, in this world or another.  The line
+   * never stands in its way.
    *
    * A drink that starts at the step gives the player back
    * {@link FOUNTAIN_HEALING} health at once, or as much as it lacks of its
@@ -482,9 +488,9 @@ export class World extends EventTarget implements QuestWorld {
    *   inputs of its peer, how its latest slash was judged, or `null` before
    *   its first, what it carries, in the order of the slots, its silver
    *   coins, the dialogue it is in as it stands, or `null` if none, the
-   *   villagers who have told it who they are, in the order they did, and
-   *   the stage of each quest it has taken on; or `null` if the player is
-   *   not in the world.
+   *   villagers who have told it who they are, in the order they did, the
+   *   stage of each quest it has taken on, and whether it has reached the
+   *   end of the story; or `null` if the player is not in the world.
    */
   describePrivateView(id: number): PrivateView | null {
     const player: Player | undefined = this.#roster.find(id);
@@ -500,6 +506,7 @@ export class World extends EventTarget implements QuestWorld {
         player.dialogue === null ? null : describeDialogue(player.dialogue),
       acquaintances: [...player.acquaintances],
       quests: [...player.quests],
+      isEndingReached: player.isEndingReached,
     };
   }
 
@@ -658,6 +665,14 @@ export class World extends EventTarget implements QuestWorld {
       monsters,
     );
     const after: PlayerMotion = player.mover.motion;
+    if (
+      WORLD_MAPS[this.#map].endingCheckpoint?.isCrossedOutward(
+        before,
+        after,
+      ) === true
+    ) {
+      player.reachEnding();
+    }
     const moved: MovedPlayer = { player, applied, before, after, isHeld };
     const travel: Departure | null = this.#applyInputs(moved, monsters);
     const slasher: Slasher | null = this.#startAction(moved, monsters);

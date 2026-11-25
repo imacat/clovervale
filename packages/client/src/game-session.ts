@@ -33,7 +33,6 @@ import {
   areMonstersPaused,
   createInteractMessage,
   decodeServerMessage,
-  findQuest,
 } from '@clovervale/shared';
 import type {
   ClientMessage,
@@ -195,10 +194,7 @@ export class GameSession {
     readouts.showFrame(frame, stage.timeline.latest, ownPlayer.prediction);
     this.#showPrompt(frame, now);
     this.#followCamera(frame);
-    controls.showEnding(
-      findQuest(record.quests, 'clovervale')?.isDone === true,
-      stage.map,
-    );
+    controls.showEnding(record.isEndingReached);
     this.#showTimeOfDay();
     for (const outline of outlines) {
       outline.visible = settings.obstacles.isShown;

@@ -133,6 +133,7 @@ const NOTHING_TO_PICK = {
   dialogue: null,
   acquaintances: [],
   quests: [],
+  isEndingReached: false,
 } as const;
 
 /** A dialogue, to put in snapshots. */
@@ -181,6 +182,7 @@ function createPlainSnapshot(
       dialogue: null,
       acquaintances: [],
       quests: [],
+      isEndingReached: false,
     },
   });
 }
@@ -321,6 +323,7 @@ describe('the server message codec', () => {
         dialogue: null,
         acquaintances: [],
         quests: [],
+        isEndingReached: false,
       },
     });
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
@@ -643,6 +646,7 @@ describe('the server message codec', () => {
         dialogue: null,
         acquaintances: [],
         quests: [],
+        isEndingReached: false,
       },
     });
     expect(decodeServerMessage(encodeServerMessage(message))).toEqual({
@@ -661,6 +665,7 @@ describe('the server message codec', () => {
       dialogue: null,
       acquaintances: [],
       quests: [],
+      isEndingReached: false,
     });
   });
 
@@ -678,6 +683,7 @@ describe('the server message codec', () => {
         dialogue: null,
         acquaintances: [],
         quests: [],
+        isEndingReached: false,
       },
     });
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
@@ -720,6 +726,7 @@ describe('the server message codec', () => {
         dialogue: null,
         acquaintances: [],
         quests: [],
+        isEndingReached: false,
       },
     });
     expect(decodeServerMessage(encodeServerMessage(message))).toMatchObject({
@@ -743,6 +750,7 @@ describe('the server message codec', () => {
         dialogue: null,
         acquaintances: [],
         quests: [],
+        isEndingReached: false,
       },
     });
     expect(message.tobyFind).toBe(197);
@@ -845,6 +853,7 @@ describe('the server message codec', () => {
         dialogue: DIALOGUE,
         acquaintances: ['edwin'],
         quests: [],
+        isEndingReached: false,
       },
     });
     const decoded = decodeServerMessage(encodeServerMessage(message));
@@ -886,6 +895,7 @@ describe('the server message codec', () => {
         dialogue: null,
         acquaintances: [],
         quests: [new TobyQuest('supplied'), new ClovervaleQuest()],
+        isEndingReached: false,
       },
     });
     const decoded = decodeServerMessage(encodeServerMessage(message));
@@ -920,6 +930,26 @@ describe('the server message codec', () => {
       },
     ],
   ])('rejects a snapshot whose quests %s', (_, flaw) => {
+    const data = JSON.stringify({
+      ...createPlainSnapshot(4, [PLAYER], [], OWN),
+      ...flaw,
+    });
+    expect(() => decodeServerMessage(data)).toThrow();
+  });
+
+  it('decodes a snapshot message that tells the ending is reached', () => {
+    const message: SnapshotMessage = {
+      ...createPlainSnapshot(4, [PLAYER], [], OWN),
+      isEndingReached: true,
+    };
+    const decoded = decodeServerMessage(encodeServerMessage(message));
+    expect(decoded).toEqual(message);
+  });
+
+  it.each([
+    ['is missing', { isEndingReached: undefined }],
+    ['is no boolean', { isEndingReached: 1 }],
+  ])('rejects a snapshot whose ending reached %s', (_, flaw) => {
     const data = JSON.stringify({
       ...createPlainSnapshot(4, [PLAYER], [], OWN),
       ...flaw,

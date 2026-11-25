@@ -50,7 +50,7 @@ import {
   TURN_KEYS,
   VIEW_SETTLE_DURATION,
 } from './constants.ts';
-import { checkEnding } from './ending.ts';
+import { isEndingShown } from './ending.ts';
 import { readHelpLook } from './help.ts';
 import {
   evaluateInPage,
@@ -210,8 +210,9 @@ function describeMarthaLook(look: MarthaLook): string {
  * health shown.  The player slashes at her, stepping up to her and
  * turning to face her, until she sits beaten on the ground, her pitchfork
  * dropped beside her, which both pages show, and it gets her token, which
- * shows in the bag and in a notice, and with it, as it carries Edwin's
- * message, the ending, as {@link checkEnding} tells.  The camera of the
+ * shows in the bag and in a notice, though, as it carries Edwin's message,
+ * the main plot is done, the page shows no ending while the player stays
+ * in the valley.  The camera of the
  * page of the player is turned to look at the two of them from the side,
  * and zoomed in, while she talks and fights, and turned and zoomed back
  * after; the keys that turn the player turn it the way the camera then
@@ -259,9 +260,14 @@ export async function checkMartha(
       `With Martha beaten, the first page tells ${describeMarthaLook(own)}, ` +
       `and the second page ${describeMarthaLook(other)}.`,
   );
-  // The player now holds Edwin's message and her token in the village.
-  await checkEnding(session, actor, id);
+  // The player now holds Edwin's message and her token in the village,
+  // which shows no ending until it leaves the valley.
   await sleep(SIT_SETTLE_DURATION);
+  if (await isEndingShown(session, actor)) {
+    throw new Error(
+      'With Martha beaten, the first page shows the ending in the village.',
+    );
+  }
   await saveView(session, actor, 'martha-sitting.png');
   await zoomCamera(session, actor, -MARTHA_CAMERA_ZOOM);
   await turnCamera(session, actor, -MARTHA_CAMERA_TURN);

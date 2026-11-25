@@ -23,16 +23,7 @@
  *   itself, how it unrolls and rolls up, and how its credits roll inside.
  */
 
-import { WORLD_MAPS } from '@clovervale/shared';
-import type { MapId } from '@clovervale/shared';
-
 import { isGameKey } from './player-input.ts';
-
-/**
- * How long a player is to be in the village with the main plot done
- * before the ending opens, in milliseconds.
- */
-export const ENDING_DELAY = 1000;
 
 /**
  * How long the credits that do not fit the sheet stand still before they
@@ -87,40 +78,24 @@ export interface EndingResponse {
 const NOT_HANDLED: EndingResponse = { isHandled: false, scroll: 0 };
 
 /**
- * What tells when the ending opens by itself: a second after the player
- * is done with the main plot in the village, or after it comes back to the
- * village with it done, as soon as it is not in a dialogue, and only once.
+ * What tells when the ending opens by itself: as soon as the server has
+ * told that the player has reached the end of the story, once the player
+ * is not in a dialogue, and only once.
  */
 export class EndingWatch {
-  #heldSince: number | null = null;
   #isDone = false;
 
   /**
-   * Notices how things stand at a moment, and tells whether the ending is
-   * to open then.  The second starts over whenever the player leaves the
-   * village or the page no longer knows the main plot is done.
+   * Notices how things stand, and tells whether the ending is to open now.
    *
-   * @param {number} now - The moment, in milliseconds.
-   * @param {boolean} isPlotDone - Whether the page knows the player is done
-   *   with the main plot.
-   * @param {MapId} map - The map the player is shown in.
+   * @param {boolean} isEndingReached - Whether the server has told that
+   *   the player has reached the end of the story.
    * @param {boolean} isInDialogue - Whether the player is in a dialogue.
    * @returns {boolean} Whether the ending is to open now, which it is only
    *   once.
    */
-  notice(
-    now: number,
-    isPlotDone: boolean,
-    map: MapId,
-    isInDialogue: boolean,
-  ): boolean {
-    const isHeld: boolean = isPlotDone && WORLD_MAPS[map].allowsEnding;
-    if (!isHeld) {
-      this.#heldSince = null;
-      return false;
-    }
-    this.#heldSince ??= now;
-    if (this.#isDone || isInDialogue || now - this.#heldSince < ENDING_DELAY) {
+  notice(isEndingReached: boolean, isInDialogue: boolean): boolean {
+    if (this.#isDone || !isEndingReached || isInDialogue) {
       return false;
     }
     this.#isDone = true;

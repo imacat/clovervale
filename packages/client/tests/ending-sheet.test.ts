@@ -25,7 +25,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  ENDING_DELAY,
   EndingSheet,
   EndingWatch,
   ROLL_DURATION,
@@ -35,57 +34,31 @@ import {
 } from '../src/ending-sheet.ts';
 
 describe('an ending watch', () => {
-  it('opens the ending a second after the plot is done in the village', () => {
+  it('opens the ending as soon as the server tells it is reached', () => {
     const watch = new EndingWatch();
-    expect(watch.notice(5000, true, 'village', false)).toBe(false);
-    expect(watch.notice(5000 + ENDING_DELAY - 1, true, 'village', false)).toBe(
-      false,
-    );
-    expect(watch.notice(5000 + ENDING_DELAY, true, 'village', false)).toBe(
-      true,
-    );
+    expect(watch.notice(false, false)).toBe(false);
+    expect(watch.notice(true, false)).toBe(true);
   });
 
-  it('does not open the ending while the plot is not done', () => {
+  it('does not open the ending while it is not reached', () => {
     const watch = new EndingWatch();
-    watch.notice(0, false, 'village', false);
-    expect(watch.notice(10_000, false, 'village', false)).toBe(false);
-  });
-
-  it('waits in the cave, and opens a second after the village is back', () => {
-    const watch = new EndingWatch();
-    watch.notice(0, true, 'cave', false);
-    expect(watch.notice(10_000, true, 'cave', false)).toBe(false);
-    expect(watch.notice(20_000, true, 'village', false)).toBe(false);
-    const half: number = 20_000 + ENDING_DELAY / 2;
-    expect(watch.notice(half, true, 'village', false)).toBe(false);
-    expect(watch.notice(20_000 + ENDING_DELAY, true, 'village', false)).toBe(
-      true,
-    );
+    expect(watch.notice(false, false)).toBe(false);
+    expect(watch.notice(false, false)).toBe(false);
   });
 
   it('waits for a dialogue in progress to be over', () => {
     const watch = new EndingWatch();
-    watch.notice(0, true, 'village', true);
-    expect(watch.notice(ENDING_DELAY * 5, true, 'village', true)).toBe(false);
-    expect(watch.notice(ENDING_DELAY * 6, true, 'village', false)).toBe(true);
+    expect(watch.notice(true, true)).toBe(false);
+    expect(watch.notice(true, true)).toBe(false);
+    expect(watch.notice(true, false)).toBe(true);
   });
 
-  it('starts over once the page no longer knows the plot is done', () => {
+  it('opens the ending only once', () => {
     const watch = new EndingWatch();
-    watch.notice(0, true, 'village', false);
-    watch.notice(ENDING_DELAY / 2, false, 'village', false);
-    expect(watch.notice(ENDING_DELAY, true, 'village', false)).toBe(false);
-  });
-
-  it('opens the ending only once, however often the village is back', () => {
-    const watch = new EndingWatch();
-    watch.notice(0, true, 'village', false);
-    expect(watch.notice(ENDING_DELAY, true, 'village', false)).toBe(true);
-    expect(watch.notice(ENDING_DELAY * 2, true, 'village', false)).toBe(false);
-    watch.notice(ENDING_DELAY * 3, true, 'cave', false);
-    watch.notice(ENDING_DELAY * 4, true, 'village', false);
-    expect(watch.notice(ENDING_DELAY * 9, true, 'village', false)).toBe(false);
+    expect(watch.notice(true, false)).toBe(true);
+    expect(watch.notice(true, false)).toBe(false);
+    watch.notice(false, false);
+    expect(watch.notice(true, false)).toBe(false);
   });
 });
 

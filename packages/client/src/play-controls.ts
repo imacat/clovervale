@@ -27,7 +27,6 @@
 import type {
   DialogueView,
   ItemKindId,
-  MapId,
   PlayerInput,
   VillagerId,
 } from '@clovervale/shared';
@@ -338,16 +337,15 @@ export class PlayControls {
 
   /**
    * Shows the ending sheet as it unrolls and rolls up, and opens it with the
-   * ending, as {@link EndingController.update} tells, as the page knows how
-   * far its player has gotten with the main plot, and where it is.  From
-   * then on, the help sheet offers the credits on a page of their own.
+   * ending, as {@link EndingController.update} tells, as the page knows
+   * whether its player has reached the end of the story.  From then on,
+   * the help sheet offers the credits on a page of their own.
    *
-   * @param {boolean} isPlotDone - Whether the server has told that the
-   *   player of the page is done with the main plot.
-   * @param {MapId} map - The map the player is in.
+   * @param {boolean} isEndingReached - Whether the server has told that the
+   *   player of the page has reached the end of the story.
    */
-  showEnding(isPlotDone: boolean, map: MapId): void {
-    if (this.#ending.update(isPlotDone, map, this.#dialogue.isOpen())) {
+  showEnding(isEndingReached: boolean): void {
+    if (this.#ending.update(isEndingReached, this.#dialogue.isOpen())) {
       this.#help.offerCredits();
     }
   }
