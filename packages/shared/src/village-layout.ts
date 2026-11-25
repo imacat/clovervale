@@ -141,11 +141,11 @@ const YARD_WALL_ON_HOUSE: readonly Spot[] = [
  * the whole stretch, with the broad opening in front of the porch, 5.15 m
  * wide, between them.  The short stretch on the left as one faces the house
  * is a ragged end alone, in front of the left part of the house, broken
- * down toward the opening, with its tall end beside the path to the back
- * of the village.  On the right, a ragged end stands in front of the right
- * part of the house, with its tall end beside the opening, broken down
- * toward a gap of a meter, wide enough to walk through, between it and the
- * whole stretch in front of the well.
+ * down toward the opening, with its tall end where the wall ends on that
+ * side.  On the right, a ragged end stands in front of the right part of the
+ * house, with its tall end beside the opening, broken down toward a gap of
+ * a meter, wide enough to walk through, between it and the whole stretch
+ * in front of the well.
  */
 const YARD_WALL_ENDS_ON_HOUSE: readonly Spot[] = [
   [-3.37, 4.8, 0],
@@ -242,8 +242,8 @@ interface FieldSite {
  * Behind the cottage, the field runs from the pine tree on its far side
  * from the apothecary shop to the end of the fence near the shop, and
  * reaches deep toward the edge.  Behind the apothecary shop, the field
- * runs from the fence on the side away from the plaza to just short of the
- * path on the other side.
+ * runs from the fence on the side away from the plaza to a little past
+ * the other side of the shop.
  */
 const FIELD_SITES: Readonly<Record<FarmFieldId, FieldSite>> = {
   'chief-field': {

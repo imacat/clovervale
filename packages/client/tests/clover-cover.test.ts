@@ -42,7 +42,11 @@ import type {
   Pose,
 } from '@clovervale/shared';
 
-import { BARE_EARTH } from '../src/bare-earth.ts';
+import {
+  EARTH_PATCHES,
+  EARTH_PATHS,
+  traceEarthPath,
+} from '../src/bare-earth.ts';
 import {
   CLOVER_REACH,
   COVER_BAND,
@@ -88,6 +92,44 @@ function findLocal(pose: Pose, point: GroundVector): GroundVector {
     { x: point.x - pose.x, z: point.z - pose.z },
     findTurn(-pose.yaw),
   );
+}
+
+/**
+ * Measures how far a point lies from a line through several points.
+ *
+ * @param {GroundVector} point - The point.
+ * @param {readonly GroundVector[]} line - The points of the line.
+ * @returns {number} The distance, in meters.
+ */
+function measureFromLine(
+  point: GroundVector,
+  line: readonly GroundVector[],
+): number {
+  let least = Infinity;
+  line.forEach((end: GroundVector, index: number) => {
+    const start: GroundVector = line[index - 1] ?? end;
+    const dx: number = end.x - start.x;
+    const dz: number = end.z - start.z;
+    const length: number = dx * dx + dz * dz;
+    const along: number =
+      length === 0
+        ? 0
+        : Math.min(
+            1,
+            Math.max(
+              0,
+              ((point.x - start.x) * dx + (point.z - start.z) * dz) / length,
+            ),
+          );
+    least = Math.min(
+      least,
+      Math.hypot(
+        point.x - (start.x + along * dx),
+        point.z - (start.z + along * dz),
+      ),
+    );
+  });
+  return least;
 }
 
 /**
@@ -158,7 +200,7 @@ describe('the clover cover', () => {
   });
 
   it('keeps off the bare earth of the plaza and the paths', () => {
-    for (const [x, z, radiusX, radiusZ, yaw] of BARE_EARTH) {
+    for (const [x, z, radiusX, radiusZ, yaw] of EARTH_PATCHES) {
       for (const spot of SPOTS) {
         const local: GroundVector = findLocal({ x, z, yaw }, spot);
         const reach: number = measureReach(spot);
@@ -166,6 +208,14 @@ describe('the clover cover', () => {
           (local.x / (radiusX + reach)) ** 2 +
             (local.z / (radiusZ + reach)) ** 2,
         ).toBeGreaterThan(1);
+      }
+    }
+    for (const path of EARTH_PATHS) {
+      const line: GroundVector[] = traceEarthPath(path);
+      for (const spot of SPOTS) {
+        expect(measureFromLine(spot, line)).toBeGreaterThan(
+          path.width / 2 + measureReach(spot),
+        );
       }
     }
   });

@@ -52,8 +52,7 @@ import type {
   Shape,
 } from '@clovervale/shared';
 
-import { BARE_EARTH } from './bare-earth.ts';
-import type { EarthPatch } from './bare-earth.ts';
+import { listEarthGround } from './bare-earth.ts';
 import { createRandom, pickInRange } from './mountains.ts';
 import type { Range } from './mountains.ts';
 
@@ -163,16 +162,6 @@ function findSpread(placement: Placement): Shape[] {
 }
 
 /**
- * Finds the ground of a patch of bare earth.
- *
- * @param {EarthPatch} patch - The patch.
- * @returns {Shape} A box around the patch.
- */
-function findEarthGround([x, z, radiusX, radiusZ, yaw]: EarthPatch): Shape {
-  return { shape: 'box', x, z, halfWidth: radiusX, halfDepth: radiusZ, yaw };
-}
-
-/**
  * The ground the clover cover keeps off: whatever stands in the village,
  * with the ground it spreads over, the farm fields, the bare earth, and
  * beyond the boundary, where the hills rise.
@@ -182,7 +171,7 @@ const KEPT_OFF: Terrain = new Terrain(
     ...VILLAGE_TERRAIN.shapes,
     ...VILLAGE_PLACEMENTS.flatMap(findFieldGround),
     ...VILLAGE_PLACEMENTS.flatMap(findSpread),
-    ...BARE_EARTH.map(findEarthGround),
+    ...listEarthGround(),
   ],
   VILLAGE_TERRAIN.boundary,
 );

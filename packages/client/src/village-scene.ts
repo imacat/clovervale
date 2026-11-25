@@ -24,12 +24,26 @@
  *   of the houses.
  */
 
-import { CircleGeometry, Fog, Mesh, MeshStandardMaterial, Scene } from 'three';
+import {
+  BufferGeometry,
+  CircleGeometry,
+  Float32BufferAttribute,
+  Fog,
+  Mesh,
+  MeshStandardMaterial,
+  Scene,
+} from 'three';
 import type { Color, Object3D } from 'three';
 
+import type { GroundVector } from '@clovervale/shared';
+
 import { Actor } from './actor.ts';
-import { BARE_EARTH } from './bare-earth.ts';
-import type { EarthPatch } from './bare-earth.ts';
+import {
+  EARTH_PATCHES,
+  EARTH_PATHS,
+  outlineEarthPath,
+} from './bare-earth.ts';
+import type { EarthPatch, EarthPath, EarthStrip } from './bare-earth.ts';
 import { createCloverCover } from './clover-cover.ts';
 import { Daylight } from './daylight.ts';
 import type { DaylightLook } from './daylight.ts';
@@ -85,7 +99,14 @@ export interface VillageScene extends MapScene {
 /** The color of the grass. */
 const GRASS_COLOR = '#8cc65c';
 /** The color of the bare earth. */
-const EARTH_COLOR = '#d2995f';
+export const EARTH_COLOR = '#d2995f';
+/** How high above the ground the lowest bare earth lies, in meters. */
+const EARTH_HEIGHT = 0.004;
+/**
+ * How much higher than the one before each patch or path of bare earth
+ * lies, in meters.
+ */
+const EARTH_HEIGHT_STEP = 0.001;
 /** The radius of the ground, which reaches under every mountain, in meters. */
 const GROUND_RADIUS = 440;
 /** How far from the camera the fog starts, in meters. */
@@ -117,6 +138,59 @@ function createDisk(color: string, height: number): Mesh {
 }
 
 /**
+ * Finds how high above the ground a patch or path of bare earth lies: each
+ * a little higher than the one before, so that none flickers where they
+ * overlap, and all below the top of the flattest item lying on them.
+ *
+ * @param {number} layer - The place of the patch or path among them all,
+ *   the patches first, from 0.
+ * @returns {number} The height, in meters.
+ */
+export function findEarthHeight(layer: number): number {
+  return EARTH_HEIGHT + layer * EARTH_HEIGHT_STEP;
+}
+
+/**
+ * Creates a strip of bare earth lying on the ground.
+ *
+ * @param {EarthStrip} strip - The strip.
+ * @param {number} height - The height of the strip above the ground, in
+ *   meters.
+ * @returns {Mesh} The strip, facing up.
+ */
+function createStrip(strip: EarthStrip, height: number): Mesh {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+  strip.left.forEach((left: GroundVector, row: number) => {
+    const right: GroundVector = strip.right[row] ?? left;
+    positions.push(left.x, 0, left.z, right.x, 0, right.z);
+    normals.push(0, 1, 0, 0, 1, 0);
+    if (row > 0) {
+      const [lastLeft, lastRight, nextLeft, nextRight] = [
+        2 * row - 2,
+        2 * row - 1,
+        2 * row,
+        2 * row + 1,
+      ];
+      indices.push(lastRight, nextRight, lastLeft);
+      indices.push(lastLeft, nextRight, nextLeft);
+    }
+  });
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3));
+  geometry.setIndex(indices);
+  const mesh = new Mesh(
+    geometry,
+    new MeshStandardMaterial({ color: EARTH_COLOR, roughness: 1 }),
+  );
+  mesh.position.y = height;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+/**
  * Creates the village without its models: the ground, the low hills with
  * pine trees just outside it, open toward the way out through its gate,
  * the mountains far beyond them, and the sky, the fog and the light, as at
@@ -132,11 +206,9 @@ export function createVillageScene(): VillageScene {
   const ground: Mesh = createDisk(GRASS_COLOR, 0);
   ground.scale.setScalar(GROUND_RADIUS);
   scene.add(ground);
-  BARE_EARTH.forEach(
+  EARTH_PATCHES.forEach(
     ([x, z, radiusX, radiusZ, yaw]: EarthPatch, index: number) => {
-      // Each patch lies a little higher than the last, so that none
-      // flickers.
-      const patch: Mesh = createDisk(EARTH_COLOR, 0.004 + index * 0.001);
+      const patch: Mesh = createDisk(EARTH_COLOR, findEarthHeight(index));
       patch.position.x = x;
       patch.position.z = z;
       patch.scale.set(radiusX, radiusZ, 1);
@@ -144,6 +216,14 @@ export function createVillageScene(): VillageScene {
       scene.add(patch);
     },
   );
+  EARTH_PATHS.forEach((path: EarthPath, index: number) => {
+    scene.add(
+      createStrip(
+        outlineEarthPath(path),
+        findEarthHeight(EARTH_PATCHES.length + index),
+      ),
+    );
+  });
   const mountains: Object3D = createMountains();
   const hills: Object3D = createHills();
   scene.add(mountains, hills);
