@@ -18,15 +18,19 @@
 // AI assistance: Claude Code (Anthropic)
 
 /**
- * @module client/window-glow The warm light in the windows of the houses
- *   from late in the day, shortly before dusk, until the end of dawn.
+ * @module client/window-glow The warm light in the windows of the houses,
+ *   and of the fortress far off, from late in the day, shortly before
+ *   dusk, until the end of dawn.
  */
 
 import { Color, Mesh, MeshStandardMaterial } from 'three';
 import type { Material, Object3D } from 'three';
 
-/** The name of the material of the glass of the windows in the models. */
-const GLASS_MATERIAL = 'glass';
+/**
+ * The name of the material of the glass of the windows that the light
+ * lights, in the models and in the fortress.
+ */
+export const GLASS_MATERIAL = 'glass';
 /** The color of the light in the windows. */
 const LAMPLIGHT_COLOR = '#ffb45c';
 /** How strongly the windows glow when they are fully lit. */
@@ -43,16 +47,19 @@ function isMesh(node: Object3D): node is Mesh {
 }
 
 /**
- * The light in the windows of the houses, which glow warmly from late in
- * the day, shortly before dusk, until the end of dawn.
+ * The light in the windows of the houses, and of the fortress far off,
+ * which glow warmly from late in the day, shortly before dusk, until the
+ * end of dawn.
  */
 export class WindowGlow {
   readonly #glass: MeshStandardMaterial[] = [];
 
   /**
-   * Finds the windows of the houses, which stay dark until lit.
+   * Finds the windows of the houses and of the fortress, which stay dark
+   * until lit.
    *
-   * @param {Object3D} root - The village, which holds the houses.
+   * @param {Object3D} root - The village, which holds the houses and the
+   *   fortress.
    */
   constructor(root: Object3D) {
     root.traverse((node: Object3D) => {

@@ -21,7 +21,7 @@
  * @module client/village-scene Building the village, with the models that
  *   stand in it whoever is connected, and lighting it through the day, with
  *   the glow of the fountain and of the forge, and the light in the windows
- *   of the houses.
+ *   of the houses and of the fortress far off.
  */
 
 import {
@@ -49,6 +49,7 @@ import { Daylight } from './daylight.ts';
 import type { DaylightLook } from './daylight.ts';
 import { prepareModel } from './figure-copies.ts';
 import { ForgeGlow } from './forge-glow.ts';
+import { createFortress, tintFortress } from './fortress.ts';
 import { FountainGlow } from './fountain-glow.ts';
 import { createHills, tintHills } from './hills.ts';
 import type { MapScene } from './map-scene.ts';
@@ -73,8 +74,8 @@ export interface VillageScene extends MapScene {
    * they are among the models, each idling if it is animated, scatters
    * the clover cover over the open grass around the village if the patch
    * of clover is among them, and starts the light in the windows of the
-   * houses shown, and the glows of the fountain and the forge, as far as
-   * their models are among them.
+   * houses shown and of the fortress far off, and the glows of the fountain
+   * and the forge, as far as their models are among them.
    *
    * @param {readonly LoadedModel[]} models - The models.
    */
@@ -88,8 +89,8 @@ export interface VillageScene extends MapScene {
   readonly update: (seconds: number) => void;
   /**
    * Shows the village as it looks at a time of day, as {@link Daylight.show}
-   * tells, with the light in the windows of the houses, once they are
-   * shown.
+   * tells, with the light in the windows of the houses and of the fortress,
+   * once the houses are shown.
    *
    * @param {number} time - The time of day, from 0 up to 1.
    */
@@ -193,7 +194,8 @@ function createStrip(strip: EarthStrip, height: number): Mesh {
 /**
  * Creates the village without its models: the ground, the low hills with
  * pine trees just outside it, open toward the way out through its gate,
- * the mountains far beyond them, and the sky, the fog and the light, as at
+ * the mountains far beyond them, the border fortress that guards the pass
+ * far off through that opening, and the sky, the fog and the light, as at
  * noon until told the time.
  *
  * @returns {VillageScene} The village.
@@ -226,11 +228,17 @@ export function createVillageScene(): VillageScene {
   });
   const mountains: Object3D = createMountains();
   const hills: Object3D = createHills();
-  scene.add(mountains, hills);
+  const fortress: Object3D = createFortress();
+  scene.add(mountains, hills, fortress);
   const daylight = new Daylight(scene, fog, [
     {
       tint: (sky: Color, share: number): void => {
         tintMountains(mountains, sky, share);
+      },
+    },
+    {
+      tint: (sky: Color, share: number): void => {
+        tintFortress(fortress, sky, share);
       },
     },
     {
