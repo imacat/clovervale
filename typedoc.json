@@ -8,6 +8,7 @@
     "entryPoints": ["src"],
     "disableSources": true
   },
+  "projectDocuments": ["docs/deploy.md"],
   "plugin": ["./scripts/typedoc-module-summary.ts"],
   "out": "docs/api",
   "treatWarningsAsErrors": true
