@@ -28,6 +28,9 @@ import { CircleGeometry, Fog, Mesh, MeshStandardMaterial, Scene } from 'three';
 import type { Color, Object3D } from 'three';
 
 import { Actor } from './actor.ts';
+import { BARE_EARTH } from './bare-earth.ts';
+import type { EarthPatch } from './bare-earth.ts';
+import { createCloverCover } from './clover-cover.ts';
 import { Daylight } from './daylight.ts';
 import type { DaylightLook } from './daylight.ts';
 import { prepareModel } from './figure-copies.ts';
@@ -45,18 +48,6 @@ import { layoutVillage } from './village-layout.ts';
 import { WindowGlow } from './window-glow.ts';
 
 /**
- * A patch of bare earth: its center, its radii along X and Z, and its turn
- * around the Y axis, in degrees.
- */
-type Patch = readonly [
-  x: number,
-  z: number,
-  radiusX: number,
-  radiusZ: number,
-  yaw: number,
-];
-
-/**
  * The village, with its light, and the models that stand in it whoever is
  * connected, once they are shown.
  */
@@ -65,9 +56,11 @@ export interface VillageScene extends MapScene {
   readonly daylight: Daylight;
   /**
    * Stands the models that have a place in the village there, as far as
-   * they are among the models, each idling if it is animated, and starts
-   * the light in the windows of the houses shown, and the glows of the
-   * fountain and the forge, as far as their models are among them.
+   * they are among the models, each idling if it is animated, scatters
+   * the clover cover over the open grass around the village if the patch
+   * of clover is among them, and starts the light in the windows of the
+   * houses shown, and the glows of the fountain and the forge, as far as
+   * their models are among them.
    *
    * @param {readonly LoadedModel[]} models - The models.
    */
@@ -105,25 +98,6 @@ const FOG_NEAR = 70;
 const FOG_FAR = 760;
 
 /**
- * The plaza, the paths into and out of it, the way from the plaza up to the
- * porch of the chief's house, and the monster's ground.  The path on the
- * east, narrower than the one on the west, winds in three lengths from
- * behind the great tree past the end of the low wall in front of the
- * chief's yard, on the side away from the house, and past the end of the
- * fence behind the tree, to the back of the village.
- */
-const PATCHES: readonly Patch[] = [
-  [0, 8, 2.6, 16, 0],
-  [0, -8, 9, 8.2, 0],
-  [-5.2, -21, 1.6, 10, -12],
-  [2.15, -17.2, 0.9, 2.7, 3.6],
-  [3.25, -20.9, 0.9, 2.25, -39.8],
-  [4.45, -26.35, 0.9, 4.45, 0.7],
-  [5.3, -14.6, 1.4, 1.8, -60],
-  [10, 8, 4, 3, 0],
-];
-
-/**
  * Creates a flat disk lying on the ground.
  *
  * @param {string} color - The color of the disk.
@@ -158,15 +132,18 @@ export function createVillageScene(): VillageScene {
   const ground: Mesh = createDisk(GRASS_COLOR, 0);
   ground.scale.setScalar(GROUND_RADIUS);
   scene.add(ground);
-  PATCHES.forEach(([x, z, radiusX, radiusZ, yaw]: Patch, index: number) => {
-    // Each patch lies a little higher than the last, so that none flickers.
-    const patch: Mesh = createDisk(EARTH_COLOR, 0.004 + index * 0.001);
-    patch.position.x = x;
-    patch.position.z = z;
-    patch.scale.set(radiusX, radiusZ, 1);
-    patch.rotation.z = (yaw * Math.PI) / 180;
-    scene.add(patch);
-  });
+  BARE_EARTH.forEach(
+    ([x, z, radiusX, radiusZ, yaw]: EarthPatch, index: number) => {
+      // Each patch lies a little higher than the last, so that none
+      // flickers.
+      const patch: Mesh = createDisk(EARTH_COLOR, 0.004 + index * 0.001);
+      patch.position.x = x;
+      patch.position.z = z;
+      patch.scale.set(radiusX, radiusZ, 1);
+      patch.rotation.z = (yaw * Math.PI) / 180;
+      scene.add(patch);
+    },
+  );
   const mountains: Object3D = createMountains();
   const hills: Object3D = createHills();
   scene.add(mountains, hills);
@@ -190,6 +167,13 @@ export function createVillageScene(): VillageScene {
     scene,
     daylight,
     populate: (models: readonly LoadedModel[]): void => {
+      const clover: Object3D | null = findModelRoot(
+        models,
+        MODEL_FILES.clover,
+      );
+      if (clover !== null) {
+        scene.add(createCloverCover(clover));
+      }
       actors.push(...populateVillage(scene, models));
       windowGlow = new WindowGlow(scene);
       const fountain: Object3D | null = findModelRoot(
