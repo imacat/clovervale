@@ -5,6 +5,9 @@ Clovervale
 
 Clovervale (四葉谷) is a small MMORPG world to tuck stories into.
 
+Play it at <https://clovervale.imacat.idv.tw/>, and read its
+documentation at <https://clovervale.imacat.idv.tw/docs/>.
+
 
 Requirements
 ------------
