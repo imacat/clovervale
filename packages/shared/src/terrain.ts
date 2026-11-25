@@ -43,6 +43,12 @@ const PUSH_PASSES = 4;
 /** The number of terms of the series for the sine and the cosine. */
 const SERIES_TERMS = 12;
 
+/**
+ * How far apart a walk is looked at for whether it stays within a boundary
+ * with waves, in meters.
+ */
+const BOUNDARY_PATH_STEP = 0.25;
+
 /** A turn around the Y axis, as its cosine and its sine. */
 export interface Turn {
   /** The cosine of the turn. */
@@ -92,14 +98,41 @@ export interface BoxShape {
 /** A shape on the ground that players cannot walk into. */
 export type Shape = CircleShape | BoxShape;
 
-/** The circle on the ground that players cannot leave. */
+/**
+ * A wave in the edge of a boundary, which swells it in and out a whole
+ * number of times around its middle.
+ */
+export interface BoundaryWave {
+  /** How many times the wave goes in and out around the middle. */
+  readonly order: number;
+  /**
+   * How far the wave swells the edge out toward +Z, along the cosine of
+   * its order times the turn from +Z toward +X, in meters.
+   */
+  readonly cos: number;
+  /**
+   * How far the wave swells the edge out along the sine of its order
+   * times the turn from +Z toward +X, in meters.
+   */
+  readonly sin: number;
+}
+
+/**
+ * The edge on the ground around a middle that players cannot leave: a
+ * circle, or a circle that wanders in and out with its waves.
+ */
 export interface Boundary {
-  /** The center along the X axis, in meters. */
+  /** The middle along the X axis, in meters. */
   readonly x: number;
-  /** The center along the Z axis, in meters. */
+  /** The middle along the Z axis, in meters. */
   readonly z: number;
-  /** The radius, in meters. */
+  /**
+   * The radius of the circle, in meters: how far out the edge lies on
+   * average.
+   */
   readonly radius: number;
+  /** The waves of the edge, none for a circle. */
+  readonly waves?: readonly BoundaryWave[];
 }
 
 /** An obstacle, ready for the tests against it. */
@@ -165,6 +198,47 @@ export function turnVector(vector: GroundVector, turn: Turn): GroundVector {
     x: vector.x * turn.cos + vector.z * turn.sin,
     z: vector.z * turn.cos - vector.x * turn.sin,
   };
+}
+
+/**
+ * Measures how far out from its middle the edge of a boundary lies in a
+ * direction, alike to the last bit in every JavaScript engine.
+ *
+ * @param {Boundary} boundary - The boundary.
+ * @param {GroundVector} direction - The direction, of any length but zero.
+ * @returns {number} The distance from the middle to the edge, in meters,
+ *   the radius of the boundary in any direction if it has no waves, or for
+ *   a direction of zero length.
+ */
+export function measureBoundaryReach(
+  boundary: Boundary,
+  direction: GroundVector,
+): number {
+  const waves: readonly BoundaryWave[] = boundary.waves ?? [];
+  const length: number = Math.sqrt(
+    direction.x * direction.x + direction.z * direction.z,
+  );
+  if (waves.length === 0 || length === 0) {
+    return boundary.radius;
+  }
+  const once: Turn = { cos: direction.z / length, sin: direction.x / length };
+  const most: number = Math.max(
+    ...waves.map((wave: BoundaryWave) => wave.order),
+  );
+  const turns: Turn[] = [{ cos: 1, sin: 0 }];
+  for (let order = 1; order <= most; order++) {
+    const last: Turn = turns[order - 1] ?? once;
+    turns.push({
+      cos: last.cos * once.cos - last.sin * once.sin,
+      sin: last.sin * once.cos + last.cos * once.sin,
+    });
+  }
+  let reach: number = boundary.radius;
+  for (const wave of waves) {
+    const turn: Turn = turns[wave.order] ?? once;
+    reach += wave.cos * turn.cos + wave.sin * turn.sin;
+  }
+  return reach;
 }
 
 /**
@@ -433,11 +507,7 @@ export class Terrain {
         return false;
       }
     }
-    // The boundary is round, so a walk between two points within it stays
-    // within it.
-    return (
-      isWithin(from, this.boundary, least) && isWithin(to, this.boundary, least)
-    );
+    return isPathWithin(from, to, this.boundary, least);
   }
 }
 
@@ -500,9 +570,58 @@ function isWithin(
   boundary: Boundary,
   least: number,
 ): boolean {
-  const dx: number = point.x - boundary.x;
-  const dz: number = point.z - boundary.z;
-  return Math.sqrt(dx * dx + dz * dz) <= boundary.radius - least;
+  const offset: GroundVector = {
+    x: point.x - boundary.x,
+    z: point.z - boundary.z,
+  };
+  const distance: number = Math.sqrt(
+    offset.x * offset.x + offset.z * offset.z,
+  );
+  return distance <= measureBoundaryReach(boundary, offset) - least;
+}
+
+/**
+ * Tells whether a player that walks in a straight line from one point to
+ * another keeps some room within the boundary all the way.
+ *
+ * @param {GroundVector} from - Where the walk starts.
+ * @param {GroundVector} to - Where the walk ends.
+ * @param {Boundary} boundary - The boundary.
+ * @param {number} least - The room the center of the player must have from
+ *   the boundary, in meters.
+ * @returns {boolean} Whether it keeps that room at both ends, and, within
+ *   a boundary with waves, at every point along the walk a quarter of a
+ *   meter or less from the next.
+ */
+function isPathWithin(
+  from: GroundVector,
+  to: GroundVector,
+  boundary: Boundary,
+  least: number,
+): boolean {
+  if (!isWithin(from, boundary, least) || !isWithin(to, boundary, least)) {
+    return false;
+  }
+  // A walk between two points within a circle stays within it.
+  if ((boundary.waves ?? []).length === 0) {
+    return true;
+  }
+  const dx: number = to.x - from.x;
+  const dz: number = to.z - from.z;
+  const steps: number = Math.ceil(
+    Math.sqrt(dx * dx + dz * dz) / BOUNDARY_PATH_STEP,
+  );
+  for (let step = 1; step < steps; step++) {
+    const share: number = step / steps;
+    const point: GroundVector = {
+      x: from.x + dx * share,
+      z: from.z + dz * share,
+    };
+    if (!isWithin(point, boundary, least)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -575,9 +694,10 @@ function pushOut(spot: Spot, obstacle: Obstacle): boolean {
  * @returns {boolean} Whether the player was pulled back.
  */
 function keepWithin(spot: Spot, boundary: Boundary): boolean {
-  const most: number = boundary.radius - PLAYER_RADIUS;
   const dx: number = spot.x - boundary.x;
   const dz: number = spot.z - boundary.z;
+  const most: number =
+    measureBoundaryReach(boundary, { x: dx, z: dz }) - PLAYER_RADIUS;
   const square: number = dx * dx + dz * dz;
   if (square <= most * most) {
     return false;

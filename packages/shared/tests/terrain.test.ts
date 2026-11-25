@@ -26,10 +26,25 @@ import { describe, expect, it } from 'vitest';
 
 import { PLAYER_RADIUS, Terrain, placePoint } from '../src/index.ts';
 import type { Boundary, GroundVector, Shape } from '../src/index.ts';
-import { findTurn, placeShape } from '../src/terrain.ts';
+import {
+  findTurn,
+  measureBoundaryReach,
+  placeShape,
+} from '../src/terrain.ts';
 
 /** A boundary far enough out not to matter. */
 const WIDE: Boundary = { x: 0, z: 0, radius: 1000 };
+
+/** A boundary whose edge wanders in and out. */
+const WAVY: Boundary = {
+  x: 1,
+  z: -2,
+  radius: 6,
+  waves: [
+    { order: 3, cos: 0.4, sin: -0.3 },
+    { order: 7, cos: -0.1, sin: 0.2 },
+  ],
+};
 
 /** A wall two meters wide and half a meter deep, at the origin. */
 const WALL: Shape = {
@@ -114,6 +129,31 @@ describe('placeShape', () => {
   });
 });
 
+describe('measureBoundaryReach', () => {
+  it('finds the radius of a boundary without waves in any direction', () => {
+    const round: Boundary = { x: 3, z: 4, radius: 7 };
+    expect(measureBoundaryReach(round, { x: 1, z: 2 })).toBe(7);
+  });
+
+  it('swells the edge in and out with its waves', () => {
+    for (let degrees = 0; degrees < 360; degrees += 15) {
+      const turn: number = (degrees * Math.PI) / 180;
+      const expected: number =
+        6 +
+        0.4 * Math.cos(3 * turn) -
+        0.3 * Math.sin(3 * turn) -
+        0.1 * Math.cos(7 * turn) +
+        0.2 * Math.sin(7 * turn);
+      expect(
+        measureBoundaryReach(WAVY, {
+          x: 2 * Math.sin(turn),
+          z: 2 * Math.cos(turn),
+        }),
+      ).toBeCloseTo(expected, 12);
+    }
+  });
+});
+
 describe('Terrain.resolveMove', () => {
   it('lets a player walk where nothing is in the way', () => {
     const terrain = new Terrain([WALL], WIDE);
@@ -187,6 +227,22 @@ describe('Terrain.resolveMove', () => {
     expect(end.z).toBe(0);
   });
 
+  it('stops a player at the wandering edge of a boundary with waves', () => {
+    const terrain = new Terrain([], WAVY);
+    for (const direction of [
+      { x: 1, z: 0 },
+      { x: 0, z: 1 },
+      { x: -0.6, z: -0.8 },
+    ]) {
+      const end: GroundVector = walk(terrain, WAVY, direction, 200);
+      const offset: GroundVector = { x: end.x - WAVY.x, z: end.z - WAVY.z };
+      expect(Math.hypot(offset.x, offset.z)).toBeCloseTo(
+        measureBoundaryReach(WAVY, direction) - PLAYER_RADIUS,
+        9,
+      );
+    }
+  });
+
   it('lets no player through a gap narrower than itself', () => {
     const narrow = new Terrain(
       [
@@ -228,6 +284,26 @@ describe('Terrain.isPathClear', () => {
     expect(terrain.isPathClear({ x: -3, z: 1 }, { x: 3, z: 1 }, 0.5)).toBe(
       false,
     );
+  });
+
+  it('sees a walk between two points within a boundary leave it', () => {
+    // The edge dips in toward +X and -X, and swells out toward +Z and -Z.
+    const pinched: Boundary = {
+      x: 0,
+      z: 0,
+      radius: 10,
+      waves: [{ order: 2, cos: 3, sin: 0 }],
+    };
+    const terrain = new Terrain([], pinched);
+    const ends: [GroundVector, GroundVector, boolean][] = [
+      [{ x: -5, z: 9 }, { x: 5, z: 9 }, true],
+      [{ x: 6.9, z: 3 }, { x: 6.9, z: -3 }, false],
+    ];
+    for (const [from, to, isClear] of ends) {
+      expect(terrain.isClear(from)).toBe(true);
+      expect(terrain.isClear(to)).toBe(true);
+      expect(terrain.isPathClear(from, to)).toBe(isClear);
+    }
   });
 
   it('sees a corner a walk cuts', () => {

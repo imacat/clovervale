@@ -227,11 +227,17 @@ export {
   PLAYER_RADIUS,
   Terrain,
   findTurn,
+  measureBoundaryReach,
   placePoint,
   placeShape,
   turnVector,
 } from './terrain.ts';
-export type { Boundary, Pose, Shape } from './terrain.ts';
+export type {
+  Boundary,
+  BoundaryWave,
+  Pose,
+  Shape,
+} from './terrain.ts';
 export {
   TOBY_ACTIVITIES,
   TOBY_ACTIVITY_STEPS,

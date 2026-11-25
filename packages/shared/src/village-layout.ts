@@ -235,13 +235,13 @@ interface FieldSite {
 /**
  * The farm fields behind the houses, each fenced in a meter or so behind
  * its house, or behind the low wall at the back of the yard of the chief's
- * house, leaving room to walk between, and reaching to within a meter of
- * the boundary of the village.  Behind the chief's house, which stands
- * near the boundary, the field is long and shallow, running from the
+ * house, leaving room to walk between, and reaching out toward the edge of
+ * the village, well within its boundary.  Behind the chief's house, which
+ * stands near the edge, the field is long and shallow, running from the
  * corner of the yard away from the well to the pine tree near the well.
  * Behind the cottage, the field runs from the pine tree on its far side
  * from the apothecary shop to the end of the fence near the shop, and
- * reaches deep toward the boundary.  Behind the apothecary shop, the field
+ * reaches deep toward the edge.  Behind the apothecary shop, the field
  * runs from the fence on the side away from the plaza to just short of the
  * path on the other side.
  */
@@ -391,9 +391,9 @@ const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
   'chief-field': [placeFieldSpot('chief-field')],
   'cottage-field': [placeFieldSpot('cottage-field')],
   'apothecary-field': [placeFieldSpot('apothecary-field')],
-  // The first, second, fourth and eighth pine trees stand just outside the
-  // boundary of the village, behind the farm fields of the cottage, the
-  // apothecary shop and the chief's house, and clear of the fields.
+  // The first, second, fourth and eighth pine trees stand at the edge of
+  // the village, behind the farm fields of the cottage, the apothecary
+  // shop and the chief's house, and clear of the fields.
   'pine-tree': [
     [-28.45, 4.49, 0],
     [-29.96, -6.62, 40],
@@ -766,8 +766,24 @@ const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
   fence: [makeBox(-1, 1, -0.08, 0.08)],
 };
 
-/** The circle on the ground around the village that players cannot leave. */
-export const VILLAGE_BOUNDARY: Boundary = { x: 0, z: -5, radius: 29 };
+/**
+ * The edge on the ground around the village that players cannot leave: the
+ * inner foot of the low hills that ring the village, wandering a meter and
+ * a half in and out around 34 m from the middle, and running on as it does
+ * across the flat ground in front of the village gate, where the hills
+ * open.  The hills rise from it.
+ */
+export const VILLAGE_BOUNDARY: Boundary = {
+  x: 0,
+  z: -5,
+  radius: 34,
+  waves: [
+    { order: 3, cos: 0.3, sin: -0.4 },
+    { order: 5, cos: -0.24, sin: 0.32 },
+    { order: 8, cos: 0.21, sin: 0.28 },
+    { order: 13, cos: -0.15, sin: -0.2 },
+  ],
+};
 
 /**
  * The ground of the village: what stands where it is placed, and the

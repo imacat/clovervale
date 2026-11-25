@@ -35,7 +35,11 @@ import {
 import type { BufferAttribute, Object3D, Scene } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { NOON, VILLAGE_TERRAIN } from '@clovervale/shared';
+import {
+  NOON,
+  VILLAGE_TERRAIN,
+  measureBoundaryReach,
+} from '@clovervale/shared';
 import type { Boundary } from '@clovervale/shared';
 
 import { createHills, tintHills } from '../src/hills.ts';
@@ -49,8 +53,21 @@ const BOUNDARY: Boundary = VILLAGE_TERRAIN.boundary;
  * boundary, as the turn around the Y axis from +Z toward +X, in degrees.
  */
 const GATE_HEADING = 0;
-/** The least room between the boundary and the hills, in meters. */
-const CLEARANCE = 3;
+/**
+ * How far inside the boundary the hills may reach, at most, to allow for
+ * rounding, in meters.
+ */
+const TOLERANCE = 1e-3;
+/**
+ * How far beyond the boundary the hills are looked for, to see them rising
+ * right from it, in meters.
+ */
+const FOOT_STEP = 1;
+/**
+ * How far in and out the inner foot of the hills wanders, at least, from
+ * its nearest to its farthest, in meters.
+ */
+const LEAST_FOOT_WANDER = 1.5;
 /** The least height of the hills away from the opening, in meters. */
 const LEAST_HEIGHT = 8;
 /** The greatest height of the hills, in meters. */
@@ -65,6 +82,16 @@ const CLOSED_BEYOND = 40;
  * gone, at least, in degrees.
  */
 const OPEN_WITHIN = 10;
+/**
+ * How far apart the hills are measured for their top along a direction,
+ * in meters: close enough not to miss their crest.
+ */
+const TOP_STEP = 0.25;
+/**
+ * How far below their crest the top of the hills may be measured, as the
+ * crest may lie between two of the points measured, in meters.
+ */
+const TOP_TOLERANCE = 0.01;
 /** The number of directions the hills are measured in. */
 const DIRECTIONS = 180;
 /** How high above the ground the eye looks from, in meters. */
@@ -165,6 +192,20 @@ function measureReach(point: Vector3): number {
 }
 
 /**
+ * Measures how far out from the middle of the boundary its edge lies, in
+ * the direction of a point.
+ *
+ * @param {Vector3} point - The point.
+ * @returns {number} The distance from the middle to the edge, in meters.
+ */
+function measureEdge(point: Vector3): number {
+  return measureBoundaryReach(BOUNDARY, {
+    x: point.x - BOUNDARY.x,
+    z: point.z - BOUNDARY.z,
+  });
+}
+
+/**
  * Measures how far a direction along the ground is from the way out
  * through the gate.
  *
@@ -244,7 +285,11 @@ function measureTop(slopes: Mesh, degrees: number): number {
   const along: Vector3 = findDirection(degrees, 0);
   const down = new Vector3(0, -1, 0);
   let top = -Infinity;
-  for (let reach = BOUNDARY.radius; reach < BOUNDARY.radius + 60; reach++) {
+  for (
+    let reach = BOUNDARY.radius;
+    reach < BOUNDARY.radius + 60;
+    reach += TOP_STEP
+  ) {
     const above = new Vector3(BOUNDARY.x, 100, BOUNDARY.z).addScaledVector(
       along,
       reach,
@@ -262,10 +307,43 @@ describe('the hills around the valley', () => {
   const [slopes, trees] = splitHills(hills);
 
   it('stand beyond where the players can walk', () => {
-    for (const point of [...listCorners(slopes), ...listTreeFeet(trees)]) {
+    for (const point of listCorners(slopes)) {
       expect(measureReach(point)).toBeGreaterThan(
-        BOUNDARY.radius + CLEARANCE,
+        measureEdge(point) - TOLERANCE,
       );
+    }
+    for (const point of listTreeFeet(trees)) {
+      expect(measureReach(point)).toBeGreaterThan(measureEdge(point));
+    }
+  });
+
+  it('have their inner foot wander in and out with the boundary', () => {
+    const feet: number[] = listCorners(slopes)
+      .filter(
+        (point: Vector3) =>
+          Math.abs(measureReach(point) - measureEdge(point)) < TOLERANCE,
+      )
+      .map(measureReach);
+    expect(feet.length).toBeGreaterThan(0);
+    expect(Math.max(...feet) - Math.min(...feet)).toBeGreaterThan(
+      LEAST_FOOT_WANDER,
+    );
+  });
+
+  it('rise right where the players stop, but toward the gate', () => {
+    const down = new Vector3(0, -1, 0);
+    for (const degrees of listDirections()) {
+      if (measureFromGate(degrees) < CLOSED_BEYOND) {
+        continue;
+      }
+      const along: Vector3 = findDirection(degrees, 0);
+      const edge: number = measureBoundaryReach(BOUNDARY, along);
+      const above = new Vector3(BOUNDARY.x, 100, BOUNDARY.z).addScaledVector(
+        along,
+        edge + FOOT_STEP,
+      );
+      const [hit] = new Raycaster(above, down).intersectObject(slopes);
+      expect(hit?.point.y, String(degrees)).toBeGreaterThan(0);
     }
   });
 
@@ -274,7 +352,9 @@ describe('the hills around the valley', () => {
       const top: number = measureTop(slopes, degrees);
       const away: number = measureFromGate(degrees);
       if (away >= CLOSED_BEYOND) {
-        expect(top, String(degrees)).toBeGreaterThanOrEqual(LEAST_HEIGHT);
+        expect(top, String(degrees)).toBeGreaterThanOrEqual(
+          LEAST_HEIGHT - TOP_TOLERANCE,
+        );
         expect(top, String(degrees)).toBeLessThanOrEqual(GREATEST_HEIGHT);
       } else if (away <= OPEN_WITHIN) {
         expect(top, String(degrees)).toBeLessThan(0);

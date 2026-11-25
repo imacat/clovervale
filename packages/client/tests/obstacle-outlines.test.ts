@@ -26,7 +26,8 @@ import { BufferAttribute, LineLoop } from 'three';
 import type { Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { Terrain } from '@clovervale/shared';
+import { Terrain, measureBoundaryReach } from '@clovervale/shared';
+import type { Boundary, GroundVector } from '@clovervale/shared';
 
 import { createObstacleOutlines } from '../src/obstacle-outlines.ts';
 
@@ -96,6 +97,23 @@ describe('createObstacleOutlines', () => {
         expect(cy).toBeGreaterThan(0);
         expect(cy).toBeLessThan(0.05);
       }
+    }
+  });
+
+  it('draws a boundary with waves along its wandering edge', () => {
+    const wavy: Boundary = {
+      x: 1,
+      z: -2,
+      radius: 10,
+      waves: [{ order: 4, cos: 0.5, sin: -0.3 }],
+    };
+    const [edge] = createObstacleOutlines(new Terrain([], wavy)).children;
+    for (const [cx, , cz] of listCorners(edge)) {
+      const offset: GroundVector = { x: cx - wavy.x, z: cz - wavy.z };
+      expect(Math.hypot(offset.x, offset.z)).toBeCloseTo(
+        measureBoundaryReach(wavy, offset),
+        4,
+      );
     }
   });
 });

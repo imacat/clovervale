@@ -50,7 +50,11 @@ import type {
 } from '../src/index.ts';
 import { TALK_REACH } from '../src/interaction.ts';
 import { DRINK_STEPS, SLASH_STEPS, killMotion } from '../src/player-motion.ts';
-import { findTurn, turnVector } from '../src/terrain.ts';
+import {
+  findTurn,
+  measureBoundaryReach,
+  turnVector,
+} from '../src/terrain.ts';
 import { VILLAGE_BOUNDARY } from '../src/village-layout.ts';
 
 /** The input that makes a player interact. */
@@ -433,7 +437,9 @@ describe('a player who walks into the scenery', () => {
       SIMULATION_RATE * 10,
     );
     expect(walked.z).toBeCloseTo(
-      VILLAGE_BOUNDARY.z + VILLAGE_BOUNDARY.radius - PLAYER_RADIUS,
+      VILLAGE_BOUNDARY.z +
+        measureBoundaryReach(VILLAGE_BOUNDARY, { x: 0, z: 1 }) -
+        PLAYER_RADIUS,
       9,
     );
   });

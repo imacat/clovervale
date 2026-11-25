@@ -58,7 +58,11 @@ import type {
   Shape,
 } from '../src/index.ts';
 import { NavigationGraph } from '../src/navigation.ts';
-import { findTurn, turnVector } from '../src/terrain.ts';
+import {
+  findTurn,
+  measureBoundaryReach,
+  turnVector,
+} from '../src/terrain.ts';
 import { VILLAGE_BOUNDARY } from '../src/village-layout.ts';
 import type { CircleShape } from '../src/terrain.ts';
 
@@ -340,6 +344,20 @@ describe('VILLAGE_TERRAIN', () => {
         expect(VILLAGE_TERRAIN.isClear(placement), placement.model).toBe(
           false,
         );
+      }
+    }
+  });
+
+  it('keeps everything within the boundary, clear of the hills', () => {
+    for (const placement of VILLAGE_PLACEMENTS) {
+      expect(measureFromEdge(placement), placement.model).toBeGreaterThan(0);
+      for (const shape of findFootprints(placement)) {
+        const reach: number = shape.shape === 'circle' ? shape.radius : 0;
+        for (const point of listPointsWithin(shape)) {
+          expect(measureFromEdge(point), placement.model).toBeGreaterThan(
+            reach,
+          );
+        }
       }
     }
   });
@@ -1157,6 +1175,24 @@ function listPointsWithin(shape: Shape): GroundVector[] {
   return points;
 }
 
+/**
+ * Measures how far a point lies within the edge of the boundary of the
+ * village, along the way out from its middle.
+ *
+ * @param {GroundVector} point - The point.
+ * @returns {number} The distance, in meters, negative outside the edge.
+ */
+function measureFromEdge(point: GroundVector): number {
+  const offset: GroundVector = {
+    x: point.x - VILLAGE_BOUNDARY.x,
+    z: point.z - VILLAGE_BOUNDARY.z,
+  };
+  return (
+    measureBoundaryReach(VILLAGE_BOUNDARY, offset) -
+    Math.hypot(offset.x, offset.z)
+  );
+}
+
 describe('the farm fields', () => {
   it('lie behind the houses of Martha, Toby and Basil, not Emma', () => {
     const fields: Placement[] = VILLAGE_PLACEMENTS.filter(
@@ -1225,8 +1261,7 @@ describe('the farm fields', () => {
             yaw: field.yaw,
           },
         ],
-        // A boundary far out of the way, as some pine trees stand past
-        // the boundary of the village.
+        // A boundary far out of the way.
         { x: field.x, z: field.z, radius: 1000 },
       );
       for (const other of VILLAGE_PLACEMENTS) {
@@ -1250,12 +1285,7 @@ describe('the farm fields', () => {
       (placement: Placement) => isField(placement.model),
     ).flatMap(findFootprints);
     for (const point of fields.flatMap(listPointsWithin)) {
-      expect(
-        Math.hypot(
-          point.x - VILLAGE_BOUNDARY.x,
-          point.z - VILLAGE_BOUNDARY.z,
-        ),
-      ).toBeLessThan(VILLAGE_BOUNDARY.radius - 1);
+      expect(measureFromEdge(point)).toBeGreaterThan(1);
     }
   });
 

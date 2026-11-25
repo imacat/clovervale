@@ -38,7 +38,7 @@ import {
 import type { BufferGeometry, Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-import { VILLAGE_TERRAIN } from '@clovervale/shared';
+import { VILLAGE_TERRAIN, measureBoundaryReach } from '@clovervale/shared';
 import type { Boundary } from '@clovervale/shared';
 
 import {
@@ -54,7 +54,7 @@ import type { Range, RidgePoint } from './mountains.ts';
  * A row of points of the hills around the valley: how far out it lies, as
  * a share of the way from their inner foot out to their crest, past 1 for
  * their back slope, and how high, as a share of the height of their crest,
- * or `null` for their foot, sunk into the ground.
+ * or `null` for their outer foot, sunk into the ground.
  */
 type HillRow = readonly [out: number, rise: number | null];
 
@@ -79,7 +79,10 @@ interface HillLook {
   readonly skyShade: number;
 }
 
-/** The boundary the players cannot leave, which the hills ring. */
+/**
+ * The boundary the players cannot leave, which the hills ring, rising from
+ * the ground right where the players stop.
+ */
 const BOUNDARY: Boundary = VILLAGE_TERRAIN.boundary;
 
 /**
@@ -92,15 +95,17 @@ const TREE_LOOK: HillLook = { color: '#3f7d4f', skyShade: 0.42 };
 /** How the slopes and then the trees look, as the hills have them. */
 const LOOKS: readonly HillLook[] = [SLOPE_LOOK, TREE_LOOK];
 
-/** How far the inner foot of the hills is beyond the boundary, in meters. */
-const FOOT_GAP = 5;
-/** How far their crest is beyond their inner foot, in meters. */
+/**
+ * How far the crest of the hills is beyond their inner foot, on the edge
+ * of the boundary, in meters.
+ */
 const SLOPE_RUN = 27;
-/** How far the inner foot wanders in and out, in meters. */
-const FOOT_WANDER = 1.5;
 /** How far the crest wanders in and out, in meters. */
 const CREST_WANDER = 3;
-/** How deep the foot of the hills sinks into the ground, in meters. */
+/**
+ * How deep the hills sink into the ground where they are gone toward the
+ * gate, and at their outer foot, in meters.
+ */
 const FOOT_DEPTH = 1.5;
 /** How many points each row of the hills has around the valley. */
 const COLUMNS = 96;
@@ -108,11 +113,11 @@ const COLUMNS = 96;
 const COLUMN_WANDER = 0.3;
 
 /**
- * The rows of the hills, from their inner foot up their slope to their
- * crest, and down their back slope.
+ * The rows of the hills, from their inner foot on the ground up their
+ * slope to their crest, and down their back slope.
  */
 const ROWS: readonly HillRow[] = [
-  [0, null],
+  [0, 0],
   [0.38, 0.32],
   [0.72, 0.78],
   [1, 1],
@@ -169,6 +174,22 @@ const TIERS: readonly Tier[] = [
 ];
 
 /**
+ * Measures how far out from the middle of the boundary the inner foot of
+ * the hills lies in a direction: on the edge of the boundary, where the
+ * players stop.
+ *
+ * @param {number} turn - The direction, around the Y axis from +Z toward
+ *   +X, in radians.
+ * @returns {number} The distance, in meters.
+ */
+function measureFoot(turn: number): number {
+  return measureBoundaryReach(BOUNDARY, {
+    x: Math.sin(turn),
+    z: Math.cos(turn),
+  });
+}
+
+/**
  * Finds the points of every row of the hills, a point a column.
  *
  * @param {() => number} random - The source of numbers that seem random.
@@ -202,8 +223,7 @@ function findHillPoints(random: () => number): RidgePoint[][] {
       height = Math.max(height, knollHeight * (1 - fall * fall));
     }
     const standing: number = 1 - measureLowlandOpening(turn);
-    const foot: number =
-      BOUNDARY.radius + FOOT_GAP + (random() * 2 - 1) * FOOT_WANDER;
+    const foot: number = measureFoot(turn);
     const crest: number =
       foot + SLOPE_RUN + (random() * 2 - 1) * CREST_WANDER;
     ROWS.forEach(([out, rise]: HillRow, index: number) => {
@@ -258,8 +278,7 @@ function placeTrees(slopes: Mesh, random: () => number): Matrix4[] {
     if (measureLowlandOpening(turn) > TREE_MOST_OPENING) {
       continue;
     }
-    const distance: number =
-      BOUNDARY.radius + FOOT_GAP + FOOT_WANDER + reach * SLOPE_RUN;
+    const distance: number = measureFoot(turn) + reach * SLOPE_RUN;
     const x: number = Math.sin(turn) * distance;
     const z: number = Math.cos(turn) * distance;
     raycaster.set(new Vector3(x, KNOLL[1] * 4, z), down);
@@ -309,8 +328,9 @@ function createTrees(slopes: Mesh, random: () => number): InstancedMesh {
 }
 
 /**
- * Creates the hills that ring the valley just outside the boundary that
- * the players cannot leave: low, rolling hills of 8 to 15 meters, with
+ * Creates the hills that ring the valley, rising from the ground right at
+ * the boundary that the players cannot leave, so that the players stop at
+ * their foot: low, rolling hills of 8 to 15 meters, with
  * pine trees on the slopes that face the village, broken open toward the
  * way out through the village gate.  They are the same every time.
  *

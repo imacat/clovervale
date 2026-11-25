@@ -30,7 +30,7 @@ import {
   Vector3,
 } from 'three';
 
-import { placePoint } from '@clovervale/shared';
+import { measureBoundaryReach, placePoint } from '@clovervale/shared';
 import type {
   Boundary,
   GroundVector,
@@ -71,6 +71,24 @@ function listCirclePoints(
       z: center.z + radius * Math.cos(angle),
     };
   });
+}
+
+/**
+ * Lists the corners of the outline of a boundary.
+ *
+ * @param {Boundary} boundary - The boundary.
+ * @returns {GroundVector[]} The corners, all on its edge.
+ */
+function listBoundaryPoints(boundary: Boundary): GroundVector[] {
+  return listCirclePoints({ x: 0, z: 0 }, boundary.radius).map(
+    (point: GroundVector) => {
+      const reach: number = measureBoundaryReach(boundary, point);
+      return {
+        x: boundary.x + (point.x / boundary.radius) * reach,
+        z: boundary.z + (point.z / boundary.radius) * reach,
+      };
+    },
+  );
 }
 
 /**
@@ -133,7 +151,7 @@ export function createObstacleOutlines(terrain: Terrain): Group {
   const boundary: Boundary = terrain.boundary;
   group.add(
     createOutline(
-      listCirclePoints(boundary, boundary.radius),
+      listBoundaryPoints(boundary),
       new LineBasicMaterial({ color: BOUNDARY_COLOR, depthTest: false }),
     ),
   );
