@@ -60,6 +60,7 @@ import { buildItemClovervaleMessage } from './message.ts';
 import { buildNpcBasil } from './npc-basil.ts';
 import { buildNpcEmma } from './npc-emma.ts';
 import { buildNpcEdwin } from './npc-edwin.ts';
+import { buildNpcGateGuard } from './npc-gate-guard.ts';
 import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import { buildNpcToby } from './npc-toby.ts';
@@ -112,6 +113,7 @@ export function listModels(): ModelEntry[] {
     { file: MODEL_FILES.martha, build: buildNpcMartha },
     { file: MODEL_FILES.toby, build: buildNpcToby },
     { file: MODEL_FILES.basil, build: buildNpcBasil },
+    { file: MODEL_FILES.guard, build: buildNpcGateGuard },
     { file: MODEL_FILES.edwin, build: buildNpcEdwin },
     { file: MONSTER_FILE, build: buildWildDog },
     { file: MODEL_FILES['weapon-shop'], build: buildWeaponShop },

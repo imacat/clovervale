@@ -58,6 +58,15 @@ const NANCY_DOGS_LINE =
   'There are wild dogs at the village gate, and no one can go out. What ' +
   'are we going to do?';
 
+/** The guard at the palisade gate, who has a single line. */
+const GUARD: Villager = getVillager('guard');
+
+/** What the gate guard says, in English. */
+const GUARD_LINE = "Sorry, king's orders. Nobody gets through this gate.";
+
+/** What the gate guard says, in Traditional Chinese. */
+const GUARD_LINE_ZH_TW = '不好意思喔，這是國王的命令，誰都不能過去。';
+
 /** Numbers in [0, 1) spread over the whole of it, in no order. */
 const SPREAD: readonly number[] = [0, 0.99, 0.5, 0.25, 0.75, 0.1, 0.9];
 
@@ -164,5 +173,27 @@ describe('SpeechLines with a villager who has several lines', () => {
       name: 'Chief Martha',
       line: MARTHA_LINES[0],
     });
+  });
+});
+
+describe('SpeechLines with the gate guard', () => {
+  it('has her say the same line every time, by her role', () => {
+    for (const numbers of [SPREAD, [0], [0.99]]) {
+      const lines: SpeechLines = createLines(numbers);
+      for (let i = 0; i < 5; i++) {
+        expect(
+          lines.describeVillagerLine(GUARD, lines.pickLine(GUARD), null),
+        ).toMatchObject({ name: 'Gate Guard', line: GUARD_LINE });
+      }
+    }
+  });
+
+  it('has her say it in the language of the page', async () => {
+    const zhTw = new Translator();
+    await zhTw.choose('zh-TW');
+    const lines: SpeechLines = createLines([0.5], zhTw);
+    expect(
+      lines.describeVillagerLine(GUARD, lines.pickLine(GUARD), null),
+    ).toMatchObject({ name: '關卡守衛', line: GUARD_LINE_ZH_TW });
   });
 });

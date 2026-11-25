@@ -60,6 +60,7 @@ export const MODEL_FILES: Readonly<Record<ModelId, string>> = {
   martha: 'npc-martha.glb',
   toby: 'npc-toby.glb',
   basil: 'npc-basil.glb',
+  guard: 'npc-gate-guard.glb',
   edwin: 'npc-edwin.glb',
   fountain: 'fountain.glb',
   'weapon-shop': 'weapon-shop.glb',

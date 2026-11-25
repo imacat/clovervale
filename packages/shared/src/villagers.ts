@@ -34,6 +34,7 @@ import { TOBY_PUSHER, findTobyPose } from './toby.ts';
 import {
   BASIL_POST,
   EMMA_POST,
+  GUARD_POST,
   MARTHA_POST,
   NANCY_POST,
 } from './village-layout.ts';
@@ -49,6 +50,7 @@ export type VillagerId =
   | 'martha'
   | 'toby'
   | 'basil'
+  | 'guard'
   | 'edwin';
 
 /** A villager a player can talk to. */
@@ -96,8 +98,10 @@ export interface Villager {
 }
 
 /**
- * The villagers a player can talk to: those of the village, and the
- * prisoner in the north cell of the cave.  Martha, the village chief, is
+ * The villagers a player can talk to: those of the village, the guard at
+ * the palisade gate at the end of the mountain road, who lets nobody
+ * through, and the prisoner in the north cell of the cave.  Martha, the
+ * village chief, is
  * the enemy spy, and fights as a monster; what she says the server chooses
  * while the player is on "Toby is hurt", in which Toby, who has fallen and
  * hurt himself, sends the player to her for her ointment.  What Toby, Basil
@@ -121,6 +125,7 @@ export const VILLAGERS: readonly Villager[] = [
     serverWords: 'always',
   },
   { id: 'basil', map: 'village', post: BASIL_POST, serverWords: 'always' },
+  { id: 'guard', map: 'village', post: GUARD_POST },
   { id: 'edwin', map: 'cave', post: CAVE_EDWIN_POST, serverWords: 'always' },
 ];
 

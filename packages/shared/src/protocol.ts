@@ -71,7 +71,7 @@ import { WORLD_MAPS, isMapId } from './world-map.ts';
 import type { MapId, WorldMap } from './world-map.ts';
 
 /** The version of the wire protocol.  Peers must agree on it to talk. */
-export const PROTOCOL_VERSION = 34;
+export const PROTOCOL_VERSION = 35;
 
 /**
  * The most patches of clover any map has, which a snapshot, which does not

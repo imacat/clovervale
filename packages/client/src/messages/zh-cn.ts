@@ -254,6 +254,8 @@ export const ZH_CN_MESSAGES: MessageTable = {
   'villager.toby.found': '找到啦！',
   'villager.toby.gift': '这个给你！会有好运哦。',
   'villager.basil.name': '巴索',
+  'villager.guard.name': '关卡守卫',
+  'villager.guard.line.1': '不好意思，这是国王的命令，谁都不许过去。',
   'villager.edwin.name': '囚犯',
   'villager.edwin.knownName': '使者艾德温',
   'villager.edwin.call': '救命啊！有人吗？',

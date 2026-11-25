@@ -269,6 +269,10 @@ export const ES_MESSAGES: MessageTable = {
   'villager.toby.found': '¡Aquí hay uno!',
   'villager.toby.gift': '¡Toma, este es para ti! Da buena suerte.',
   'villager.basil.name': 'Basilio',
+  'villager.guard.name': 'Guardia de la puerta',
+  'villager.guard.name.inSentence': 'la guardia de la puerta',
+  'villager.guard.line.1':
+    'Lo siento, son órdenes del rey: por aquí no pasa nadie.',
   'villager.edwin.name': 'Prisionero',
   'villager.edwin.name.inSentence': 'el prisionero',
   'villager.edwin.knownName': 'Edwin el emisario',

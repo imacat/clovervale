@@ -261,6 +261,9 @@ export const JA_MESSAGES: MessageTable = {
   'villager.toby.found': 'あった！',
   'villager.toby.gift': 'これ、あげる！いいことがあるよ。',
   'villager.basil.name': 'バジル',
+  'villager.guard.name': '関所の衛兵',
+  'villager.guard.line.1':
+    '悪いね、王様の命令なんだ。ここは誰も通せないよ。',
   'villager.edwin.name': '囚人',
   'villager.edwin.knownName': '使者エドウィン',
   'villager.edwin.call': '助けてくれ！誰かいないのか？',

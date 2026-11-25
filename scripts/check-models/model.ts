@@ -98,6 +98,12 @@ const validator = createRequire(import.meta.url)(
  * grown-ups, which stand 1.5 m to 1.8 m tall.
  */
 const CHILD_HEIGHT: readonly [number, number] = [1, 1.2];
+/**
+ * The bounds of the height of the gate guard, in meters, to the point of
+ * the spear she holds upright beside her: well above her helmet, so that
+ * it stands out from afar, yet not so high as to tower.
+ */
+const GUARD_HEIGHT: readonly [number, number] = [1.9, 2.2];
 /** The severities of the findings of the validator, by number. */
 const SEVERITIES: readonly string[] = ['error', 'warning', 'info', 'hint'];
 
@@ -234,8 +240,9 @@ function checkOriginAndSize(
   check(min.y >= -TOLERANCE, 'rest pose reaches below the ground');
   check(min.y < 0.01, 'rest pose floats above the ground');
   const height: number = max.y;
-  if (file === MODEL_FILES.toby) {
-    const [shortest, tallest] = CHILD_HEIGHT;
+  if (file === MODEL_FILES.toby || file === MODEL_FILES.guard) {
+    const [shortest, tallest] =
+      file === MODEL_FILES.toby ? CHILD_HEIGHT : GUARD_HEIGHT;
     check(
       height >= shortest && height <= tallest,
       `height ${String(height)}`,

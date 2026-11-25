@@ -60,8 +60,8 @@ describe('hasServerWords', () => {
     expect(isChosenByServer('martha', [new TobyQuest('done')])).toBe(false);
   });
 
-  it('leaves the words of Nancy and Emma to the peer', () => {
-    for (const id of ['nancy', 'emma'] as const) {
+  it('leaves the words of Nancy, Emma and the gate guard to the peer', () => {
+    for (const id of ['nancy', 'emma', 'guard'] as const) {
       expect(isChosenByServer(id, [])).toBe(false);
       expect(isChosenByServer(id, [new TobyQuest()])).toBe(false);
     }

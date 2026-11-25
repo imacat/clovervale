@@ -75,5 +75,6 @@ export const RESIDENT_FACTORIES: ResidentFactories = {
   martha: createMartha,
   toby: createToby,
   basil: createStandingVillager,
+  guard: createStandingVillager,
   edwin: createStandingVillager,
 };

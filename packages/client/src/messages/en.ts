@@ -273,6 +273,9 @@ export const EN_MESSAGES = {
   'villager.toby.found': 'Found one!',
   'villager.toby.gift': "Here, this one's for you! It brings good luck.",
   'villager.basil.name': 'Basil',
+  'villager.guard.name': 'Gate Guard',
+  'villager.guard.line.1':
+    "Sorry, king's orders. Nobody gets through this gate.",
   'villager.edwin.name': 'Prisoner',
   'villager.edwin.knownName': 'Envoy Edwin',
   'villager.edwin.call': 'Help! Is anyone there?',
@@ -362,6 +365,7 @@ export type MessageTable = Readonly<Record<MessageId, string>> &
 export const EN_OPTIONAL_MESSAGES: Readonly<
   Partial<Record<OptionalMessageId, string>>
 > = {
+  'villager.guard.name.inSentence': 'the gate guard',
   'villager.edwin.name.inSentence': 'the prisoner',
 };
 

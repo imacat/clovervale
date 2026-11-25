@@ -344,7 +344,7 @@ export const MOUNTAIN_ROAD_HALF_WIDTH = 3;
 /**
  * Where the palisade gate stands across the mountain road, and which way it
  * faces: at the far end of the road, square across it, facing the village,
- * with room in front of it on that side for someone to stand guard.
+ * with room in front of it on that side for the gate guard to stand.
  */
 export const PALISADE_GATE_POSE: Pose = makePose([
   BOUNDARY_MIDDLE.x,
@@ -364,6 +364,16 @@ export const PALISADE_GATE_HALF_DEPTH = 0.25;
  * and too little for anyone to slip past it.
  */
 const PALISADE_GATE_SIDE_GAP = 0.05;
+
+/**
+ * Where the gate guard stands, and which way she faces, as the palisade
+ * gate has it before it is placed: a meter and a half out in front of it,
+ * on the side of the village, and a meter and a half to the left of the
+ * middle of the road as one faces it from the village, so that the rest of
+ * the road up to the gate stays open beside her, facing the village down
+ * the road.
+ */
+const GUARD_BEFORE_GATE: Spot = [-1.5, 1.5, 0];
 
 /**
  * Where Nancy the villager stands, by the fountain, and which way she
@@ -395,6 +405,14 @@ export const MARTHA_POST: Pose = makePose(
   placeSpot(CHIEF_HOUSE_SPOT, CHIEF_ON_PORCH),
 );
 
+/**
+ * Where the gate guard stands in front of the palisade gate, to one side
+ * of the mountain road, and which way she faces: toward the village.
+ */
+export const GUARD_POST: Pose = makePose(
+  placeSpot(makeSpot(PALISADE_GATE_POSE), GUARD_BEFORE_GATE),
+);
+
 /** The spots of the models the village has a place for. */
 const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
   fountain: [[PLAZA_CENTER.x, PLAZA_CENTER.z, 0]],
@@ -403,6 +421,7 @@ const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
   emma: [makeSpot(EMMA_POST)],
   'spawn-stones': [makeSpot(SPAWN_STONES_POSE)],
   'palisade-gate': [makeSpot(PALISADE_GATE_POSE)],
+  guard: [makeSpot(GUARD_POST)],
   'great-tree': [[0, -14.5, 20]],
   'healing-stele': [[-2.1, -6.8, 20]],
   'village-sign': [[-3.1, 4.9, 0]],
@@ -766,6 +785,9 @@ const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
       PALISADE_GATE_HALF_DEPTH,
     ),
   ],
+  // The guard, the plates over her shoulders, and the spear she holds
+  // upright beside her.
+  guard: [makeCircle(0, 0, 0.4)],
   // The trunk, and not the roots.
   'great-tree': [makeCircle(-0.15, 0.41, 1.6)],
   // The foot of the boulder.

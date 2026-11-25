@@ -92,21 +92,6 @@ const WAY_HALF_WIDTH = 2;
 /** How far apart players walk up the mountain road side by side, in meters. */
 const ROAD_STEP = 0.3;
 
-/**
- * How far to the side of the middle of the mountain road a guard stands in
- * front of its gate, in meters.
- */
-const GUARD_ASIDE = 1.5;
-
-/**
- * How far in front of the gate of the mountain road a guard stands, in
- * meters.
- */
-const GUARD_AHEAD = 1.5;
-
-/** The radius of the ground a guard takes up, as Nancy does, in meters. */
-const GUARD_RADIUS = 0.35;
-
 /** A gap in a fence that the way goes through. */
 interface Gate extends GroundVector {
   /** Half the width of the gap, in meters. */
@@ -592,31 +577,77 @@ describe('the mountain road', () => {
         false,
       );
     }
+    // Without the guard in front of it, which stops those who walk into
+    // her first.
+    const unguarded = new Terrain(
+      VILLAGE_PLACEMENTS.filter(
+        (placement: Placement) => placement.model !== 'guard',
+      ).flatMap(findFootprints),
+      VILLAGE_BOUNDARY,
+    );
     for (let x: number = -side; x <= side + 1e-9; x += ROAD_STEP) {
       let at: GroundVector = { x: gate.x + x, z: gate.z - 20 };
       for (let step = 0; step < 300; step++) {
-        at = VILLAGE_TERRAIN.resolveMove(at, { x: at.x, z: at.z + 0.1 });
+        at = unguarded.resolveMove(at, { x: at.x, z: at.z + 0.1 });
       }
       expect(at.z, String(x)).toBeCloseTo(stop, 9);
     }
   });
 
-  it('leaves room in front of its gate for a guard, and a way past', () => {
-    const guard: CircleShape = {
-      shape: 'circle',
-      x: gate.x + GUARD_ASIDE,
-      z: gate.z - GUARD_AHEAD,
-      radius: GUARD_RADIUS,
-    };
-    expect(VILLAGE_TERRAIN.isClear(guard, GUARD_RADIUS)).toBe(true);
-    const guarded = new Terrain(
-      [...VILLAGE_TERRAIN.shapes, guard],
-      VILLAGE_BOUNDARY,
+  it('has a guard stand in front of its gate, to one side of it', () => {
+    const guard: Placement = findPlacement('guard');
+    expect(guard.z).toBeLessThan(gate.z - PALISADE_GATE_HALF_DEPTH);
+    expect(guard.z).toBeGreaterThan(gate.z - 2);
+    expect(Math.abs(guard.x - gate.x)).toBeGreaterThan(1);
+    expect(Math.abs(guard.x - gate.x)).toBeLessThan(MOUNTAIN_ROAD_HALF_WIDTH);
+  });
+
+  it('has its guard face the village, down the road', () => {
+    const guard: Placement = findPlacement('guard');
+    const front: GroundVector = turnVector({ x: 0, z: 1 }, findTurn(guard.yaw));
+    expect(front.z).toBeLessThan(-0.99);
+  });
+
+  it('has its guard take up her ground, overlapping no other footprint', () => {
+    const guard: Placement = findPlacement('guard');
+    expect(VILLAGE_TERRAIN.isClear(guard)).toBe(false);
+    const own: CircleShape[] = VILLAGE_TERRAIN.shapes.filter(
+      (shape: Shape): shape is CircleShape =>
+        shape.shape === 'circle' && shape.x === guard.x && shape.z === guard.z,
     );
-    const past: number = gate.x - GUARD_ASIDE;
+    expect(own).toHaveLength(1);
+    const [footprint] = own;
+    for (const shape of VILLAGE_TERRAIN.shapes) {
+      if (footprint !== undefined && shape !== footprint) {
+        expect(measureGap(footprint, shape)).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('leaves a way past its guard all the way up to its gate', () => {
+    const guard: Placement = findPlacement('guard');
+    const past: number = 2 * gate.x - guard.x;
     expect(
-      guarded.isPathClear({ x: past, z: gate.z - 20 }, { x: past, z: stop }),
+      VILLAGE_TERRAIN.isPathClear(
+        { x: past, z: gate.z - 20 },
+        { x: past, z: stop },
+      ),
     ).toBe(true);
+    expect(
+      VILLAGE_TERRAIN.isPathClear(
+        { x: gate.x, z: gate.z - 20 },
+        { x: gate.x, z: stop },
+      ),
+    ).toBe(true);
+  });
+
+  it('lets a player before its guard, facing her, talk to her', () => {
+    const guard: Placement = findPlacement('guard');
+    const spot: GroundVector = { x: guard.x, z: guard.z - 1 };
+    expect(VILLAGE_TERRAIN.isClear(spot)).toBe(true);
+    expect(findVillager({ ...spot, yaw: 0 }, 0, 'village', [])?.id).toBe(
+      'guard',
+    );
   });
 });
 

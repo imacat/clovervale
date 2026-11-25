@@ -51,7 +51,9 @@ const FIGHTER_FILES: ReadonlySet<string> = new Set<string>(
  * The house of the chief, the cottage and the apothecary shop each have a
  * farm field behind it, on the side away from the plaza.  The village
  * sign stands by the gate, and the spawn stones of the monster are a
- * little way outside.  The characters and the monster have no place of
+ * little way outside.  The palisade gate closes the far end of the mountain
+ * road out of the village, with the gate guard standing in front of it, to
+ * one side of the road.  The characters and the monster have no place of
  * their own, as they stand wherever the server has them, and neither has
  * Martha the village chief, who fights as a monster, nor Toby, who runs
  * around between the cottage and the gate.  The models of the cave, and of
