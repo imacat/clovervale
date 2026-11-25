@@ -1,10 +1,9 @@
 Clovervale
 ==========
 
-Clovervale (四葉谷) is a small learning MMORPG for studying network state
-synchronization.  This is a ready-to-run release.  The programs are
-bundled with their dependencies, so there is nothing to install except
-[Node.js] 24 or later.
+Clovervale (四葉谷) is a small MMORPG world to tuck stories into.  This is a
+ready-to-run release.  The programs are bundled with their dependencies, so
+there is nothing to install except [Node.js] 24 or later.
 
 Contents
 --------

@@ -1,8 +1,9 @@
 Clovervale
 ==========
 
-Clovervale (四葉谷) is a small learning MMORPG for studying network state
-synchronization.
+![Clovervale concept art](packages/client/public/og-image.jpg)
+
+Clovervale (四葉谷) is a small MMORPG world to tuck stories into.
 
 
 Requirements
