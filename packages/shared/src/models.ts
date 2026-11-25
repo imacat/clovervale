@@ -38,6 +38,7 @@ export type VillagePropId =
   | 'fountain'
   | 'weapon-shop'
   | 'spawn-stones'
+  | 'palisade-gate'
   | 'great-tree'
   | 'healing-stele'
   | 'village-sign'

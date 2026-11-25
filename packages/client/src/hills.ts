@@ -19,7 +19,8 @@
 
 /**
  * @module client/hills Raising the low hills that close in the valley just
- *   outside the village, with pine trees on their slopes.
+ *   outside the village and line the mountain road out of it, with pine
+ *   trees on their slopes.
  */
 
 import {
@@ -38,25 +39,38 @@ import {
 import type { BufferGeometry, Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-import { VILLAGE_TERRAIN, measureBoundaryReach } from '@clovervale/shared';
-import type { Boundary } from '@clovervale/shared';
+import {
+  VILLAGE_TERRAIN,
+  findCorridorMouth,
+  measureBoundaryReach,
+} from '@clovervale/shared';
+import type {
+  Boundary,
+  BoundaryCorridor,
+  GroundVector,
+} from '@clovervale/shared';
 
 import {
   createRandom,
   createRing,
-  measureLowlandOpening,
   measureTurn,
   pickInRange,
 } from './mountains.ts';
 import type { Range, RidgePoint } from './mountains.ts';
 
 /**
- * A row of points of the hills around the valley: how far out it lies, as
- * a share of the way from their inner foot out to their crest, past 1 for
- * their back slope, and how high, as a share of the height of their crest,
- * or `null` for their outer foot, sunk into the ground.
+ * A row of points of the hills: how far out it lies, as a share of the way
+ * from their inner foot out to their crest, past 1 for their back slope,
+ * and how high, as a share of the height of their crest, or `null` for
+ * their outer foot, sunk into the ground.
  */
 type HillRow = readonly [out: number, rise: number | null];
+
+/**
+ * A point of the hills: how far across and along the ground it is from the
+ * middle of the boundary, along X and Z, and how high it is, in meters.
+ */
+type HillPoint = readonly [x: number, z: number, height: number];
 
 /**
  * A tier of the branches of a pine tree: its radius at the bottom and at
@@ -65,8 +79,17 @@ type HillRow = readonly [out: number, rise: number | null];
  */
 type Tier = readonly [bottom: number, top: number, low: number, high: number];
 
-/** A knoll: where around it stands, how high, and how wide it spreads. */
+/**
+ * A knoll around the valley: where around it stands, in radians, how high,
+ * and how wide it spreads, in radians.
+ */
 type Knoll = readonly [turn: number, height: number, spread: number];
+
+/**
+ * A knoll beside the mountain road: how far out along the road it stands,
+ * how high, and how far it spreads along the road, in meters.
+ */
+type RoadKnoll = readonly [along: number, height: number, spread: number];
 
 /** How a part of the hills looks, and how it melts into the sky. */
 interface HillLook {
@@ -80,10 +103,13 @@ interface HillLook {
 }
 
 /**
- * The boundary the players cannot leave, which the hills ring, rising from
- * the ground right where the players stop.
+ * The boundary the players cannot leave, which the hills ring and line,
+ * rising from the ground right where the players stop.
  */
 const BOUNDARY: Boundary = VILLAGE_TERRAIN.boundary;
+
+/** The mountain road out of the valley, which the hills line. */
+const ROAD: BoundaryCorridor = findRoad(BOUNDARY);
 
 /**
  * How the slopes look: darker than the nearest ridge of mountains when
@@ -96,20 +122,23 @@ const TREE_LOOK: HillLook = { color: '#3f7d4f', skyShade: 0.42 };
 const LOOKS: readonly HillLook[] = [SLOPE_LOOK, TREE_LOOK];
 
 /**
- * How far the crest of the hills is beyond their inner foot, on the edge
- * of the boundary, in meters.
+ * How far the crest of the hills around the valley is beyond their inner
+ * foot, on the edge of the boundary, in meters.
  */
 const SLOPE_RUN = 27;
-/** How far the crest wanders in and out, in meters. */
+/** How far the crest around the valley wanders in and out, in meters. */
 const CREST_WANDER = 3;
 /**
- * How deep the hills sink into the ground where they are gone toward the
- * gate, and at their outer foot, in meters.
+ * How deep the hills sink into the ground at their outer foot, and where
+ * they are gone far out along the mountain road, in meters.
  */
 const FOOT_DEPTH = 1.5;
-/** How many points each row of the hills has around the valley. */
+/**
+ * How many points each row of the hills has around the valley, from one
+ * side of the mountain road to the other.
+ */
 const COLUMNS = 96;
-/** How far a column wanders around, as a share of the room between two. */
+/** How far a column wanders, as a share of the room between two. */
 const COLUMN_WANDER = 0.3;
 
 /**
@@ -129,13 +158,46 @@ const ROWS: readonly HillRow[] = [
 const SADDLE: Range = [8, 11.5];
 /** How high the knolls rise, in meters. */
 const KNOLL: Range = [12.5, 15];
-/** The number of knolls. */
+/** The number of knolls around the valley. */
 const KNOLL_COUNT = 7;
-/** How wide a knoll spreads to either side, in radians. */
+/** How wide a knoll around the valley spreads to either side, in radians. */
 const KNOLL_SPREAD: Range = [0.15, 0.35];
 
-/** The number of pine trees tried on the slopes. */
+/**
+ * How far the crest of the hills beside the mountain road is from the side
+ * of the road, in meters: nearer than around the valley, so that they rise
+ * more steeply on either side of the road.
+ */
+const ROAD_SLOPE_RUN = 22;
+/**
+ * How far apart the points of each row of the hills beside the mountain
+ * road lie along it, about, in meters.
+ */
+const ROAD_STEP = 4;
+/**
+ * How far out along the mountain road from the middle of the boundary the
+ * hills beside it start to sink into the ground, in meters: well beyond the
+ * palisade gate at the end of the road where the players walk, so that the
+ * road seems to run on between them.
+ */
+const ROAD_HILLS_FADE = 115;
+/**
+ * How far out along the mountain road from the middle of the boundary the
+ * hills beside it are gone into the ground, in meters.
+ */
+const ROAD_HILLS_END = 155;
+/** The number of knolls on either side of the mountain road. */
+const ROAD_KNOLL_COUNT = 3;
+/**
+ * How far a knoll beside the mountain road spreads along it to either
+ * side, in meters.
+ */
+const ROAD_KNOLL_SPREAD: Range = [8, 16];
+
+/** The number of pine trees tried on the slopes around the valley. */
 const TREE_TRIES = 420;
+/** The number of pine trees tried on the slopes beside the mountain road. */
+const ROAD_TREE_TRIES = 180;
 /** How tall a pine tree is, in meters. */
 const TREE_HEIGHT: Range = [4, 7];
 /** How much wider or narrower a pine tree is, as a share of its width. */
@@ -147,8 +209,11 @@ const TREE_SHADE: Range = [0.8, 1.1];
  * the inner foot to the crest.
  */
 const TREE_REACH: Range = [0.1, 0.9];
-/** How open toward the gate a pine tree may stand, at most. */
-const TREE_MOST_OPENING = 0.15;
+/**
+ * How far from the side of the mountain road a pine tree stands, at least,
+ * in meters, so that its branches keep off the road.
+ */
+const TREE_ROAD_CLEARANCE = 4;
 /** How low on the hills a pine tree may stand, at least, in meters. */
 const TREE_LEAST_FOOTING = 0.6;
 /** How deep a pine tree sinks into the slope, in meters. */
@@ -174,6 +239,20 @@ const TIERS: readonly Tier[] = [
 ];
 
 /**
+ * Finds the mountain road out of a boundary.
+ *
+ * @param {Boundary} boundary - The boundary.
+ * @returns {BoundaryCorridor} The road.
+ * @throws {Error} If the boundary has no road.
+ */
+function findRoad(boundary: Boundary): BoundaryCorridor {
+  if (boundary.corridor === undefined) {
+    throw new Error('The village has no mountain road.');
+  }
+  return boundary.corridor;
+}
+
+/**
  * Measures how far out from the middle of the boundary the inner foot of
  * the hills lies in a direction: on the edge of the boundary, where the
  * players stop.
@@ -190,13 +269,29 @@ function measureFoot(turn: number): number {
 }
 
 /**
- * Finds the points of every row of the hills, a point a column.
+ * Measures the direction of a point from the middle of the boundary.
+ *
+ * @param {GroundVector} point - The point, from the middle of the boundary.
+ * @returns {number} The direction, around the Y axis from +Z toward +X, in
+ *   radians.
+ */
+function measureDirection(point: GroundVector): number {
+  return Math.atan2(point.x, point.z);
+}
+
+/**
+ * Finds the points of every row of the hills around the valley, a point a
+ * column, from one side of the mountain road around the valley to the
+ * other.
  *
  * @param {() => number} random - The source of numbers that seem random.
- * @returns {RidgePoint[][]} The rows, inner foot first, around the middle
+ * @param {Range} turns - The directions of the first and the last column,
+ *   at the mouth of the road on its side toward +X and toward -X, around
+ *   the Y axis from +Z toward +X, in radians, the last more than the first.
+ * @returns {HillPoint[][]} The rows, inner foot first, around the middle
  *   of the boundary.
  */
-function findHillPoints(random: () => number): RidgePoint[][] {
+function findRingPoints(random: () => number, turns: Range): HillPoint[][] {
   const waves: number[] = [random(), random()].map(
     (share: number) => share * 2 * Math.PI,
   );
@@ -208,10 +303,12 @@ function findHillPoints(random: () => number): RidgePoint[][] {
       pickInRange(KNOLL_SPREAD, random()),
     ],
   );
-  const rows: RidgePoint[][] = ROWS.map(() => []);
-  for (let column = 0; column < COLUMNS; column++) {
-    const shift: number = (random() * 2 - 1) * COLUMN_WANDER;
-    const turn: number = ((column + shift) * 2 * Math.PI) / COLUMNS;
+  const rows: HillPoint[][] = ROWS.map(() => []);
+  const last: number = COLUMNS - 1;
+  for (let column = 0; column <= last; column++) {
+    const wander: number = (random() * 2 - 1) * COLUMN_WANDER;
+    const shift: number = column === 0 || column === last ? 0 : wander;
+    const turn: number = pickInRange(turns, (column + shift) / last);
     const [first = 0, second = 0] = waves;
     const swell: number =
       0.5 +
@@ -222,20 +319,164 @@ function findHillPoints(random: () => number): RidgePoint[][] {
       const fall: number = measureTurn(turn, knollTurn) / spread;
       height = Math.max(height, knollHeight * (1 - fall * fall));
     }
-    const standing: number = 1 - measureLowlandOpening(turn);
     const foot: number = measureFoot(turn);
     const crest: number =
       foot + SLOPE_RUN + (random() * 2 - 1) * CREST_WANDER;
     ROWS.forEach(([out, rise]: HillRow, index: number) => {
+      const distance: number = foot + (crest - foot) * out;
+      rows[index]?.push([
+        Math.sin(turn) * distance,
+        Math.cos(turn) * distance,
+        rise === null ? -FOOT_DEPTH : height * rise,
+      ]);
+    });
+  }
+  return rows;
+}
+
+/**
+ * Finds the points of every row of the hills on one side of the mountain
+ * road, a point a column, from the mouth of the road out along it, sinking
+ * into the ground far beyond its end.
+ *
+ * @param {() => number} random - The source of numbers that seem random.
+ * @param {number} side - The side of the road: 1 toward +X, or -1 toward
+ *   -X.
+ * @param {GroundVector} mouth - Where the edge of the valley meets that
+ *   side of the road, from the middle of the boundary.
+ * @returns {HillPoint[][]} The rows, inner foot first, around the middle
+ *   of the boundary.
+ */
+function findRoadPoints(
+  random: () => number,
+  side: number,
+  mouth: GroundVector,
+): HillPoint[][] {
+  const [first = 0, second = 0] = [random(), random()].map(
+    (share: number) => share * 2 * Math.PI,
+  );
+  const knolls: RoadKnoll[] = Array.from(
+    { length: ROAD_KNOLL_COUNT },
+    (_, index: number): RoadKnoll => [
+      pickInRange(
+        [mouth.z, ROAD_HILLS_FADE],
+        (index + random() * 0.8) / ROAD_KNOLL_COUNT,
+      ),
+      pickInRange(KNOLL, random()),
+      pickInRange(ROAD_KNOLL_SPREAD, random()),
+    ],
+  );
+  const rows: HillPoint[][] = ROWS.map(() => []);
+  const last: number = Math.ceil((ROAD_HILLS_END - mouth.z) / ROAD_STEP);
+  for (let column = 0; column <= last; column++) {
+    const wander: number = (random() * 2 - 1) * COLUMN_WANDER;
+    const shift: number = column === 0 || column === last ? 0 : wander;
+    const along: number = pickInRange(
+      [mouth.z, ROAD_HILLS_END],
+      (column + shift) / last,
+    );
+    const swell: number =
+      0.5 +
+      0.3 * Math.sin(along / 9 + first) +
+      0.2 * Math.sin(along / 4 + second);
+    let height: number = pickInRange(SADDLE, swell);
+    for (const [knollAlong, knollHeight, spread] of knolls) {
+      const fall: number = (along - knollAlong) / spread;
+      height = Math.max(height, knollHeight * (1 - fall * fall));
+    }
+    const standing: number =
+      1 - MathUtils.smoothstep(along, ROAD_HILLS_FADE, ROAD_HILLS_END);
+    ROWS.forEach(([out, rise]: HillRow, index: number) => {
       const up: number = rise === null ? -FOOT_DEPTH : height * rise;
       rows[index]?.push([
-        turn,
-        foot + (crest - foot) * out,
+        side * (ROAD.halfWidth + ROAD_SLOPE_RUN * out),
+        along,
         MathUtils.lerp(-FOOT_DEPTH, up, standing),
       ]);
     });
   }
   return rows;
+}
+
+/**
+ * Joins a row of the hills beside the mountain road to the same row of the
+ * hills around the valley, at the corner where they meet beside the mouth
+ * of the road, so that neither reaches past the other: the points of
+ * either row short of the corner move onto the corner.
+ *
+ * @param {HillPoint[]} ring - The row around the valley, starting at the
+ *   mouth of the road on that side, which is changed.
+ * @param {HillPoint[]} road - The row beside the road, from the mouth of
+ *   the road out along it, which is changed.
+ * @param {number} side - The side of the road: 1 toward +X, or -1 toward
+ *   -X.
+ * @param {number} across - How far the row beside the road lies from the
+ *   middle of the road, in meters.
+ */
+function joinAtCorner(
+  ring: HillPoint[],
+  road: HillPoint[],
+  side: number,
+  across: number,
+): void {
+  const beyond: number = ring.findIndex(
+    ([x]: HillPoint) => side * x >= across,
+  );
+  const after: HillPoint | undefined = ring[beyond];
+  if (after === undefined) {
+    return;
+  }
+  const before: HillPoint = ring[beyond - 1] ?? after;
+  const span: number = side * (after[0] - before[0]);
+  const share: number = span > 0 ? (across - side * before[0]) / span : 0;
+  const corner: HillPoint = [
+    side * across,
+    MathUtils.lerp(before[1], after[1], share),
+    MathUtils.lerp(before[2], after[2], share),
+  ];
+  ring.fill(corner, 0, beyond);
+  road.forEach(([, along]: HillPoint, index: number) => {
+    if (along < corner[1]) {
+      road[index] = corner;
+    }
+  });
+}
+
+/**
+ * Finds the points of every row of the hills, a point a column, from far
+ * out along the mountain road on its side toward +X, in along that side,
+ * around the valley, and out along the other side.
+ *
+ * @param {() => number} random - The source of numbers that seem random.
+ * @returns {RidgePoint[][]} The rows, inner foot first, around the middle
+ *   of the boundary.
+ */
+function findHillPoints(random: () => number): RidgePoint[][] {
+  const right: GroundVector = findCorridorMouth(BOUNDARY, 1);
+  const left: GroundVector = findCorridorMouth(BOUNDARY, -1);
+  const ring: HillPoint[][] = findRingPoints(random, [
+    measureDirection(right),
+    measureDirection(left) + 2 * Math.PI,
+  ]);
+  const rightRoad: HillPoint[][] = findRoadPoints(random, 1, right);
+  const leftRoad: HillPoint[][] = findRoadPoints(random, -1, left);
+  return ring.map((row: HillPoint[], index: number) => {
+    const [out = 0] = ROWS[index] ?? [];
+    const across: number = ROAD.halfWidth + ROAD_SLOPE_RUN * out;
+    const rightRow: HillPoint[] = rightRoad[index] ?? [];
+    const leftRow: HillPoint[] = leftRoad[index] ?? [];
+    joinAtCorner(row, rightRow, 1, across);
+    row.reverse();
+    joinAtCorner(row, leftRow, -1, across);
+    row.reverse();
+    return [...rightRow.reverse(), ...row, ...leftRow].map(
+      ([x, z, height]: HillPoint): RidgePoint => [
+        measureDirection({ x, z }),
+        Math.hypot(x, z),
+        height,
+      ],
+    );
+  });
 }
 
 /**
@@ -256,9 +497,9 @@ function createTreeShape(): BufferGeometry {
 }
 
 /**
- * Finds where the pine trees stand on the slopes, keeping them off the
- * opening toward the gate, and low enough on the sky as seen from the
- * middle of the valley.
+ * Finds where the pine trees stand on the slopes, around the valley and
+ * beside the mountain road, keeping them off the road, and low enough on
+ * the sky as seen from the middle of the valley.
  *
  * @param {Mesh} slopes - The slopes of the hills, around the origin.
  * @param {() => number} random - The source of numbers that seem random.
@@ -266,29 +507,34 @@ function createTreeShape(): BufferGeometry {
  *   origin.
  */
 function placeTrees(slopes: Mesh, random: () => number): Matrix4[] {
+  const right: GroundVector = findCorridorMouth(BOUNDARY, 1);
+  const left: GroundVector = findCorridorMouth(BOUNDARY, -1);
+  const turns: Range = [
+    measureDirection(right),
+    measureDirection(left) + 2 * Math.PI,
+  ];
+  const mouth: number = Math.min(right.z, left.z);
   const raycaster = new Raycaster();
   const down = new Vector3(0, -1, 0);
   const trees: Matrix4[] = [];
-  for (let index = 0; index < TREE_TRIES; index++) {
-    const turn: number = random() * 2 * Math.PI;
-    const reach: number = pickInRange(TREE_REACH, random());
+  const tryTree = (x: number, z: number): void => {
     const height: number = pickInRange(TREE_HEIGHT, random());
     const girth: number = pickInRange(TREE_GIRTH, random());
     const yaw: number = random() * 2 * Math.PI;
-    if (measureLowlandOpening(turn) > TREE_MOST_OPENING) {
-      continue;
+    if (
+      Math.abs(x) < ROAD.halfWidth + TREE_ROAD_CLEARANCE &&
+      z > mouth - TREE_ROAD_CLEARANCE
+    ) {
+      return;
     }
-    const distance: number = measureFoot(turn) + reach * SLOPE_RUN;
-    const x: number = Math.sin(turn) * distance;
-    const z: number = Math.cos(turn) * distance;
     raycaster.set(new Vector3(x, KNOLL[1] * 4, z), down);
     const [ground] = raycaster.intersectObject(slopes);
     if (ground === undefined || ground.point.y < TREE_LEAST_FOOTING) {
-      continue;
+      return;
     }
     const top: number = ground.point.y - TREE_SINK + height;
-    if (Math.atan2(top - EYE_HEIGHT, distance) > TREE_HIGHEST_RISE) {
-      continue;
+    if (Math.atan2(top - EYE_HEIGHT, Math.hypot(x, z)) > TREE_HIGHEST_RISE) {
+      return;
     }
     trees.push(
       new Matrix4().compose(
@@ -297,6 +543,18 @@ function placeTrees(slopes: Mesh, random: () => number): Matrix4[] {
         new Vector3(height * girth, height, height * girth),
       ),
     );
+  };
+  for (let index = 0; index < TREE_TRIES; index++) {
+    const turn: number = pickInRange(turns, random());
+    const distance: number =
+      measureFoot(turn) + pickInRange(TREE_REACH, random()) * SLOPE_RUN;
+    tryTree(Math.sin(turn) * distance, Math.cos(turn) * distance);
+  }
+  for (let index = 0; index < ROAD_TREE_TRIES; index++) {
+    const side: number = random() < 0.5 ? -1 : 1;
+    const along: number = pickInRange([mouth, ROAD_HILLS_END], random());
+    const out: number = pickInRange(TREE_REACH, random()) * ROAD_SLOPE_RUN;
+    tryTree(side * (ROAD.halfWidth + out), along);
   }
   return trees;
 }
@@ -328,11 +586,14 @@ function createTrees(slopes: Mesh, random: () => number): InstancedMesh {
 }
 
 /**
- * Creates the hills that ring the valley, rising from the ground right at
- * the boundary that the players cannot leave, so that the players stop at
- * their foot: low, rolling hills of 8 to 15 meters, with
- * pine trees on the slopes that face the village, broken open toward the
- * way out through the village gate.  They are the same every time.
+ * Creates the hills that ring the valley and line the mountain road out of
+ * it, rising from the ground right at the boundary that the players cannot
+ * leave, so that the players stop at their foot: low, rolling hills of 8
+ * to 15 meters, with pine trees on the slopes that face the village and
+ * the road, closing in the valley but for the mouth of the road in front
+ * of the village gate, and rising on either side of the road out to well
+ * beyond its end, where they sink into the ground and leave the road to
+ * run on toward the pass.  They are the same every time.
  *
  * @returns {Group} The hills, named `hills`, standing around the middle of
  *   the boundary, with their slopes as the first child and their trees as
@@ -340,7 +601,11 @@ function createTrees(slopes: Mesh, random: () => number): InstancedMesh {
  */
 export function createHills(): Group {
   const random: () => number = createRandom(0x4111);
-  const slopes: Mesh = createRing(findHillPoints(random), SLOPE_LOOK.color);
+  const slopes: Mesh = createRing(
+    findHillPoints(random),
+    SLOPE_LOOK.color,
+    false,
+  );
   const hills = new Group();
   hills.name = 'hills';
   hills.add(slopes, createTrees(slopes, random));

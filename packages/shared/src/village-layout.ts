@@ -329,6 +329,43 @@ function makeSpot({ x, z, yaw }: Pose): Spot {
 export const SPAWN_STONES_POSE: Pose = makePose([11.4, 9, -30]);
 
 /**
+ * The middle of the boundary of the village, a little behind the plaza, in
+ * meters.
+ */
+const BOUNDARY_MIDDLE: GroundVector = { x: 0, z: -5 };
+
+/**
+ * Half the width of the mountain road, which leads out through the gap in
+ * the hills in front of the village gate, toward the pass and the border
+ * fortress, in meters.
+ */
+export const MOUNTAIN_ROAD_HALF_WIDTH = 3;
+
+/**
+ * Where the palisade gate stands across the mountain road, and which way it
+ * faces: at the far end of the road, square across it, facing the village,
+ * with room in front of it on that side for someone to stand guard.
+ */
+export const PALISADE_GATE_POSE: Pose = makePose([
+  BOUNDARY_MIDDLE.x,
+  66,
+  180,
+]);
+
+/**
+ * Half the depth of the ground the palisade gate takes up along the road,
+ * in meters, which the whole of its model stands within.
+ */
+export const PALISADE_GATE_HALF_DEPTH = 0.25;
+
+/**
+ * How far in from each side of the mountain road the ground the palisade
+ * gate takes up ends, in meters: enough to keep it within the boundary,
+ * and too little for anyone to slip past it.
+ */
+const PALISADE_GATE_SIDE_GAP = 0.05;
+
+/**
  * Where Nancy the villager stands, by the fountain, and which way she
  * faces.
  */
@@ -365,6 +402,7 @@ const SPOTS: Readonly<Partial<Record<ModelId, readonly Spot[]>>> = {
   nancy: [makeSpot(NANCY_POST)],
   emma: [makeSpot(EMMA_POST)],
   'spawn-stones': [makeSpot(SPAWN_STONES_POSE)],
+  'palisade-gate': [makeSpot(PALISADE_GATE_POSE)],
   'great-tree': [[0, -14.5, 20]],
   'healing-stele': [[-2.1, -6.8, 20]],
   'village-sign': [[-3.1, 4.9, 0]],
@@ -717,6 +755,17 @@ const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
     const { x, z } = turnVector({ x: 0, z: 1.75 }, findTurn(index * 72 + 36));
     return makeCircle(x, z, 0.35);
   }),
+  // The palisade and its gate, across the whole width of the mountain road,
+  // and not the stakes that run on into the slopes on either side, beyond
+  // the boundary.
+  'palisade-gate': [
+    makeBox(
+      -MOUNTAIN_ROAD_HALF_WIDTH + PALISADE_GATE_SIDE_GAP,
+      MOUNTAIN_ROAD_HALF_WIDTH - PALISADE_GATE_SIDE_GAP,
+      -PALISADE_GATE_HALF_DEPTH,
+      PALISADE_GATE_HALF_DEPTH,
+    ),
+  ],
   // The trunk, and not the roots.
   'great-tree': [makeCircle(-0.15, 0.41, 1.6)],
   // The foot of the boulder.
@@ -769,13 +818,14 @@ const FOOTPRINTS: Readonly<Partial<Record<ModelId, readonly Shape[]>>> = {
 /**
  * The edge on the ground around the village that players cannot leave: the
  * inner foot of the low hills that ring the village, wandering a meter and
- * a half in and out around 34 m from the middle, and running on as it does
- * across the flat ground in front of the village gate, where the hills
- * open.  The hills rise from it.
+ * a half in and out around 34 m from the middle, with the mountain road
+ * leading out of it through the gap the hills leave in front of the village
+ * gate, between the slopes on either side, to just behind the palisade
+ * gate across its far end, which stops the players first.  The hills rise
+ * from it.
  */
 export const VILLAGE_BOUNDARY: Boundary = {
-  x: 0,
-  z: -5,
+  ...BOUNDARY_MIDDLE,
   radius: 34,
   waves: [
     { order: 3, cos: 0.3, sin: -0.4 },
@@ -783,6 +833,11 @@ export const VILLAGE_BOUNDARY: Boundary = {
     { order: 8, cos: 0.21, sin: 0.28 },
     { order: 13, cos: -0.15, sin: -0.2 },
   ],
+  corridor: {
+    halfWidth: MOUNTAIN_ROAD_HALF_WIDTH,
+    length:
+      PALISADE_GATE_POSE.z + 2 * PALISADE_GATE_HALF_DEPTH - BOUNDARY_MIDDLE.z,
+  },
 };
 
 /**

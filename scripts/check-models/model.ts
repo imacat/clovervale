@@ -32,6 +32,8 @@ import {
   FARM_FIELDS,
   FARM_FIELD_IDS,
   FIELD_FLOOR_HEIGHT,
+  MOUNTAIN_ROAD_HALF_WIDTH,
+  PALISADE_GATE_HALF_DEPTH,
 } from '@clovervale/shared';
 import type { FarmFieldId } from '@clovervale/shared';
 import { MODEL_FILES } from '../../packages/client/src/model-catalog.ts';
@@ -135,6 +137,20 @@ function checkStaticSize(
       // about as tall as a person: no shorter than a character, and at
       // most a little taller, so that it does not tower over the players.
       check(height >= 1.5 && height <= 1.9, `height ${String(height)}`);
+      break;
+    case MODEL_FILES['palisade-gate']:
+      // It closes the whole mountain road and runs on well into the slopes
+      // on either side, a meter or more past each side of the road, and it
+      // stands well above a player, yet not so high as to tower.
+      check(
+        size.x >= 2 * MOUNTAIN_ROAD_HALF_WIDTH + 2 && size.x <= 16,
+        `width ${String(size.x)}`,
+      );
+      check(
+        size.z <= 2 * PALISADE_GATE_HALF_DEPTH,
+        `depth ${String(size.z)}`,
+      );
+      check(height >= 2.5 && height <= 4.5, `height ${String(height)}`);
       break;
     case MODEL_FILES['chief-house']:
       // The largest house of the village: much wider than a cottage, which

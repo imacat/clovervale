@@ -32,6 +32,8 @@ import {
   FIELD_GATE_WIDTH,
   FOUNTAIN_REACH,
   FOUNTAIN_RIM_RADIUS,
+  MOUNTAIN_ROAD_HALF_WIDTH,
+  PALISADE_GATE_HALF_DEPTH,
   PLAYER_RADIUS,
   PLAZA_CENTER,
   SPAWN_POINT_COUNT,
@@ -80,6 +82,30 @@ const OPEN_MODELS: readonly ModelId[] = [
   'martha',
   'pitchfork',
 ];
+
+/**
+ * Half the width of the way along the mountain road that is open all the
+ * way to its gate, at least, in meters.
+ */
+const WAY_HALF_WIDTH = 2;
+
+/** How far apart players walk up the mountain road side by side, in meters. */
+const ROAD_STEP = 0.3;
+
+/**
+ * How far to the side of the middle of the mountain road a guard stands in
+ * front of its gate, in meters.
+ */
+const GUARD_ASIDE = 1.5;
+
+/**
+ * How far in front of the gate of the mountain road a guard stands, in
+ * meters.
+ */
+const GUARD_AHEAD = 1.5;
+
+/** The radius of the ground a guard takes up, as Nancy does, in meters. */
+const GUARD_RADIUS = 0.35;
 
 /** A gap in a fence that the way goes through. */
 interface Gate extends GroundVector {
@@ -534,6 +560,63 @@ describe('VILLAGE_TERRAIN', () => {
     for (let index = 0; index < SPAWN_POINT_COUNT; index++) {
       expect(VILLAGE_TERRAIN.isClear(findSpawnPoint(index), 0.1)).toBe(true);
     }
+  });
+});
+
+describe('the mountain road', () => {
+  const gate: Placement = findPlacement('palisade-gate');
+  /** Where a player stops in front of the palisade gate, along Z. */
+  const stop: number = gate.z - PALISADE_GATE_HALF_DEPTH - PLAYER_RADIUS;
+
+  it('leads a broad way out from the village gate to its own gate', () => {
+    const gap: Gate = findGate();
+    expect(
+      VILLAGE_TERRAIN.isPathClear(
+        { x: gate.x, z: gap.z + 1 },
+        { x: gate.x, z: gate.z - 2 * WAY_HALF_WIDTH },
+        WAY_HALF_WIDTH - PLAYER_RADIUS,
+      ),
+    ).toBe(true);
+  });
+
+  it('ends at the palisade gate, which stops players all across it', () => {
+    const side: number = MOUNTAIN_ROAD_HALF_WIDTH - PLAYER_RADIUS;
+    // Facing the village, the gate stands within the end of the road, and
+    // leaves no room to stand beside it.
+    expect(gate.yaw).toBe(180);
+    expect(
+      measureFromEdge({ x: gate.x, z: gate.z + PALISADE_GATE_HALF_DEPTH }),
+    ).toBeGreaterThan(0);
+    for (const x of [-side, side]) {
+      expect(VILLAGE_TERRAIN.isClear({ x: gate.x + x, z: gate.z })).toBe(
+        false,
+      );
+    }
+    for (let x: number = -side; x <= side + 1e-9; x += ROAD_STEP) {
+      let at: GroundVector = { x: gate.x + x, z: gate.z - 20 };
+      for (let step = 0; step < 300; step++) {
+        at = VILLAGE_TERRAIN.resolveMove(at, { x: at.x, z: at.z + 0.1 });
+      }
+      expect(at.z, String(x)).toBeCloseTo(stop, 9);
+    }
+  });
+
+  it('leaves room in front of its gate for a guard, and a way past', () => {
+    const guard: CircleShape = {
+      shape: 'circle',
+      x: gate.x + GUARD_ASIDE,
+      z: gate.z - GUARD_AHEAD,
+      radius: GUARD_RADIUS,
+    };
+    expect(VILLAGE_TERRAIN.isClear(guard, GUARD_RADIUS)).toBe(true);
+    const guarded = new Terrain(
+      [...VILLAGE_TERRAIN.shapes, guard],
+      VILLAGE_BOUNDARY,
+    );
+    const past: number = gate.x - GUARD_ASIDE;
+    expect(
+      guarded.isPathClear({ x: past, z: gate.z - 20 }, { x: past, z: stop }),
+    ).toBe(true);
   });
 });
 

@@ -19,8 +19,8 @@
 
 /**
  * @module client/bare-earth Knowing where the ground of the village is
- *   bare earth instead of grass: the plaza, its paths and the monster's
- *   ground.
+ *   bare earth instead of grass: the plaza, its paths, the mountain road
+ *   and the monster's ground.
  */
 
 import type { GroundVector, Shape } from '@clovervale/shared';
@@ -77,13 +77,17 @@ export const EARTH_PATCHES: readonly EarthPatch[] = [
   [10, 8, 4, 3, 0],
 ];
 
-/** The path from the plaza out through the village gate. */
+/**
+ * The path from the plaza out through the village gate, and on along the
+ * mountain road, through the palisade gate at its end and far beyond, on
+ * toward the pass, as the road runs on where nobody walks.
+ */
 export const EARTH_PATHS: readonly EarthPath[] = [
   {
     width: 4.6,
     points: [
       { x: 0, z: -1 },
-      { x: 0, z: 22 },
+      { x: 0, z: 160 },
     ],
   },
 ];

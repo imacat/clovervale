@@ -19,7 +19,7 @@
 
 /**
  * @module client/tests/hills Tests for the low hills that close in the
- *   valley just outside the village.
+ *   valley just outside the village and line the mountain road out of it.
  */
 
 import {
@@ -36,12 +36,16 @@ import type { BufferAttribute, Object3D, Scene } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import {
+  MOUNTAIN_ROAD_HALF_WIDTH,
   NOON,
+  PALISADE_GATE_POSE,
   VILLAGE_TERRAIN,
+  findCorridorMouth,
   measureBoundaryReach,
 } from '@clovervale/shared';
-import type { Boundary } from '@clovervale/shared';
+import type { Boundary, GroundVector } from '@clovervale/shared';
 
+import { EARTH_PATHS } from '../src/bare-earth.ts';
 import { createHills, tintHills } from '../src/hills.ts';
 import { createMountains, tintMountains } from '../src/mountains.ts';
 import { createVillageScene } from '../src/village-scene.ts';
@@ -78,8 +82,8 @@ const GREATEST_HEIGHT = 15;
  */
 const CLOSED_BEYOND = 40;
 /**
- * How far to either side of the way out through the gate the hills are
- * gone, at least, in degrees.
+ * How far to either side of the way out through the gate the skyline is
+ * lowest, at most, in degrees.
  */
 const OPEN_WITHIN = 10;
 /**
@@ -101,6 +105,21 @@ const EYE_HEIGHT = 1.7;
  * valley, in degrees.
  */
 const HIGHEST_SKYLINE = 14;
+/**
+ * How far apart the hills are looked for along and across the mountain
+ * road, in meters.
+ */
+const ROAD_STEP = 1;
+/**
+ * How far beyond the palisade gate the slopes are looked for on either
+ * side of the mountain road, in meters.
+ */
+const PAST_GATE = 30;
+/**
+ * How far out beyond the foot of the slopes on either side of the mountain
+ * road they are looked for near their crest, in meters.
+ */
+const ROAD_CREST_REACH = 20;
 /** The least number of pine trees on the hills. */
 const LEAST_TREES = 100;
 /** How far a pine tree may sink into the slope, at most, in meters. */
@@ -178,6 +197,27 @@ function listTreeFeet(trees: InstancedMesh): Vector3[] {
       .setFromMatrixPosition(place)
       .applyMatrix4(trees.matrixWorld);
   });
+}
+
+/**
+ * Finds how far the mountain road reaches, from where it leaves the
+ * valley out to the end of the bare earth along it, far beyond its gate.
+ *
+ * @returns {[number, number]} Where the road leaves the valley, the nearer
+ *   of its corners there, and where its bare earth ends, along Z, in
+ *   meters.
+ */
+function findRoadSpan(): [number, number] {
+  const mouth: number = Math.min(
+    findCorridorMouth(BOUNDARY, 1).z,
+    findCorridorMouth(BOUNDARY, -1).z,
+  );
+  const [path] = EARTH_PATHS;
+  const end: GroundVector | undefined = path?.points.at(-1);
+  if (end === undefined) {
+    throw new Error('The village has no path of bare earth.');
+  }
+  return [BOUNDARY.z + mouth, end.z];
 }
 
 /**
@@ -347,34 +387,73 @@ describe('the hills around the valley', () => {
     }
   });
 
-  it('rise 8 to 15 meters, and sink away toward the gate', () => {
+  it('rise 8 to 15 meters', () => {
     for (const degrees of listDirections()) {
-      const top: number = measureTop(slopes, degrees);
-      const away: number = measureFromGate(degrees);
-      if (away >= CLOSED_BEYOND) {
-        expect(top, String(degrees)).toBeGreaterThanOrEqual(
-          LEAST_HEIGHT - TOP_TOLERANCE,
-        );
-        expect(top, String(degrees)).toBeLessThanOrEqual(GREATEST_HEIGHT);
-      } else if (away <= OPEN_WITHIN) {
-        expect(top, String(degrees)).toBeLessThan(0);
+      if (measureFromGate(degrees) < CLOSED_BEYOND) {
+        continue;
       }
+      const top: number = measureTop(slopes, degrees);
+      expect(top, String(degrees)).toBeGreaterThanOrEqual(
+        LEAST_HEIGHT - TOP_TOLERANCE,
+      );
+      expect(top, String(degrees)).toBeLessThanOrEqual(GREATEST_HEIGHT);
     }
   });
 
-  it('close in the valley, but for the way out through the gate', () => {
+  it('close in the valley, but for the mouth of the mountain road', () => {
     const middle = new Vector3(BOUNDARY.x, 2, BOUNDARY.z);
-    const gate = new Vector3(BOUNDARY.x, 2, BOUNDARY.z + BOUNDARY.radius);
     for (const degrees of listDirections()) {
-      const away: number = measureFromGate(degrees);
-      if (away >= CLOSED_BEYOND) {
+      if (measureFromGate(degrees) >= CLOSED_BEYOND) {
         const toward = new Raycaster(middle, findDirection(degrees, 0));
         expect(toward.intersectObject(slopes), String(degrees)).not.toEqual(
           [],
         );
-      } else if (away <= OPEN_WITHIN) {
-        const out = new Raycaster(gate, findDirection(degrees, 0));
-        expect(out.intersectObject(hills, true), String(degrees)).toEqual([]);
+      }
+    }
+    const out = new Raycaster(middle, findDirection(GATE_HEADING, 0));
+    expect(out.intersectObject(hills, true)).toEqual([]);
+  });
+
+  it('leave the mountain road open, out to the end of its bare earth', () => {
+    const down = new Vector3(0, -1, 0);
+    const [, end] = findRoadSpan();
+    for (let z: number = BOUNDARY.z; z <= end; z += ROAD_STEP) {
+      for (
+        let x: number = -MOUNTAIN_ROAD_HALF_WIDTH;
+        x <= MOUNTAIN_ROAD_HALF_WIDTH;
+        x += ROAD_STEP
+      ) {
+        const above = new Vector3(BOUNDARY.x + x, 100, z);
+        const [hit] = new Raycaster(above, down).intersectObject(hills, true);
+        expect(hit?.point.y ?? -Infinity, `${String(x)}, ${String(z)}`)
+          .toBeLessThanOrEqual(0);
+      }
+    }
+  });
+
+  it('rise right from either side of the road, out past its gate', () => {
+    const down = new Vector3(0, -1, 0);
+    const [mouth] = findRoadSpan();
+    const beyond: number = PALISADE_GATE_POSE.z + PAST_GATE;
+    for (let z: number = mouth + 2 * FOOT_STEP; z <= beyond; z += ROAD_STEP) {
+      for (const side of [-1, 1]) {
+        const x: number =
+          BOUNDARY.x + side * (MOUNTAIN_ROAD_HALF_WIDTH + FOOT_STEP);
+        const [foot] = new Raycaster(
+          new Vector3(x, 100, z),
+          down,
+        ).intersectObject(slopes);
+        expect(foot?.point.y, `${String(side)}, ${String(z)}`)
+          .toBeGreaterThan(0);
+        if (z < mouth + ROAD_CREST_REACH) {
+          continue;
+        }
+        const [crest] = new Raycaster(
+          new Vector3(x + side * ROAD_CREST_REACH, 100, z),
+          down,
+        ).intersectObject(slopes);
+        expect(crest?.point.y, `${String(side)}, ${String(z)}`)
+          .toBeGreaterThan(LEAST_HEIGHT / 2);
       }
     }
   });

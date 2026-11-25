@@ -30,9 +30,14 @@ import {
   Vector3,
 } from 'three';
 
-import { measureBoundaryReach, placePoint } from '@clovervale/shared';
+import {
+  findCorridorMouth,
+  measureBoundaryReach,
+  placePoint,
+} from '@clovervale/shared';
 import type {
   Boundary,
+  BoundaryCorridor,
   GroundVector,
   Shape,
   Terrain,
@@ -74,21 +79,44 @@ function listCirclePoints(
 }
 
 /**
- * Lists the corners of the outline of a boundary.
+ * Lists the corners of the outline of a boundary, the corners of its road
+ * among them, if it has one.
  *
  * @param {Boundary} boundary - The boundary.
- * @returns {GroundVector[]} The corners, all on its edge.
+ * @returns {GroundVector[]} The corners, all on its edge, in order around
+ *   it.
  */
 function listBoundaryPoints(boundary: Boundary): GroundVector[] {
-  return listCirclePoints({ x: 0, z: 0 }, boundary.radius).map(
-    (point: GroundVector) => {
-      const reach: number = measureBoundaryReach(boundary, point);
-      return {
-        x: boundary.x + (point.x / boundary.radius) * reach,
-        z: boundary.z + (point.z / boundary.radius) * reach,
-      };
-    },
+  let offsets: GroundVector[] = listCirclePoints(
+    { x: 0, z: 0 },
+    boundary.radius,
   );
+  const corridor: BoundaryCorridor | undefined = boundary.corridor;
+  if (corridor !== undefined) {
+    const right: GroundVector = findCorridorMouth(boundary, 1);
+    const left: GroundVector = findCorridorMouth(boundary, -1);
+    const start: number = Math.atan2(right.x, right.z);
+    const end: number = Math.atan2(left.x, left.z) + 2 * Math.PI;
+    offsets = [
+      { x: corridor.halfWidth, z: corridor.length },
+      right,
+      ...offsets.filter((point: GroundVector) => {
+        const turn: number = Math.atan2(point.x, point.z);
+        const around: number = turn < 0 ? turn + 2 * Math.PI : turn;
+        return around > start && around < end;
+      }),
+      left,
+      { x: -corridor.halfWidth, z: corridor.length },
+    ];
+  }
+  return offsets.map((point: GroundVector) => {
+    const scale: number =
+      measureBoundaryReach(boundary, point) / Math.hypot(point.x, point.z);
+    return {
+      x: boundary.x + point.x * scale,
+      z: boundary.z + point.z * scale,
+    };
+  });
 }
 
 /**

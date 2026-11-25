@@ -193,10 +193,10 @@ function createStrip(strip: EarthStrip, height: number): Mesh {
 
 /**
  * Creates the village without its models: the ground, the low hills with
- * pine trees just outside it, open toward the way out through its gate,
- * the mountains far beyond them, the border fortress that guards the pass
- * far off through that opening, and the sky, the fog and the light, as at
- * noon until told the time.
+ * pine trees just outside it, open only for the mountain road out through
+ * its gate, which they line on either side, the mountains far beyond them,
+ * the border fortress that guards the pass far off along that road, and
+ * the sky, the fog and the light, as at noon until told the time.
  *
  * @returns {VillageScene} The village.
  */

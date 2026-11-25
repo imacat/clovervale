@@ -64,6 +64,7 @@ import { buildNpcMartha } from './npc-martha.ts';
 import { buildNpcNancy } from './npc-nancy.ts';
 import { buildNpcToby } from './npc-toby.ts';
 import { buildItemMarthaOintment } from './ointment.ts';
+import { buildPalisadeGate } from './palisade-gate.ts';
 import { buildPropPitchfork, buildPropPitchforkLying } from './pitchfork.ts';
 import { buildItemHealingPotion } from './potion.ts';
 import {
@@ -129,6 +130,7 @@ export function listModels(): ModelEntry[] {
     { file: MODEL_FILES.fence, build: buildFence },
     { file: MODEL_FILES.clover, build: buildClover },
     { file: MODEL_FILES['spawn-stones'], build: buildSpawnStones },
+    { file: MODEL_FILES['palisade-gate'], build: buildPalisadeGate },
     { file: MODEL_FILES['healing-stele'], build: buildHealingStele },
     { file: MODEL_FILES['village-sign'], build: buildVillageSign },
     { file: MODEL_FILES['chief-house'], build: buildChiefHouse },

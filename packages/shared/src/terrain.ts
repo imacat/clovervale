@@ -49,6 +49,12 @@ const SERIES_TERMS = 12;
  */
 const BOUNDARY_PATH_STEP = 0.25;
 
+/**
+ * The number of halvings that find where the road of a boundary leaves its
+ * circle.
+ */
+const MOUTH_HALVINGS = 60;
+
 /** A turn around the Y axis, as its cosine and its sine. */
 export interface Turn {
   /** The cosine of the turn. */
@@ -118,8 +124,24 @@ export interface BoundaryWave {
 }
 
 /**
+ * A straight road that leads out of a boundary toward +Z, square with the
+ * Z axis, from the middle of the boundary to its end, where players walk on
+ * beyond the edge of the circle.
+ */
+export interface BoundaryCorridor {
+  /** Half the width of the road, in meters. */
+  readonly halfWidth: number;
+  /**
+   * How far the end of the road lies from the middle of the boundary,
+   * toward +Z, in meters.
+   */
+  readonly length: number;
+}
+
+/**
  * The edge on the ground around a middle that players cannot leave: a
- * circle, or a circle that wanders in and out with its waves.
+ * circle, or a circle that wanders in and out with its waves, with or
+ * without a straight road that leads out of it toward +Z.
  */
 export interface Boundary {
   /** The middle along the X axis, in meters. */
@@ -133,6 +155,8 @@ export interface Boundary {
   readonly radius: number;
   /** The waves of the edge, none for a circle. */
   readonly waves?: readonly BoundaryWave[];
+  /** The road that leads out of the circle, if any. */
+  readonly corridor?: BoundaryCorridor;
 }
 
 /** An obstacle, ready for the tests against it. */
@@ -202,15 +226,38 @@ export function turnVector(vector: GroundVector, turn: Turn): GroundVector {
 
 /**
  * Measures how far out from its middle the edge of a boundary lies in a
- * direction, alike to the last bit in every JavaScript engine.
+ * direction, alike to the last bit in every JavaScript engine: the edge of
+ * its circle, or, where its road leads on beyond that, the side or the end
+ * of its road.
  *
  * @param {Boundary} boundary - The boundary.
  * @param {GroundVector} direction - The direction, of any length but zero.
  * @returns {number} The distance from the middle to the edge, in meters,
- *   the radius of the boundary in any direction if it has no waves, or for
- *   a direction of zero length.
+ *   the radius of the boundary in any direction if it has neither waves
+ *   nor a road, or for a direction of zero length.
  */
 export function measureBoundaryReach(
+  boundary: Boundary,
+  direction: GroundVector,
+): number {
+  return Math.max(
+    measureCircleReach(boundary, direction),
+    measureCorridorReach(boundary, direction),
+  );
+}
+
+/**
+ * Measures how far out from its middle the edge of the circle of a boundary
+ * lies in a direction, alike to the last bit in every JavaScript engine,
+ * leaving out its road.
+ *
+ * @param {Boundary} boundary - The boundary.
+ * @param {GroundVector} direction - The direction, of any length but zero.
+ * @returns {number} The distance from the middle to the edge of the circle,
+ *   in meters, the radius of the boundary in any direction if it has no
+ *   waves, or for a direction of zero length.
+ */
+function measureCircleReach(
   boundary: Boundary,
   direction: GroundVector,
 ): number {
@@ -239,6 +286,101 @@ export function measureBoundaryReach(
     reach += wave.cos * turn.cos + wave.sin * turn.sin;
   }
   return reach;
+}
+
+/**
+ * Measures how far out from the middle of a boundary its road reaches in a
+ * direction, alike to the last bit in every JavaScript engine.
+ *
+ * @param {Boundary} boundary - The boundary.
+ * @param {GroundVector} direction - The direction, of any length.
+ * @returns {number} The distance from the middle to where the direction
+ *   leaves the road, by its side or its end, in meters, or 0 if the
+ *   boundary has no road, for a direction that does not lead toward +Z,
+ *   or for a direction of zero length.
+ */
+function measureCorridorReach(
+  boundary: Boundary,
+  direction: GroundVector,
+): number {
+  const corridor: BoundaryCorridor | undefined = boundary.corridor;
+  if (corridor === undefined || direction.z <= 0) {
+    return 0;
+  }
+  const length: number = Math.sqrt(
+    direction.x * direction.x + direction.z * direction.z,
+  );
+  const toEnd: number = (corridor.length * length) / direction.z;
+  if (direction.x === 0) {
+    return toEnd;
+  }
+  return Math.min(
+    toEnd,
+    (corridor.halfWidth * length) / Math.abs(direction.x),
+  );
+}
+
+/**
+ * Tells whether a point lies on the road of a boundary, with some room
+ * from its sides and its end.
+ *
+ * @param {GroundVector} offset - The point, from the middle of the
+ *   boundary.
+ * @param {BoundaryCorridor | undefined} corridor - The road, if any.
+ * @param {number} least - The room the point must have from the sides and
+ *   the end of the road, in meters.
+ * @returns {boolean} Whether it does, false if there is no road.
+ */
+function isOnCorridor(
+  offset: GroundVector,
+  corridor: BoundaryCorridor | undefined,
+  least: number,
+): boolean {
+  return (
+    corridor !== undefined &&
+    Math.abs(offset.x) <= corridor.halfWidth - least &&
+    offset.z >= 0 &&
+    offset.z <= corridor.length - least
+  );
+}
+
+/**
+ * Finds the corner where the edge of the circle of a boundary meets a side
+ * of its road, at the mouth of the road.
+ *
+ * @param {Boundary} boundary - The boundary, with a road.
+ * @param {number} side - The side of the road: 1 for the side toward +X,
+ *   or -1 for the side toward -X.
+ * @returns {GroundVector} The corner, as an offset from the middle of the
+ *   boundary, on the side of the road.
+ * @throws {Error} If the boundary has no road.
+ */
+export function findCorridorMouth(
+  boundary: Boundary,
+  side: number,
+): GroundVector {
+  const corridor: BoundaryCorridor | undefined = boundary.corridor;
+  if (corridor === undefined) {
+    throw new Error('The boundary has no road.');
+  }
+  const findDirection = (turn: number): GroundVector => ({
+    x: side * Math.sin(turn),
+    z: Math.cos(turn),
+  });
+  let near = 0;
+  let far: number = Math.PI / 2;
+  for (let step = 0; step < MOUTH_HALVINGS; step++) {
+    const middle: number = (near + far) / 2;
+    const across: number =
+      measureCircleReach(boundary, findDirection(middle)) * Math.sin(middle);
+    if (across > corridor.halfWidth) {
+      far = middle;
+    } else {
+      near = middle;
+    }
+  }
+  const reach: number = measureCircleReach(boundary, findDirection(far));
+  return { x: side * corridor.halfWidth, z: reach * Math.cos(far) };
 }
 
 /**
@@ -577,7 +719,10 @@ function isWithin(
   const distance: number = Math.sqrt(
     offset.x * offset.x + offset.z * offset.z,
   );
-  return distance <= measureBoundaryReach(boundary, offset) - least;
+  return (
+    distance <= measureCircleReach(boundary, offset) - least ||
+    isOnCorridor(offset, boundary.corridor, least)
+  );
 }
 
 /**
@@ -590,8 +735,8 @@ function isWithin(
  * @param {number} least - The room the center of the player must have from
  *   the boundary, in meters.
  * @returns {boolean} Whether it keeps that room at both ends, and, within
- *   a boundary with waves, at every point along the walk a quarter of a
- *   meter or less from the next.
+ *   a boundary with waves or a road, at every point along the walk a
+ *   quarter of a meter or less from the next.
  */
 function isPathWithin(
   from: GroundVector,
@@ -603,7 +748,10 @@ function isPathWithin(
     return false;
   }
   // A walk between two points within a circle stays within it.
-  if ((boundary.waves ?? []).length === 0) {
+  if (
+    (boundary.waves ?? []).length === 0 &&
+    boundary.corridor === undefined
+  ) {
     return true;
   }
   const dx: number = to.x - from.x;
@@ -686,7 +834,10 @@ function pushOut(spot: Spot, obstacle: Obstacle): boolean {
 }
 
 /**
- * Pulls a player back within the boundary, if it has stepped out.
+ * Pulls a player back within the boundary, if it has stepped out: back
+ * toward the middle within the circle, or, where that is nearer, square
+ * back onto the road, so that a player that walks into a side of the road
+ * slides along it.
  *
  * @param {Spot} spot - Where the player is, which changes to where it is
  *   pulled back to.
@@ -696,14 +847,32 @@ function pushOut(spot: Spot, obstacle: Obstacle): boolean {
 function keepWithin(spot: Spot, boundary: Boundary): boolean {
   const dx: number = spot.x - boundary.x;
   const dz: number = spot.z - boundary.z;
-  const most: number =
-    measureBoundaryReach(boundary, { x: dx, z: dz }) - PLAYER_RADIUS;
+  const offset: GroundVector = { x: dx, z: dz };
+  const most: number = measureCircleReach(boundary, offset) - PLAYER_RADIUS;
   const square: number = dx * dx + dz * dz;
-  if (square <= most * most) {
+  const corridor: BoundaryCorridor | undefined = boundary.corridor;
+  if (square <= most * most || isOnCorridor(offset, corridor, PLAYER_RADIUS)) {
     return false;
   }
   const distance: number = Math.sqrt(square);
-  spot.x = boundary.x + (dx / distance) * most;
-  spot.z = boundary.z + (dz / distance) * most;
+  let x: number = (dx / distance) * most;
+  let z: number = (dz / distance) * most;
+  if (corridor !== undefined) {
+    const side: number = corridor.halfWidth - PLAYER_RADIUS;
+    const across: number = Math.min(Math.max(dx, -side), side);
+    const along: number = Math.min(
+      Math.max(dz, 0),
+      corridor.length - PLAYER_RADIUS,
+    );
+    const toCircle: number = (x - dx) * (x - dx) + (z - dz) * (z - dz);
+    const toCorridor: number =
+      (across - dx) * (across - dx) + (along - dz) * (along - dz);
+    if (toCorridor < toCircle) {
+      x = across;
+      z = along;
+    }
+  }
+  spot.x = boundary.x + x;
+  spot.z = boundary.z + z;
   return true;
 }

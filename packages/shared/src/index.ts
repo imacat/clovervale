@@ -226,6 +226,7 @@ export type { Pusher } from './pusher.ts';
 export {
   PLAYER_RADIUS,
   Terrain,
+  findCorridorMouth,
   findTurn,
   measureBoundaryReach,
   placePoint,
@@ -234,6 +235,7 @@ export {
 } from './terrain.ts';
 export type {
   Boundary,
+  BoundaryCorridor,
   BoundaryWave,
   Pose,
   Shape,
@@ -264,6 +266,9 @@ export {
   FIELD_GATE_WIDTH,
   FOUNTAIN_RIM_RADIUS,
   MARTHA_POST,
+  MOUNTAIN_ROAD_HALF_WIDTH,
+  PALISADE_GATE_HALF_DEPTH,
+  PALISADE_GATE_POSE,
   SPAWN_STONES_POSE,
   VILLAGE_PLACEMENTS,
   VILLAGE_TERRAIN,

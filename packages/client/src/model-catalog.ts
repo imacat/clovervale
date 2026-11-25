@@ -64,6 +64,7 @@ export const MODEL_FILES: Readonly<Record<ModelId, string>> = {
   fountain: 'fountain.glb',
   'weapon-shop': 'weapon-shop.glb',
   'spawn-stones': 'prop-spawn-stones.glb',
+  'palisade-gate': 'prop-palisade-gate.glb',
   'great-tree': 'prop-great-tree.glb',
   'healing-stele': 'prop-healing-stele.glb',
   'village-sign': 'prop-village-sign.glb',

@@ -27,6 +27,7 @@ import { describe, expect, it } from 'vitest';
 import { PLAYER_RADIUS, Terrain, placePoint } from '../src/index.ts';
 import type { Boundary, GroundVector, Shape } from '../src/index.ts';
 import {
+  findCorridorMouth,
   findTurn,
   measureBoundaryReach,
   placeShape,
@@ -44,6 +45,17 @@ const WAVY: Boundary = {
     { order: 3, cos: 0.4, sin: -0.3 },
     { order: 7, cos: -0.1, sin: 0.2 },
   ],
+};
+
+/**
+ * A round boundary with a road two meters wide that leads out of it toward
+ * +Z, to 12 meters from its middle.
+ */
+const ROADED: Boundary = {
+  x: 0,
+  z: 0,
+  radius: 5,
+  corridor: { halfWidth: 1, length: 12 },
 };
 
 /** A wall two meters wide and half a meter deep, at the origin. */
@@ -152,6 +164,34 @@ describe('measureBoundaryReach', () => {
       ).toBeCloseTo(expected, 12);
     }
   });
+
+  it('reaches out to the side or the end of a road beyond the circle', () => {
+    expect(measureBoundaryReach(ROADED, { x: 0, z: 2 })).toBe(12);
+    expect(measureBoundaryReach(ROADED, { x: 0.05, z: 1 })).toBeCloseTo(
+      12 * Math.hypot(0.05, 1),
+      12,
+    );
+    expect(measureBoundaryReach(ROADED, { x: -1, z: 6 })).toBeCloseTo(
+      Math.hypot(1, 6),
+      12,
+    );
+    expect(measureBoundaryReach(ROADED, { x: 1, z: 4 })).toBe(5);
+    expect(measureBoundaryReach(ROADED, { x: 0, z: -1 })).toBe(5);
+  });
+});
+
+describe('findCorridorMouth', () => {
+  it('finds where the edge of the circle meets each side of the road', () => {
+    for (const side of [-1, 1]) {
+      const mouth: GroundVector = findCorridorMouth(ROADED, side);
+      expect(mouth.x).toBe(side);
+      expect(mouth.z).toBeCloseTo(Math.sqrt(24), 12);
+    }
+  });
+
+  it('fails for a boundary without a road', () => {
+    expect(() => findCorridorMouth(WAVY, 1)).toThrow();
+  });
 });
 
 describe('Terrain.resolveMove', () => {
@@ -243,6 +283,42 @@ describe('Terrain.resolveMove', () => {
     }
   });
 
+  it('slides a player along a side of a road out of the boundary', () => {
+    const terrain = new Terrain([], ROADED);
+    const end: GroundVector = walk(
+      terrain,
+      { x: 0, z: 6 },
+      { x: 0.6, z: 0.8 },
+      40,
+    );
+    expect(end.x).toBeCloseTo(1 - PLAYER_RADIUS, 12);
+    expect(end.z).toBeCloseTo(6 + 3.2, 12);
+  });
+
+  it('stops a player at the end of a road out of the boundary', () => {
+    const terrain = new Terrain([], ROADED);
+    const end: GroundVector = walk(
+      terrain,
+      { x: 0.5, z: 6 },
+      { x: 0, z: 1 },
+      100,
+    );
+    expect(end).toEqual({ x: 0.5, z: 12 - PLAYER_RADIUS });
+  });
+
+  it('lets no player off a road out of the boundary', () => {
+    const terrain = new Terrain([], ROADED);
+    for (const direction of [
+      { x: 1, z: 0 },
+      { x: -0.8, z: 0.6 },
+      { x: 0.8, z: -0.6 },
+    ]) {
+      const end: GroundVector = walk(terrain, { x: 0, z: 9 }, direction, 50);
+      expect(terrain.isClear(end)).toBe(true);
+      expect(Math.abs(end.x)).toBeLessThanOrEqual(1 - PLAYER_RADIUS + 1e-9);
+    }
+  });
+
   it('lets no player through a gap narrower than itself', () => {
     const narrow = new Terrain(
       [
@@ -298,6 +374,19 @@ describe('Terrain.isPathClear', () => {
     const ends: [GroundVector, GroundVector, boolean][] = [
       [{ x: -5, z: 9 }, { x: 5, z: 9 }, true],
       [{ x: 6.9, z: 3 }, { x: 6.9, z: -3 }, false],
+    ];
+    for (const [from, to, isClear] of ends) {
+      expect(terrain.isClear(from)).toBe(true);
+      expect(terrain.isClear(to)).toBe(true);
+      expect(terrain.isPathClear(from, to)).toBe(isClear);
+    }
+  });
+
+  it('sees a walk between the circle and a road leave the boundary', () => {
+    const terrain = new Terrain([], ROADED);
+    const ends: [GroundVector, GroundVector, boolean][] = [
+      [{ x: 0, z: 3 }, { x: 0.5, z: 11 }, true],
+      [{ x: 2, z: 3 }, { x: 0.5, z: 9 }, false],
     ];
     for (const [from, to, isClear] of ends) {
       expect(terrain.isClear(from)).toBe(true);

@@ -431,14 +431,14 @@ describe('a player who walks into the scenery', () => {
   });
 
   it('cannot leave the village', () => {
-    const start: PlayerMotion = createMotion({ x: 0, z: 15 }, 0);
+    const start: PlayerMotion = createMotion({ x: 0, z: -28 }, 180);
     const walked: PlayerMotion = stepTimes(
-      applyInput(start, steer(0, 1)),
+      applyInput(start, steer(0, -1)),
       SIMULATION_RATE * 10,
     );
     expect(walked.z).toBeCloseTo(
-      VILLAGE_BOUNDARY.z +
-        measureBoundaryReach(VILLAGE_BOUNDARY, { x: 0, z: 1 }) -
+      VILLAGE_BOUNDARY.z -
+        measureBoundaryReach(VILLAGE_BOUNDARY, { x: 0, z: -1 }) +
         PLAYER_RADIUS,
       9,
     );

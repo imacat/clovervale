@@ -116,4 +116,41 @@ describe('createObstacleOutlines', () => {
       );
     }
   });
+
+  it('draws a boundary with a road around the corners of the road', () => {
+    const roaded: Boundary = {
+      x: 1,
+      z: -2,
+      radius: 10,
+      corridor: { halfWidth: 1.5, length: 20 },
+    };
+    const [edge] = createObstacleOutlines(new Terrain([], roaded)).children;
+    const corners: GroundVector[] = listCorners(edge).map(
+      ([cx, , cz]: [number, number, number]): GroundVector => ({
+        x: cx - roaded.x,
+        z: cz - roaded.z,
+      }),
+    );
+    for (const offset of corners) {
+      expect(Math.hypot(offset.x, offset.z)).toBeCloseTo(
+        measureBoundaryReach(roaded, offset),
+        4,
+      );
+    }
+    const mouth: number = Math.sqrt(10 * 10 - 1.5 * 1.5);
+    const expected: [number, number][] = [
+      [1.5, 20],
+      [-1.5, 20],
+      [1.5, mouth],
+      [-1.5, mouth],
+    ];
+    for (const [x, z] of expected) {
+      expect(
+        corners.some(
+          (corner: GroundVector) =>
+            Math.hypot(corner.x - x, corner.z - z) < 1e-4,
+        ),
+      ).toBe(true);
+    }
+  });
 });

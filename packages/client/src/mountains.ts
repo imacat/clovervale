@@ -111,8 +111,9 @@ export const GATE_TURN = 0;
 
 /**
  * How far to either side of the way out through the village gate the low
- * land is gone, the hills and the lower slope of the nearest ridge, in
- * radians.
+ * land is gone, the lower slope of the nearest ridge, which leaves the
+ * mountain road and the hills that line it the ground in front of the
+ * pass, in radians.
  */
 export const LOWLAND_OPENING = 0.26;
 /** How far beyond that the low land rises again to its full height. */
@@ -125,8 +126,8 @@ export const LOWLAND_OPENING_SPREAD = 0.34;
  * into the pass beyond the village gate, the nearer ones deeper, so that
  * the farther ones show above them there.  The nearest one reaches in
  * with a gentle lower slope from under the back of the hills, low enough
- * that the camera stays above it, and gone toward the gate as the hills
- * are.
+ * that the camera stays above it, and gone toward the gate, where the
+ * mountain road runs between the hills toward the pass.
  */
 const RIDGES: readonly Ridge[] = [
   {
@@ -356,25 +357,30 @@ function addTriangle(
  * Creates a low-poly ring of land around the middle, from rows of points
  * that each go once around it, the first row its inner edge, each next
  * row farther out, its top side facing up and toward the middle where it
- * rises outward.
+ * rises outward.  A ring left open has a gap between the last point of
+ * each row and the first.
  *
  * @param {readonly (readonly RidgePoint[])[]} rows - The rows, each with
  *   as many points, one a column, in order around the middle.
  * @param {string} color - The color of the land.
+ * @param {boolean} [isClosed] - Whether the ring closes, as by default, or
+ *   is left open.
  * @returns {Mesh} The ring, with flat facets in the color, around the
  *   origin.
  */
 export function createRing(
   rows: readonly (readonly RidgePoint[])[],
   color: string,
+  isClosed = true,
 ): Mesh {
   const columns: number = rows[0]?.length ?? 0;
+  const spans: number = isClosed ? columns : columns - 1;
   const positions: number[] = [];
   for (let band = 0; band + 1 < rows.length; band++) {
     const lower: readonly RidgePoint[] = rows[band] ?? [];
     const upper: readonly RidgePoint[] = rows[band + 1] ?? [];
-    for (let column = 0; column < columns; column++) {
-      // The last column joins the first, so that the ring closes.
+    for (let column = 0; column < spans; column++) {
+      // In a closed ring, the last column joins the first.
       const next: number = (column + 1) % columns;
       const a: RidgePoint | undefined = lower[column];
       const b: RidgePoint | undefined = lower[next];
@@ -427,7 +433,8 @@ function createRidge(ridge: Ridge): Mesh {
  * blue-gray and higher, and all sinking into a pass beyond the village
  * gate.  The nearest one rises gently from under the back of the hills, so
  * that the land climbs on from the hills to the mountains, always below
- * where the camera can go, and is gone toward the gate as the hills are.
+ * where the camera can go, and is gone toward the gate, where the mountain
+ * road runs between the hills toward the pass.
  * They are the same every time.
  *
  * @returns {Group} The mountains, named `mountains`, with a ridge a child,
