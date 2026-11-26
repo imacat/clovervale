@@ -53,8 +53,11 @@ const workspaceScope = '@clovervale/';
 const programs: string[] = ['server', 'client', 'bots'];
 /** The directory of the files that ship with a release as they are. */
 const supportDir = 'support-files';
-/** The document that goes to the top of a release as its README. */
-const readmeFile = 'docs/deploy.md';
+/** The documents that go to the top of a release, by their names there. */
+const readmeFiles: Readonly<Record<string, string>> = {
+  'README.md': 'docs/deploy.md',
+  'README.zh-TW.md': 'docs/deploy.zh-TW.md',
+};
 
 /**
  * Reads the manifest of a package.
@@ -165,13 +168,14 @@ function copyBuilt(source: string, target: string): void {
 }
 
 /**
- * Composes the README of a release from its document, without the
- * front matter that only the API documentation uses.
+ * Composes a README of a release from its document, without the front
+ * matter that only the API documentation uses.
  *
+ * @param {string} document - The document, relative to the project root.
  * @returns {string} The README of the release.
  */
-function composeReadme(): string {
-  const text: string = readFileSync(path.join(rootDir, readmeFile), 'utf8');
+function composeReadme(document: string): string {
+  const text: string = readFileSync(path.join(rootDir, document), 'utf8');
   return text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n(?:\r?\n)*/, '');
 }
 
@@ -191,7 +195,9 @@ function stageRelease(): void {
   copyBuilt('packages/bots/dist/bots.mjs', `${stageDir}/bots/bots.mjs`);
   copyBuilt('packages/client/dist', `${stageDir}/client`);
   copyBuilt('LICENSE', `${stageDir}/LICENSE`);
-  writeFileSync(path.join(stageDir, 'README.md'), composeReadme());
+  for (const [name, document] of Object.entries(readmeFiles)) {
+    writeFileSync(path.join(stageDir, name), composeReadme(document));
+  }
   copyBuilt(supportDir, `${stageDir}/${supportDir}`);
   writeFileSync(
     path.join(stageDir, 'THIRD-PARTY-LICENSES.txt'),

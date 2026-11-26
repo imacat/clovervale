@@ -1,0 +1,15 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "extends": ["./typedoc.json"],
+  "name": "四葉谷",
+  "readme": "README.zh-TW.md",
+  "projectDocuments": ["docs/deploy.zh-TW.md"],
+  "otherLanguage": {
+    "name": "English",
+    "root": "../",
+    "pages": {
+      "documents/執行與部署.html": "documents/Running_and_Deploying.html"
+    }
+  },
+  "out": "docs/api/zh-tw"
+}

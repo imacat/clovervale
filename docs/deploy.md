@@ -5,7 +5,7 @@ title: Running and Deploying
 Clovervale
 ==========
 
-Clovervale (四葉谷) is a small MMORPG world to tuck stories into.  This is a
+Clovervale is a small MMORPG world to tuck stories into.  This is a
 ready-to-run release.  The programs are bundled with their dependencies, so
 there is nothing to install except [Node.js] 24 or later.
 

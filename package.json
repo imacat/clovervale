@@ -22,7 +22,7 @@
     "test:models": "node scripts/check-models.ts",
     "coverage": "vitest run --coverage",
     "lint": "eslint .",
-    "docs": "typedoc",
+    "docs": "node scripts/docs.ts",
     "release:stage": "npm run build && node scripts/release.ts",
     "clean": "node scripts/clean.ts",
     "dev:server": "npm run dev --workspace @clovervale/server --",

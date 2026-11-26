@@ -3,7 +3,7 @@ Clovervale
 
 ![Clovervale concept art](packages/client/public/og-image.jpg)
 
-Clovervale (四葉谷) is a small MMORPG world to tuck stories into.
+Clovervale is a small MMORPG world to tuck stories into.
 
 Play it at <https://clovervale.imacat.idv.tw/>, and read its
 documentation at <https://clovervale.imacat.idv.tw/docs/>.
@@ -43,7 +43,8 @@ Lints everything.
 
 ### `npm run docs`
 
-Generates the API documentation in `docs/api/`.
+Generates the API documentation in `docs/api/`, with a copy in Traditional
+Chinese in `docs/api/zh-tw/`.
 
 ### `npm run release:stage`
 

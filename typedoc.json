@@ -9,7 +9,17 @@
     "disableSources": true
   },
   "projectDocuments": ["docs/deploy.md"],
-  "plugin": ["./scripts/typedoc-module-summary.ts"],
+  "plugin": [
+    "./scripts/typedoc-module-summary.ts",
+    "./scripts/typedoc-language-links.ts"
+  ],
+  "otherLanguage": {
+    "name": "正體中文",
+    "root": "zh-tw/",
+    "pages": {
+      "documents/Running_and_Deploying.html": "documents/執行與部署.html"
+    }
+  },
   "out": "docs/api",
   "treatWarningsAsErrors": true
 }
