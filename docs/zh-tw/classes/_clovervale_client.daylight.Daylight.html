@@ -19,6 +19,11 @@ the fog, the light of the sky and the ground, the light of the sun or of
 the moon with its shadows, the stars, the sun and the moon in the sky,
 and the scenery far out around it, such as the mountains and the hills,
 melting into the sky.</p>
+<p>The shadows are sharp, and of everything, on a small square of ground
+around the player, and coarser, and of the large things alone, those in
+the layer <a href="../variables/_clovervale_client.shadow-layers.FAR_SHADOW_LAYER.html" class="tsd-kind-variable">FAR_SHADOW_LAYER</a>, on a large square around it over the
+whole valley, blending into each other short of the edge of the small
+one.</p>
 </div></section>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
@@ -31,7 +36,8 @@ melting into the sky.</p>
 </div></section>
 <section class="tsd-index-section">
 <h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
-<div class="tsd-index-list"><a href="#show" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>show</span></a>
+<div class="tsd-index-list"><a href="#centershadows" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>center<wbr/>Shadows</span></a>
+<a href="#show" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>show</span></a>
 </div></section></div></details></section></section>
 <details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
 <h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
@@ -42,7 +48,9 @@ melting into the sky.</p>
 <li class="">
 <div class="tsd-signature tsd-anchor-link" id="constructordaylight"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">Daylight</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">scene</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Scene</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">fog</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Fog</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">scenery</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-keyword">readonly</span> <a href="../interfaces/_clovervale_client.daylight.SkyTintedScenery.html" class="tsd-signature-type tsd-kind-interface">SkyTintedScenery</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">Daylight</a><a href="#constructordaylight" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
 <div class="tsd-description">
-<div class="tsd-comment tsd-typography"><p>Lights a scene, and gives it a sky, as at noon until told the time.</p>
+<div class="tsd-comment tsd-typography"><p>Lights a scene, and gives it a sky, as at noon until told the time,
+with the shadows cast around a point near the middle of the village
+until told where the player is.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
@@ -62,6 +70,25 @@ do.</p>
 <details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
 <h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
 <section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="centershadows"><span>center<wbr/>Shadows</span><a href="#centershadows" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="centershadows-1"><span class="tsd-kind-call-signature">centerShadows</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">focus</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#centershadows-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Casts the shadows around a point from now on: the squares of ground
+that receive the near and the far shadows stand around it, each as
+near as a texel of its shadow map allows, so that the shadows hold
+still on the ground as the point moves.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">focus</span>: <a href="../interfaces/_clovervale_shared.shared_movement.GroundVector.html" class="tsd-signature-type tsd-kind-interface">GroundVector</a></span>
+<div class="tsd-comment tsd-typography"><p>The point on the ground, such as where
+the player stands.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
 <section class="tsd-panel tsd-member">
 <h3 class="tsd-anchor-link" id="show"><span>show</span><a href="#show" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -96,7 +123,7 @@ do.</p>
 <details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
 <div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
 <details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
-<div><a href="#show"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>show</span></a></div></details></div></details></div>
+<div><a href="#centershadows"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>center<wbr/>Shadows</span></a><a href="#show"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>show</span></a></div></details></div></details></div>
 <div class="site-menu">
 <nav class="tsd-navigation"><a href="../modules.html">四葉谷</a>
 <ul class="tsd-small-nested-navigation" id="tsd-nav-container">
