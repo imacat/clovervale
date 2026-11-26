@@ -23,7 +23,7 @@ the player in, as the book of its quests, <a href="_clovervale_server.player.Pla
 and then tells its listeners of it, as a <a href="_clovervale_server.story.MapEntryEvent.html" class="tsd-kind-class">MapEntryEvent</a>; whenever
 a player leaves the world, the world takes its quests out.</p>
 </div></section>
-<section class="tsd-panel tsd-hierarchy" data-refl="10572">
+<section class="tsd-panel tsd-hierarchy" data-refl="10873">
 <h4>Hierarchy</h4>
 <ul class="tsd-hierarchy">
 <li class="tsd-hierarchy-item"><span class="tsd-signature-type">EventTarget</span>
@@ -167,11 +167,11 @@ in other worlds.</p>
 <div class="tsd-description">
 <div class="tsd-comment tsd-typography"><p>Brings a player from another world into this one, with its health,
 what it carries, its silver coins, the villagers who have told it who
-they are, how far it has gotten with the quests, and the inputs of its
-peer still to come.  It stops whatever it was
-doing and idles where it arrives, but still wants to move the way it
-did, and is told nothing more of what was said within its hearing in the
-world it left.</p>
+they are, how far it has gotten with the quests, whether it has reached
+the end of the story, and the inputs of its peer still to come.  It
+stops whatever it was doing and idles where it arrives, but still
+wants to move the way it did, and is told nothing more of what was
+said within its hearing in the world it left.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
@@ -218,9 +218,9 @@ now.</p>
 inputs of its peer, how its latest slash was judged, or <code>null</code> before
 its first, what it carries, in the order of the slots, its silver
 coins, the dialogue it is in as it stands, or <code>null</code> if none, the
-villagers who have told it who they are, in the order they did, and
-the stage of each quest it has taken on; or <code>null</code> if the player is
-not in the world.</p>
+villagers who have told it who they are, in the order they did, the
+stage of each quest it has taken on, and whether it has reached the
+end of the story; or <code>null</code> if the player is not in the world.</p>
 </div></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external">
 <h3 class="tsd-anchor-link" id="dispatchevent"><span>dispatch<wbr/>Event</span><a href="#dispatchevent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
@@ -451,6 +451,11 @@ otherwise, on the ground of the map of the world; a villager who pushes
 the players aside stands in its way as the obstacles do.  Each monster
 goes about its business, as the numbers of its kind tell, and pays the
 villagers no heed.</p>
+<p>A player that crosses the line where the story ends in the map of the
+world outward at the step, as the map tells by its checkpoint of the
+ending, reaches the end of the story, if it is done with the main plot
+and has not reached it before, in this world or another.  The line
+never stands in its way.</p>
 <p>A drink that starts at the step gives the player back
 <a href="../variables/_clovervale_shared.interaction.FOUNTAIN_HEALING.html" class="tsd-kind-variable">FOUNTAIN_HEALING</a> health at once, or as much as it lacks of its
 full health if that is less, which is an event unless it is none.  A

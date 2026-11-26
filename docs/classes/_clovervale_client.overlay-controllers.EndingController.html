@@ -131,7 +131,7 @@ while the sheet is closed.</p>
 <h3 class="tsd-anchor-link" id="update"><span>update</span><a href="#update" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
 <li class="">
-<div class="tsd-signature tsd-anchor-link" id="update-1"><span class="tsd-kind-call-signature">update</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">isPlotDone</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">map</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">isInDialogue</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#update-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-signature tsd-anchor-link" id="update-1"><span class="tsd-kind-call-signature">update</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">isEndingReached</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">isInDialogue</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#update-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
 <div class="tsd-description">
 <div class="tsd-comment tsd-typography"><p>Shows the sheet as it unrolls and rolls up, and opens it with the
 ending once <a href="_clovervale_client.ending-sheet.EndingWatch.html" class="tsd-kind-class">EndingWatch</a> tells it is to, closing the help sheet
@@ -141,12 +141,9 @@ person at the page asks for little motion.</p>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
 <ul class="tsd-parameter-list">
-<li><span><span class="tsd-kind-parameter">isPlotDone</span>: <span class="tsd-signature-type">boolean</span></span>
+<li><span><span class="tsd-kind-parameter">isEndingReached</span>: <span class="tsd-signature-type">boolean</span></span>
 <div class="tsd-comment tsd-typography"><p>Whether the server has told that the
-player of the page is done with the main plot.</p>
-</div></li>
-<li><span><span class="tsd-kind-parameter">map</span>: <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span></span>
-<div class="tsd-comment tsd-typography"><p>The map the player is in.</p>
+player of the page has reached the end of the story.</p>
 </div></li>
 <li><span><span class="tsd-kind-parameter">isInDialogue</span>: <span class="tsd-signature-type">boolean</span></span>
 <div class="tsd-comment tsd-typography"><p>Whether the player is in a dialogue.</p>

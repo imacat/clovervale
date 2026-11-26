@@ -17,7 +17,7 @@
 connected, once they are shown.</p>
 </div></section>
 <div class="tsd-signature"><span class="tsd-signature-keyword">interface</span> <span class="tsd-kind-interface">VillageScene</span> <span class="tsd-signature-symbol">{</span><br/>    <a class="tsd-kind-property" href="#daylight">daylight</a><span class="tsd-signature-symbol">:</span> <a href="../classes/_clovervale_client.daylight.Daylight.html" class="tsd-signature-type tsd-kind-class">Daylight</a><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#populate">populate</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">models</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-keyword">readonly</span> <a href="_clovervale_client.client_model-loader.LoadedModel.html" class="tsd-signature-type tsd-kind-interface">LoadedModel</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#scene">scene</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Scene</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#showtimeofday">showTimeOfDay</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">time</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">;</span><br/>    <a class="tsd-kind-property" href="#update">update</a><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">seconds</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">;</span><br/><span class="tsd-signature-symbol">}</span></div>
-<section class="tsd-panel tsd-hierarchy" data-refl="9493">
+<section class="tsd-panel tsd-hierarchy" data-refl="9785">
 <h4>Hierarchy (<a href="../hierarchy.html#@clovervale/client.village-scene.VillageScene">View Summary</a>)</h4>
 <ul class="tsd-hierarchy">
 <li class="tsd-hierarchy-item"><a href="_clovervale_client.map-scene.MapScene.html" class="tsd-signature-type tsd-kind-interface">MapScene</a>
@@ -48,9 +48,11 @@ connected, once they are shown.</p>
 <h3 class="tsd-anchor-link" id="populate"><code class="tsd-tag">Readonly</code><span>populate</span><a href="#populate" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">populate</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">models</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-keyword">readonly</span> <a href="_clovervale_client.client_model-loader.LoadedModel.html" class="tsd-signature-type tsd-kind-interface">LoadedModel</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span></div>
 <div class="tsd-comment tsd-typography"><p>Stands the models that have a place in the village there, as far as
-they are among the models, each idling if it is animated, and starts
-the light in the windows of the houses shown, and the glows of the
-fountain and the forge, as far as their models are among them.</p>
+they are among the models, each idling if it is animated, scatters
+the clover cover over the open grass around the village if the patch
+of clover is among them, and starts the light in the windows of the
+houses shown and of the fortress far off, and the glows of the fountain
+and the forge, as far as their models are among them.</p>
 </div>
 <div class="tsd-type-declaration">
 <h4>Type Declaration</h4>
@@ -77,8 +79,8 @@ fountain and the forge, as far as their models are among them.</p>
 <h3 class="tsd-anchor-link" id="showtimeofday"><code class="tsd-tag">Readonly</code><span>show<wbr/>Time<wbr/>Of<wbr/>Day</span><a href="#showtimeofday" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">showTimeOfDay</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">time</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">void</span></div>
 <div class="tsd-comment tsd-typography"><p>Shows the village as it looks at a time of day, as <a href="../classes/_clovervale_client.daylight.Daylight.html#show" class="tsd-kind-method">Daylight.show</a>
-tells, with the light in the windows of the houses, once they are
-shown.</p>
+tells, with the light in the windows of the houses and of the fortress,
+once the houses are shown.</p>
 </div>
 <div class="tsd-type-declaration">
 <h4>Type Declaration</h4>

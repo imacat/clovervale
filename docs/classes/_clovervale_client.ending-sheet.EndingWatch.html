@@ -13,9 +13,9 @@
 <li><a href="" aria-current="page">EndingWatch</a></li></ul>
 <h1>Class EndingWatch</h1></div>
 <section class="tsd-panel tsd-comment">
-<div class="tsd-comment tsd-typography"><p>What tells when the ending opens by itself: a second after the player
-is done with the main plot in the village, or after it comes back to the
-village with it done, as soon as it is not in a dialogue, and only once.</p>
+<div class="tsd-comment tsd-typography"><p>What tells when the ending opens by itself: as soon as the server has
+told that the player has reached the end of the story, once the player
+is not in a dialogue, and only once.</p>
 </div></section>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
@@ -47,24 +47,16 @@ village with it done, as soon as it is not in a dialogue, and only once.</p>
 <h3 class="tsd-anchor-link" id="notice"><span>notice</span><a href="#notice" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
 <li class="">
-<div class="tsd-signature tsd-anchor-link" id="notice-1"><span class="tsd-kind-call-signature">notice</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">now</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">isPlotDone</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">map</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">isInDialogue</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#notice-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-signature tsd-anchor-link" id="notice-1"><span class="tsd-kind-call-signature">notice</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">isEndingReached</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">isInDialogue</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#notice-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
 <div class="tsd-description">
-<div class="tsd-comment tsd-typography"><p>Notices how things stand at a moment, and tells whether the ending is
-to open then.  The second starts over whenever the player leaves the
-village or the page no longer knows the main plot is done.</p>
+<div class="tsd-comment tsd-typography"><p>Notices how things stand, and tells whether the ending is to open now.</p>
 </div>
 <div class="tsd-parameters">
 <h4 class="tsd-parameters-title">Parameters</h4>
 <ul class="tsd-parameter-list">
-<li><span><span class="tsd-kind-parameter">now</span>: <span class="tsd-signature-type">number</span></span>
-<div class="tsd-comment tsd-typography"><p>The moment, in milliseconds.</p>
-</div></li>
-<li><span><span class="tsd-kind-parameter">isPlotDone</span>: <span class="tsd-signature-type">boolean</span></span>
-<div class="tsd-comment tsd-typography"><p>Whether the page knows the player is done
-with the main plot.</p>
-</div></li>
-<li><span><span class="tsd-kind-parameter">map</span>: <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span></span>
-<div class="tsd-comment tsd-typography"><p>The map the player is shown in.</p>
+<li><span><span class="tsd-kind-parameter">isEndingReached</span>: <span class="tsd-signature-type">boolean</span></span>
+<div class="tsd-comment tsd-typography"><p>Whether the server has told that
+the player has reached the end of the story.</p>
 </div></li>
 <li><span><span class="tsd-kind-parameter">isInDialogue</span>: <span class="tsd-signature-type">boolean</span></span>
 <div class="tsd-comment tsd-typography"><p>Whether the player is in a dialogue.</p>
