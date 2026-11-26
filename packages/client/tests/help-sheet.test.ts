@@ -184,6 +184,66 @@ describe('the page of the credits on the help sheet', () => {
   });
 });
 
+describe('the welcome before the help sheet', () => {
+  /**
+   * Opens a help sheet with the welcome before it.
+   *
+   * @param {number} page - The page the sheet goes on to.
+   * @returns {HelpSheet} The sheet, showing the welcome.
+   */
+  const welcomeSheet = (page: number): HelpSheet => {
+    const sheet = new HelpSheet();
+    sheet.welcome(page);
+    return sheet;
+  };
+
+  it('is not shown by a sheet opened as usual', () => {
+    expect(openSheet().isWelcoming).toBe(false);
+    expect(new HelpSheet().isWelcoming).toBe(false);
+  });
+
+  it('shows on the open sheet until it moves on', () => {
+    const sheet: HelpSheet = welcomeSheet(GAMEPAD_PAGE);
+    expect(sheet.isOpen).toBe(true);
+    expect(sheet.isWelcoming).toBe(true);
+    sheet.moveOn();
+    expect(sheet.isOpen).toBe(true);
+    expect(sheet.isWelcoming).toBe(false);
+    expect(sheet.page).toBe(GAMEPAD_PAGE);
+  });
+
+  it('moves on to the help with any key, the sheet staying open', () => {
+    for (const code of ['Escape', 'Enter', 'KeyH', 'ArrowRight', 'KeyQ']) {
+      const sheet: HelpSheet = welcomeSheet(TOUCH_PAGE);
+      sheet.pressKey(code);
+      expect(sheet.isOpen).toBe(true);
+      expect(sheet.isWelcoming).toBe(false);
+      expect(sheet.page).toBe(TOUCH_PAGE);
+    }
+  });
+
+  it('takes the keys of the game, and leaves the others to the browser', () => {
+    expect(welcomeSheet(KEYBOARD_PAGE).pressKey('Space')).toBe(true);
+    expect(welcomeSheet(KEYBOARD_PAGE).pressKey('F5')).toBe(false);
+  });
+
+  it('does not move on with a key that repeats', () => {
+    const sheet: HelpSheet = welcomeSheet(KEYBOARD_PAGE);
+    expect(sheet.pressKey('Enter', true)).toBe(true);
+    expect(sheet.isWelcoming).toBe(true);
+  });
+
+  it('is gone once the sheet closes or opens again', () => {
+    const closed: HelpSheet = welcomeSheet(KEYBOARD_PAGE);
+    closed.close();
+    expect(closed.isWelcoming).toBe(false);
+    const opened: HelpSheet = welcomeSheet(KEYBOARD_PAGE);
+    opened.open(GAMEPAD_PAGE);
+    expect(opened.isWelcoming).toBe(false);
+    expect(opened.page).toBe(GAMEPAD_PAGE);
+  });
+});
+
 describe('opening the help sheet on the first visit', () => {
   it('opens it on the first visit only', () => {
     const storage: PageStorage = createStorage();
@@ -195,9 +255,16 @@ describe('opening the help sheet on the first visit', () => {
     expect(later.isOpen).toBe(false);
   });
 
+  it('opens it with the welcome first', () => {
+    const sheet = new HelpSheet();
+    openHelpOnFirstVisit(sheet, createStorage(), KEYBOARD_PAGE);
+    expect(sheet.isWelcoming).toBe(true);
+  });
+
   it('opens it at the page it is told', () => {
     const sheet = new HelpSheet();
     openHelpOnFirstVisit(sheet, createStorage(), TOUCH_PAGE);
+    sheet.moveOn();
     expect(sheet.isOpen).toBe(true);
     expect(sheet.page).toBe(TOUCH_PAGE);
   });

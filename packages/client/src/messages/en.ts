@@ -204,6 +204,15 @@ export const EN_MESSAGES = {
   'help.touchButtons':
     'The buttons at the top left open the inventory, this help and the chat',
   'help.credits': 'Credits',
+  'welcome.title': 'Welcome to Clovervale.',
+  'welcome.village':
+    'Tucked away among the mountains, this little village gathers around ' +
+    'a great tree and a crystal fountain, and its people live quiet lives.',
+  'welcome.unrest':
+    "Lately, though, something hasn't felt quite right around here...",
+  'welcome.invite': 'Take a look around, and have a chat with the villagers.',
+  'welcome.hint': 'Press any key to continue',
+  'welcome.touchHint': 'Tap to continue',
   'ending.text':
     'With the evidence and the intelligence in hand, you set off for the capital of the kingdom.',
   'ending.end': 'The End',

@@ -194,6 +194,15 @@ export const JA_MESSAGES: MessageTable = {
   'help.touchChoose': '持ち物や会話ではタップして選ぶ',
   'help.touchButtons': '左上のボタンで持ち物・この説明・チャットを開く',
   'help.credits': 'クレジット',
+  'welcome.title': 'クローバーヴェイルへようこそ。',
+  'welcome.village':
+    '山あいにひっそりとたたずむこの小さな村は、' +
+    '大きな木と水晶の噴水を囲むように広がり、' +
+    '村の人たちは穏やかに暮らしています。',
+  'welcome.unrest': 'でも最近、このあたりはどうも様子がおかしいようで……',
+  'welcome.invite': 'あちこち歩いて、村の人たちと話してみましょう。',
+  'welcome.hint': '何かキーを押して続ける',
+  'welcome.touchHint': 'タップして続ける',
   'ending.text': '証拠と情報を携えて、あなたは王都へ向かった。',
   'ending.end': '（完）',
   'credits.title': 'クレジット',

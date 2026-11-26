@@ -349,8 +349,9 @@ export class HelpController implements Overlay {
   readonly #isTouch: () => boolean;
 
   /**
-   * Shows the sheet on the page with its button, open on the first visit,
-   * at the page of touch on a touch device.
+   * Shows the sheet on the page with its button, open on the first visit
+   * with the welcome to the game, which moves on to the page of touch on a
+   * touch device.
    *
    * @param {HTMLElement} parent - What it is shown in.
    * @param {Translator} translator - The translator of the page.
@@ -380,6 +381,11 @@ export class HelpController implements Overlay {
         this.#sheet.close();
         this.#view.render();
       },
+      () => {
+        this.#sheet.moveOn();
+        this.#view.render();
+      },
+      isTouch,
     );
     openHelpOnFirstVisit(
       this.#sheet,
@@ -402,7 +408,8 @@ export class HelpController implements Overlay {
    * Carries out a command for the sheet: the H key opens it over the bag,
    * at the page that tells the controls of the device that gives the
    * command, and while it is open, it takes every key of the game, and
-   * leaves every other key to the browser.
+   * leaves every other key to the browser.  While it shows the welcome,
+   * any command moves on to its pages.
    *
    * @param {GameCommand} command - The command.
    * @returns {boolean | null} Whether the game took the command, or `null`
@@ -419,11 +426,12 @@ export class HelpController implements Overlay {
       this.#open(HELP_PAGES[source]);
       return true;
     }
-    if (!this.#sheet.pressKey(code)) {
-      return false;
+    const wasWelcoming: boolean = this.#sheet.isWelcoming;
+    const isTaken: boolean = this.#sheet.pressKey(code, isRepeat);
+    if (isTaken || this.#sheet.isWelcoming !== wasWelcoming) {
+      this.#view.render();
     }
-    this.#view.render();
-    return true;
+    return isTaken;
   }
 
   /** Closes the sheet, if it is open, without showing it closed. */

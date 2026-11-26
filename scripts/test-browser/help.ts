@@ -39,6 +39,8 @@ import {
   LEFT_ARROW,
   STANDING_DRIFT,
   VIEW_SETTLE_DURATION,
+  WELCOME_HINT,
+  WELCOME_TITLE,
   YAW_TOLERANCE,
   ZH_TW_HELP_WORDS,
   ZH_TW_LANGUAGE_CONTROL,
@@ -55,8 +57,14 @@ import {
 
 /** How a page shows its help sheet. */
 export interface HelpLook {
-  /** Whether the sheet is open. */
+  /** Whether the sheet is open, its pages shown. */
   readonly isOpen: boolean;
+  /** Whether the welcome before the sheet is shown. */
+  readonly isWelcoming: boolean;
+  /** The title of the welcome. */
+  readonly welcomeTitle: string;
+  /** The line at the foot of the welcome that tells how to go on. */
+  readonly welcomeHint: string;
   /** The title of the sheet. */
   readonly title: string;
   /** The words on the button at the foot of the sheet. */
@@ -88,8 +96,14 @@ export const HELP_EXPRESSION = `(() => {
   const sheet = document.querySelector('.help-sheet');
   const button = document.querySelector('.help-button');
   const bag = document.querySelector('.bag-window');
+  const welcome = document.querySelector('.help-welcome');
   return JSON.stringify({
     isOpen: sheet !== null && !sheet.hidden,
+    isWelcoming: welcome !== null && !welcome.hidden,
+    welcomeTitle:
+      document.querySelector('.help-welcome-title')?.textContent ?? '',
+    welcomeHint:
+      document.querySelector('.help-welcome-hint')?.textContent ?? '',
     title: document.querySelector('.help-title')?.textContent ?? '',
     ok: document.querySelector('.help-ok')?.textContent ?? '',
     labels: [
@@ -138,6 +152,8 @@ export async function readHelpLook(
  */
 export function describeHelpLook(look: HelpLook): string {
   return (
+    `the welcome ${look.isWelcoming ? 'shown' : 'not shown'}, titled ` +
+    `"${look.welcomeTitle}" with "${look.welcomeHint}" at its foot, ` +
     `the help sheet ${look.isOpen ? 'open' : 'closed'}, titled ` +
     `"${look.title}" at page ${String(look.page)} "${look.subtitle}" ` +
     `with "${look.ok}" at its foot and ` +
@@ -190,9 +206,11 @@ export async function checkBrowserKeys(
 
 /**
  * Checks the help sheet: that the first page opens it by itself on the
- * first visit of the browser, in English, and the second page, on a later
- * visit, does not; that while it is open, a walking key held down does not
- * walk the player, an arrow key does not turn the camera, I does not open
+ * first visit of the browser, in English, with the welcome to the game
+ * first, which a key, even one the game does not use, moves on from, and
+ * the second page, on a later visit, shows neither; that while it is open,
+ * a walking key held down does not walk the player, an arrow key does not
+ * turn the camera, I does not open
  * the bag, and the keys of the browser are left to it; that it follows the
  * language chosen in the panel; that Esc, Enter, the H key, its cross and
  * the button at its foot close it, and the H key and its button open it;
@@ -239,7 +257,29 @@ export async function checkHelp(
         `With ${what}, the first page tells ${describeHelpLook(seen)}.`,
     );
 
-  const first: HelpLook = await look();
+  const welcomed: HelpLook = await look();
+  if (
+    !welcomed.isWelcoming ||
+    welcomed.isOpen ||
+    welcomed.welcomeTitle !== WELCOME_TITLE ||
+    welcomed.welcomeHint !== WELCOME_HINT
+  ) {
+    throw new Error(
+      'On the first visit, the first page tells ' +
+        `${describeHelpLook(welcomed)}.`,
+    );
+  }
+  await saveView(session, context, 'welcome-en.png');
+  // Any key moves on, even one the game does not use.
+  await press('q');
+  const first: HelpLook = await waitFor(
+    look,
+    (seen: HelpLook) => seen.isOpen && !seen.isWelcoming,
+    ACTION_TIMEOUT,
+    (seen: HelpLook) =>
+      `With Q pressed on the welcome, the first page tells ` +
+      `${describeHelpLook(seen)}.`,
+  );
   if (
     !first.isOpen ||
     first.title !== HELP_WORDS.title ||
@@ -255,7 +295,7 @@ export async function checkHelp(
     );
   }
   const later: HelpLook = await readHelpLook(session, other);
-  if (later.isOpen || later.buttonKey !== 'H') {
+  if (later.isOpen || later.isWelcoming || later.buttonKey !== 'H') {
     throw new Error(
       `On a later visit, the second page tells ${describeHelpLook(later)}.`,
     );

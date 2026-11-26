@@ -195,6 +195,14 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'help.touchChoose': '在物品欄和對話中直接點選',
   'help.touchButtons': '左上角的按鈕打開物品欄、操作說明和聊天',
   'help.credits': '製作名單',
+  'welcome.title': '歡迎來到四葉谷。',
+  'welcome.village':
+    '這是群山環抱中的一座小村莊，' +
+    '村子中央有一棵大樹和水晶噴泉，村民們過著平靜的日子。',
+  'welcome.unrest': '不過最近，村子附近好像不太平靜……',
+  'welcome.invite': '四處走走，跟村民聊聊天吧。',
+  'welcome.hint': '按任意鍵繼續',
+  'welcome.touchHint': '輕觸以繼續',
   'ending.text': '你帶著證物和情報，前往王國首都。',
   'ending.end': '（完）',
   'credits.title': '製作名單',

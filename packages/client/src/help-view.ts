@@ -21,7 +21,8 @@
  * @module client/help-view The help sheet as the page shows it: its button
  *   beside the bag, and, while it is open, a sheet of parchment in the
  *   middle of the page that lists the controls of the game, on a page of
- *   the keyboard and the mouse, a page of the gamepad and a page of touch.
+ *   the keyboard and the mouse, a page of the gamepad and a page of touch,
+ *   and the welcome to the game it may show before them.
  */
 
 import { drawBag } from './bag-view.ts';
@@ -144,6 +145,13 @@ const TOUCH_ROWS: readonly TouchRow[] = [
   { badge: 'action', labelKey: 'help.touchAction' },
   { badge: 'tap', labelKey: 'help.touchChoose' },
   { badge: 'buttons', labelKey: 'help.touchButtons' },
+];
+
+/** The messages of the paragraphs of the welcome, under its title. */
+const WELCOME_PARAGRAPHS: readonly PlainMessageId[] = [
+  'welcome.village',
+  'welcome.unrest',
+  'welcome.invite',
 ];
 
 /** The messages that name the pages, in the order of the pages. */
@@ -488,11 +496,15 @@ function drawPage(
  * and the mouse, the second the gamepad, its buttons drawn as on a
  * Logitech F310, and the third the touch controls, drawn as small
  * pictures; while the sheet offers the credits of the game, a fourth page
- * tells them, and before that there is no trace of it.  While the sheet is
- * open, no
- * click on the page outside the panel reaches the game underneath.  What
- * the sheet shows is worded again in each language the page comes to
- * speak.
+ * tells them, and before that there is no trace of it.  While the sheet
+ * shows the welcome to the game, a smaller sheet of the same parchment
+ * stands in the middle of the page in its place, with the welcome as its
+ * title, a few lines under it that tell the world the player has entered,
+ * and at its foot, in smaller words, a line that tells to press any key or,
+ * on a touch device, to tap to go on, and a click or a tap anywhere on the
+ * page outside the panel moves on to the sheet.  While the sheet is open, no click on the page
+ * outside the panel reaches the game underneath.  What the sheet shows is
+ * worded again in each language the page comes to speak.
  *
  * @param {HTMLElement} parent - What the sheet is added to.
  * @param {Translator} translator - The translator of the text of the page.
@@ -500,6 +512,11 @@ function drawPage(
  * @param {() => void} clickButton - Called when the button is clicked.
  * @param {() => void} close - Called when the cross or the button at the
  *   foot of the sheet is clicked.
+ * @param {() => void} moveOn - Called when the page is clicked while the
+ *   sheet shows the welcome.
+ * @param {() => boolean} isTouch - Tells whether the page is used by
+ *   touch, so that the line at the foot of the welcome tells to tap rather
+ *   than to press a key.
  * @returns {HelpView} The sheet as shown.
  */
 export function createHelpView(
@@ -508,6 +525,8 @@ export function createHelpView(
   sheet: HelpSheet,
   clickButton: () => void,
   close: () => void,
+  moveOn: () => void,
+  isTouch: () => boolean,
 ): HelpView {
   const button: HTMLDivElement = createClickable('help-button', clickButton);
   const key: HTMLSpanElement = document.createElement('span');
@@ -519,7 +538,9 @@ export function createHelpView(
   veil.className = 'help';
   const frame: HTMLDivElement = document.createElement('div');
   frame.className = 'help-sheet';
-  for (const element of [veil, frame]) {
+  const welcome: HTMLDivElement = document.createElement('div');
+  welcome.className = 'help-welcome';
+  for (const element of [veil, frame, welcome]) {
     for (const type of ['pointerdown', 'click', 'wheel', 'contextmenu']) {
       element.addEventListener(type, (event: Event) => {
         if (type === 'pointerdown' || type === 'contextmenu') {
@@ -529,6 +550,29 @@ export function createHelpView(
       });
     }
   }
+  for (const element of [veil, welcome]) {
+    element.addEventListener('click', () => {
+      if (sheet.isWelcoming) {
+        moveOn();
+      }
+    });
+  }
+  welcome.setAttribute('role', 'dialog');
+  welcome.setAttribute('aria-modal', 'true');
+  welcome.setAttribute('aria-labelledby', 'help-welcome-title');
+  const welcomeTitle: HTMLHeadingElement = document.createElement('h2');
+  welcomeTitle.className = 'help-welcome-title';
+  welcomeTitle.id = 'help-welcome-title';
+  const welcomeParagraphs: HTMLParagraphElement[] = WELCOME_PARAGRAPHS.map(
+    (): HTMLParagraphElement => {
+      const paragraph: HTMLParagraphElement = document.createElement('p');
+      paragraph.className = 'help-welcome-text';
+      return paragraph;
+    },
+  );
+  const welcomeHint: HTMLParagraphElement = document.createElement('p');
+  welcomeHint.className = 'help-welcome-hint';
+  welcome.append(welcomeTitle, ...welcomeParagraphs, welcomeHint);
   frame.setAttribute('role', 'dialog');
   frame.setAttribute('aria-modal', 'true');
   frame.setAttribute('aria-labelledby', 'help-title');
@@ -577,7 +621,7 @@ export function createHelpView(
   pager.append(previous, subtitle, dots, next);
   const ok: HTMLDivElement = createClickable('help-ok', close);
   frame.append(title, cross, pager, ...pages, ok);
-  parent.append(button, veil, frame);
+  parent.append(button, veil, frame, welcome);
 
   const render = (): void => {
     const label: string = translator.translate('help.icon');
@@ -585,7 +629,19 @@ export function createHelpView(
     button.setAttribute('aria-label', label);
     button.setAttribute('aria-expanded', String(sheet.isOpen));
     veil.hidden = !sheet.isOpen;
-    frame.hidden = !sheet.isOpen;
+    frame.hidden = !sheet.isOpen || sheet.isWelcoming;
+    welcome.hidden = !sheet.isWelcoming;
+    welcomeTitle.textContent = translator.translate('welcome.title');
+    WELCOME_PARAGRAPHS.forEach((key: PlainMessageId, index: number) => {
+      const paragraph: HTMLParagraphElement | undefined =
+        welcomeParagraphs[index];
+      if (paragraph !== undefined) {
+        paragraph.textContent = translator.translate(key);
+      }
+    });
+    welcomeHint.textContent = translator.translate(
+      isTouch() ? 'welcome.touchHint' : 'welcome.hint',
+    );
     title.textContent = translator.translate('help.title');
     const closeLabel: string = translator.translate('help.close');
     cross.title = closeLabel;

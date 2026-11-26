@@ -140,7 +140,8 @@ export class PlayControls {
 
   /**
    * Shows the controls, the sheets and the boxes on the page, with the help
-   * sheet open on the first visit, at the page of touch on a touch device.
+   * sheet open on the first visit with the welcome to the game, which moves
+   * on to the page of touch on a touch device.
    *
    * @param {HTMLElement} parent - What they are shown in.
    * @param {Translator} translator - The translator of the page.

@@ -146,6 +146,10 @@ export const ZH_TW_HELP_WORDS = {
   ok: '確認',
   gamepad: '搖桿',
 } as const;
+/** The title of the welcome before the help sheet on the first visit. */
+export const WELCOME_TITLE = 'Welcome to Clovervale.';
+/** The line at the foot of the welcome, on a page used by the keyboard. */
+export const WELCOME_HINT = 'Press any key to continue';
 /** How many pages the help sheet has before the ending. */
 export const HELP_PAGE_COUNT = 3;
 /** The page of the credits of the help sheet, once the ending is shown. */

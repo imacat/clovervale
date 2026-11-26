@@ -201,6 +201,15 @@ export const ES_MESSAGES: MessageTable = {
   'help.touchButtons':
     'Los botones de la esquina superior izquierda abren el inventario, esta ayuda y el chat',
   'help.credits': 'Créditos',
+  'welcome.title': 'Te damos la bienvenida a Valtrébol.',
+  'welcome.village':
+    'Escondido entre las montañas, este pequeño pueblo se reúne alrededor ' +
+    'de un gran árbol y una fuente de cristal, y su gente lleva una vida ' +
+    'tranquila.',
+  'welcome.unrest': 'Pero últimamente, algo no anda del todo bien por aquí…',
+  'welcome.invite': 'Date una vuelta y charla con la gente del pueblo.',
+  'welcome.hint': 'Pulsa cualquier tecla para continuar',
+  'welcome.touchHint': 'Toca para continuar',
   'ending.text':
     'Con las pruebas y la información en tu poder, partes hacia la capital del reino.',
   'ending.end': 'Fin',

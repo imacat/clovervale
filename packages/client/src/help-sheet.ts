@@ -19,7 +19,8 @@
 
 /**
  * @module client/help-sheet The help sheet that tells the person at the
- *   page the controls of the game, and opening it on the first visit.
+ *   page the controls of the game, and opening it on the first visit, with
+ *   a welcome to the game before it.
  */
 
 import type { PageStorage } from './page-storage.ts';
@@ -46,13 +47,16 @@ const CLOSE_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The help sheet: whether it is open, and the page it is open at.
+ * The help sheet: whether it is open, the page it is open at, and whether
+ * it shows the welcome to the game before its pages.
  *
  * The H key opens the sheet, at the page of the keyboard.  While it is
  * open, Esc, Enter and the H key close it, the left and right arrows turn
  * to the page before and after, stopping at the first and the last, and it
  * takes every other key of the game too, so that nothing else on the page
- * does anything with it, and leaves every other key to the browser.
+ * does anything with it, and leaves every other key to the browser.  While
+ * it shows the welcome, any key pressed, but for one that repeats, moves
+ * on to its pages instead, the sheet staying open.
  */
 export class HelpSheet {
   /**
@@ -61,15 +65,26 @@ export class HelpSheet {
    */
   hasCredits = false;
   #isOpen = false;
+  #isWelcoming = false;
   #page: number = KEYBOARD_PAGE;
 
   /**
-   * Whether the sheet is open.
+   * Whether the sheet is open, as it is while it shows the welcome.
    *
    * @returns {boolean} Whether it is.
    */
   get isOpen(): boolean {
     return this.#isOpen;
+  }
+
+  /**
+   * Whether the open sheet shows the welcome to the game instead of its
+   * pages.
+   *
+   * @returns {boolean} Whether it does.
+   */
+  get isWelcoming(): boolean {
+    return this.#isOpen && this.#isWelcoming;
   }
 
   /**
@@ -92,13 +107,33 @@ export class HelpSheet {
   }
 
   /**
-   * Opens the sheet, at a page.
+   * Opens the sheet, at a page, without the welcome.
    *
    * @param {number} page - The page.
    */
   open(page: number): void {
     this.#isOpen = true;
+    this.#isWelcoming = false;
     this.turnToPage(page);
+  }
+
+  /**
+   * Opens the sheet with the welcome to the game, before a page it moves
+   * on to.
+   *
+   * @param {number} page - The page it moves on to.
+   */
+  welcome(page: number): void {
+    this.open(page);
+    this.#isWelcoming = true;
+  }
+
+  /**
+   * Moves on from the welcome to the page the sheet is open at, if it
+   * shows the welcome.
+   */
+  moveOn(): void {
+    this.#isWelcoming = false;
   }
 
   /**
@@ -113,20 +148,27 @@ export class HelpSheet {
     }
   }
 
-  /** Closes the sheet, if it is open. */
+  /** Closes the sheet, if it is open, with the welcome too. */
   close(): void {
     this.#isOpen = false;
+    this.#isWelcoming = false;
   }
 
   /**
    * Takes a key pressed while the sheet is open, if it is one for it.
    *
    * @param {string} code - The code of the key, as in a keyboard event.
+   * @param {boolean} [isRepeat] - Whether the key is held down and
+   *   repeats, which moves on from no welcome; not if left out.
    * @returns {boolean} Whether the sheet took the key, which is then for
    *   nothing else on the page; a key the game does not use is not taken.
    */
-  pressKey(code: string): boolean {
-    if (CLOSE_KEYS.has(code)) {
+  pressKey(code: string, isRepeat = false): boolean {
+    if (this.isWelcoming) {
+      if (!isRepeat) {
+        this.moveOn();
+      }
+    } else if (CLOSE_KEYS.has(code)) {
       this.#isOpen = false;
     } else if (code === 'ArrowLeft') {
       this.turnToPage(this.#page - 1);
@@ -138,14 +180,14 @@ export class HelpSheet {
 }
 
 /**
- * Opens the help sheet if the browser has not been to the game before, and
- * remembers the visit, if it can.  Without a storage the page can use, every
- * visit counts as the first.
+ * Opens the help sheet with the welcome to the game if the browser has not
+ * been to the game before, and remembers the visit, if it can.  Without a
+ * storage the page can use, every visit counts as the first.
  *
  * @param {HelpSheet} sheet - The help sheet.
  * @param {PageStorage | null} storage - Where the visit is remembered, or
  *   `null` if nowhere.
- * @param {number} page - The page to open it at.
+ * @param {number} page - The page the welcome moves on to.
  */
 export function openHelpOnFirstVisit(
   sheet: HelpSheet,
@@ -161,7 +203,7 @@ export function openHelpOnFirstVisit(
   if (isSeen) {
     return;
   }
-  sheet.open(page);
+  sheet.welcome(page);
   try {
     storage?.setItem(STORAGE_KEY, '1');
   } catch {
