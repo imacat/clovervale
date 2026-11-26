@@ -1,0 +1,190 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>PushForecast | 四葉谷</title><meta name="description" content="Documentation for 四葉谷"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">四葉谷</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<p><a href="../../classes/_clovervale_client.push-forecast.PushForecast.html">English</a></p>
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_clovervale_client.html">@clovervale/client</a></li>
+<li><a href="../modules/_clovervale_client.push-forecast.html">push-forecast</a></li>
+<li><a href="" aria-current="page">PushForecast</a></li></ul>
+<h1>Class PushForecast</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>Draws the player of the page pushed out of the way of the pusher of its
+map, the villager there who pushes the players aside, as
+<a href="../functions/_clovervale_shared.villagers.findPusher.html" class="tsd-kind-function">findPusher</a> tells, as the pusher is drawn, while the player rests,
+before the server tells of the push.</p>
+<p>The page leaves it to the server to push a player that rests, and learns
+of each push only from a snapshot, while the pusher runs on as it is
+drawn.  The forecast draws a player only while it rests, and only once a
+snapshot has told the page so: from the place and the step the snapshot
+tells, until the page moves the player on by a step of its own, the
+server pushes it by the rule the page knows, with the pusher where its
+course has it at each of its steps.  The forecast draws the player at the
+places the server pushes it to as the pusher is drawn: between the place
+after the step the pusher is drawn at and the place after the next, as
+far toward the latter as it takes to keep clear of the pusher, but never
+back along those places, and no faster than <a href="../variables/_clovervale_client.push-forecast.PUSH_SPEED_RATIO.html" class="tsd-kind-variable">PUSH_SPEED_RATIO</a>
+times as fast as the pusher runs, setting out from where the snapshot has
+it.  A snapshot that tells of a push the forecast foresaw leaves the
+player drawn where it was.  A resting player the pusher does not push is
+drawn just as without the forecast.</p>
+<p>So, while the player rests, it is drawn only at places the server has it
+at, or between two it has it at one step after the other, at a step no
+later than the one after the step the pusher is drawn at, and it never
+moves back toward the run of the pusher but as the server moves it.  It
+reaches into the pusher only for the first few frames the pusher touches
+it, as the pusher pushes it faster than the forecast draws it, and where
+the server itself leaves it reaching into the pusher, by a wall or the
+fence.</p>
+<p>As the player sets off, starts to interact or dies, or as the owner
+switches the forecast or the smoothing of the corrections off, the
+forecast hands over: the player glides once from where it was drawn to
+where it is drawn without the forecast, which it reaches
+<a href="../variables/_clovervale_client.correction-smoothing.SMOOTHING_DURATION.html" class="tsd-kind-variable">SMOOTHING_DURATION</a> later, never going beyond both, and it is drawn
+just as without the forecast from then on, until it rests again and a
+snapshot tells so.  A snapshot that tells of the player resting elsewhere
+than the forecast foresaw hands over likewise, from where it was drawn to
+where the snapshot has it.  A handover is drawn as a jump when it moves
+the player <a href="../variables/_clovervale_client.correction-smoothing.SMOOTHING_LIMIT.html" class="tsd-kind-variable">SMOOTHING_LIMIT</a> or more, when the frame it comes at is
+drawn more than a few frames' time after the one before, and when the
+snapshot that tells of the player resting elsewhere shows it has done
+something else since the frame before, such as dying and coming back to
+life.  None is drawn while the owner has the player shown without
+prediction, when it is drawn without the forecast.</p>
+<p>While the server stays silent, the forecast foresees the pushes for
+<a href="../variables/_clovervale_client.push-forecast.FORECAST_HORIZON.html" class="tsd-kind-variable">FORECAST_HORIZON</a> after the step it last told of, and holds the
+player where it has it then.</p>
+<p>What the forecast gives up: the prediction knows nothing of the pushes
+the forecast has drawn until a snapshot tells of them, so a player that
+sets off drawn pushed glides back toward where the prediction has it, and
+the push of the server then shows as a correction, as without the
+forecast.  A player that has just stopped is drawn as without the
+forecast, reaching into the pusher if it runs into the player, until a
+snapshot tells the page that it rests.  The forecast cannot foresee what
+only the server does: a player killed as it is pushed may have been drawn
+pushed farther than the server pushed it, and glides back to where it
+lies.  A player the owner switches the forecast off and on again for as
+the pusher pushes it glides back to where it is drawn without the
+forecast, and out again.  While the step the pusher is drawn at lags
+behind that of the server, as its drawn clock catches up at a tenth of
+its pace after the latency falls sharply, a player the snapshots already
+tell pushed is still drawn where it was until the drawn pusher reaches
+it: with Toby, up to about a second after a fall from 1000 ms to none,
+0.3 s after one from 300 ms to 20 ms, and up to 0.39 m away.  And as
+nothing is judged from where the player is drawn, the
+prompts for what it can interact with go by where it is not yet pushed
+for longer than without the forecast.</p>
+<p>Only where the player is drawn changes: it faces the way it truly faces,
+doing what it truly does, and nothing it does is judged from where it is
+drawn.</p>
+</div></section>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="constructors">Constructors<a href="#constructors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#advance" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>advance</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="constructorpushforecast"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">PushForecast</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">settings</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_clovervale_client.push-forecast.PushForecastSettings.html" class="tsd-signature-type tsd-kind-interface">PushForecastSettings</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">smoothing</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_clovervale_client.correction-smoothing.SmoothingSettings.html" class="tsd-signature-type tsd-kind-interface">SmoothingSettings</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">prediction</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_clovervale_client.prediction.PredictionSettings.html" class="tsd-signature-type tsd-kind-interface">PredictionSettings</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">PushForecast</a><a href="#constructorpushforecast" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Starts with nothing foreseen.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">settings</span>: <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_clovervale_client.push-forecast.PushForecastSettings.html" class="tsd-signature-type tsd-kind-interface">PushForecastSettings</a><span class="tsd-signature-symbol">&gt;</span></span>
+<div class="tsd-comment tsd-typography"><p>Whether the owner has
+the pushes foreseen, as set at any time.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">smoothing</span>: <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_clovervale_client.correction-smoothing.SmoothingSettings.html" class="tsd-signature-type tsd-kind-interface">SmoothingSettings</a><span class="tsd-signature-symbol">&gt;</span></span>
+<div class="tsd-comment tsd-typography"><p>How the owner has the
+corrections of the player of the page drawn, as set at any time.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">prediction</span>: <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/_clovervale_client.prediction.PredictionSettings.html" class="tsd-signature-type tsd-kind-interface">PredictionSettings</a><span class="tsd-signature-symbol">&gt;</span></span>
+<div class="tsd-comment tsd-typography"><p>How the owner has the
+player of the page shown, as set at any time.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">PushForecast</a></h4></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="advance"><span>advance</span><a href="#advance" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="advance-1"><span class="tsd-kind-call-signature">advance</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">prediction</span><span class="tsd-signature-symbol">:</span> <a href="_clovervale_client.prediction.PlayerPrediction.html" class="tsd-signature-type tsd-kind-class">PlayerPrediction</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">smoothing</span><span class="tsd-signature-symbol">:</span> <a href="_clovervale_client.correction-smoothing.CorrectionSmoothing.html" class="tsd-signature-type tsd-kind-class">CorrectionSmoothing</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">time</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">map</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">shownStep</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.player-motion.PlayerMotion.html" class="tsd-signature-type tsd-kind-interface">PlayerMotion</a><a href="#advance-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Moves the forecast on to a frame, and tells the player as it is to be
+drawn in it.  It is to be told of every frame, and only once.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">prediction</span>: <a href="_clovervale_client.prediction.PlayerPrediction.html" class="tsd-signature-type tsd-kind-class">PlayerPrediction</a></span>
+<div class="tsd-comment tsd-typography"><p>The prediction of the player,
+brought up to the time of the frame.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">smoothing</span>: <a href="_clovervale_client.correction-smoothing.CorrectionSmoothing.html" class="tsd-signature-type tsd-kind-class">CorrectionSmoothing</a></span>
+<div class="tsd-comment tsd-typography"><p>The smoothing of its
+corrections, which this tells of the frame as well.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">time</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The time of the frame on the clock of the page,
+in milliseconds, which is no earlier than any time told before.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">map</span>: <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span></span>
+<div class="tsd-comment tsd-typography"><p>The map the player is drawn in, which tells the
+villager who pushes the players aside there, if any, as
+<a href="../functions/_clovervale_shared.villagers.findPusher.html" class="tsd-kind-function">findPusher</a> tells.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">shownStep</span>: <span class="tsd-signature-type">number</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></span>
+<div class="tsd-comment tsd-typography"><p>The step of the server the villagers
+are drawn at in the frame, which may fall between two, or <code>null</code> if
+they are not drawn.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.player-motion.PlayerMotion.html" class="tsd-signature-type tsd-kind-interface">PlayerMotion</a></h4><p>The player as it is to be drawn: as the
+smoothing draws it, unless the forecast draws it elsewhere.</p>
+</div></li></ul></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
+<div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
+<div><a href="#advance"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>advance</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="../modules.html">四葉谷</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>

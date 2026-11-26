@@ -1,0 +1,618 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="../"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>World | 四葉谷</title><meta name="description" content="Documentation for 四葉谷"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="../assets/style.css"/><link rel="stylesheet" href="../assets/highlight.css"/><script defer src="../assets/main.js"></script><script async src="../assets/icons.js" id="tsd-icons-script"></script><script async src="../assets/search.js" id="tsd-search-script"></script><script async src="../assets/navigation.js" id="tsd-nav-script"></script><script async src="../assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="../index.html" class="title">四葉谷</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<p><a href="../../classes/_clovervale_server.world.World.html">English</a></p>
+<div class="tsd-page-title">
+<ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+<li><a href="../modules/_clovervale_server.html">@clovervale/server</a></li>
+<li><a href="../modules/_clovervale_server.world.html">world</a></li>
+<li><a href="" aria-current="page">World</a></li></ul>
+<h1>Class World</h1></div>
+<section class="tsd-panel tsd-comment">
+<div class="tsd-comment tsd-typography"><p>A world the server simulates, in one map: the village, with its wild
+dog and its clover, or a cave, with its two wild dogs and its chests and
+barrels full, and in either, the villagers of its map, each placed in it
+as it is told to be, as a <a href="../interfaces/_clovervale_server.resident.Resident.html" class="tsd-kind-interface">Resident</a> that goes about its business
+at every step.</p>
+<p>Whenever a player comes into the world, the world takes the quests of
+the player in, as the book of its quests, <a href="_clovervale_server.player.Player.html#book" class="tsd-kind-property">Player.book</a>, tells,
+and then tells its listeners of it, as a <a href="_clovervale_server.story.MapEntryEvent.html" class="tsd-kind-class">MapEntryEvent</a>; whenever
+a player leaves the world, the world takes its quests out.</p>
+</div></section>
+<section class="tsd-panel tsd-hierarchy" data-refl="10877">
+<h4>Hierarchy</h4>
+<ul class="tsd-hierarchy">
+<li class="tsd-hierarchy-item"><span class="tsd-signature-type">EventTarget</span>
+<ul class="tsd-hierarchy">
+<li class="tsd-hierarchy-item"><span class="tsd-hierarchy-target">World</span></li></ul></li></ul></section>
+<section class="tsd-panel">
+<h4>Implements</h4>
+<ul class="tsd-hierarchy">
+<li><a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html" class="tsd-signature-type tsd-kind-interface">QuestWorld</a></li></ul></section>
+<section class="tsd-panel-group tsd-index-group">
+<section class="tsd-panel tsd-index-panel">
+<details class="tsd-index-content tsd-accordion" open><summary class="tsd-accordion-summary tsd-index-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h5 class="tsd-index-heading uppercase">Index</h5></summary>
+<div class="tsd-accordion-details">
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="constructors">Constructors<a href="#constructors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#constructor" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="accessors">Accessors<a href="#accessors" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#map" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>map</span></a>
+</div></section>
+<section class="tsd-index-section">
+<h3 class="tsd-index-heading tsd-anchor-link" id="methods">Methods<a href="#methods" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<div class="tsd-index-list"><a href="#addeventlistener" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>add<wbr/>Event<wbr/>Listener</span></a>
+<a href="#addplayer" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>add<wbr/>Player</span></a>
+<a href="#admitplayer" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>admit<wbr/>Player</span></a>
+<a href="#describeitems" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>describe<wbr/>Items</span></a>
+<a href="#describeprivateview" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>describe<wbr/>Private<wbr/>View</span></a>
+<a href="#dispatchevent" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>dispatch<wbr/>Event</span></a>
+<a href="#findrequesttaker" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>find<wbr/>Request<wbr/>Taker</span></a>
+<a href="#findresident" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>find<wbr/>Resident</span></a>
+<a href="#hasplayer" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>has<wbr/>Player</span></a>
+<a href="#listmonsters" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>list<wbr/>Monsters</span></a>
+<a href="#listplayers" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>list<wbr/>Players</span></a>
+<a href="#receiveinput" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>receive<wbr/>Input</span></a>
+<a href="#recordsnapshot" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>record<wbr/>Snapshot</span></a>
+<a href="#removeeventlistener" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>remove<wbr/>Event<wbr/>Listener</span></a>
+<a href="#removeplayer" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>remove<wbr/>Player</span></a>
+<a href="#say" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>say</span></a>
+<a href="#sayphrase" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>say<wbr/>Phrase</span></a>
+<a href="#step" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>step</span></a>
+<a href="#takedepartures" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Departures</span></a>
+<a href="#takeevents" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Events</span></a>
+<a href="#takesayings" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Sayings</span></a>
+<a href="#takespeeches" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Speeches</span></a>
+</div></section></div></details></section></section>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="constructors-1">Constructors<a href="#constructors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="constructor"><span>constructor</span><a href="#constructor" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="constructorworld"><span class="tsd-signature-keyword">new</span> <span class="tsd-kind-constructor-signature">World</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">drawRandom</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">residents</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_server.resident.ResidentFactories.html" class="tsd-signature-type tsd-kind-type-alias">ResidentFactories</a><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">?:</span> <a href="../interfaces/_clovervale_server.world.WorldOptions.html" class="tsd-signature-type tsd-kind-interface">WorldOptions</a><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="" class="tsd-signature-type tsd-kind-class">World</a><a href="#constructorworld" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Starts a world without players and with nothing on the ground, with
+every monster idling at its home at full health, and with every
+villager of its map placed in it as its factory places it: in the
+village, with a four-leaf clover in every patch of clover, and in a
+cave, with every chest and barrel holding what it holds.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">drawRandom</span>: <span class="tsd-signature-symbol">()</span> <span class="tsd-signature-symbol">=&gt;</span> <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>Gives a random number from 0 up to
+but not including 1, for what the monsters and the villagers do and
+say.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">residents</span>: <a href="../types/_clovervale_server.resident.ResidentFactories.html" class="tsd-signature-type tsd-kind-type-alias">ResidentFactories</a></span>
+<div class="tsd-comment tsd-typography"><p>How each villager is placed in
+the world.</p>
+</div></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">options</span>: <a href="../interfaces/_clovervale_server.world.WorldOptions.html" class="tsd-signature-type tsd-kind-interface">WorldOptions</a><span class="tsd-signature-symbol"> = {}</span></span>
+<div class="tsd-comment tsd-typography"><p>The map of the world, the step it
+starts at, and its monsters.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="" class="tsd-signature-type tsd-kind-class">World</a></h4><aside class="tsd-sources">
+<p>Overrides EventTarget.constructor</p></aside></div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="accessors-1">Accessors<a href="#accessors-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="map"><span>map</span><a href="#map" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li>
+<div class="tsd-signature" id="mapmap"><span class="tsd-signature-keyword">get</span> <span class="tsd-kind-get-signature">map</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>The map of the world.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">&quot;village&quot;</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">&quot;cave&quot;</span></h4><p>The map.</p>
+</div></li></ul></section></section></details>
+<details class="tsd-panel-group tsd-member-group tsd-accordion" open><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h2 class="tsd-anchor-link" id="methods-1">Methods<a href="#methods-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h2></summary>
+<section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external">
+<h3 class="tsd-anchor-link" id="addeventlistener"><span>add<wbr/>Event<wbr/>Listener</span><a href="#addeventlistener" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-is-inherited tsd-is-external">
+<div class="tsd-signature tsd-anchor-link" id="addeventlistener-1"><span class="tsd-kind-call-signature">addEventListener</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">type</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">listener</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">EventListener</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">EventListenerObject</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">AddEventListenerOptions</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#addeventlistener-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">type</span>: <span class="tsd-signature-type">string</span></span></li>
+<li><span><span class="tsd-kind-parameter">listener</span>: <span class="tsd-signature-type">EventListener</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">EventListenerObject</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">options</span>: <span class="tsd-signature-type">boolean</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">AddEventListenerOptions</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html">QuestWorld</a>.<a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html#addeventlistener">addEventListener</a></p>
+<p>Inherited from EventTarget.addEventListener</p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="addplayer"><span>add<wbr/>Player</span><a href="#addplayer" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="addplayer-1"><span class="tsd-kind-call-signature">addPlayer</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">elsewhere</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-keyword">readonly</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.player-motion.PlayerState.html" class="tsd-signature-type tsd-kind-interface">PlayerState</a><a href="#addplayer-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Lets a new player into the world.</p>
+<p>The player gets an identifier no player of the world has had before,
+the appearance the fewest players have, here and elsewhere (the
+lowest-numbered one if several tie), and a place on the plaza clear of
+the obstacles and, while there is room, of everyone else, where it
+idles facing the fountain, at full health, carrying nothing and with
+no silver coins, in no dialogue, told by no villager who it is, on no
+quest, and not hunted by Martha.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">elsewhere</span>: <span class="tsd-signature-keyword">readonly</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">[]</span></span>
+<div class="tsd-comment tsd-typography"><p>The appearances of the players
+in other worlds.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.player-motion.PlayerState.html" class="tsd-signature-type tsd-kind-interface">PlayerState</a></h4><p>The new player.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="admitplayer"><span>admit<wbr/>Player</span><a href="#admitplayer" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="admitplayer-1"><span class="tsd-kind-call-signature">admitPlayer</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">player</span><span class="tsd-signature-symbol">:</span> <a href="_clovervale_server.player.Player.html" class="tsd-signature-type tsd-kind-class">Player</a><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">arrival</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#admitplayer-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Brings a player from another world into this one, with its health,
+what it carries, its silver coins, the villagers who have told it who
+they are, how far it has gotten with the quests, whether it has reached
+the end of the story, and the inputs of its peer still to come.  It
+stops whatever it was doing and idles where it arrives, but still
+wants to move the way it did, and is told nothing more of what was
+said within its hearing in the world it left.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">player</span>: <a href="_clovervale_server.player.Player.html" class="tsd-signature-type tsd-kind-class">Player</a></span>
+<div class="tsd-comment tsd-typography"><p>The player, as it left the other world.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">arrival</span>: <a href="../interfaces/_clovervale_shared.terrain.Pose.html" class="tsd-signature-type tsd-kind-interface">Pose</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></span>
+<div class="tsd-comment tsd-typography"><p>Where it is to stand, and which way it
+is to face, or <code>null</code> for where a new player would, facing the
+fountain.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="describeitems"><span>describe<wbr/>Items</span><a href="#describeitems" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="describeitems-1"><span class="tsd-kind-call-signature">describeItems</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.items.WorldItems.html" class="tsd-signature-type tsd-kind-interface">WorldItems</a><a href="#describeitems-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Describes what there is to pick in the world as it is now, which
+everyone is to be told.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.items.WorldItems.html" class="tsd-signature-type tsd-kind-interface">WorldItems</a></h4><p>The patches of clover that have their clover, the
+items on the ground, in the order they were put down, the
+containers that have been looted, in ascending order, and, in the
+village, the latest step at which Toby took a four-leaf clover.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="describeprivateview"><span>describe<wbr/>Private<wbr/>View</span><a href="#describeprivateview" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="describeprivateview-1"><span class="tsd-kind-call-signature">describePrivateView</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.shared_protocol.PrivateView.html" class="tsd-signature-type tsd-kind-interface">PrivateView</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span><a href="#describeprivateview-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Describes what only a player itself is to be told of itself, as it is
+now.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.shared_protocol.PrivateView.html" class="tsd-signature-type tsd-kind-interface">PrivateView</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">null</span></h4><p>How far the player has gotten with the
+inputs of its peer, how its latest slash was judged, or <code>null</code> before
+its first, what it carries, in the order of the slots, its silver
+coins, the dialogue it is in as it stands, or <code>null</code> if none, the
+villagers who have told it who they are, in the order they did, the
+stage of each quest it has taken on, and whether it has reached the
+end of the story; or <code>null</code> if the player is not in the world.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external">
+<h3 class="tsd-anchor-link" id="dispatchevent"><span>dispatch<wbr/>Event</span><a href="#dispatchevent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-is-inherited tsd-is-external">
+<div class="tsd-signature tsd-anchor-link" id="dispatchevent-1"><span class="tsd-kind-call-signature">dispatchEvent</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">event</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Event</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#dispatchevent-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">event</span>: <span class="tsd-signature-type">Event</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html">QuestWorld</a>.<a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html#dispatchevent">dispatchEvent</a></p>
+<p>Inherited from EventTarget.dispatchEvent</p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="findrequesttaker"><span>find<wbr/>Request<wbr/>Taker</span><a href="#findrequesttaker" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="findrequesttaker-1"><span class="tsd-kind-call-signature">findRequestTaker</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.villagers.VillagerId.html" class="tsd-signature-type tsd-kind-type-alias">VillagerId</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_server.resident.RequestTaker.html" class="tsd-signature-type tsd-kind-interface">RequestTaker</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span><a href="#findrequesttaker-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Finds a villager of the map of the world who deals with the players
+the quests ask it to.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <a href="../types/_clovervale_shared.villagers.VillagerId.html" class="tsd-signature-type tsd-kind-type-alias">VillagerId</a></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the villager.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_server.resident.RequestTaker.html" class="tsd-signature-type tsd-kind-interface">RequestTaker</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span></h4><p>The villager, if it is in the map
+and deals with the players the quests ask it to.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html">QuestWorld</a>.<a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html#findrequesttaker">findRequestTaker</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="findresident"><span>find<wbr/>Resident</span><a href="#findresident" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="findresident-1"><span class="tsd-kind-call-signature">findResident</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.villagers.VillagerId.html" class="tsd-signature-type tsd-kind-type-alias">VillagerId</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_server.resident.Resident.html" class="tsd-signature-type tsd-kind-interface">Resident</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span><a href="#findresident-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Finds a villager of the map of the world.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <a href="../types/_clovervale_shared.villagers.VillagerId.html" class="tsd-signature-type tsd-kind-type-alias">VillagerId</a></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the villager.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_server.resident.Resident.html" class="tsd-signature-type tsd-kind-interface">Resident</a> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">undefined</span></h4><p>The villager, if it is in the map.</p>
+<aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html">QuestWorld</a>.<a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html#findresident">findResident</a></p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="hasplayer"><span>has<wbr/>Player</span><a href="#hasplayer" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="hasplayer-1"><span class="tsd-kind-call-signature">hasPlayer</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#hasplayer-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Tells whether a player is in the world.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether it is.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="listmonsters"><span>list<wbr/>Monsters</span><a href="#listmonsters" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="listmonsters-1"><span class="tsd-kind-call-signature">listMonsters</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.combat.MonsterState.html" class="tsd-signature-type tsd-kind-interface">MonsterState</a><span class="tsd-signature-symbol">[]</span><a href="#listmonsters-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Lists every monster in the world that is to be seen as it is now.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.combat.MonsterState.html" class="tsd-signature-type tsd-kind-interface">MonsterState</a><span class="tsd-signature-symbol">[]</span></h4><p>The monsters, which leave out a monster that
+has been dead for so long that it is gone, and Martha last, in the
+village.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="listplayers"><span>list<wbr/>Players</span><a href="#listplayers" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="listplayers-1"><span class="tsd-kind-call-signature">listPlayers</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_shared.player-motion.PlayerState.html" class="tsd-signature-type tsd-kind-interface">PlayerState</a><span class="tsd-signature-symbol">[]</span><a href="#listplayers-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Lists every player in the world as it is now.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_shared.player-motion.PlayerState.html" class="tsd-signature-type tsd-kind-interface">PlayerState</a><span class="tsd-signature-symbol">[]</span></h4><p>The players, in the order they came in.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="receiveinput"><span>receive<wbr/>Input</span><a href="#receiveinput" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="receiveinput-1"><span class="tsd-kind-call-signature">receiveInput</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">input</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.authoritative-player.StampedInput.html" class="tsd-signature-type tsd-kind-type-alias">StampedInput</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><a href="#receiveinput-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Receives an input of a player from its peer.</p>
+<p>A move changes the way the player wants to move, and an interaction
+makes it slash, drink from the fountain or talk to a villager, as the
+rules tell from where it stands and which way it faces then, unless it
+is doing any of them already or dead.  A pick, a put-down or a use
+changes what the player carries, and a reply the dialogue it is in, as
+a step of the world tells.  Any input shows from the step at which it
+comes into effect: no sooner than the next one, and no sooner than the
+player has taken as many steps since its previous input came into
+effect as the input tells.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">input</span>: <a href="../types/_clovervale_shared.authoritative-player.StampedInput.html" class="tsd-signature-type tsd-kind-type-alias">StampedInput</a></span>
+<div class="tsd-comment tsd-typography"><p>The input.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><p>Whether the input was accepted.  It is not if the
+player is not in the world, if the number of the input is no higher
+than that of the input before it, or if too many inputs of the
+player are waiting to come into effect.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="recordsnapshot"><span>record<wbr/>Snapshot</span><a href="#recordsnapshot" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="recordsnapshot-1"><span class="tsd-kind-call-signature">recordSnapshot</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#recordsnapshot-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Records the monsters as a snapshot taken now tells them, for the slashes
+to be judged on the world as a peer showed it, as
+<a href="_clovervale_server.slash-history.SlashHistory.html#record" class="tsd-kind-method">SlashHistory.record</a> tells.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external">
+<h3 class="tsd-anchor-link" id="removeeventlistener"><span>remove<wbr/>Event<wbr/>Listener</span><a href="#removeeventlistener" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-is-inherited tsd-is-external">
+<div class="tsd-signature tsd-anchor-link" id="removeeventlistener-1"><span class="tsd-kind-call-signature">removeEventListener</span><span class="tsd-signature-symbol">(</span><br/>    <span class="tsd-kind-parameter">type</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">listener</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">EventListener</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">EventListenerObject</span><span class="tsd-signature-symbol">,</span><br/>    <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type">boolean</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">EventListenerOptions</span><span class="tsd-signature-symbol">,</span><br/><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#removeeventlistener-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">type</span>: <span class="tsd-signature-type">string</span></span></li>
+<li><span><span class="tsd-kind-parameter">listener</span>: <span class="tsd-signature-type">EventListener</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">EventListenerObject</span></span></li>
+<li><span><code class="tsd-tag">Optional</code><span class="tsd-kind-parameter">options</span>: <span class="tsd-signature-type">boolean</span> <span class="tsd-signature-symbol">|</span> <span class="tsd-signature-type">EventListenerOptions</span></span></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
+<p>Implementation of <a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html">QuestWorld</a>.<a href="../interfaces/_clovervale_server.quest-book.QuestWorld.html#removeeventlistener">removeEventListener</a></p>
+<p>Inherited from EventTarget.removeEventListener</p></aside></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="removeplayer"><span>remove<wbr/>Player</span><a href="#removeplayer" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="removeplayer-1"><span class="tsd-kind-call-signature">removePlayer</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#removeplayer-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Takes a player that leaves the game out of the world, if it is in it,
+with whatever it carries, and its quests with it, and has every
+villager of the world let go of it, as <a href="../interfaces/_clovervale_server.resident.Resident.html#forget" class="tsd-kind-method">Resident.forget</a> tells,
+whether it was in the world or not.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="say"><span>say</span><a href="#say" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="say-1"><span class="tsd-kind-call-signature">say</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">text</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#say-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Has a player say a line to the players nearby, at once.</p>
+<p>The line is made of the text as <a href="../functions/_clovervale_shared.shared_chat.cleanSayText.html" class="tsd-kind-function">cleanSayText</a> tells, and is
+heard as <a href="_clovervale_server.roster.Roster.html#tellnearby" class="tsd-kind-method">Roster.tellNearby</a> tells: by every player of the world
+within hearing of the player then, the player itself among them, and
+by nobody else.  Nothing is said if the player is not in the world, if
+nothing is left of the text to say, or if the player said its last
+line or phrase too short a while ago, in this world or another.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">text</span>: <span class="tsd-signature-type">string</span></span>
+<div class="tsd-comment tsd-typography"><p>The text its peer sent.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="sayphrase"><span>say<wbr/>Phrase</span><a href="#sayphrase" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="sayphrase-1"><span class="tsd-kind-call-signature">sayPhrase</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">,</span> <span class="tsd-kind-parameter">code</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#sayphrase-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Has a player say a phrase to the players nearby, at once.</p>
+<p>The phrase is heard as a line is, as <a href="#say" class="tsd-kind-method">World.say</a> tells: by every
+player of the world within hearing of the player then, the player
+itself among them, and by nobody else.  Nothing is said if the player
+is not in the world, if the code is not that of a phrase a player can
+say, as <a href="../functions/_clovervale_shared.shared_chat.isPhraseCode.html" class="tsd-kind-function">isPhraseCode</a> tells, or if the player said its last line
+or phrase too short a while ago, in this world or another.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li>
+<li><span><span class="tsd-kind-parameter">code</span>: <span class="tsd-signature-type">string</span></span>
+<div class="tsd-comment tsd-typography"><p>The code its peer sent.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="step"><span>step</span><a href="#step" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="step-1"><span class="tsd-kind-call-signature">step</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">void</span><a href="#step-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Moves the world one step of the simulation forward.</p>
+<p>First, every villager of the world goes about its business, as
+<a href="../interfaces/_clovervale_server.resident.Resident.html#startstep" class="tsd-kind-method">Resident.startStep</a> tells, before any player moves or picks at
+the step, and with the players as they stand before the step.  Every
+living player in the way of a villager who pushes the players aside, as
+<a href="../interfaces/_clovervale_shared.villagers.Villager.html#pusher" class="tsd-kind-property">Villager.pusher</a> tells, is pushed aside.</p>
+<p>A player that slashes, drinks from the fountain or talks to a villager
+stands still, without turning, for as long as that lasts.  Any other
+player that wants to move walks that way, facing it, and idles
+otherwise, on the ground of the map of the world; a villager who pushes
+the players aside stands in its way as the obstacles do.  Each monster
+goes about its business, as the numbers of its kind tell, and pays the
+villagers no heed.</p>
+<p>A player that crosses the line where the story ends in the map of the
+world outward at the step, as the map tells by its checkpoint of the
+ending, reaches the end of the story, if it is done with the main plot
+and has not reached it before, in this world or another.  The line
+never stands in its way.</p>
+<p>A drink that starts at the step gives the player back
+<a href="../variables/_clovervale_shared.interaction.FOUNTAIN_HEALING.html" class="tsd-kind-variable">FOUNTAIN_HEALING</a> health at once, or as much as it lacks of its
+full health if that is less, which is an event unless it is none.  A
+drink is never judged on the world as its peer showed it, so the time
+its interaction names, if any, does not matter.  A talk is never judged
+either.  An interaction slashes rather than talks while a living
+monster, as it was before the step, is in front of the player and
+within the reach of its slash.  A talk that starts at the step to a
+villager opens as <a href="_clovervale_server.talks.Talks.html#start" class="tsd-kind-method">Talks.start</a> tells, and a reply that comes
+into effect at the step, while the player is in a dialogue, is
+answered as <a href="_clovervale_server.talks.Talks.html#answer" class="tsd-kind-method">Talks.answer</a> tells; whenever a line is said to a
+player, what the line brings about comes about at once, as
+<a href="_clovervale_server.talks.Talks.html" class="tsd-kind-class">Talks</a> tells.  A player that dies leaves its dialogue.  A player
+in a dialogue at the start of a step is held in place at the step, and
+neither picks nor travels.  The monsters of a cave whose player is in a
+dialogue do nothing at all at the step.  The village is never held
+still for a dialogue.</p>
+<p>Every villager of the world then goes about its business again, as
+<a href="../interfaces/_clovervale_server.resident.Resident.html#finishstep" class="tsd-kind-method">Resident.finishStep</a> tells, with every player of the world as it
+stands after the step, once each player that leaves the world at the
+step has been taken note of, as <a href="../interfaces/_clovervale_server.resident.Resident.html#release" class="tsd-kind-method">Resident.release</a> tells.</p>
+<p>Then the strikes are judged, as <a href="_clovervale_server.referee.Referee.html" class="tsd-kind-class">Referee</a> tells.  A slash that
+starts at the step is judged as <a href="_clovervale_server.referee.Referee.html#judgeslash" class="tsd-kind-method">Referee.judgeSlash</a> tells, on
+the world as the snapshots recorded told it, with the world after the
+step as one more of them, and with the player itself where it stands
+after the step.  A strike of a living monster hits every player alive
+in front of it and within its reach after the step, for the bite damage
+of its kind, and a strike of a villager hits only those of the players
+it strikes at that it can strike then, as <a href="_clovervale_server.referee.Referee.html#letstrike" class="tsd-kind-method">Referee.letStrike</a>
+tells, before the monsters strike; a player killed by one strike is not
+hit by another.  The players cannot hurt
+each other.  Every hit is an event, which names the monster by its
+identifier.</p>
+<p>A player with no health left dies, and lies where it fell for a while,
+neither moving, turning, interacting, picking nor putting down, neither
+hurt nor chased by the monsters, though its inputs still change the way
+it wants to move.  Then it comes back at a spawn point, at full health,
+idling but wanting to move the way it does by then, and carrying what
+it carried, with its silver coins: in the village, at once, and from a
+cave, by leaving it for the village.</p>
+<p>A travel that comes into effect at the step, while the player could
+start to interact, takes the player out of the world, if
+<a href="../functions/_clovervale_shared.interaction.findInteractable.html" class="tsd-kind-function">findInteractable</a> finds a way within its reach from where it
+stands after the step, with the monsters as they were before the step,
+for a travel to use: it
+leaves for a world of the map the way leads into, to arrive where the
+way leads.  A player that leaves is neither struck nor judged at the
+step.</p>
+<p>A pick that comes into effect at the step, while the player could start
+to interact, gets the player what <a href="../functions/_clovervale_shared.interaction.findInteractable.html" class="tsd-kind-function">findInteractable</a> finds within
+its reach for a pick to use, from where it stands after the step, with
+the monsters as they were before the step, as <a href="_clovervale_server.item-keeper.ItemKeeper.html#pick" class="tsd-kind-method">ItemKeeper.pick</a>
+tells.  The picks are judged player by
+player, in the order the players came in, so that of two players who
+pick the same thing at the same step, the one who came in first gets
+it, and the other gets nothing.  A put-down that comes into effect at
+the step, while the player is alive, takes the item out of the slot of
+the inventory of the player it names and lays it on the ground where
+the player stands after the step, as <a href="_clovervale_server.item-keeper.ItemKeeper.html#drop" class="tsd-kind-method">ItemKeeper.drop</a> tells.  A
+put-down that names an empty slot, or one the inventory does not have,
+does nothing.  A use that comes into effect at the step, while the
+player is alive and lacks health, uses up the item in the slot it
+names, if that item can be used: the item is taken out of the
+inventory, the items after it closing up, and the player gets back the
+health of its kind at once, or as much as it lacks of its full health
+if that is less, which is an event.  A use that names an empty slot,
+one the inventory does not have, or an item that cannot be used, or
+that comes at full health, does nothing, and the item stays where it
+is.  Picking, putting down and using neither move the player nor change
+what it is doing.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="takedepartures"><span>take<wbr/>Departures</span><a href="#takedepartures" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="takedepartures-1"><span class="tsd-kind-call-signature">takeDepartures</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_server.world.Departure.html" class="tsd-signature-type tsd-kind-interface">Departure</a><span class="tsd-signature-symbol">[]</span><a href="#takedepartures-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Takes the players that have left the world for a world of another map
+since they were last taken.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_server.world.Departure.html" class="tsd-signature-type tsd-kind-interface">Departure</a><span class="tsd-signature-symbol">[]</span></h4><p>The players, each taken only once, with where
+they are to go.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="takeevents"><span>take<wbr/>Events</span><a href="#takeevents" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="takeevents-1"><span class="tsd-kind-call-signature">takeEvents</span><span class="tsd-signature-symbol">()</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_shared.shared_protocol.GameEvent.html" class="tsd-signature-type tsd-kind-type-alias">GameEvent</a><span class="tsd-signature-symbol">[]</span><a href="#takeevents-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Takes the events that have happened since they were last taken.</p>
+</div>
+<h4 class="tsd-returns-title">Returns <a href="../types/_clovervale_shared.shared_protocol.GameEvent.html" class="tsd-signature-type tsd-kind-type-alias">GameEvent</a><span class="tsd-signature-symbol">[]</span></h4><p>The events, in the order they happened, each
+taken only once.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="takesayings"><span>take<wbr/>Sayings</span><a href="#takesayings" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="takesayings-1"><span class="tsd-kind-call-signature">takeSayings</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../types/_clovervale_server.player.Saying.html" class="tsd-signature-type tsd-kind-type-alias">Saying</a><span class="tsd-signature-symbol">[]</span><a href="#takesayings-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Takes what was said within the hearing of a player since it was last
+taken, which only the players who heard it are to be told.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../types/_clovervale_server.player.Saying.html" class="tsd-signature-type tsd-kind-type-alias">Saying</a><span class="tsd-signature-symbol">[]</span></h4><p>What was said, in the order it was said, each
+taken only once, which is nothing if the player is not in the world.</p>
+</div></li></ul></section>
+<section class="tsd-panel tsd-member">
+<h3 class="tsd-anchor-link" id="takespeeches"><span>take<wbr/>Speeches</span><a href="#takespeeches" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures">
+<li class="">
+<div class="tsd-signature tsd-anchor-link" id="takespeeches-1"><span class="tsd-kind-call-signature">takeSpeeches</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">id</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/_clovervale_server.player.Speech.html" class="tsd-signature-type tsd-kind-interface">Speech</a><span class="tsd-signature-symbol">[]</span><a href="#takespeeches-1" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="../assets/icons.svg#icon-anchor"></use></svg></a></div>
+<div class="tsd-description">
+<div class="tsd-comment tsd-typography"><p>Takes what the villagers have said to a player in passing, or within
+its hearing, since it was last taken, which only the player itself is
+to be told.</p>
+</div>
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li><span><span class="tsd-kind-parameter">id</span>: <span class="tsd-signature-type">number</span></span>
+<div class="tsd-comment tsd-typography"><p>The identifier of the player.</p>
+</div></li></ul></div>
+<h4 class="tsd-returns-title">Returns <a href="../interfaces/_clovervale_server.player.Speech.html" class="tsd-signature-type tsd-kind-interface">Speech</a><span class="tsd-signature-symbol">[]</span></h4><p>What they said, in the order they said it, each
+taken only once, which is nothing if the player is not in the world.</p>
+</div></li></ul></section></section></details></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details">
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Constructors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Constructors</summary>
+<div><a href="#constructor"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Constructor"><use href="../assets/icons.svg#icon-512"></use></svg><span>constructor</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Accessors"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Accessors</summary>
+<div><a href="#map"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Accessor"><use href="../assets/icons.svg#icon-262144"></use></svg><span>map</span></a></div></details>
+<details open class="tsd-accordion tsd-page-navigation-section"><summary class="tsd-accordion-summary" data-key="section-Methods"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="../assets/icons.svg#icon-chevronDown"></use></svg>Methods</summary>
+<div><a href="#addeventlistener" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>add<wbr/>Event<wbr/>Listener</span></a><a href="#addplayer"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>add<wbr/>Player</span></a><a href="#admitplayer"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>admit<wbr/>Player</span></a><a href="#describeitems"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>describe<wbr/>Items</span></a><a href="#describeprivateview"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>describe<wbr/>Private<wbr/>View</span></a><a href="#dispatchevent" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>dispatch<wbr/>Event</span></a><a href="#findrequesttaker"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>find<wbr/>Request<wbr/>Taker</span></a><a href="#findresident"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>find<wbr/>Resident</span></a><a href="#hasplayer"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>has<wbr/>Player</span></a><a href="#listmonsters"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>list<wbr/>Monsters</span></a><a href="#listplayers"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>list<wbr/>Players</span></a><a href="#receiveinput"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>receive<wbr/>Input</span></a><a href="#recordsnapshot"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>record<wbr/>Snapshot</span></a><a href="#removeeventlistener" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>remove<wbr/>Event<wbr/>Listener</span></a><a href="#removeplayer"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>remove<wbr/>Player</span></a><a href="#say"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>say</span></a><a href="#sayphrase"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>say<wbr/>Phrase</span></a><a href="#step"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>step</span></a><a href="#takedepartures"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Departures</span></a><a href="#takeevents"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Events</span></a><a href="#takesayings"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Sayings</span></a><a href="#takespeeches"><svg class="tsd-kind-icon" viewBox="0 0 24 24" aria-label="Method"><use href="../assets/icons.svg#icon-2048"></use></svg><span>take<wbr/>Speeches</span></a></div></details></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="../modules.html">四葉谷</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>
