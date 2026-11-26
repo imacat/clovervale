@@ -201,6 +201,8 @@ export const ES_MESSAGES: MessageTable = {
   'help.touchButtons':
     'Los botones de la esquina superior izquierda abren el inventario, esta ayuda y el chat',
   'help.credits': 'Créditos',
+  'help.source': 'Código fuente: ',
+  'help.docs': 'Documentación para desarrolladores',
   'welcome.title': 'Te damos la bienvenida a Valtrébol.',
   'welcome.village':
     'Escondido entre las montañas, este pequeño pueblo se reúne alrededor ' +

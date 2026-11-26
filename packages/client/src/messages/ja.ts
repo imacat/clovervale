@@ -194,6 +194,8 @@ export const JA_MESSAGES: MessageTable = {
   'help.touchChoose': '持ち物や会話ではタップして選ぶ',
   'help.touchButtons': '左上のボタンで持ち物・この説明・チャットを開く',
   'help.credits': 'クレジット',
+  'help.source': 'ソースコード：',
+  'help.docs': '開発者向けドキュメント',
   'welcome.title': 'クローバーヴェイルへようこそ。',
   'welcome.village':
     '山あいにひっそりとたたずむこの小さな村は、' +

@@ -1181,6 +1181,30 @@ canvas {
 }
 
 /*
+ * The line under the button at the foot of the sheet, in smaller words,
+ * with the links to the source code and to the documentation for
+ * developers.
+ */
+.help-links {
+  margin: 14px 0 0;
+  color: #6b5232;
+  font-size: 12px;
+  text-align: center;
+}
+
+.help-link {
+  color: #6a3f14;
+}
+
+.help-link:hover {
+  color: #3e2a14;
+}
+
+.help-links-separator {
+  margin: 0 0.5em;
+}
+
+/*
  * The welcome to the game before the help sheet: a smaller sheet of the
  * same parchment, its title and its lines centered, which a click anywhere
  * moves on from.
@@ -1724,6 +1748,10 @@ canvas {
   min-height: 44px;
   margin-top: 12px;
   padding: 10px 24px;
+}
+
+.is-touch .help-links {
+  margin-top: 8px;
 }
 
 

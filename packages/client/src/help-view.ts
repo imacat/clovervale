@@ -170,6 +170,12 @@ const ARROWS_PATH =
   'M32 2 L37 8 L27 8Z M32 62 L37 56 L27 56Z ' +
   'M2 32 L8 27 L8 37Z M62 32 L56 27 L56 37Z';
 
+/** Where the source code of the game is. */
+const SOURCE_URL = 'https://github.com/imacat/clovervale';
+
+/** Where the documentation of the game for developers is. */
+const DOCS_URL = 'https://clovervale.imacat.idv.tw/docs/';
+
 /** The labels of the key caps drawn wide. */
 const WIDE_CAPS: ReadonlySet<string> = new Set(['Space', 'Enter', 'Esc']);
 
@@ -458,6 +464,28 @@ function drawTouchBadge(row: TouchRow): HTMLDivElement {
 }
 
 /**
+ * Draws a link that opens in a new tab, so that the game stays open.
+ * Enter pressed while the link has the focus opens it and is for nothing
+ * else on the page.
+ *
+ * @param {string} url - Where the link goes.
+ * @returns {HTMLAnchorElement} The link.
+ */
+function drawLink(url: string): HTMLAnchorElement {
+  const link: HTMLAnchorElement = document.createElement('a');
+  link.className = 'help-link';
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (event.code === 'Enter' || event.code === 'NumpadEnter') {
+      event.stopPropagation();
+    }
+  });
+  return link;
+}
+
+/**
  * Draws a page of the sheet: a list of controls, each with its keys and
  * what it does, which is to be told.
  *
@@ -491,20 +519,24 @@ function drawPage(
  * middle of the page, with its title, under it the name of its page and a
  * dot for each page, the dot of the page shown marked, between arrows that
  * turn to the page before and after, the controls of the page, each with
- * its keys and what it does, a cross that closes it at its top right, and a
- * button that closes it at its foot.  The first page tells the keyboard
- * and the mouse, the second the gamepad, its buttons drawn as on a
- * Logitech F310, and the third the touch controls, drawn as small
- * pictures; while the sheet offers the credits of the game, a fourth page
- * tells them, and before that there is no trace of it.  While the sheet
- * shows the welcome to the game, a smaller sheet of the same parchment
- * stands in the middle of the page in its place, with the welcome as its
- * title, a few lines under it that tell the world the player has entered,
- * and at its foot, in smaller words, a line that tells to press any key or,
- * on a touch device, to tap to go on, and a click or a tap anywhere on the
- * page outside the panel moves on to the sheet.  While the sheet is open, no click on the page
- * outside the panel reaches the game underneath.  What the sheet shows is
- * worded again in each language the page comes to speak.
+ * its keys and what it does, a cross that closes it at its top right, a
+ * button that closes it at its foot, and under that, in smaller words, a
+ * line with links to the source code of the game and to its documentation
+ * for developers, which open in a new tab and leave the sheet as it is,
+ * as clicked or tapped, or with Enter while they have the focus.
+ * The first page tells the keyboard and the mouse, the second the gamepad,
+ * its buttons drawn as on a Logitech F310, and the third the touch
+ * controls, drawn as small pictures; while the sheet offers the credits of
+ * the game, a fourth page tells them, and before that there is no trace of
+ * it.  While the sheet shows the welcome to the game, a smaller sheet of
+ * the same parchment stands in the middle of the page in its place, with
+ * the welcome as its title, a few lines under it that tell the world the
+ * player has entered, and at its foot, in smaller words, a line that tells
+ * to press any key or, on a touch device, to tap to go on, and a click or a
+ * tap anywhere on the page outside the panel moves on to the sheet.  While
+ * the sheet is open, no click on the page outside the panel reaches the
+ * game underneath.  What the sheet shows is worded again in each language
+ * the page comes to speak.
  *
  * @param {HTMLElement} parent - What the sheet is added to.
  * @param {Translator} translator - The translator of the text of the page.
@@ -620,7 +652,18 @@ export function createHelpView(
   pager.className = 'help-pager';
   pager.append(previous, subtitle, dots, next);
   const ok: HTMLDivElement = createClickable('help-ok', close);
-  frame.append(title, cross, pager, ...pages, ok);
+  const links: HTMLParagraphElement = document.createElement('p');
+  links.className = 'help-links';
+  const sourceLabel: HTMLSpanElement = document.createElement('span');
+  const sourceLink: HTMLAnchorElement = drawLink(SOURCE_URL);
+  sourceLink.textContent = 'GitHub';
+  const separator: HTMLSpanElement = document.createElement('span');
+  separator.className = 'help-links-separator';
+  separator.setAttribute('aria-hidden', 'true');
+  separator.textContent = '·';
+  const docsLink: HTMLAnchorElement = drawLink(DOCS_URL);
+  links.append(sourceLabel, sourceLink, separator, docsLink);
+  frame.append(title, cross, pager, ...pages, ok, links);
   parent.append(button, veil, frame, welcome);
 
   const render = (): void => {
@@ -691,6 +734,8 @@ export function createHelpView(
       arrow.classList.toggle('is-disabled', !isEnabled);
     }
     ok.textContent = translator.translate('help.ok');
+    sourceLabel.textContent = translator.translate('help.source');
+    docsLink.textContent = translator.translate('help.docs');
   };
   render();
   translator.addListener(render);

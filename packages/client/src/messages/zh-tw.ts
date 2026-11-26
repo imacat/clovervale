@@ -195,6 +195,8 @@ export const ZH_TW_MESSAGES: MessageTable = {
   'help.touchChoose': '在物品欄和對話中直接點選',
   'help.touchButtons': '左上角的按鈕打開物品欄、操作說明和聊天',
   'help.credits': '製作名單',
+  'help.source': '原始碼：',
+  'help.docs': '開發者文件',
   'welcome.title': '歡迎來到四葉谷。',
   'welcome.village':
     '這是群山環抱中的一座小村莊，' +

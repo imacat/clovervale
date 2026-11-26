@@ -204,6 +204,8 @@ export const EN_MESSAGES = {
   'help.touchButtons':
     'The buttons at the top left open the inventory, this help and the chat',
   'help.credits': 'Credits',
+  'help.source': 'Source code: ',
+  'help.docs': 'Developer docs',
   'welcome.title': 'Welcome to Clovervale.',
   'welcome.village':
     'Tucked away among the mountains, this little village gathers around ' +
